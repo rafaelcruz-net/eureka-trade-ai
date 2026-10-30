@@ -1,0 +1,22 @@
+# Registry of routes and background jobs by data scope (BR2.3, NFR5.2).
+#   CLIENT  - reads or writes customer data of a tenant: REQUIRES a cross-tenant negative test
+#             (negativeTest: <fully.qualified.TestClass>#<method>), otherwise the build fails.
+#   SESSION - acts only on the caller's own session (identity from the access token).
+#   GLOBAL  - no customer data (for example market data shared by everybody).
+#   ADMIN   - administrative route (/api/v1/admin/**, C8): only Role.ADMIN, reads across tenants by design (BR2.4);
+#             REQUIRES a negative test proving a guest token gets 403 (negativeTest), otherwise the build fails.
+# Every route of the guest and admin OpenAPI and every scheduled job must be listed here.
+routes:
+  - { method: GET, path: /api/v1/admin/audit-events, scope: ADMIN, negativeTest: com.memetrade.audit.AdminAuditRouteIT#aGuestTokenIsRefusedWith403AndOneRequestForbiddenEvent }
+  - { method: POST, path: /api/v1/auth/challenge, scope: GLOBAL }
+  - { method: POST, path: /api/v1/auth/verify, scope: GLOBAL }
+  - { method: POST, path: /api/v1/auth/refresh, scope: SESSION }
+  - { method: POST, path: /api/v1/auth/logout, scope: SESSION }
+  - { method: GET, path: /api/v1/scanner/tokens, scope: GLOBAL }
+jobs:
+  - { name: AuditRelayJob, scope: GLOBAL }
+  # U2 retention purge and outbox cleanup: system jobs over the whole trail, no tenant input (BR3.1 to BR3.4).
+  - { name: AuditJobSchedule, scope: GLOBAL }
+  - { name: MarketCollectorJob, scope: GLOBAL }
+  - { name: IdempotencyCleanupJob, scope: GLOBAL }
+  - { name: LoginLimiterEvictionJob, scope: GLOBAL }

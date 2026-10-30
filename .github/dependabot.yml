@@ -1,0 +1,28 @@
+# Automatic dependency update PRs (team.md). New frontend package versions wait 5 days (security updates open at
+# once). Every Dependabot PR runs the full ci workflow like any other change.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /apps/api
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /apps/web
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 5
+  - package-ecosystem: docker
+    directories:
+      - /apps/api
+      - /apps/web
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

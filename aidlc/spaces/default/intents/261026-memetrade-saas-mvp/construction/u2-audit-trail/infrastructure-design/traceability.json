@@ -1,0 +1,35 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u2-audit-trail",
+  "upstream_ids": [
+    "NFR2.1", "NFR2.4",
+    "NFR3.1", "NFR3.3",
+    "NFR4.2", "NFR4.5", "NFR4.6",
+    "NFR6.2", "NFR6.3", "NFR6.5", "NFR6.8",
+    "NFR7.1", "NFR7.3", "NFR7.6",
+    "NFR9.1", "NFR9.2", "NFR9.5",
+    "NFR12.1", "NFR12.3", "NFR13.1"
+  ],
+  "coverage": [
+    { "id": "NFR2.1", "status": "OK", "target": "infrastructure-specification.md: autovacuum próprio de audit_event e estimativa de disco no volume pgdata; monitoring-design.md: audit_events_recorded_today" },
+    { "id": "NFR2.4", "status": "OK", "target": "infrastructure-specification.md: tabela shedlock compartilhada, pool de retenção de 1 conexão e pool do agendador com 3 linhas" },
+    { "id": "NFR3.1", "status": "OK", "target": "infrastructure-specification.md e cicd-pipeline.md: scripts/perf-audit.sh local com semeadura e três cenários, relatório em docs/perf" },
+    { "id": "NFR3.3", "status": "OK", "target": "infrastructure-specification.md: medição de 100 mil linhas no scripts/perf-audit.sh; monitoring-design.md: audit_job_duration_seconds" },
+    { "id": "NFR4.2", "status": "OK", "target": "infrastructure-specification.md: track_commit_timestamp=on no PostgreSQL e janela de 1 hora no scripts/perf-audit.sh" },
+    { "id": "NFR4.5", "status": "OK", "target": "infrastructure-specification.md: agendadores em UTC e espera da primeira execução no scripts/verify.sh; monitoring-design.md: audit_job_last_success_timestamp_seconds" },
+    { "id": "NFR4.6", "status": "OK", "target": "infrastructure-specification.md: ShedLock com a tabela shedlock criada por migração" },
+    { "id": "NFR6.2", "status": "OK", "target": "infrastructure-specification.md: DB_RETENTION_USER e DB_RETENTION_PASSWORD só na api, papel audit_retention criado pelo db-bootstrap" },
+    { "id": "NFR6.3", "status": "OK", "target": "infrastructure-specification.md: serviços db-bootstrap (com espera TCP) e db-migrate antes da api, healthcheck TCP do postgres e modo de desenvolvimento com db-bootstrap e db-migrate; cicd-pipeline.md: passo compose-config nas duas composições e teste de configuração" },
+    { "id": "NFR6.5", "status": "OK", "target": "infrastructure-specification.md: tabela de variáveis por serviço e .env.example sem valores; cicd-pipeline.md: senhas efêmeras na CI" },
+    { "id": "NFR6.8", "status": "OK", "target": "cicd-pipeline.md: workflow security com CodeQL (job sast) e OWASP Dependency-Check (job dependencies) cobrindo o código da U2 e o ShedLock" },
+    { "id": "NFR7.1", "status": "OK", "target": "infrastructure-specification.md: parâmetros de log do PostgreSQL na linha de comando do Compose e do Testcontainers" },
+    { "id": "NFR7.3", "status": "OK", "target": "cicd-pipeline.md: varredura com logs do contêiner do banco nos jobs backend e smoke" },
+    { "id": "NFR7.6", "status": "OK", "target": "infrastructure-specification.md: pré-requisitos de TLS, criptografia e retenção de backups antes do G1" },
+    { "id": "NFR9.1", "status": "OK", "target": "infrastructure-specification.md: indicadores da trilha no corpo da saúde e smoke que falha com indicador degradado" },
+    { "id": "NFR9.2", "status": "OK", "target": "monitoring-design.md: métricas da U2 expostas na porta de gestão 8081" },
+    { "id": "NFR9.5", "status": "OK", "target": "monitoring-design.md: SLI de entrega pelo balde de 5 s e alertas candidatos" },
+    { "id": "NFR12.1", "status": "OK", "target": "cicd-pipeline.md: JaCoCo com 80% de linhas no job backend" },
+    { "id": "NFR12.3", "status": "OK", "target": "cicd-pipeline.md: Testcontainers com o script de preparo, os três logins e os parâmetros do PostgreSQL" },
+    { "id": "NFR13.1", "status": "OK", "target": "infrastructure-specification.md: agendadores com fuso UTC explícito, iguais no Windows e na CI em Linux" }
+  ]
+}

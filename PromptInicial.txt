@@ -1,0 +1,67 @@
+Atue como um time de engenharia de software composto por Product Manager, Software Architect, Tech Lead, Security Engineer, Blockchain Engineer, AI Engineer e QA Engineer.
+
+PROJETO:
+MemeTrade Analytics v1.3 — Plataforma Web SaaS de trading automatizado de memecoins na blockchain Solana.
+
+DOCUMENTO DE REFERÊNCIA:
+Leia integralmente o arquivo PRD_MemeTrade_Analytics_v1.3_SaaS.md localizado na raiz do projeto.
+
+OBJETIVO:
+Implementar um MVP SaaS multiusuário para usuários beta, com trading automatizado real e simulado, scanner multi-DEX, inteligência artificial, gestão de risco, dashboard de P&L e estrutura preparada para assinaturas.
+
+STACK:
+Frontend: Next.js, React e TypeScript.
+Backend: Java 21, Spring Boot.
+Banco: PostgreSQL.
+Cache e mensageria inicial: Redis.
+Blockchain: Solana.
+Carteiras: Phantom e Solflare.
+Infraestrutura local: Windows com Docker Compose.
+Arquitetura: monólito modular com workers assíncronos e isolamento multi-tenant.
+
+MÓDULOS:
+1. Autenticação e gestão de usuários beta.
+2. Integração Phantom e Solflare.
+3. Delegação limitada, temporária e revogável.
+4. Scanner de memecoins multi-DEX.
+5. AI Trading Intelligence.
+6. Estratégias e robôs automatizados.
+7. Motor determinístico de gerenciamento de risco.
+8. Paper trading com capital virtual.
+9. Trading real com execução automatizada.
+10. Ledger financeiro, posições e P&L.
+11. Dashboard em tempo real.
+12. Assinaturas e gestão de planos SaaS.
+13. Logs, auditoria e observabilidade.
+
+REQUISITOS DE SEGURANÇA:
+Nunca solicitar ou armazenar seed phrases ou chaves privadas dos usuários.
+Não presumir que a conexão Phantom/Solflare autoriza assinatura automática de transações.
+Validar a viabilidade de um mecanismo de delegação on-chain com limites tecnicamente aplicados, expiração e revogação.
+Implementar kill switch, limites por operação, exposição máxima, perdas máximas e proteção contra operações duplicadas.
+Separar totalmente contas reais e simuladas.
+Exigir isolamento de dados por tenant.
+Nunca executar swaps reais, transferir fundos ou implantar programas on-chain sem minha aprovação explícita.
+
+PROCESSO AIDLC:
+1. Ler e analisar o PRD.
+2. Identificar ambiguidades, dependências, riscos e lacunas.
+3. Produzir requisitos funcionais e não funcionais rastreáveis.
+4. Elaborar arquitetura técnica, diagramas, componentes e decisões arquiteturais.
+5. Definir modelo de dados, APIs REST, eventos e contratos de integração.
+6. Elaborar histórias de usuário e backlog priorizado por sprint.
+7. Validar segurança, delegação e viabilidade técnica antes da execução real.
+8. Implementar por módulos com testes automatizados.
+9. Executar testes unitários, integração, segurança e carga.
+10. Preparar Docker Compose, documentação e instruções de execução no Windows.
+
+REGRAS DE EXECUÇÃO:
+Siga os estágios e pontos de aprovação do AIDLC.
+Não tente implementar o projeto inteiro em uma única etapa.
+Priorize Sprint 0 e uma prova de conceito da delegação.
+Não avance para a próxima fase sem aprovação.
+Não execute operações financeiras reais durante desenvolvimento ou testes automatizados.
+
+PRIMEIRA ENTREGA:
+Apresente a análise de requisitos, as lacunas do PRD, os riscos técnicos e o plano de execução do MVP.
+Aguarde minha aprovação antes de implementar código.

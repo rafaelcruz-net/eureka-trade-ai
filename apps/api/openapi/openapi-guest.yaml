@@ -1,0 +1,430 @@
+openapi: 3.1.0
+info:
+  title: MemeTrade guest API
+  version: 1.0.0
+paths:
+  /api/v1/auth/challenge:
+    post:
+      operationId: issueChallenge
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChallengeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeResponse"
+          description: OK
+      summary: "Emite mensagem de login com domínio, nonce de uso único, expiraçã\
+        o de 5 minutos e chain (FR1.3)"
+      tags:
+      - auth-controller
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Sessão encerrada
+      security:
+      - accessToken: []
+      summary: Encerra a sessão e revoga o token de renovação; bots continuam rodando
+      tags:
+      - auth-controller
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshSession
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestSession"
+          description: Novo token de acesso; o cookie de renovação é trocado
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED; o app volta à entrada e depois à tela de origem
+      summary: Troca o cookie de renovação por um novo token de acesso; sem Idempotency-Key
+      tags:
+      - auth-controller
+  /api/v1/auth/verify:
+    post:
+      operationId: verifyLogin
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestSession"
+          description: Sessão aberta
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: LOGIN_CHALLENGE_REJECTED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: FORBIDDEN_ROLE quando a carteira é a de administrador
+      summary: Verifica a assinatura e abre a sessão; o cookie de renovação vem em
+        Set-Cookie
+      tags:
+      - auth-controller
+  /api/v1/scanner/tokens:
+    get:
+      operationId: listScannerTokens
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScannerPage"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Lista paginada com ordem determinística e desempate estável (FR5.1)
+      tags:
+      - scanner-controller
+components:
+  schemas:
+    ChallengeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        walletAddress:
+          type: string
+          description: Endereço público Solana
+          minLength: 1
+      required:
+      - walletAddress
+    ChallengeResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        chain:
+          type: string
+        domain:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        issuedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          description: Texto exato a assinar
+        nonce:
+          type: string
+      required:
+      - chain
+      - domain
+      - expiresAt
+      - issuedAt
+      - message
+      - nonce
+    Coverage:
+      type: object
+      additionalProperties: false
+      properties:
+        informed:
+          type: integer
+          format: int32
+        total:
+          type: integer
+          format: int32
+      required:
+      - informed
+      - total
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    GuestSession:
+      type: object
+      additionalProperties: false
+      properties:
+        accessToken:
+          type: string
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+        role:
+          type: string
+          enum:
+          - BETA_USER
+        sessionExpiresAt:
+          type: string
+          format: date-time
+      required:
+      - accessToken
+      - accessTokenExpiresAt
+      - role
+      - sessionExpiresAt
+    KnownValue:
+      type: object
+      additionalProperties: false
+      properties:
+        observedAt:
+          type: string
+          format: date-time
+        source:
+          $ref: "#/components/schemas/SourceRef"
+        stale:
+          type: boolean
+          description: true quando a idade passa de 5 minutos
+        status:
+          type: string
+          enum:
+          - KNOWN
+        value:
+          type: string
+          description: Decimal exato em texto
+          pattern: ^-?\d+(\.\d+)?$
+      required:
+      - observedAt
+      - source
+      - stale
+      - status
+      - value
+    MarketValue:
+      discriminator:
+        mapping:
+          KNOWN: "#/components/schemas/KnownValue"
+          UNKNOWN: "#/components/schemas/UnknownValue"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/KnownValue"
+      - $ref: "#/components/schemas/UnknownValue"
+    Problem:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        correlationId:
+          type: string
+        detail:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldViolation"
+        reason:
+          type: string
+        status:
+          type: integer
+          format: int32
+        title:
+          type: string
+        type:
+          type: string
+          format: uri
+      required:
+      - code
+      - correlationId
+      - status
+      - title
+      - type
+    ScannerPage:
+      type: object
+      additionalProperties: false
+      properties:
+        excludedByUnknown:
+          type: integer
+          format: int32
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScannerRow"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: null quando não há próxima página
+        pendingNewTokens:
+          type: integer
+          format: int32
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceStatus"
+        total:
+          type: integer
+          format: int64
+      required:
+      - excludedByUnknown
+      - items
+      - nextCursor
+      - pendingNewTokens
+      - sources
+      - total
+    ScannerRow:
+      type: object
+      additionalProperties: false
+      properties:
+        ageMinutes:
+          $ref: "#/components/schemas/MarketValue"
+        chain:
+          type: string
+        coverage:
+          $ref: "#/components/schemas/Coverage"
+        holders:
+          $ref: "#/components/schemas/MarketValue"
+        liquidity:
+          $ref: "#/components/schemas/MarketValue"
+        mint:
+          type: string
+        name:
+          type: string
+        price:
+          $ref: "#/components/schemas/MarketValue"
+        symbol:
+          type: string
+        volume24h:
+          $ref: "#/components/schemas/MarketValue"
+      required:
+      - ageMinutes
+      - chain
+      - coverage
+      - holders
+      - liquidity
+      - mint
+      - price
+      - symbol
+      - volume24h
+    SourceRef:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        simulated:
+          type: boolean
+        sourceId:
+          type: string
+      required:
+      - name
+      - simulated
+      - sourceId
+    SourceStatus:
+      type: object
+      additionalProperties: false
+      properties:
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          description: Ausente enquanto a fonte nunca coletou
+        source:
+          $ref: "#/components/schemas/SourceRef"
+        status:
+          type: string
+          enum:
+          - OK
+          - DEGRADED
+          - FAILED
+      required:
+      - source
+      - status
+    UnknownValue:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          enum:
+          - NOT_PROVIDED
+          - SOURCE_UNAVAILABLE
+          - NOT_YET_OBSERVED
+        source:
+          $ref: "#/components/schemas/SourceRef"
+        status:
+          type: string
+          enum:
+          - UNKNOWN
+      required:
+      - reason
+      - status
+    VerifyRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          minLength: 1
+        provider:
+          type: string
+          enum:
+          - PHANTOM
+          - SOLFLARE
+        signature:
+          type: string
+          description: Assinatura em base58
+          minLength: 1
+        walletAddress:
+          type: string
+          minLength: 1
+      required:
+      - message
+      - provider
+      - signature
+      - walletAddress
+  securitySchemes:
+    accessToken:
+      scheme: bearer
+      type: http

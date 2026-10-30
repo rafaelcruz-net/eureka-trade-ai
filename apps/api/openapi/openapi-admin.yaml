@@ -1,0 +1,201 @@
+openapi: 3.1.0
+info:
+  title: MemeTrade admin API
+  version: 1.0.0
+paths:
+  /api/v1/admin/audit-events:
+    get:
+      operationId: listAuditEvents
+      parameters:
+      - description: Início inclusivo (UTC)
+        in: query
+        name: from
+        required: true
+        schema:
+          type: string
+          format: date-time
+      - description: Fim exclusivo (UTC); no máximo 31 dias depois de from
+        in: query
+        name: to
+        required: true
+        schema:
+          type: string
+          format: date-time
+      - description: Igualdade exata; maiúsculas com sublinhado
+        in: query
+        name: action
+        schema:
+          type: string
+          maxLength: 64
+          pattern: "^[A-Z][A-Z0-9_]{0,63}$"
+      - description: Cursor opaco devolvido em nextCursor
+        in: query
+        name: cursor
+        schema:
+          type: string
+      - description: Itens por página
+        in: query
+        name: limit
+        schema:
+          type: integer
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditEventPage"
+          description: Página com items e nextCursor; Cache-Control no-store
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VALIDATION_FAILED com a lista de campos
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: INTERNAL_ERROR sem dados quando AUDIT_QUERIED não pôde ser
+            gravado
+      security:
+      - accessToken: []
+      summary: "Eventos da trilha por período e ação, mais recentes primeiro (US7.3,\
+        \ NFR7)"
+      tags:
+      - admin-audit-controller
+components:
+  schemas:
+    AuditEventPage:
+      type: object
+      additionalProperties: false
+      description: "Página da trilha, mais recentes primeiro (BR2.3)"
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditEventView"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: null na última página
+      required:
+      - items
+      - nextCursor
+    AuditEventView:
+      type: object
+      additionalProperties: false
+      description: Evento da trilha como gravado (BR2.4)
+      properties:
+        action:
+          type: string
+          maxLength: 64
+        actor:
+          type: string
+          description: "userId, adminId, system ou endereço mascarado antes do login"
+        actorType:
+          type: string
+          enum:
+          - PERSON
+          - ADMIN
+          - SYSTEM
+          - ANONYMOUS
+        correlationId:
+          type: string
+        details:
+          type: object
+          additionalProperties:
+            type: string
+          description: Mapa texto para texto; pode conter o endereço de carteira completo
+        eventId:
+          type: string
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        recordedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: Instante em que o relay gravou o evento na trilha
+        targetRef:
+          type:
+          - string
+          - "null"
+        tenantId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: null antes do login e em ações globais do administrador ou
+            do sistema
+      required:
+      - action
+      - actor
+      - actorType
+      - correlationId
+      - details
+      - eventId
+      - occurredAt
+      - recordedAt
+      - targetRef
+      - tenantId
+    FieldViolation:
+      type: object
+      additionalProperties: false
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+    Problem:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        correlationId:
+          type: string
+        detail:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldViolation"
+        reason:
+          type: string
+        status:
+          type: integer
+          format: int32
+        title:
+          type: string
+        type:
+          type: string
+          format: uri
+      required:
+      - code
+      - correlationId
+      - status
+      - title
+      - type
+  securitySchemes:
+    accessToken:
+      scheme: bearer
+      type: http

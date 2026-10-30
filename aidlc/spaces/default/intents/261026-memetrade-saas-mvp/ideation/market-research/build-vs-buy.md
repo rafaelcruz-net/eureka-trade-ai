@@ -1,0 +1,29 @@
+# Avaliação construir, comprar ou integrar — MemeTrade Analytics
+
+## Contexto e critério de decisão
+Não há serviço contratado nem fornecedor selecionado. A decisão será adiada até discovery confirmar os requisitos, a cobertura necessária, os custos, as condições de licença e o valor para o grupo beta. A preferência inicial é comparar alternativas e manter adaptadores na fronteira com fornecedores; não é uma autorização de compra. [Q8]
+
+| Capacidade | Construir | Comprar/usar API | Integrar / parceria | Leitura preliminar |
+|---|---|---|---|---|
+| Dados e scanner | Maior controle sobre normalização, cobertura, campos ausentes e experiência; exige indexação, infraestrutura e manutenção contínua. | Pode acelerar dados de tokens, pools, liquidez, volume e wallets; introduz quotas, custo, dependência e condições de uso. DEX Screener e Birdeye documentam APIs; Birdeye publica planos. [Fontes: DEX Screener](https://docs.dexscreener.com/api/reference) · [Birdeye](https://docs.birdeye.so/docs/pricing) | Comparar 2 fontes em uma PoC curta para medir cobertura, frescor, divergência, custo e permissão de exibição; usar adapters para limitar acoplamento. | **Integrar primeiro para avaliar**, sem escolher vendor. Dados proprietários e critérios de qualidade podem exigir componentes próprios. [Q7] [Q8] |
+| Sinais/IA e score de risco | Mantém a política explicável sob controle e facilita reproduzir decisões; exige dados históricos point-in-time, avaliação fora da amostra e manutenção de modelos. | Comprar sinais prontos pode reduzir esforço, porém regras, calibração, cobertura, explicabilidade e direitos de uso precisam ser verificados. | Integrar analytics externos como uma fonte opcional; manter NO_TRADE e as regras determinísticas sob controle do produto, conforme o PRD. | **Construir política determinística e avaliação; não comprar uma promessa de segurança.** Pesquisa não prova desempenho de nenhum modelo. [Q1] |
+| Execução PAPER | Simulador interno permite registrar hipóteses de spread, slippage, taxas e fills que sustentam o P&L. Exige validação contra cotações observáveis. | Dados de cotação podem ser consumidos de provedor, mas não substituem o modelo de fill PAPER nem o ledger. | Adaptador de cotação pode ser testado sem assinar ou enviar transação. Jupiter documenta consulta sem taker, que retorna cotação sem transação. [Fonte](https://developers.jup.ag/docs/swap) | **Construir simulação e ledger; integrar cotações só após validar termos e qualidade.** Sem transações reais. [Q5] |
+| Trading REAL e delegação | Exige protótipo e possivelmente programa próprio, revisão independente, threat model, limites aplicados e testes de revogação. | API de swap roteia e constrói transações, mas não oferece, por si só, prova de uma autorização delegada com limites globais apropriados. | Uma combinação de carteira, roteador e programa/execução restrita só entra em análise aprofundada depois de comprovar compatibilidade e segurança. | **Não comprar nem ativar agora.** O gate REAL fica bloqueado como aprovado na iniciativa até validação, auditoria e decisão jurídica; qualquer uso com fundos/programa requer autorização explícita. [Q5] |
+| Cobrança SaaS | Construir billing aumenta escopo e obrigações de operação. | Provedor de pagamentos reduz manutenção, mas envolve taxas, disponibilidade, webhooks, chargebacks e requisitos do fornecedor. | Adotar integração por adapter depois de pesquisa de planos e validação jurídica/comercial. | **Adiar:** cobrança pública não está na primeira disponibilização; não selecionar provedor nem plano agora. [Q5] [Q6] [Q8] |
+
+## Evidência comercial disponível e ressalvas
+Birdeye publica preços por pacote, unidades de consumo, APIs incluídas e limites por segundo; o custo final depende do padrão real de chamadas e do plano no momento da contratação. Confirmar preço, endpoints e termos diretamente antes de qualquer compromisso. [Fonte: [preços Birdeye Data](https://docs.birdeye.so/docs/pricing)]
+
+DEX Screener publica limites por endpoint e seus termos descrevem versões gratuita e paga, mas também restringem usos concorrentes e a disponibilização do serviço a terceiros. Como o produto proposto é um SaaS com scanner, a adequação da licença precisa de confirmação formal; não pressupor que uma API pública permite revenda ou redistribuição. [Fontes: [referência de API](https://docs.dexscreener.com/api/reference) · [termos de API](https://docs.dexscreener.com/api/api-terms-and-conditions)]
+
+O material de marketing da Birdeye compara contratação de dados com construção de uma pilha própria e cita prazos e tamanhos de equipe; estes são números do fornecedor, não estimativas independentes para este projeto. Usar apenas como hipótese a ser testada em discovery. [Fonte: [Birdeye Data](https://birdeye.so/data-api)]
+
+## Plano de avaliação
+1. Entrevistar os traders convidados e confirmar a dificuldade que o scanner deve resolver antes de congelar sua cobertura. [Q1] [Q2]
+2. Definir campos e venues mínimos a partir dessas tarefas, mantendo unknown distinto de zero. [Q3] [Q7]
+3. Comparar dois providers candidatos em ambiente de leitura/mock, medindo disponibilidade de campos, timestamp, frescor observado, divergências, quotas e custo estimado.
+4. Revisar termos de SaaS, exibição/redistribuição e mudanças de preço/limite com o responsável jurídico quando definido. [Q6] [Q7] [Q8]
+5. Decidir build/buy/integrate com evidência da PoC e estimativa da capacidade interna; até lá, nenhuma dependência é aprovada.
+
+## Assumptions & Open Questions
+Não existe fornecedor escolhido, solução contratada, orçamento aprovado, licença validada ou cotação comparável. A estratégia acima é recomendação provisória para discovery; a decisão final depende das medições, da pesquisa com usuários e das condições comerciais. [Q1] [Q6] [Q7] [Q8]

@@ -1,0 +1,50 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-10-29T03:26:54Z
+**Iteration:** 2
+**Verdict Dictated:** no
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/infrastructure-design/cicd-pipeline.md > "Ferramenta de SAST", itens 2 e "Portões por estágio" (linha security); traceability.json > coverage NFR6.8 | O texto afirma que o pipeline real da U1 usa o Semgrep Community Edition no lugar do CodeQL. O workflow real `.github/workflows/security.yml` (job `sast`) usa `github/codeql-action/init` e `analyze` (matriz java-kotlin e javascript-typescript) e bloqueia por nível `error` do SARIF; não existe Semgrep em nenhum workflow. O desenho contradiz também o `security-design.md` da U2, que cita CodeQL. A cobertura de NFR6.8 no `traceability.json` cita Semgrep e portanto aponta para uma ferramenta que não existe. Além disso, `security` é um workflow próprio (`security.yml`), não um estágio do workflow `ci`, como a seção "Mudanças no workflow `ci`" sugere. | Corrigir a declaração para CodeQL (ou, se a troca por Semgrep for uma decisão real, registrá-la como mudança a implementar com o workflow e a regra de bloqueio descritos). Atualizar a tabela de portões, o `traceability.json` (NFR6.8) e a localização do estágio `security` (workflow `security.yml`). | Resolved (reviewer) |
+| R-02 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/infrastructure-design/infrastructure-specification.md > Deployment (`api`, `db-migrate`) e "Verificações de saúde e ordem de subida" | O `docker-compose.yml` atual documenta o modo "dev" (`docker compose up postgres`, com API e web rodando fora de contêiner). Com o desenho da U2, o Liquibase fica desligado no perfil padrão da API e os papéis do dono, da aplicação e da retenção só nascem no `db-bootstrap`, e as migrações só no `db-migrate`; nenhum dos dois roda em `up postgres`. O fluxo de desenvolvimento fora do contêiner fica sem papéis, sem esquema e sem caminho para migrar, e o desenho não diz como o desenvolvedor local obtém isso. | Definir o fluxo de desenvolvimento: por exemplo, `docker compose up postgres db-bootstrap db-migrate` como comando documentado (ajustando o cabeçalho do compose e o README), ou um perfil que ligue o Liquibase com o login do dono só na máquina local. Cobrir o fluxo no teste do compose. | Resolved (reviewer) |
+| R-03 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/infrastructure-design/infrastructure-specification.md > Infrastructure Services (`db-bootstrap`) e "Verificações de saúde e ordem de subida" passo 1 | O `db-bootstrap` depende de `postgres` saudável, mas o healthcheck existente é `pg_isready` sem host, que usa o socket Unix. Num volume novo, o servidor temporário da imagem oficial, que roda os scripts de `docker-entrypoint-initdb.d`, atende só no socket e pode reportar saudável antes do servidor definitivo aceitar TCP. O `db-bootstrap` conecta por TCP em `postgres`, e o desenho manda falhar a subida com código diferente de zero, sem nova tentativa. Na primeira subida em volume novo (CI incluída, onde todo `smoke` e `e2e` é volume novo) isso pode derrubar a subida de forma intermitente. | Especificar a espera: nova tentativa de conexão com limite de tempo no início do script do `db-bootstrap`, ou healthcheck do `postgres` com `-h 127.0.0.1` (TCP) para só ficar saudável depois da inicialização. Cobrir com teste de subida em volume novo. | Resolved (reviewer) |
+| R-04 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/infrastructure-design/infrastructure-specification.md > "Script de desempenho local (Q1)", etapa Subida | O script sobe `docker-compose.test.yml` num projeto Compose `memetrade-perf`, mas o `docker-compose.yml` publica portas fixas em `127.0.0.1` (5432, 8080, 8081, 3000). Com o ambiente de uso diário ligado, a subida do projeto de desempenho colide nas portas. Também o caminho correto do overlay é `infra/docker-compose.test.yml`, e ele exige `SMOKE_BETA_WALLET_ADDRESS`. | Dizer como o script evita a colisão (portas por variável ou exigir o ambiente diário desligado, com verificação), corrigir o caminho do overlay e a variável obrigatória. | Resolved (reviewer) |
+| R-05 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/infrastructure-design/infrastructure-specification.md > "Script de desempenho local (Q1)", etapa Semeadura e Expurgo | A semeadura descreve 37 milhões de eventos "em 12 meses", mas o cenário de expurgo (NFR3.3, 100 mil linhas) e o cenário "durante um expurgo" só têm o que apagar se houver linhas mais antigas que o corte de 12 meses, pois o gatilho recusa `DELETE` dentro da janela. A semeadura não prevê esse lote de linhas expiráveis. | Incluir na semeadura pelo menos 100 mil linhas com mais de 12 meses, ou o intervalo equivalente, e dizer como o script confere que o expurgo as apagou. | Resolved (reviewer) |
+| R-06 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/infrastructure-design/cicd-pipeline.md > "Mudanças no workflow `ci`" item 3 (compose-config) e item 4 (smoke) | O passo `compose-config` não diz que a verificação deve cobrir a configuração resolvida com o overlay `infra/docker-compose.test.yml`, que é a usada no smoke, no e2e e no load-test. Também não menciona `scripts/load-test.sh`, que sobe o ambiente no workflow `load-test` e passa a precisar de `db-bootstrap`, `db-migrate` e das quatro senhas, embora a tabela de segredos o cite. | Fazer o passo avaliar as duas composições (base e base com overlay) e listar `scripts/load-test.sh` entre os arquivos a ajustar. | Resolved (reviewer) |
+| R-07 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/infrastructure-design/cicd-pipeline.md > "Desempenho da trilha: só local (Q1)" e tabela "Portões por estágio" | O portão "Desempenho local" bloqueia o fechamento da U2, mas nenhum mecanismo verifica que o relatório em `docs/perf/` existe e é recente; a evidência de NFR3.1, NFR3.3 e NFR4.2 depende de lembrança. | Acrescentar uma verificação barata na CI (existência do relatório da U2 no merge de fechamento) ou registrar o relatório como pré-condição explícita do gate de fechamento da Unit. | Resolved (reviewer) |
+| R-08 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/infrastructure-design/monitoring-design.md > Metrics & KPIs | A tabela de métricas omite `audit_job_deleted_total{job}`, definida em `observability-design.md`, que é a medida de linhas apagadas pelo expurgo e pela limpeza usada na NFR3.3. | Incluir a métrica na tabela, com o limiar ou a marca "acompanhar". | Resolved (reviewer) |
+| R-09 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/infrastructure-design/infrastructure-specification.md > Script de desempenho local, Pré-condição e Subida | O script exige as portas 5432, 8080, 8081 e 3000 livres, mas o desenho não diz se o overlay de teste publica as mesmas portas. A premissa não pôde ser conferida porque `infra/` e `docker-compose.yml` ficam fora do escopo desta revisão por Unit. | Na geração de código, confirmar que a lista de portas do script coincide com as portas publicadas pelo overlay e ajustar uma das duas. | New |
+
+> R-01 Reviewer note: `cicd-pipeline.md` agora descreve o CodeQL (job `sast` do workflow `security`) como portão de NFR6.8; a tabela de portões e o `traceability.json` (NFR6.8) concordam. Nenhuma menção a Semgrep resta nos artefatos.
+
+> R-02 Reviewer note: A linha "Modo de desenvolvimento" define `docker compose up postgres db-bootstrap db-migrate`, a reaplicação de migrações, o ajuste do cabeçalho do compose e do README, e o teste do Compose que cobre a subida sem a `api`.
+
+> R-03 Reviewer note: O healthcheck do `postgres` passa a ser `pg_isready` por TCP, e o `db-bootstrap` tenta conectar por TCP a cada 2 s por até 60 s. Há teste de subida em volume novo e verificação na `compose-config`.
+
+> R-04 Reviewer note: O script de desempenho confere as portas 5432, 8080, 8081 e 3000, usa o projeto Compose `memetrade-perf` com volume próprio, aponta para `infra/docker-compose.test.yml` e gera `SMOKE_BETA_WALLET_ADDRESS`.
+
+> R-05 Reviewer note: A semeadura inclui 100 mil eventos com 13 meses (e uma segunda carga para o cenário durante expurgo), e a verificação por contagem antes e depois confirma a remoção sem apagar dados dentro dos 12 meses.
+
+> R-06 Reviewer note: O passo `compose-config` cobre as duas composições (base e base mais overlay de teste), e `scripts/load-test.sh` está listado entre os scripts que sobem o ambiente.
+
+> R-07 Reviewer note: A existência e a data do relatório `docs/perf/u2-audit-trail-<data>.md` viram condição verificada no ponto de controle de fechamento da U2.
+
+> R-08 Reviewer note: `audit_job_deleted_total{job}` consta na tabela de métricas de `monitoring-design.md`, com limiar "acompanhar".
+
+### Validation Tool Results
+
+| Tool | Result | Interpretation |
+|---|---|---|
+| required-sections | PASS (por leitura) | As seções de implantação, serviços, recursos compartilhados, segredos, saúde e pipeline estão presentes. |
+| upstream-coverage | PASS (por leitura) | NFR6.8 agora aponta para o CodeQL real, e os demais IDs seguem OK. |
+| linter / type-check | N/A | Artefatos são Markdown e JSON, sem código para analisar. |
+| traceability | PASS (por leitura) | `traceability.json` coerente com os artefatos. |
+
+### Summary
+
+As oito pendências do primeiro ciclo foram corrigidas: o SAST descrito é o CodeQL real, o fluxo de desenvolvimento e a espera por TCP do `db-bootstrap` estão definidos e testados, e o script de desempenho agora cobre expurgo, portas e verificação do relatório. Resta uma observação Minor sobre a coincidência de portas, que não bloqueia a implementação.

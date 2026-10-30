@@ -1,0 +1,14 @@
+# Versioned register of security-scan exceptions (team.md "Segurança na CI").
+# Each entry needs: id, tool (dependency-check | codeql | pnpm-audit | gitleaks), finding, justification,
+# approvedBy (project owner), approvedAt and expires (YYYY-MM-DD, at most 90 days after approvedAt).
+# An expired exception blocks the build again (SecurityExceptionsTest).
+#
+# Example:
+#   - id: EX-001
+#     tool: dependency-check
+#     finding: CVE-2099-0001
+#     justification: Not reachable: the vulnerable parser is never called by the API.
+#     approvedBy: project-owner
+#     approvedAt: 2026-10-28
+#     expires: 2027-01-26
+exceptions: []

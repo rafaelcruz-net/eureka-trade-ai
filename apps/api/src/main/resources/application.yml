@@ -1,0 +1,141 @@
+spring:
+  application:
+    name: memetrade-api
+  main:
+    banner-mode: off
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:memetrade}
+    username: ${DB_USER:memetrade_app}
+    password: ${DB_PASSWORD:}
+    hikari:
+      # NFR3.3 / performance-design.md: 10 connections, 2 s wait for a connection.
+      maximum-pool-size: 10
+      connection-timeout: 2000
+      pool-name: memetrade-pool
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    # NFR6.3: the API never migrates. The db-migrate service (profile "migrate", MigrationRunner) applies the
+    # changelog with the owner login before the API starts; the owner credential never reaches this profile.
+    enabled: false
+  task:
+    scheduling:
+      # Relay, market collection, idempotency cleanup and the two daily audit jobs never block each other.
+      pool:
+        size: 3
+  jackson:
+    time-zone: UTC
+    default-property-inclusion: non_null
+    deserialization:
+      # NFR6.1 / BR1.8: undeclared fields are rejected with VALIDATION_FAILED.
+      fail-on-unknown-properties: true
+      fail-on-null-for-primitives: true
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: false
+  threads:
+    virtual:
+      enabled: false
+
+server:
+  port: 8080
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-exception: false
+    whitelabel:
+      enabled: false
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+      group:
+        readiness:
+          include: readinessState,db,migrations
+      status:
+        order: DOWN,OUT_OF_SERVICE,DEGRADED,UP,UNKNOWN
+        http-mapping:
+          DEGRADED: 200
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+springdoc:
+  override-with-generic-response: false
+  default-produces-media-type: application/json
+  default-consumes-media-type: application/json
+  writer-with-order-by-keys: true
+  api-docs:
+    version: openapi_3_1
+  group-configs:
+    - group: guest
+      paths-to-match: /api/v1/**
+      paths-to-exclude: /api/v1/admin/**
+    # Administrative operations provided by the modules (C8); versioned in apps/api/openapi/openapi-admin.yaml.
+    - group: admin
+      paths-to-match: /api/v1/admin/**
+
+memetrade:
+  scheduling:
+    enabled: true
+  auth:
+    access-token-signing-key: ${ACCESS_TOKEN_SIGNING_KEY:}
+    guest-app-origin: ${GUEST_APP_ORIGIN:http://localhost:3000}
+    admin-wallet-addresses: ${ADMIN_WALLET_ADDRESSES:}
+    chain: solana:mainnet
+    challenge-ttl: 5m
+    access-token-ttl: 15m
+    refresh-ttl: 8h
+    session-max-age: 12h
+    # BR1.11 / NFR6.5: fixed at 10 in the default profile; raised only by the loadtest profile.
+    login-rate-limit-per-minute: 10
+    trusted-proxies: ${TRUSTED_PROXIES:}
+  idempotency:
+    default-retention: 24h
+    cleanup-interval: 1h
+    cleanup-batch-size: 1000
+  market:
+    collect-interval: 15s
+    simulated:
+      seed: 42
+      token-count: 30
+  audit:
+    relay-interval: 1s
+    relay-batch-size: 100
+    max-delivery-lag: 60s
+    jobs:
+      # BR3.1: never below 12; the API refuses to start with a smaller value.
+      retention-months: ${AUDIT_RETENTION_MONTHS:12}
+      outbox-delivered-retention: 7d
+      # Six-field Spring cron, evaluated in UTC (zone fixed in the schedules).
+      retention-cron: '0 0 3 * * *'
+      outbox-cleanup-cron: '0 30 3 * * *'
+      time-limit: 30m
+      batch-size: 1000
+      lock-at-most-for: 35m
+      lock-at-least-for: 5m
+      recover-after: 24h
+      degraded-after: 26h
+    retention-db:
+      # Member of the group role audit_retention (read and delete audit_event only); pool of 1 connection.
+      username: ${DB_RETENTION_USER:memetrade_retention}
+      password: ${DB_RETENTION_PASSWORD:}
+
+logging:
+  level:
+    root: INFO

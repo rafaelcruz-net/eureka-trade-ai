@@ -1,0 +1,164 @@
+/* Dark theme tokens; values mirror src/lib/theme/tokens.ts (contrast enforced by tokens.test.ts). */
+:root {
+  color-scheme: dark;
+  --background: #0f1115;
+  --surface: #171a21;
+  --surface-raised: #1f232c;
+  --text: #e8eaed;
+  --text-muted: #b3b9c4;
+  --accent: #8ab4ff;
+  --focus: #ffd166;
+  --danger: #ff8a80;
+  --warning: #ffcc66;
+  --unknown: #c9b8ff;
+  --border: #3a404c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* Visible focus on every interactive element (NFR11.1, CT-UX-4). */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+}
+
+.skip-link:focus {
+  left: 16px;
+  top: 8px;
+  background: var(--surface-raised);
+  padding: 8px;
+}
+
+header.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+main {
+  padding: 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+button {
+  font: inherit;
+  color: var(--background);
+  background: var(--accent);
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.notice {
+  padding: 12px 16px;
+  border-radius: 6px;
+  background: var(--surface-raised);
+  border-left: 4px solid var(--accent);
+}
+
+.notice-warning {
+  border-left-color: var(--warning);
+}
+
+.notice-error {
+  border-left-color: var(--danger);
+}
+
+table.scanner {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+}
+
+table.scanner th,
+table.scanner td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+}
+
+table.scanner th:first-child,
+table.scanner td:first-child {
+  text-align: left;
+}
+
+table.scanner tr[aria-selected='true'] {
+  background: var(--surface-raised);
+}
+
+.value-unknown {
+  color: var(--unknown);
+  font-style: italic;
+}
+
+.badge-stale {
+  color: var(--warning);
+  margin-left: 6px;
+  font-size: 0.85em;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.skeleton-row td {
+  color: var(--text-muted);
+}
+
+.value-cell {
+  position: relative;
+}
+
+.value-tooltip {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: 2;
+  min-width: 280px;
+  text-align: left;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+}

@@ -1,0 +1,20 @@
+# Profile of the db-migrate service ONLY (com.memetrade.ops.MigrationRunner sets it; docker-compose.yml never sets
+# SPRING_PROFILES_ACTIVE). Liquibase runs with the schema OWNER login and the process exits. The owner credential
+# exists only here: the API (default profile) runs with Liquibase disabled and without DB_OWNER_* (NFR6.3).
+spring:
+  main:
+    web-application-type: none
+  datasource:
+    username: ${DB_OWNER_USER}
+    password: ${DB_OWNER_PASSWORD}
+    hikari:
+      maximum-pool-size: 1
+      pool-name: memetrade-migrate-pool
+  liquibase:
+    enabled: true
+    user: ${DB_OWNER_USER}
+    password: ${DB_OWNER_PASSWORD}
+
+memetrade:
+  scheduling:
+    enabled: false

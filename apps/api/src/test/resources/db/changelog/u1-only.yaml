@@ -1,0 +1,11 @@
+# TEST ONLY: the changelog exactly as U1 shipped it (0001 to 0004), used by DatabaseRolesIT to build a database in the
+# U1 format (application login owning the schema) before running the U2 bootstrap and migrations on top of it.
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/0001-identity.sql
+  - include:
+      file: db/changelog/changes/0002-idempotency.sql
+  - include:
+      file: db/changelog/changes/0003-marketdata.sql
+  - include:
+      file: db/changelog/changes/0004-audit.sql

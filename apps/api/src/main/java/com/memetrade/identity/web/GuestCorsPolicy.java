@@ -1,0 +1,40 @@
+package com.memetrade.identity.web;
+
+import java.net.URI;
+import java.util.List;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+/**
+ * CORS of the guest API (security-design.md, NFR6.9): a fixed list with only the guest app origin; credentials
+ * are allowed only on verify (it returns the refresh cookie, ADR-0001), refresh and logout.
+ */
+public final class GuestCorsPolicy {
+
+    static final List<String> CREDENTIAL_ROUTES =
+            List.of("/api/v1/auth/verify", "/api/v1/auth/refresh", "/api/v1/auth/logout");
+
+    private GuestCorsPolicy() {}
+
+    public static UrlBasedCorsConfigurationSource source(URI guestAppOrigin) {
+        String origin = guestAppOrigin.toString().replaceAll("/+$", "");
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Registration order matters: the first matching pattern wins.
+        for (String route : CREDENTIAL_ROUTES) {
+            source.registerCorsConfiguration(route, configuration(origin, true));
+        }
+        source.registerCorsConfiguration("/api/v1/**", configuration(origin, false));
+        return source;
+    }
+
+    private static CorsConfiguration configuration(String origin, boolean credentials) {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of(origin));
+        config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-Id"));
+        config.setExposedHeaders(List.of("X-Correlation-Id", "Retry-After"));
+        config.setAllowCredentials(credentials);
+        config.setMaxAge(600L);
+        return config;
+    }
+}

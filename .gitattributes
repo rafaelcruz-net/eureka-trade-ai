@@ -1,0 +1,19 @@
+# LF everywhere so tests behave the same on Windows (local) and Linux (CI).
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Shell scripts must stay LF even when edited on Windows.
+*.sh text eol=lf
+mvnw text eol=lf
+.githooks/* text eol=lf
+
+# Binary files.
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
+*.jar binary
+*.woff2 binary

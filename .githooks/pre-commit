@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+# Blocks any commit whose staged changes contain a secret (team.md, NFR6.7).
+# Enabled by scripts/setup.sh (git config core.hooksPath .githooks).
+set -eu
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed; install the version in .gitleaks-version (see README.md)." >&2
+  exit 1
+fi
+
+expected="$(tr -d '[:space:]' < .gitleaks-version)"
+installed="$(gitleaks version 2>/dev/null | tr -d '[:space:]v')"
+if [ "$installed" != "$expected" ]; then
+  echo "pre-commit: gitleaks $installed found, $expected expected (.gitleaks-version)." >&2
+  exit 1
+fi
+
+exec gitleaks git --pre-commit --staged --redact --config .gitleaks.toml --verbose

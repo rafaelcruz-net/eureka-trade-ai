@@ -1,0 +1,35 @@
+# Manual load test (cicd-pipeline.md Q4): profiles test,loadtest raise the login limit ONLY here; 20 simulated users,
+# one action every 2 s, for 5 minutes; fails when p95 of challenge, verify or list exceeds 300 ms.
+name: load-test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+      - name: Start the environment with test,loadtest and run the load
+        env:
+          SPRING_PROFILES_ACTIVE: test,loadtest
+          LOGIN_RATE_LIMIT_PER_MINUTE: '100000'
+          IMAGE_TAG: ${{ github.sha }}
+        run: bash scripts/load-test.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: load-test-report
+          path: load-test-report.json
+          retention-days: 30

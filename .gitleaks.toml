@@ -1,0 +1,18 @@
+title = "MemeTrade gitleaks configuration"
+
+# Start from the upstream default ruleset and only add narrow allowlists.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated or third-party files that cannot contain project secrets"
+paths = [
+  '''(^|/)pnpm-lock\.yaml$''',
+  '''(^|/)\.mvn/wrapper/maven-wrapper\.properties$''',
+  '''(^|/)PRD_MemeTrade_Analytics_v1\.3_SaaS\.pdf$''',
+  # Local build output ignored by git (never committed); "gitleaks dir" would otherwise scan it.
+  '''(^|/)\.next/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)target/''',
+  '''(^|/)\.tools/''',
+]

@@ -1,0 +1,4 @@
+# Used only together with the test profile (LoadtestProfileGuard refuses loadtest alone).
+memetrade:
+  auth:
+    login-rate-limit-per-minute: ${LOGIN_RATE_LIMIT_PER_MINUTE:1000}

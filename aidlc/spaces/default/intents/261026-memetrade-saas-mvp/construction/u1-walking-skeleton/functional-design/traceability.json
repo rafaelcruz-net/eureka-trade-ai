@@ -1,0 +1,39 @@
+{
+  "stage": "functional-design",
+  "unit": "u1-walking-skeleton",
+  "upstream_ids": [
+    "AC1.2.1", "AC1.2.2", "AC1.2.3", "AC1.2.4", "AC1.2.5", "AC1.2.6",
+    "AC1.4.1", "AC1.4.2", "AC1.4.3", "AC1.4.4", "AC1.4.5",
+    "AC2.1.1", "AC2.1.2", "AC2.1.3", "AC2.1.4", "AC2.1.5", "AC2.1.6"
+  ],
+  "coverage": [
+    { "id": "AC1.2.1", "status": "OK", "target": "BR1.1, BR1.13, BR1.2, BR1.5" },
+    { "id": "AC1.2.2", "status": "OK", "target": "BR1.2, BR1.6" },
+    { "id": "AC1.2.3", "status": "OK", "target": "BR1.3, BR1.4, BR1.13, BR1.6" },
+    { "id": "AC1.2.4", "status": "OK", "target": "BR1.7" },
+    { "id": "AC1.2.5", "status": "OK", "target": "BR1.8" },
+    { "id": "AC1.2.6", "status": "N/A", "target": "delivered by u8-admin-feedback (entrada do administrador, Q1 do Functional Design da U1)" },
+    { "id": "AC1.4.1", "status": "N/A", "target": "delivered by u5-bots-decision (primeira rota de recurso de cliente por identificador; BR2.2 e BR2.3 exigem o teste negativo quando ela existir)" },
+    { "id": "AC1.4.2", "status": "OK", "target": "BR2.1" },
+    { "id": "AC1.4.3", "status": "N/A", "target": "delivered by u5-bots-decision (primeira tarefa em segundo plano sobre dados de cliente; BR2.3 exige o teste quando ela existir)" },
+    { "id": "AC1.4.4", "status": "N/A", "target": "delivered by u7-ledger-pnl (primeiros registros financeiros com modo; BR2.3 exige o teste quando eles existirem)" },
+    { "id": "AC1.4.5", "status": "OK", "target": "BR2.3" },
+    { "id": "AC2.1.1", "status": "OK", "target": "BR3.1, BR3.4, BR3.5" },
+    { "id": "AC2.1.2", "status": "OK", "target": "BR3.1, BR3.3" },
+    { "id": "AC2.1.3", "status": "OK", "target": "BR3.2" },
+    { "id": "AC2.1.4", "status": "OK", "target": "BR3.3" },
+    { "id": "AC2.1.5", "status": "OK", "target": "BR3.6" },
+    { "id": "AC2.1.6", "status": "OK", "target": "BR3.7" }
+  ],
+  "reverse": [
+    { "id": "BR1.9", "status": "N/A", "target": "prazos de sessão decididos na Q7 do Functional Design da U1 (FR1.6)" },
+    { "id": "BR1.10", "status": "N/A", "target": "idempotência do desafio e verificação sem resposta guardada (Q3 e regra comum do Contract Design)" },
+    { "id": "BR1.11", "status": "N/A", "target": "limite de tentativas de login (Q8; NFR6)" },
+    { "id": "BR1.12", "status": "N/A", "target": "saída da sessão (FR1.6; contrato C1)" },
+    { "id": "BR1.14", "status": "N/A", "target": "conferência da sessão a cada requisição (FR1.6; revisão do design da U1)" },
+    { "id": "BR1.15", "status": "N/A", "target": "rotação do token de renovação (FR1.6, NFR6; contrato C1)" },
+    { "id": "BR4.1", "status": "N/A", "target": "tabela de saída da auditoria (contrato C9, Q18 do Contract Design; FR2.3)" },
+    { "id": "BR4.2", "status": "N/A", "target": "ações auditadas na U1 (FR2.3, DP-2)" },
+    { "id": "BR4.3", "status": "N/A", "target": "sem segredos em eventos e logs (NFR7, regra do project.md)" }
+  ]
+}

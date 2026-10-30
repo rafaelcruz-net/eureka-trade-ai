@@ -1,0 +1,33 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u1-walking-skeleton",
+  "upstream_ids": [
+    "NFR3.1", "NFR3.3", "NFR1.2",
+    "NFR6.4", "NFR6.5", "NFR6.7", "NFR6.8", "NFR6.9", "NFR7.2", "NFR7.3",
+    "NFR3.5", "NFR4.2", "NFR10.1", "NFR13.1", "NFR13.2", "NFR12.1", "NFR12.3",
+    "NFR9.1", "NFR9.3", "NFR9.4", "NFR9.5"
+  ],
+  "coverage": [
+    { "id": "NFR3.1", "status": "OK", "target": "cicd-pipeline.md: workflow manual load-test com perfis test,loadtest e p95 de http_server_requests_seconds; monitoring-design.md: histograma com percentis" },
+    { "id": "NFR3.3", "status": "OK", "target": "infrastructure-specification.md: dimensionamento dos contêineres e pool de 10 conexões" },
+    { "id": "NFR1.2", "status": "OK", "target": "infrastructure-specification.md: agendador de coleta a cada 15 s na API; monitoring-design.md: idade da última coleta" },
+    { "id": "NFR6.4", "status": "OK", "target": "cicd-pipeline.md: job backend com regra de dependências e teste de arquitetura" },
+    { "id": "NFR6.5", "status": "OK", "target": "infrastructure-specification.md: perfis de execução com LOGIN_RATE_LIMIT_PER_MINUTE padrão 10 e elevado só no perfil loadtest, acesso direto sem proxy; cicd-pipeline.md: teste do limite padrão e do Compose padrão" },
+    { "id": "NFR6.7", "status": "OK", "target": "infrastructure-specification.md: .env local; cicd-pipeline.md: hook versionado do Gitleaks, job security, segredos efêmeros no smoke" },
+    { "id": "NFR6.8", "status": "OK", "target": "cicd-pipeline.md: job security com Semgrep Community Edition (SARIF como artefato, no lugar do CodeQL pago em repositório privado) e OWASP Dependency-Check, NVD_API_KEY também como segredo do Dependabot, arquivo de exceções" },
+    { "id": "NFR6.9", "status": "OK", "target": "infrastructure-specification.md: GUEST_APP_ORIGIN e API_ORIGIN para CORS e CSP" },
+    { "id": "NFR7.2", "status": "OK", "target": "infrastructure-specification.md: portas só em 127.0.0.1 e pré-requisitos de TLS e criptografia antes de G1" },
+    { "id": "NFR7.3", "status": "OK", "target": "cicd-pipeline.md: varredura dos logs no job smoke" },
+    { "id": "NFR3.5", "status": "OK", "target": "infrastructure-specification.md: limitador em memória e Redis como pré-requisito da segunda instância" },
+    { "id": "NFR4.2", "status": "OK", "target": "infrastructure-specification.md: relay a cada 1 s no processo de API; monitoring-design.md: alerta de auditoria atrasada" },
+    { "id": "NFR10.1", "status": "OK", "target": "monitoring-design.md: sem SLO de disponibilidade na U1; infrastructure-specification.md: volume pgdata" },
+    { "id": "NFR13.1", "status": "OK", "target": "infrastructure-specification.md: perfis de execução, verificações de saúde, ordem de subida e scripts/verify.sh com docker-compose.test.yml" },
+    { "id": "NFR13.2", "status": "OK", "target": "cicd-pipeline.md: runners Linux com LF por .gitattributes; hook do Gitleaks no Git Bash do Windows; mesmo Compose no Windows" },
+    { "id": "NFR12.1", "status": "OK", "target": "cicd-pipeline.md: JaCoCo e Jest com 80% de linhas nos jobs backend e frontend" },
+    { "id": "NFR12.3", "status": "OK", "target": "cicd-pipeline.md: Testcontainers com PostgreSQL 17 e nenhuma rede real" },
+    { "id": "NFR9.1", "status": "OK", "target": "monitoring-design.md: métricas e saúde na porta de gestão 8081; infrastructure-specification.md: verificações de saúde" },
+    { "id": "NFR9.3", "status": "OK", "target": "monitoring-design.md e infrastructure-specification.md: logs JSON na saída padrão com driver json-file (max-size 10m, max-file 3); retenção por idade fica para o agregador da hospedagem" },
+    { "id": "NFR9.4", "status": "OK", "target": "monitoring-design.md: audit_outbox_pending e idade da pendência mais antiga" },
+    { "id": "NFR9.5", "status": "OK", "target": "monitoring-design.md: market_source_status e idade da última coleta" }
+  ]
+}

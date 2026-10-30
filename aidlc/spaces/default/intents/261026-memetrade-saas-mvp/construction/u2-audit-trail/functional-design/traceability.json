@@ -1,0 +1,19 @@
+{
+  "stage": "functional-design",
+  "unit": "u2-audit-trail",
+  "upstream_ids": ["AC7.3.1", "AC7.3.2", "AC7.3.3"],
+  "coverage": [
+    { "id": "AC7.3.1", "status": "OK", "target": "BR1.1, BR1.2, BR2.5, BR3.3" },
+    { "id": "AC7.3.2", "status": "OK", "target": "BR4.1, BR4.2, BR2.4" },
+    { "id": "AC7.3.3", "status": "OK", "target": "BR1.4, BR4.2" }
+  ],
+  "reverse": [
+    { "id": "BR1.3", "status": "N/A", "target": "trilha append-only (ADR-006, contrato C9; FR2.3)" },
+    { "id": "BR2.1", "status": "N/A", "target": "consulta restrita da trilha (responsabilidade da U2 em unit-of-work.md; NFR7, Q1)" },
+    { "id": "BR2.2", "status": "N/A", "target": "parâmetros da consulta restrita (Q2)" },
+    { "id": "BR2.3", "status": "N/A", "target": "ordem e paginação comuns da API (regras comuns do contrato)" },
+    { "id": "BR3.1", "status": "N/A", "target": "retenção mínima do NFR7 (Q4, Q8)" },
+    { "id": "BR3.2", "status": "N/A", "target": "expurgo de retenção (Q4)" },
+    { "id": "BR3.4", "status": "N/A", "target": "limpeza da tabela de saída entregue (Q5)" }
+  ]
+}

@@ -1,0 +1,30 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-10-28T19:57:57Z
+**Iteration:** 1
+**Verdict Dictated:** no
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/functional-design/functional-spec.md > Escopo da U2 (coluna "Já entregue pela U1") and rules.md > BR1.3, BR3.1; entities.md > AuditEvent | O escopo lista o gatilho append-only como "já entregue pela U1, sem mudança". Mas BR1.3 passa a permitir DELETE do papel de retenção para eventos anteriores ao corte. Esse corte é calculado pelo banco, e o BR3.1 o faz configurável por `retentionMonths`. Além disso, entities.md diz que `AuditEvent` "ganha `recordedAt`" e, no mesmo texto, que já existe com "forma final desde a U1". O design não enumera o que muda nos objetos de banco da U1: alteração do gatilho, a coluna `recorded_at`, a criação do papel de retenção com seus privilégios e de onde vem o valor de `retentionMonths` que o gatilho usa. Quem implementa precisa adivinhar. | Acrescentar ao functional-spec.md uma lista explícita das mudanças em objetos da U1 (gatilho, coluna `recordedAt`, papel de retenção, relay gravando `recordedAt`). Definir como o gatilho obtém o corte (valor fixo de 12 meses ou parâmetro), de modo que a configuração da aplicação não possa contradizê-lo. Corrigir a contradição "forma final" vs. "ganha `recordedAt`". | New |
+| R-02 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/functional-design/rules.md > BR1.4 (and functional-spec.md > F1 passo 3, Cenários de borda) | A recusa de `details` ou `targetRef` com forma proibida lança exceção e desfaz a transação da ação. Isso torna a própria ação sensível (por exemplo `LOGIN_REJECTED`, kill switch, ordem recusada) dependente do conteúdo do evento. Em eventos de antes do login, parte dos valores vem do cliente. Um valor com forma de JWT ou de assinatura de 64 bytes, enviado por quem ataca, pode virar 500 e a ação deixa de ser auditada. O design trata isso só como "defeito do chamador" e não trata valores influenciados por entrada externa. | Definir o comportamento para valores vindos de entrada externa: o chamador nunca repassa texto do cliente a `details` ou `targetRef` sem sanear, ou o publicador substitui o valor por um marcador redigido e grava o evento. Registrar a escolha em BR1.4 e adicionar um cenário de borda com teste. | New |
+| R-03 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/functional-design/functional-spec.md > F3 passo 7 | `AUDIT_QUERIED` é publicado "na mesma transação de leitura". O publicador exige transação ativa que escreva na tabela de saída. Uma transação marcada como somente leitura recusaria a inserção. O design também não diz o que acontece se a publicação falhar depois de a página já ter sido montada: devolver 200 sem auditoria ou falhar a consulta. | Dizer que a consulta roda em transação de leitura e escrita, ou que a publicação ocorre numa transação própria. Declarar que a falha ao publicar faz a consulta falhar (503) em vez de devolver dados sem auditoria. | New |
+| R-04 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/functional-design/functional-spec.md > Cenários de borda, linha "Evento gravado depois da primeira página" and rules.md > BR2.3 | A ordem é por `occurredAt` decrescente com instante do chamador, e o relay grava com atraso. Um evento gravado depois, com `occurredAt` mais recente que o cursor, nunca aparece nas páginas seguintes de uma consulta em andamento. O cenário de borda só descreve o caso favorável. | Registrar a limitação (o administrador repete a consulta para ver eventos tardios) ou paginar por `recordedAt`. | New |
+| R-05 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/functional-design/rules.md > BR3.2, BR3.4; functional-spec.md > F4 passo 1, F5 | O "impedimento de execução simultânea" do expurgo não define o mecanismo, e a API pode ter mais de uma instância. A limpeza da tabela de saída (F5) também não diz com qual papel de banco apaga em `audit_outbox`. | Definir o mecanismo de exclusão mútua (por exemplo, trava no banco) e o papel de banco da limpeza da tabela de saída, ou transferir explicitamente ao NFR Design. | New |
+| R-06 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u2-audit-trail/functional-design/rules.md > BR3.1; requirements.md > NFR7 | O NFR7 exige "política de retenção aprovada antes dos convites". O design fixa 12 meses (Q8) para eventos que guardam o endereço completo, mas não registra quem aprova a política nem em que gate. | Registrar a aprovação da política como pendência do gate pré-convites (G1) com responsável, ou indicar a decisão que já a cobre. | New |
+
+### Validation Tool Results
+
+| Tool | Result | Interpretation |
+|---|---|---|
+| Verificação manual de traceability.json | PASS | Todos os 15 BRx.y de rules.md aparecem em `coverage` ou `reverse`. Os AC7.3.1 a AC7.3.3 estão listados. FR2.3, FR3.3 e NFR7 existem em requirements.md. |
+| Verificação manual dos diagramas mermaid | PASS | Os dois `stateDiagram-v2` e o `erDiagram` têm sintaxe válida e texto alternativo. |
+| Verificação manual do contrato C8 | PASS com ressalva | A operação nova é aditiva e permitida pelas regras de propriedade. A rota respeita o sentido das dependências, porque o token de administrador só chega na U8. Os parâmetros comuns e o `VALIDATION_FAILED` existem no contrato. |
+
+### Summary
+
+O design é implementável e rastreável: regras, entidades, fluxos e a mudança aditiva em C8 são coerentes com C9, US7.3 e NFR7. Há duas lacunas de peso médio a fechar na revisão: as mudanças em objetos de banco da U1 (gatilho, corte, papel de retenção, `recordedAt`) e o comportamento da recusa do publicador diante de valores vindos de entrada externa. Os demais achados são menores.
