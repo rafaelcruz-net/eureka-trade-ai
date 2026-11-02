@@ -27,5 +27,8 @@ public final class AuditActions {
     /** U1: a refresh token already used was presented again; the session family is revoked. */
     public static final String SESSION_REFRESH_REUSED = "SESSION_REFRESH_REUSED";
 
+    /** U4 (BR4.2): an administrator activated a weight version of the risk indicator; details carry both versions. */
+    public static final String RISK_WEIGHTS_ACTIVATED = "RISK_WEIGHTS_ACTIVATED";
+
     private AuditActions() {}
 }

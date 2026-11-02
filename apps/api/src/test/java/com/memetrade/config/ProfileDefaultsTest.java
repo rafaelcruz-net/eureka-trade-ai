@@ -28,10 +28,11 @@ class ProfileDefaultsTest {
                 .isNull();
     }
 
+    /** U4 infrastructure-specification.md (Q1): the pool grows from 10 to 20, still with the 2 s wait. */
     @Test
-    void theDefaultProfileHasPoolOf10WithA2SecondWaitAndNoSeededAccount() throws IOException {
+    void theDefaultProfileHasPoolOf20WithA2SecondWaitAndNoSeededAccount() throws IOException {
         assertThat(property("application.yml", "spring.datasource.hikari.maximum-pool-size"))
-                .isEqualTo(10);
+                .isEqualTo("${DB_POOL_MAX_SIZE:20}");
         assertThat(property("application.yml", "spring.datasource.hikari.connection-timeout"))
                 .isEqualTo(2000);
         assertThat(property("application.yml", "memetrade.smoke.beta-wallet-address"))

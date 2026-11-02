@@ -1,0 +1,29 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-10-30T18:22:13Z
+**Iteration:** 1
+**Verdict Dictated:** no
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u4-discovery/nfr-design/performance-design.md > Orçamento de tempo da lista e Pool de conexões | O orçamento de 600 ms no banco por consulta ignora a fila no pool. O pool principal tem 10 conexões; a coleta, o recálculo e a limpeza usam 3, sobrando cerca de 7 para a lista. O próprio desenho prevê até 20 consultas simultâneas da lista (NFR3.1 mede com 20 usuários) e conclui "sem pool novo". Com 20 pedidos simultâneos e 7 conexões, o último espera cerca de duas consultas completas (até 1,2 s) antes de executar, e o p95 de 1 s não é atingido quando a carga é contínua. O orçamento de tempo não inclui espera por conexão. | Dimensionar o pool (ou reservar um pool separado para as consultas de leitura da U4) para a concorrência de 20, ou incluir a espera por conexão no orçamento e mostrar que cabe em 1 s. Registrar o tamanho do pool como parâmetro do script de carga e medir a espera por conexão (`hikaricp_connections_pending`). | New |
+| R-02 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u4-discovery/nfr-design/scalability-design.md > Variação de 1 hora com intervalos de 5 minutos | O desenho escolhe a amostra de preço pela janela de `bucket_start`, mas a BR1.10 define a janela pelo `observedAt` da amostra (entre agora - 65 min e agora - 60 min). Como a amostra guardada é a primeira observação do intervalo, seu `observed_at` pode ser até 5 minutos depois do `bucket_start`; a idade real fica entre 55 e 65 minutos, e o resultado diverge da regra e dos testes derivados dela. A afirmação de que a janela "contém exatamente um início de intervalo" também falha com a janela fechada nos dois extremos quando `agora` cai numa fronteira de 5 minutos. | Escrever a consulta pelo `observed_at` da amostra (índice `(chain, mint, field, observed_at)` já previsto), como na BR1.10, ou alterar a BR1.10 de forma explícita. Definir o desempate quando a janela traz amostras de mais de um intervalo ou fonte e acrescentar teste de fronteira (60:00, 65:00, agora alinhado a 5 minutos). | New |
+| R-03 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u4-discovery/nfr-design/reliability-design.md > Saúde | O healthcheck do esqueleto (`scripts/verify.sh`, linhas 94 a 96) espera no corpo de `/actuator/health` a chave `lastUpdatedAt` (hoje do indicador `marketSource`, no singular) e um corpo que começa com `{"status":"UP"`. O desenho cria `marketSources` e `riskRecalculation`, diz que o detalhe mostra o estado de cada fonte, mas não diz que o `lastUpdatedAt` continua exposto nem que o estado agregado fica `UP` na operação normal (o `riskRecalculation` precisa sair de `UNKNOWN` ou ficar abaixo de `UP` na ordem de status). Se o detalhe perder `lastUpdatedAt`, o verify.sh expira. | Declarar que `marketSources` mantém o detalhe `lastUpdatedAt` por fonte (ou ajustar o `verify.sh` e o teste do esqueleto) e que o `marketSource` atual é substituído; acrescentar teste de que a saúde agregada é `UP` com as duas fontes `OK`. | New |
+| R-04 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u4-discovery/nfr-design/performance-design.md > Consulta da lista (F3), etapa 1 | A seleção de tokens da foto não exige "alguma fonte não `FAILED`", que o passo 4 do F3 em functional-spec.md pede (BR1.3). A etapa 2 só transforma os campos em `unknown`; tokens com todas as fontes `FAILED` entrariam em `total` e `excludedByUnknown` em vez de serem excluídos. | Incluir a condição de fonte não `FAILED` na etapa 1 da consulta e cobrir com teste de integração (todas as fontes `FAILED` devolve `503 SOURCE_UNAVAILABLE`; uma fonte `FAILED` mantém os tokens da outra). | New |
+| R-05 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u4-discovery/nfr-design/reliability-design.md > Trabalhos sem sobreposição e SourceCaller | Dois pontos de execução ficam sem dono: (1) o `TimeLimiter` do Resilience4j precisa de um executor próprio para cancelar chamadas, que não existe no pool do agendador de 4 linhas nem no pool das requisições; (2) o recálculo disparado depois do commit da coleta usa ShedLock e um sinalizador em memória, mas não está dito em qual linha de execução roda nem quem reexecuta quando o sinalizador é marcado durante uma execução. | Declarar o executor das chamadas às fontes (tamanho e nome) e o mecanismo do recálculo disparado (quem reexecuta enquanto há gatilho pendente), com teste de que dois gatilhos concorrentes geram exatamente uma execução extra. | New |
+
+### Validation Tool Results
+
+| Tool | Result | Interpretation |
+|---|---|---|
+| traceability | PASS por leitura: `traceability.json` cobre os 57 NFRx.y dos seis arquivos de requisitos; NFR1.3 está `Deferred` com motivo (SP-1) | Cobertura completa |
+| required-sections | PASS por leitura | Os cinco desenhos, o inventário de componentes e o traceability estão presentes, com decisões Q1 a Q3 refletidas |
+| upstream-coverage | PASS por leitura | R-01 a R-06 do review anterior estão resolvidos: R-01 (DEGRADED mapeado para 200 em application.yml, ordem de status mantém o agregado respondendo 200), R-02, R-03, R-04, R-05, R-06 (papéis) têm solução nomeada |
+
+### Summary
+
+O desenho resolve os seis achados dos requisitos e é rastreável de ponta a ponta. Dois pontos pedem correção antes do código: o dimensionamento do pool contra a meta de p95 de 1 s com 20 usuários, e a janela da variação de 1 hora, que contradiz a BR1.10. Os demais são ajustes de precisão. READY por ter só dois Major e nenhum Critical.

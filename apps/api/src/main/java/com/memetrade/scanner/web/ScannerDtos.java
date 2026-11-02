@@ -2,19 +2,24 @@ package com.memetrade.scanner.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.memetrade.marketdata.api.MarketValue;
+import com.memetrade.marketdata.api.ResolvedField;
 import com.memetrade.marketdata.api.SourceRef;
 import com.memetrade.marketdata.api.SourceStatus;
+import com.memetrade.riskassessment.api.AssessmentResult;
 import com.memetrade.scanner.domain.ScannerPage;
 import com.memetrade.scanner.domain.ScannerRow;
 import io.swagger.v3.oas.annotations.media.DiscriminatorMapping;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 
 /**
- * JSON shapes of C2 in U1. Decimals travel as text (DecimalString), never JSON numbers; every market value is a
- * MarketValue discriminated by {@code status}; {@code null} never stands for absence.
+ * JSON shapes of C2 (U1, completed by U4). Decimals travel as text (DecimalString), never JSON numbers; every market
+ * value is a MarketValue discriminated by {@code status}; {@code null} never stands for absence. U4 additions:
+ * {@code divergence} on a KNOWN value, {@code risk} on a row, {@code PENDING} and an optional {@code lastUpdatedAt} on a
+ * source status, and the 503 problem with {@code sources}.
  */
 public final class ScannerDtos {
 
@@ -44,10 +49,25 @@ public final class ScannerDtos {
     public sealed interface MarketValueDto permits KnownValueDto, UnknownValueDto {
 
         static MarketValueDto of(MarketValue value) {
+            return of(value, List.of());
+        }
+
+        static MarketValueDto of(ResolvedField field) {
+            return of(field.value(), field.divergent() ? field.otherOrigins() : List.of());
+        }
+
+        static MarketValueDto of(MarketValue value, List<MarketValue.Known> divergent) {
             return switch (value) {
                 case MarketValue.Known k ->
                     new KnownValueDto(
-                            "KNOWN", k.value().toPlainString(), SourceRefDto.of(k.source()), k.observedAt(), k.stale());
+                            "KNOWN",
+                            k.value().toPlainString(),
+                            SourceRefDto.of(k.source()),
+                            k.observedAt(),
+                            k.stale(),
+                            divergent.isEmpty()
+                                    ? null
+                                    : divergent.stream().map(DivergenceDto::of).toList());
                 case MarketValue.Unknown u ->
                     new UnknownValueDto(
                             "UNKNOWN",
@@ -58,6 +78,7 @@ public final class ScannerDtos {
     }
 
     @Schema(name = "KnownValue")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public record KnownValueDto(
             @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "KNOWN")
             String status,
@@ -71,8 +92,23 @@ public final class ScannerDtos {
             Instant observedAt,
 
             @Schema(requiredMode = RequiredMode.REQUIRED, description = "true quando a idade passa de 5 minutos")
-            boolean stale)
+            boolean stale,
+
+            @Schema(description = "Presente só quando outra fonte diverge acima da tolerância (FR4.7)")
+            List<DivergenceDto> divergence)
             implements MarketValueDto {}
+
+    @Schema(name = "Divergence")
+    public record DivergenceDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED) SourceRefDto source,
+            @Schema(requiredMode = RequiredMode.REQUIRED, pattern = DECIMAL) String value,
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time") Instant observedAt) {
+
+        static DivergenceDto of(MarketValue.Known origin) {
+            return new DivergenceDto(
+                    SourceRefDto.of(origin.source()), origin.value().toPlainString(), origin.observedAt());
+        }
+    }
 
     @Schema(name = "UnknownValue")
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -87,6 +123,47 @@ public final class ScannerDtos {
 
             SourceRefDto source)
             implements MarketValueDto {}
+
+    @Schema(
+            name = "RiskSummary",
+            oneOf = {AvailableRiskDto.class, UnavailableRiskDto.class},
+            discriminatorProperty = "status",
+            discriminatorMapping = {
+                @DiscriminatorMapping(value = "AVAILABLE", schema = AvailableRiskDto.class),
+                @DiscriminatorMapping(value = "UNAVAILABLE", schema = UnavailableRiskDto.class)
+            })
+    public sealed interface RiskSummaryDto permits AvailableRiskDto, UnavailableRiskDto {
+
+        static RiskSummaryDto of(AssessmentResult result) {
+            return switch (result) {
+                case AssessmentResult.Available a ->
+                    new AvailableRiskDto("AVAILABLE", a.score(), a.band().name());
+                case AssessmentResult.Unavailable u ->
+                    new UnavailableRiskDto("UNAVAILABLE", u.reason().name());
+            };
+        }
+    }
+
+    @Schema(name = "AvailableRisk")
+    public record AvailableRiskDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "AVAILABLE") String status,
+            @Schema(requiredMode = RequiredMode.REQUIRED, minimum = "0", maximum = "100") int score,
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {"LOW", "MEDIUM", "HIGH"})
+            String band)
+            implements RiskSummaryDto {}
+
+    @Schema(name = "UnavailableRisk")
+    public record UnavailableRiskDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "UNAVAILABLE") String status,
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {"INSUFFICIENT_COVERAGE", "SOURCE_UNAVAILABLE"})
+            String reason)
+            implements RiskSummaryDto {}
 
     @Schema(name = "Coverage")
     public record CoverageDto(
@@ -104,7 +181,8 @@ public final class ScannerDtos {
             @Schema(requiredMode = RequiredMode.REQUIRED) MarketValueDto liquidity,
             @Schema(requiredMode = RequiredMode.REQUIRED) MarketValueDto volume24h,
             @Schema(requiredMode = RequiredMode.REQUIRED) MarketValueDto holders,
-            @Schema(requiredMode = RequiredMode.REQUIRED) MarketValueDto ageMinutes) {
+            @Schema(requiredMode = RequiredMode.REQUIRED) MarketValueDto ageMinutes,
+            @Schema(requiredMode = RequiredMode.REQUIRED) RiskSummaryDto risk) {
 
         static ScannerRowDto of(ScannerRow row) {
             return new ScannerRowDto(
@@ -117,7 +195,8 @@ public final class ScannerDtos {
                     MarketValueDto.of(row.liquidity()),
                     MarketValueDto.of(row.volume24h()),
                     MarketValueDto.of(row.holders()),
-                    MarketValueDto.of(row.ageMinutes()));
+                    MarketValueDto.of(row.ageMinutes()),
+                    RiskSummaryDto.of(row.risk()));
         }
     }
 
@@ -127,10 +206,10 @@ public final class ScannerDtos {
 
             @Schema(
                     requiredMode = RequiredMode.REQUIRED,
-                    allowableValues = {"OK", "DEGRADED", "FAILED"})
+                    allowableValues = {"PENDING", "OK", "DEGRADED", "FAILED"})
             String status,
 
-            @Schema(format = "date-time", description = "Ausente enquanto a fonte nunca coletou")
+            @Schema(format = "date-time", description = "Ausente enquanto a fonte nunca coletou (PENDING)")
             Instant lastUpdatedAt) {
 
         static SourceStatusDto of(SourceStatus status) {
@@ -154,8 +233,14 @@ public final class ScannerDtos {
 
             @Schema(requiredMode = RequiredMode.REQUIRED) long total,
             @Schema(requiredMode = RequiredMode.REQUIRED) List<SourceStatusDto> sources,
-            @Schema(requiredMode = RequiredMode.REQUIRED) int excludedByUnknown,
-            @Schema(requiredMode = RequiredMode.REQUIRED) int pendingNewTokens) {
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    description = "Tokens fora do filtro só por campo unknown, na foto inteira (AC2.2.2)")
+            long excludedByUnknown,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Novidades em espera para \"Atualizar lista\"")
+            long pendingNewTokens) {
 
         static ScannerPageDto of(ScannerPage page) {
             return new ScannerPageDto(
@@ -167,4 +252,15 @@ public final class ScannerDtos {
                     page.pendingNewTokens());
         }
     }
+
+    /** RFC 7807 problem of {@code 503 SOURCE_UNAVAILABLE} with the {@code sources} extension (BR1.4). */
+    @Schema(name = "SourceUnavailableProblem")
+    public record SourceUnavailableProblemDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED) URI type,
+            @Schema(requiredMode = RequiredMode.REQUIRED) String title,
+            @Schema(requiredMode = RequiredMode.REQUIRED) int status,
+            String detail,
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "SOURCE_UNAVAILABLE") String code,
+            @Schema(requiredMode = RequiredMode.REQUIRED) String correlationId,
+            @Schema(requiredMode = RequiredMode.REQUIRED) List<SourceStatusDto> sources) {}
 }

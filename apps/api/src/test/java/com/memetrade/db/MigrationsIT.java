@@ -30,7 +30,28 @@ class MigrationsIT extends AbstractPostgresIT {
             "audit_outbox",
             "audit_event",
             "audit_job_run",
-            "shedlock");
+            "shedlock",
+            "observation_sample",
+            "risk_weight_set",
+            "risk_assessment",
+            "source_status_mark");
+
+    /**
+     * The SQL of the U1/U2 listing and collector, verbatim from the release before U4 (rollback test of
+     * cicd-pipeline.md: the previous api image must keep working on the migrated database).
+     */
+    private static final List<String> PREVIOUS_LISTING_QUERIES = List.of(
+            "select count(*) from token where first_seen_at <= now()",
+            "select * from data_source order by source_id",
+            "select chain, mint, symbol, name, sort_group, sort_key from token where first_seen_at <= now()"
+                    + " and (sort_group, sort_key, mint, chain) > (0, 0, '', '')"
+                    + " order by sort_group, sort_key, mint, chain limit 51",
+            """
+            select o.chain, o.mint, o.field, o.status, o.value, o.unknown_reason, o.observed_at,
+                   s.source_id, s.name, s.simulated
+            from market_observation o join data_source s on s.source_id = o.source_id
+            where o.mint in ('x')
+            """);
 
     @Test
     void changelogAppliesFromScratchOnAnEmptyDatabase() throws Exception {
@@ -50,6 +71,50 @@ class MigrationsIT extends AbstractPostgresIT {
             rs.next();
             assertThat(rs.getInt(1)).isEqualTo(TABLES.size());
         }
+    }
+
+    @Test
+    @org.junit.jupiter.api.Tag("u4")
+    void thePreviousListingQueriesStillRunOnTheU4Schema() {
+        for (String query : PREVIOUS_LISTING_QUERIES) {
+            assertThatCode(() -> jdbc.sql(query).query().listOfRows()).as(query).doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.Tag("u4")
+    void thePreviousCollectorWritesStillRunOnTheU4Schema() {
+        String mint = SyntheticIds.mint();
+        // U1 JdbcMarketStore.sourceCollected / sourceFailed, verbatim (the previous image after a rollback).
+        String collected = """
+                insert into data_source (source_id, name, simulated, status, last_updated_at, last_attempt_at)
+                values ('rollback-src', 'R', true, 'OK', now(), now())
+                on conflict (source_id) do update
+                  set name = excluded.name, simulated = excluded.simulated, status = 'OK',
+                      last_updated_at = excluded.last_updated_at, last_attempt_at = excluded.last_attempt_at
+                """;
+        String failed = """
+                insert into data_source (source_id, name, simulated, status, last_updated_at, last_attempt_at)
+                values ('rollback-src', 'R', true, 'FAILED', null, now())
+                on conflict (source_id) do update set status = 'FAILED', last_attempt_at = excluded.last_attempt_at
+                """;
+
+        assertThatCode(() -> {
+                    jdbc.sql(failed).update();
+                    jdbc.sql(collected).update();
+                    insertToken("solana:rollback", mint);
+                    jdbc.sql("update token set token_created_at = now(), sort_group = 0, sort_key = -1"
+                                    + " where chain = 'solana:rollback' and mint = :m")
+                            .param("m", mint)
+                            .update();
+                })
+                .doesNotThrowAnyException();
+        assertThat(jdbc.sql("select status from data_source where source_id = 'rollback-src'")
+                        .query(String.class)
+                        .single())
+                .isEqualTo("OK");
+        jdbc.sql("update data_source set enabled = false where source_id = 'rollback-src'")
+                .update();
     }
 
     @Test

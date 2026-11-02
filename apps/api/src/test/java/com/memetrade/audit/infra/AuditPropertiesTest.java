@@ -44,7 +44,8 @@ class AuditPropertiesTest {
         assertThat(value(yml, "memetrade.audit.jobs.batch-size")).isEqualTo(1000);
         assertThat(value(yml, "memetrade.audit.jobs.lock-at-most-for")).isEqualTo("35m");
         assertThat(value(yml, "memetrade.audit.jobs.lock-at-least-for")).isEqualTo("5m");
-        assertThat(value(yml, "spring.task.scheduling.pool.size")).isEqualTo(3);
+        // U4 (infrastructure-specification.md): the 3 threads of U1/U2 plus 4 for the U4 jobs.
+        assertThat(value(yml, "spring.task.scheduling.pool.size")).isEqualTo("${SCHEDULER_POOL_SIZE:7}");
     }
 
     @Test

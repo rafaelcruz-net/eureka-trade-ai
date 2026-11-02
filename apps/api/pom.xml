@@ -30,6 +30,9 @@
         <palantir-java-format.version>2.80.0</palantir-java-format.version>
         <!-- 6.x is the line for Spring Framework 6 / Boot 3.5 (7.x targets Spring 7). Single run of the audit jobs. -->
         <shedlock.version>6.10.0</shedlock.version>
+        <!-- U4 (NFR6.7): time limit and retries of the market sources, configured in code (no Spring module), so the
+             clock, the sleeper and the jitter seed stay injectable. Fixed version, published more than two weeks ago. -->
+        <resilience4j.version>2.3.0</resilience4j.version>
         <!-- 80% line floor (team.md, NFR12.1). Never lowered to make a step pass. -->
         <coverage.line.minimum>0.80</coverage.line.minimum>
         <!-- Selected by -Dgroups=u1 on the command line; empty runs everything. -->
@@ -94,6 +97,16 @@
             <groupId>net.javacrumbs.shedlock</groupId>
             <artifactId>shedlock-provider-jdbc-template</artifactId>
             <version>${shedlock.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-retry</artifactId>
+            <version>${resilience4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-timelimiter</artifactId>
+            <version>${resilience4j.version}</version>
         </dependency>
 
         <!-- Test scope only -->

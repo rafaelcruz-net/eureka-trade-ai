@@ -15,9 +15,13 @@ public enum ErrorCode {
     NOT_FOUND(404, "not-found", "Resource not found"),
     METHOD_NOT_ALLOWED(405, "validation", "Method not allowed"),
     IDEMPOTENCY_CONFLICT(409, "conflict", "Idempotency key conflict"),
+    /** U4 (BR4.2): an ACTIVE or RETIRED weight version never changes; a RETIRED one is never activated again. */
+    WEIGHT_SET_NOT_EDITABLE(409, "conflict", "Weight set not editable"),
     RATE_LIMITED(429, "rate-limit", "Too many requests"),
     INTERNAL_ERROR(500, "internal", "Internal error"),
-    SERVICE_UNAVAILABLE(503, "unavailable", "Service unavailable");
+    SERVICE_UNAVAILABLE(503, "unavailable", "Service unavailable"),
+    /** U4 (BR1.4, AC2.3.3): every market source FAILED; the problem lists the state of each source. */
+    SOURCE_UNAVAILABLE(503, "unavailable", "Market sources unavailable");
 
     private static final String TYPE_BASE = "https://memetrade.app/problems/";
 

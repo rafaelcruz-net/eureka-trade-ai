@@ -27,6 +27,15 @@ Requisitos de desempenho e frescor da Unit `u4-discovery`, derivados dos fluxos 
 | NFR3.3 | Tela do scanner dentro do NFR3 | Tela do scanner com filtros e a primeira página: p95 ≤ 2 s até a lista utilizável, com 20 usuários; abrir o painel lateral não recarrega a lista | NFR3, BR5.3 |
 | NFR3.4 | Contadores sem custo por página | `excludedByUnknown`, `pendingNewTokens` e `total` são calculados uma vez por consulta, sobre a foto, dentro da meta do NFR3.1 | BR2.2, BR2.6 |
 
+## Requisitos da tela do scanner e do painel lateral
+
+| ID | Requisito | Critério verificável | Origem |
+|---|---|---|---|
+| NFR11.1 | Lista e painel operáveis só por teclado | Filtros, ordenação, paginação, seleção de linha (Enter), abertura e fechamento do painel (Esc) e "Limpar filtros", "Tentar de novo" e "Atualizar lista" funcionam só com teclado, com foco visível e sem armadilha de foco; ao fechar o painel, o foco volta à mesma linha. Teste Playwright só com teclado | NFR11, AC3.1.1, CT-UX-4 |
+| NFR11.2 | Estado nunca só por cor | Desatualizado, divergente, falha de fonte, risco indisponível e nível de risco aparecem em texto ou ícone com nome acessível; contraste de texto ≥ 4,5:1 no tema escuro | NFR11, BR5.4, BR5.5, BR5.7, CT-UX-7 |
+| NFR11.3 | Atualizações anunciadas sem mover o foco | Valores atualizados e "N novos tokens" anunciados a leitores de tela numa região viva educada, com "Atualizado às HH:MM", sem mudar o foco nem a linha selecionada | NFR11, CT-UX-8, AC2.1.6 |
+| NFR14.1 | Textos em português com termos explicados | Todos os textos da tela S3 e do painel em pt-BR; os termos `liquidity`, `holders`, `volume`, `mint` e `stale` aparecem com explicação ao passar o mouse e ao receber foco; nenhum texto com termo da lista proibida (NFR6.8) | NFR14, CT-UX-1, BR5.1 |
+
 ## Como medir
 
 - **Testes de integração** com relógio injetável para NFR1.1, NFR1.2 e os contadores; PostgreSQL real em contêiner.

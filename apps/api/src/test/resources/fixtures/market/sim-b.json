@@ -1,0 +1,26 @@
+{
+  "sourceId": "sim-b",
+  "name": "Fonte simulada B",
+  "tokens": [
+    { "mint": "FxCommonA1111111111111111111111111111111111", "symbol": "FXA", "name": "Fixture common A", "decimals": 6 },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "symbol": "FXB", "name": "Fixture common B", "decimals": 9 },
+    { "mint": "FxUniqBbb1111111111111111111111111111111111", "symbol": "PEPE", "name": "Fixture only B", "decimals": 6 }
+  ],
+  "observations": [
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "PRICE", "value": "0.001100" },
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "LIQUIDITY", "value": "50000.00" },
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "VOLUME_24H", "value": "20500.00" },
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "HOLDERS", "value": "1200" },
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "CREATED_AT", "createdMinutesAgo": 30 },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "PRICE", "value": "0.5" },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "LIQUIDITY", "value": "0" },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "VOLUME_24H", "value": "100.00" },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "HOLDERS", "value": "80" },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "CREATED_AT", "createdMinutesAgo": 90 },
+    { "mint": "FxUniqBbb1111111111111111111111111111111111", "field": "PRICE", "value": "0.000003" },
+    { "mint": "FxUniqBbb1111111111111111111111111111111111", "field": "LIQUIDITY", "value": "12000.00" },
+    { "mint": "FxUniqBbb1111111111111111111111111111111111", "field": "VOLUME_24H", "value": "15000.00" },
+    { "mint": "FxUniqBbb1111111111111111111111111111111111", "field": "HOLDERS", "value": "300" },
+    { "mint": "FxUniqBbb1111111111111111111111111111111111", "field": "CREATED_AT", "createdMinutesAgo": 12 }
+  ]
+}

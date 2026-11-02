@@ -8,8 +8,10 @@ spring:
     username: ${DB_USER:memetrade_app}
     password: ${DB_PASSWORD:}
     hikari:
-      # NFR3.3 / performance-design.md: 10 connections, 2 s wait for a connection.
-      maximum-pool-size: 10
+      # U4 infrastructure-specification.md (Q1): 20 connections (10 in U1), 2 s wait for a connection; the wait counts
+      # in the NFR3.1 budget. RuntimeSettingsGuard refuses a value outside 10..50 naming DB_POOL_MAX_SIZE.
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: 5
       connection-timeout: 2000
       pool-name: memetrade-pool
   liquibase:
@@ -19,9 +21,10 @@ spring:
     enabled: false
   task:
     scheduling:
-      # Relay, market collection, idempotency cleanup and the two daily audit jobs never block each other.
+      # Relay, idempotency cleanup and the two daily audit jobs (3) plus U4: two source collections, the history
+      # cleanup and the collection dispatcher (4). RuntimeSettingsGuard refuses less than 7 (SCHEDULER_POOL_SIZE).
       pool:
-        size: 3
+        size: ${SCHEDULER_POOL_SIZE:7}
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -110,10 +113,18 @@ memetrade:
     cleanup-interval: 1h
     cleanup-batch-size: 1000
   market:
-    collect-interval: 15s
+    # U4 (infrastructure-specification.md): only simulated adapters exist in the beta (C-06). Each value is checked at
+    # start-up; a value out of range stops the api with a message naming the variable.
+    sources: ${MARKET_SOURCES:sim-a,sim-b}
+    collect-interval: ${MARKET_COLLECTION_INTERVAL:30s}
+    divergence-tolerance-percent: ${MARKET_DIVERGENCE_TOLERANCE_PERCENT:5.0000}
     simulated:
-      seed: 42
-      token-count: 30
+      # Fixed seed: the smoke and the CI are deterministic (NFR12.3); never random by default.
+      seed: ${MARKET_SIMULATED_SEED:42}
+      token-count: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:200}
+  scanner:
+    # Per person and route, sliding window of 60 s (NFR6.3).
+    rate-limit-per-minute: ${SCANNER_RATE_LIMIT_PER_MINUTE:60}
   audit:
     relay-interval: 1s
     relay-batch-size: 100

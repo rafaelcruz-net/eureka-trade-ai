@@ -18,5 +18,7 @@ jobs:
   # U2 retention purge and outbox cleanup: system jobs over the whole trail, no tenant input (BR3.1 to BR3.4).
   - { name: AuditJobSchedule, scope: GLOBAL }
   - { name: MarketCollectorJob, scope: GLOBAL }
+  # U4: market history cleanup over global market data, no tenant input (F6, BR1.8).
+  - { name: MarketHistoryCleanup, scope: GLOBAL }
   - { name: IdempotencyCleanupJob, scope: GLOBAL }
   - { name: LoginLimiterEvictionJob, scope: GLOBAL }

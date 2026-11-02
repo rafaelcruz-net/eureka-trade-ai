@@ -1,8 +1,13 @@
 package com.memetrade.scanner.domain;
 
 import com.memetrade.marketdata.api.MarketValue;
+import com.memetrade.marketdata.api.ResolvedField;
+import com.memetrade.riskassessment.api.AssessmentResult;
 
-/** One scanner line: the 5 market fields as KNOWN/UNKNOWN plus coverage (BR3.5). No risk in U1. */
+/**
+ * One scanner line (C2 ScannerRow): the four market fields resolved between the sources (with divergence), the age,
+ * the coverage of the 5 fields (price, liquidity, 24 h volume, holders and age) and the risk summary.
+ */
 public record ScannerRow(
         String chain,
         String mint,
@@ -10,8 +15,9 @@ public record ScannerRow(
         String name,
         int coverageInformed,
         int coverageTotal,
-        MarketValue price,
-        MarketValue liquidity,
-        MarketValue volume24h,
-        MarketValue holders,
-        MarketValue ageMinutes) {}
+        ResolvedField price,
+        ResolvedField liquidity,
+        ResolvedField volume24h,
+        ResolvedField holders,
+        MarketValue ageMinutes,
+        AssessmentResult risk) {}

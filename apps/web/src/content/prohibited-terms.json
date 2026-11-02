@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "reviewedBy": "pendente: responsável do projeto",
+  "note": "Termos que nenhum texto da interface do convidado pode conter (FR6.4, AC3.2.3, BR5.1). Comparação sem diferença de maiúsculas e acentos. 'terms' são os quatro termos da BR5.1; 'proposedTerms' são acréscimos propostos na geração de código, já verificados pelo teste, à espera da revisão do responsável do projeto.",
+  "terms": ["lucro garantido", "sem risco", "100% seguro", "detecta golpes"],
+  "proposedTerms": [
+    "risco zero",
+    "investimento seguro",
+    "token seguro",
+    "retorno garantido",
+    "ganho garantido",
+    "nunca perde"
+  ]
+}

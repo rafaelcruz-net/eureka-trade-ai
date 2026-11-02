@@ -1,0 +1,31 @@
+{
+  "sourceId": "sim-a",
+  "name": "Fonte simulada A",
+  "tokens": [
+    { "mint": "FxCommonA1111111111111111111111111111111111", "symbol": "FXA", "name": "Fixture common A", "decimals": 6 },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "symbol": "FXB", "name": "Fixture common B", "decimals": 9 },
+    { "mint": "FxUniqAaa1111111111111111111111111111111111", "symbol": "PEPE", "name": "Fixture only A", "decimals": 6 },
+    { "mint": "FxUniqAbb1111111111111111111111111111111111", "symbol": "NOAGE", "name": "Fixture without age", "decimals": 6 }
+  ],
+  "observations": [
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "PRICE", "value": "0.001000" },
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "LIQUIDITY", "value": "50000.00" },
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "VOLUME_24H", "value": "20000.00" },
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "HOLDERS", "value": "1200" },
+    { "mint": "FxCommonA1111111111111111111111111111111111", "field": "CREATED_AT", "createdMinutesAgo": 30 },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "PRICE", "value": "0.5" },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "LIQUIDITY", "value": "0" },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "VOLUME_24H", "value": "100.00" },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "HOLDERS", "unknown": "NOT_PROVIDED" },
+    { "mint": "FxCommonB1111111111111111111111111111111111", "field": "CREATED_AT", "createdMinutesAgo": 90 },
+    { "mint": "FxUniqAaa1111111111111111111111111111111111", "field": "PRICE", "value": "0.000002" },
+    { "mint": "FxUniqAaa1111111111111111111111111111111111", "field": "LIQUIDITY", "value": "1000.00" },
+    { "mint": "FxUniqAaa1111111111111111111111111111111111", "field": "VOLUME_24H", "value": "500.00" },
+    { "mint": "FxUniqAaa1111111111111111111111111111111111", "field": "HOLDERS", "value": "40" },
+    { "mint": "FxUniqAaa1111111111111111111111111111111111", "field": "CREATED_AT", "createdMinutesAgo": 3 },
+    { "mint": "FxUniqAbb1111111111111111111111111111111111", "field": "PRICE", "value": "1.25" },
+    { "mint": "FxUniqAbb1111111111111111111111111111111111", "field": "LIQUIDITY", "value": "250000.00" },
+    { "mint": "FxUniqAbb1111111111111111111111111111111111", "field": "VOLUME_24H", "value": "2000000.00" },
+    { "mint": "FxUniqAbb1111111111111111111111111111111111", "field": "HOLDERS", "value": "9000" }
+  ]
+}

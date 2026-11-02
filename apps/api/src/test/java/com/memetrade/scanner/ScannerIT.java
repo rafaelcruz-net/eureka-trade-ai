@@ -61,7 +61,13 @@ class ScannerIT extends AbstractPostgresIT {
         TestAccounts.betaUser(jdbc, wallet.address());
         AuthFlow auth = new AuthFlow(mvc, json);
         accessToken = auth.accessToken(auth.login(wallet));
-        store.sourceCollected(SOURCE, clock.instant());
+        store.registerSource(SOURCE, Duration.ofSeconds(30));
+        store.updateSourceStatus(
+                SOURCE.sourceId(),
+                com.memetrade.marketdata.api.SourceStatus.State.OK,
+                Optional.empty(),
+                clock.instant(),
+                Optional.of(clock.instant()));
     }
 
     @Test

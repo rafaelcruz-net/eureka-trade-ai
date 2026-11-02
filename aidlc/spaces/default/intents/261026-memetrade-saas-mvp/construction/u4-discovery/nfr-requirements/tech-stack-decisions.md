@@ -19,6 +19,15 @@ A U4 usa a stack prescrita do projeto (Constraints de [requirements.md](../../..
 | Carga local | Script `scripts/load-test.sh` com `scripts/load/load-test.mjs`, ampliado para a lista e o detalhe | Mantida e ampliada | Medição do NFR3.1 e NFR3.2 sem ferramenta nova |
 | Adaptadores de mercado | Duas implementações simuladas (A e B) da porta `MarketSourceAdapter`, identificadas com `simulated = true`, com fixtures gravadas nos testes | Mantida e ampliada | C19, Q2; fontes reais só depois do G0 (C-06) |
 
+## Requisitos de qualidade e portabilidade
+
+| ID | Requisito | Critério verificável | Origem |
+|---|---|---|---|
+| NFR12.1 | Cobertura mínima mantida | Cobertura de linhas ≥ 80% no backend e no frontend, medida separadamente sobre a suíte inteira com o código da U4; sem novas exclusões na configuração de cobertura | NFR12, `team.md` |
+| NFR12.2 | Testes obrigatórios de risco presentes | Testes de `unknown` nunca zero ou seguro na lista, no filtro, na ordenação, na avaliação e no C11; teste negativo de rota para ativação de pesos por não administrador; volume da estratégia `Comprehensive` (10 a 15 testes por componente) | NFR12, `team.md`, AC2.2.2, AC3.2.2 |
+| NFR12.3 | Testes determinísticos | Relógio injetável, sementes fixas, fixtures gravadas das duas fontes simuladas, nenhum acesso de rede; integração sobre PostgreSQL em contêiner com as migrações da aplicação; marcador JUnit `u4` para rodar só a Unit | NFR12, `team.md` |
+| NFR13.1 | Mesmo resultado no Windows e no Linux | Cálculos em decimal exato e instantes em UTC dão o mesmo resultado nos dois sistemas; fixtures com fim de linha LF; a suíte da U4 passa no Linux da CI e no Docker Compose do Windows | NFR13 |
+
 ## Restrições que continuam valendo
 
 - Nenhum ponto flutuante em valores de mercado, pesos, cobertura, variação ou indicador (`project.md`).

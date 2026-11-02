@@ -137,6 +137,61 @@ O desenho do script:
 
 Pré-requisitos: o ambiente de uso diário desligado e cerca de 30 GB livres em disco.
 
+## Descoberta e avaliação (U4)
+
+### Fontes simuladas
+
+Há duas fontes simuladas, `sim-a` e `sim-b`, sempre marcadas como simuladas: nenhuma chama a rede nem usa dado de
+mercado real (C-06). Os 50 primeiros tokens são comuns às duas fontes; nesses tokens a `sim-b` diverge de propósito
+em alguns campos, para a tela mostrar "Fontes divergem" e o estado de cada fonte. Com a semente fixa, cada execução
+mostra os mesmos casos. Detalhes em [ADR-0004](docs/adr/ADR-0004-duas-fontes-simuladas-e-valor-mais-recente.md); o
+indicador de risco e a versão 1 dos pesos estão em [ADR-0005](docs/adr/ADR-0005-indicador-de-risco-em-validacao.md),
+e o contrato C2 completo em [docs/api/c2-market-scanner-assessment.md](docs/api/c2-market-scanner-assessment.md).
+
+### Variáveis novas
+
+Nenhuma é segredo. Todas têm padrão e passam pelo `docker-compose.yml`; um valor fora da faixa impede a API de subir,
+com mensagem que nomeia a variável.
+
+| Variável | Padrão | Faixa | Uso |
+|---|---|---|---|
+| `DB_POOL_MAX_SIZE` | `20` | 10 a 50 | Pool principal de conexões |
+| `SCHEDULER_POOL_SIZE` | `7` | 7 a 32 | Linhas do agendador (3 da U1/U2 e 4 da U4) |
+| `MARKET_SOURCES` | `sim-a,sim-b` | `sim-a` e/ou `sim-b` | Fontes ativas |
+| `MARKET_COLLECTION_INTERVAL` | `30s` | 5 s a 60 s | Intervalo de coleta de cada fonte |
+| `MARKET_SIMULATED_TOKENS_PER_SOURCE` | `200` | 50 a 10 000 | Tokens por fonte simulada |
+| `MARKET_SIMULATED_SEED` | `42` | qualquer inteiro | Semente fixa das fontes simuladas |
+| `MARKET_DIVERGENCE_TOLERANCE_PERCENT` | `5.0000` | 0 a 100 | Tolerância de divergência, em pontos percentuais |
+| `SCANNER_RATE_LIMIT_PER_MINUTE` | `60` | 1 a 10 000 | Pedidos por pessoa e rota em 60 s |
+
+### Testes da U4
+
+| O que roda | Comando |
+|---|---|
+| Backend da U4, unitários e integração | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u4 test-compile surefire:test failsafe:integration-test failsafe:verify` |
+| Frontend da U4 | `pnpm --dir apps/web exec jest src/features/scanner src/content` |
+| Smoke da U4 (com o ambiente de teste no ar) | `pnpm --dir apps/web exec playwright test e2e/u4-discovery` |
+
+### Cenário de carga da U4 (só local)
+
+`SPRING_PROFILES_ACTIVE=test,loadtest bash scripts/load-test.sh` roda o cenário da U1 (limite de p95 de 300 ms
+mantido) e, com `LOAD_SCENARIO=u4`, o cenário da U4: 2 000 tokens por fonte, 20 usuários por 10 minutos em lista com
+filtros (p95 até 1 s) e detalhe (p95 até 500 ms), espera do pool, memória de `api` e `postgres` (até 900 MB) e plano da
+consulta da lista. Com `LOAD_SCENARIO=growth`, o mesmo com 10 000 tokens, sem reprovação, só anotado. O relatório vai
+para `load-test-report.json` e `docs/perf/u4-discovery-<data>.md`.
+
+### Rollback para a U2
+
+A migração `0006` só acrescenta (tabelas, colunas, índices e o estado `PENDING`). Para voltar à versão anterior:
+
+1. Pare o ambiente sem apagar o volume: `docker compose down`.
+2. Construa a imagem da `api` no commit anterior à U4 e suba com `IMAGE_TAG` apontando para ela.
+3. O `db-migrate` antigo encontra a `0006` já aplicada e não reaplica nada; as tabelas da U4 ficam sem uso.
+4. Rode `bash scripts/verify.sh` até sair 0.
+
+Atenção: uma fonte da U4 que ainda esteja `PENDING` (nunca coletou) não é lida pela versão anterior, que não conhece
+esse estado. Antes de voltar, confirme que `sim-a` e `sim-b` já coletaram ao menos uma vez.
+
 ## `scripts/verify.sh`
 
 1. Gera uma carteira de teste com a ferramenta de teste (SDK Solana só no escopo de teste); a chave fica num arquivo

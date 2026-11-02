@@ -1,58 +1,125 @@
 package com.memetrade.scanner.web;
 
 import com.memetrade.identity.api.AuthContext;
+import com.memetrade.scanner.domain.ScannerPage;
+import com.memetrade.scanner.domain.ScannerQuery;
+import com.memetrade.scanner.domain.ScannerQueryParser;
 import com.memetrade.scanner.domain.ScannerService;
+import com.memetrade.scanner.domain.SourcesUnavailableException;
 import com.memetrade.scanner.web.ScannerDtos.ScannerPageDto;
-import com.memetrade.shared.error.ApiException;
-import io.micrometer.core.instrument.Counter;
+import com.memetrade.scanner.web.ScannerDtos.SourceStatusDto;
+import com.memetrade.scanner.web.ScannerDtos.SourceUnavailableProblemDto;
+import com.memetrade.shared.error.ErrorCode;
+import com.memetrade.shared.error.ProblemResponse;
+import com.memetrade.shared.web.CorrelationId;
+import com.memetrade.shared.web.ProblemWriter;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import java.util.Optional;
-import org.springframework.dao.DataAccessException;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Scanner list of C2 in U1, authenticated, without filters and without risk. Market data is global: the principal
- * is required for access but no tenant data is read, and any {@code tenantId} sent by the client is ignored (BR2.1).
+ * F3, {@code GET /api/v1/scanner/tokens} (C2, completed by U4): authenticated guest route over global market data. The
+ * request is validated as a whole by {@link ScannerQueryParser} (BR2.7: every invalid field in one {@code 400}); a
+ * {@code tenantId} sent by the client is ignored. Every source FAILED answers {@code 503 SOURCE_UNAVAILABLE} with the
+ * state of the sources (BR1.4). Authentication, the role rule and the per-person rate limit run before (filters).
  */
 @RestController
 public class ScannerController {
 
     private final ScannerService scanner;
     private final AuthContext auth;
-    private final MeterRegistry registry;
+    private final DistributionSummary excluded;
 
     public ScannerController(ScannerService scanner, AuthContext auth, MeterRegistry registry) {
         this.scanner = scanner;
         this.auth = auth;
-        this.registry = registry;
+        this.excluded = DistributionSummary.builder("scanner_excluded_by_unknown").register(registry);
     }
 
     @Operation(
             operationId = "listScannerTokens",
-            summary = "Lista paginada com ordem determinística e desempate estável (FR5.1)",
-            security = @SecurityRequirement(name = "accessToken"))
+            summary = "Lista paginada com filtros, ordem determinística e desempate estável (FR5.1, FR5.2)",
+            security = @SecurityRequirement(name = "accessToken"),
+            responses = {
+                @ApiResponse(responseCode = "200", description = "Página da foto da lista"),
+                @ApiResponse(
+                        responseCode = "400",
+                        description = "VALIDATION_FAILED com a lista de campos (BR2.7)",
+                        content = @Content(
+                                mediaType = ProblemWriter.PROBLEM_JSON,
+                                schema = @Schema(implementation = ProblemResponse.class))),
+                @ApiResponse(
+                        responseCode = "429",
+                        description = "RATE_LIMITED, com Retry-After",
+                        content = @Content(
+                                mediaType = ProblemWriter.PROBLEM_JSON,
+                                schema = @Schema(implementation = ProblemResponse.class))),
+                @ApiResponse(
+                        responseCode = "503",
+                        description = "SOURCE_UNAVAILABLE quando todas as fontes falham (AC2.3.3)",
+                        content = @Content(
+                                mediaType = ProblemWriter.PROBLEM_JSON,
+                                schema = @Schema(implementation = SourceUnavailableProblemDto.class)))
+            })
     @GetMapping("/api/v1/scanner/tokens")
     public ScannerPageDto list(
-            @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "50") @Min(1) @Max(100) int limit) {
+            @Parameter(schema = @Schema(type = "string")) @RequestParam(required = false) String cursor,
+            @Parameter(schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "50"))
+                    @RequestParam(required = false)
+                    String limit,
+            @Parameter(schema = @Schema(type = "string", allowableValues = {"AGE", "LIQUIDITY", "VOLUME_24H", "HOLDERS", "RISK_SCORE"}))
+                    @RequestParam(required = false)
+                    String sort,
+            @Parameter(schema = @Schema(type = "string", allowableValues = {"ASC", "DESC"}))
+                    @RequestParam(required = false)
+                    String order,
+            @Parameter(schema = @Schema(type = "string", pattern = ScannerDtos.DECIMAL)) @RequestParam(required = false)
+                    String minLiquidity,
+            @Parameter(schema = @Schema(type = "integer", minimum = "0")) @RequestParam(required = false)
+                    String maxAgeMinutes,
+            @Parameter(schema = @Schema(type = "string", pattern = ScannerDtos.DECIMAL)) @RequestParam(required = false)
+                    String minVolume24h,
+            @Parameter(schema = @Schema(type = "integer", minimum = "0")) @RequestParam(required = false)
+                    String minHolders,
+            @Parameter(schema = @Schema(type = "integer", minimum = "0", maximum = "100"))
+                    @RequestParam(required = false)
+                    String maxRiskScore,
+            @Parameter(schema = @Schema(type = "string")) @RequestParam(required = false) String sourceId,
+            @Parameter(hidden = true) @RequestParam MultiValueMap<String, String> parameters) {
         auth.current();
-        if (limit < 1 || limit > 100) {
-            throw ApiException.validation("limit", "Must be between 1 and 100.");
+        ScannerQuery query = ScannerQueryParser.parse(parameters);
+        ScannerPage page = scanner.list(query);
+        if (query.filters().anyActive()) {
+            excluded.record(page.excludedByUnknown());
         }
-        try {
-            return ScannerPageDto.of(scanner.list(Optional.ofNullable(cursor), limit));
-        } catch (DataAccessException failure) {
-            Counter.builder("scanner_list_errors_total")
-                    .tag("type", "database")
-                    .register(registry)
-                    .increment();
-            throw failure;
-        }
+        return ScannerPageDto.of(page);
+    }
+
+    /** BR1.4: {@code 503 SOURCE_UNAVAILABLE} with the {@code sources} extension, never zeroed or old values. */
+    @ExceptionHandler(SourcesUnavailableException.class)
+    public ResponseEntity<SourceUnavailableProblemDto> sourcesUnavailable(SourcesUnavailableException failure) {
+        ErrorCode code = failure.code();
+        return ResponseEntity.status(code.status())
+                .contentType(MediaType.parseMediaType(ProblemWriter.PROBLEM_JSON))
+                .body(new SourceUnavailableProblemDto(
+                        code.type(),
+                        code.title(),
+                        code.status(),
+                        failure.getMessage(),
+                        code.name(),
+                        CorrelationId.current(),
+                        failure.sources().stream().map(SourceStatusDto::of).toList()));
     }
 }

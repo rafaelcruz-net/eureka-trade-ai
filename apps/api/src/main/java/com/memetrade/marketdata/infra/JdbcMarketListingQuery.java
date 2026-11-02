@@ -2,143 +2,299 @@ package com.memetrade.marketdata.infra;
 
 import com.memetrade.marketdata.api.MarketField;
 import com.memetrade.marketdata.api.MarketListingQuery;
-import com.memetrade.marketdata.api.MarketValue;
-import com.memetrade.marketdata.api.SourceRef;
 import com.memetrade.marketdata.api.SourceStatus;
 import com.memetrade.marketdata.api.TokenId;
-import com.memetrade.marketdata.domain.ObservationValues;
+import com.memetrade.marketdata.domain.FieldResolver;
+import com.memetrade.marketdata.domain.FieldResolver.SourcedObservation;
+import com.memetrade.marketdata.domain.MarketStore;
+import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Keyset-paged listing over the composite index {@code (sort_group, sort_key, mint, chain)}: never OFFSET, and the
- * observations of the whole page are read in ONE query (performance-design.md).
+ * The single list query of performance-design.md (F3), with CTEs:
+ *
+ * <ol>
+ *   <li>tokens observed in the last 24 hours by a source that is enabled and not FAILED (BR1.3, BR1.8);
+ *   <li>per token and field, the most recent KNOWN value of those sources ({@code DISTINCT ON}, BR1.2), pivoted;
+ *   <li>the stored assessment ({@code risk_assessment}, one row per token); an unavailable or absent indicator is
+ *       UNKNOWN for the risk filter and goes last in the risk order (BR2.3);
+ *   <li>per active filter "fails with a known value" and "unknown"; the counters {@code total}, {@code excludedByUnknown}
+ *       and {@code pendingNewTokens} by aggregation over the whole photo (BR2.2, BR2.6, NFR3.4);
+ *   <li>the order of the chosen field with UNKNOWN last and ties broken by mint then chain in byte order (BR2.5), the
+ *       page continued after the cursor position by tuple comparison, never OFFSET.
+ * </ol>
+ *
+ * Every value of the request is a bind parameter; the sort column and direction come from closed enums only (NFR6.2).
+ * The freshness and divergence of each field are resolved in Java for the page only, in a second query.
+ *
+ * <p>The query joins the {@code risk_assessment} table of the RiskAssessment module by the decision Q3 of the NFR
+ * Design (one query, no read model); it is the only read of that table outside its module.
  */
 @Repository
 public class JdbcMarketListingQuery implements MarketListingQuery {
 
+    private static final String SINCE = "since";
+
     private final JdbcClient jdbc;
+    private final FieldResolver resolver;
+    private final MarketStore store;
     private final Clock clock;
 
-    public JdbcMarketListingQuery(JdbcClient jdbc, Clock clock) {
+    public JdbcMarketListingQuery(JdbcClient jdbc, FieldResolver resolver, MarketStore store, Clock clock) {
         this.jdbc = jdbc;
+        this.resolver = resolver;
+        this.store = store;
         this.clock = clock;
     }
 
     @Override
     @Transactional(readOnly = true)
-    public ListingPage page(Optional<ListingPosition> after, Instant cutoff, int limit) {
-        List<Row> rows = tokens(after, cutoff, limit + 1);
-        boolean hasMore = rows.size() > limit;
-        List<Row> page = hasMore ? rows.subList(0, limit) : rows;
-        Map<TokenId, Map<MarketField, MarketValue>> values = observations(page);
+    public ListingResult list(ListingRequest request) {
+        Instant now = clock.instant();
+        Sql sql = build(request, now);
+        List<Row> rows = new ArrayList<>();
+        long[] counts = new long[3];
+        sql.statement(jdbc).query(rs -> {
+            counts[0] = rs.getLong("total");
+            counts[1] = rs.getLong("excluded");
+            counts[2] = rs.getLong("pending");
+            if (rs.getString("mint") != null) {
+                rows.add(row(rs));
+            }
+        });
+        boolean hasMore = rows.size() > request.limit();
+        List<Row> page = hasMore ? rows.subList(0, request.limit()) : rows;
+        Map<TokenId, Map<MarketField, List<SourcedObservation>>> observations = observations(page);
         List<ListedToken> tokens = new ArrayList<>();
         for (Row row : page) {
-            Map<MarketField, MarketValue> byField = new EnumMap<>(MarketField.class);
-            Map<MarketField, MarketValue> stored = values.getOrDefault(row.token(), Map.of());
-            for (MarketField field : MarketField.values()) {
-                byField.put(field, stored.getOrDefault(field, ObservationValues.notYetObserved()));
-            }
-            tokens.add(new ListedToken(row.token(), row.symbol(), row.name(), row.position(), byField));
+            tokens.add(new ListedToken(
+                    row.token(),
+                    row.symbol(),
+                    row.name(),
+                    StoredObservations.resolve(resolver, observations.getOrDefault(row.token(), Map.of()), now),
+                    row.risk(),
+                    row.position()));
         }
-        return new ListingPage(tokens, hasMore);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public long count(Instant cutoff) {
-        return jdbc.sql("select count(*) from token where first_seen_at <= :cutoff")
-                .param("cutoff", Timestamp.from(cutoff))
-                .query(Long.class)
-                .single();
+        return new ListingResult(tokens, hasMore, counts[0], counts[1], counts[2]);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<SourceStatus> sources() {
-        return jdbc.sql("select * from data_source order by source_id")
-                .query((rs, n) -> {
-                    Timestamp updated = rs.getTimestamp("last_updated_at");
-                    return new SourceStatus(
-                            new SourceRef(rs.getString("source_id"), rs.getString("name"), rs.getBoolean("simulated")),
-                            SourceStatus.State.valueOf(rs.getString("status")),
-                            Optional.ofNullable(updated).map(Timestamp::toInstant));
-                })
-                .list();
+        return store.sourceStatuses();
     }
 
-    private List<Row> tokens(Optional<ListingPosition> after, Instant cutoff, int limit) {
-        String keyset = after.isPresent() ? " and (sort_group, sort_key, mint, chain) > (:g, :k, :m, :c)" : "";
-        var statement = jdbc.sql("select chain, mint, symbol, name, sort_group, sort_key from token"
-                        + " where first_seen_at <= :cutoff" + keyset
-                        + " order by sort_group, sort_key, mint, chain limit :limit")
-                .param("cutoff", Timestamp.from(cutoff))
-                .param("limit", limit);
-        if (after.isPresent()) {
-            statement = statement
-                    .param("g", after.get().group())
-                    .param("k", after.get().sortKey())
-                    .param("m", after.get().mint())
-                    .param("c", after.get().chain());
+    /** The plan of the list query (NFR2.6 check of the tests and of the load script). */
+    @Transactional(readOnly = true)
+    public String explain(ListingRequest request) {
+        Sql sql = build(request, clock.instant());
+        StringBuilder plan = new StringBuilder();
+        new Sql("explain " + sql.text(), sql.params())
+                .statement(jdbc)
+                .query(rs -> {
+                    plan.append(rs.getString(1)).append('\n');
+                });
+        return plan.toString();
+    }
+
+    private record Sql(String text, Map<String, Object> params) {
+        JdbcClient.StatementSpec statement(JdbcClient jdbc) {
+            JdbcClient.StatementSpec statement = jdbc.sql(text);
+            for (Map.Entry<String, Object> param : params.entrySet()) {
+                statement = statement.param(param.getKey(), param.getValue());
+            }
+            return statement;
         }
-        return statement
-                .query((rs, n) -> new Row(
-                        new TokenId(rs.getString("chain"), rs.getString("mint")),
-                        rs.getString("symbol"),
-                        rs.getString("name"),
-                        new ListingPosition(
-                                rs.getInt("sort_group"),
-                                rs.getLong("sort_key"),
-                                rs.getString("mint"),
-                                rs.getString("chain"))))
-                .list();
     }
 
-    private Map<TokenId, Map<MarketField, MarketValue>> observations(List<Row> page) {
+    static Sql build(ListingRequest request, Instant now) {
+        Map<String, Object> params = new java.util.LinkedHashMap<>();
+        params.put(SINCE, Timestamp.from(now.minus(JdbcMarketDataQuery.HISTORY)));
+        params.put("snapshot", Timestamp.from(request.snapshotAt()));
+        params.put("nowEpoch", BigDecimal.valueOf(now.getEpochSecond()));
+        params.put("limit", request.limit() + 1);
+        Filters filters = request.filters();
+        List<String> fails = new ArrayList<>();
+        List<String> unknowns = new ArrayList<>();
+        filters.minLiquidity().ifPresent(v -> minimum("liquidity", "minLiquidity", v, params, fails, unknowns));
+        filters.minVolume24h().ifPresent(v -> minimum("volume", "minVolume", v, params, fails, unknowns));
+        filters.minHolders().ifPresent(v -> minimum("holders", "minHolders", v, params, fails, unknowns));
+        filters.maxAgeMinutes().ifPresent(minutes -> {
+            params.put("maxAgeSeconds", BigDecimal.valueOf(minutes).multiply(BigDecimal.valueOf(60)));
+            fails.add("coalesce((:nowEpoch - created) > :maxAgeSeconds, false)");
+            unknowns.add("created is null");
+        });
+        filters.maxRiskScore().ifPresent(max -> {
+            params.put("maxRisk", max);
+            fails.add("coalesce(risk_score > :maxRisk, false)");
+            unknowns.add("risk_score is null");
+        });
+        filters.sourceId().ifPresent(id -> {
+            params.put("sourceId", id);
+            fails.add("not has_source");
+        });
+        String hasSource = filters.sourceId().isPresent()
+                ? "exists (select 1 from market_observation h join live l2 on l2.source_id = h.source_id"
+                        + " where h.chain = c.chain and h.mint = c.mint and h.source_id = :sourceId"
+                        + " and h.observed_at >= :since)"
+                : "true";
+        boolean descending = effectiveDescending(request.sort(), request.order());
+        String keyset = keyset(request.after(), descending, params);
+        String text = """
+                with live as (
+                  select source_id from data_source where enabled and status <> 'FAILED'
+                ),
+                cand as (
+                  select t.chain, t.mint, t.symbol, t.name, t.first_seen_at
+                  from token t
+                  where exists (select 1 from market_observation r join live l on l.source_id = r.source_id
+                                where r.chain = t.chain and r.mint = t.mint and r.observed_at >= :since)
+                ),
+                picked as (
+                  select distinct on (o.chain, o.mint, o.field) o.chain, o.mint, o.field, o.value
+                  from market_observation o
+                  join live l on l.source_id = o.source_id
+                  join cand c on c.chain = o.chain and c.mint = o.mint
+                  where o.status = 'KNOWN' and o.field in ('LIQUIDITY', 'VOLUME_24H', 'HOLDERS', 'CREATED_AT')
+                  order by o.chain, o.mint, o.field, o.observed_at desc, o.source_id
+                ),
+                pivot as (
+                  select c.chain, c.mint, c.symbol, c.name, c.first_seen_at,
+                         max(p.value) filter (where p.field = 'LIQUIDITY') as liquidity,
+                         max(p.value) filter (where p.field = 'VOLUME_24H') as volume,
+                         max(p.value) filter (where p.field = 'HOLDERS') as holders,
+                         max(p.value) filter (where p.field = 'CREATED_AT') as created,
+                         %s as has_source
+                  from cand c left join picked p on p.chain = c.chain and p.mint = c.mint
+                  group by c.chain, c.mint, c.symbol, c.name, c.first_seen_at
+                ),
+                scored as (
+                  select v.*, ra.status as risk_status, ra.score as stored_score, ra.band as risk_band,
+                         ra.unavailable_reason as risk_reason, ra.weight_set_version as risk_version,
+                         case when ra.status = 'AVAILABLE' then ra.score end as risk_score
+                  from pivot v left join risk_assessment ra on ra.chain = v.chain and ra.mint = v.mint
+                ),
+                classified as (
+                  select s.*, (%s) as fails, (%s) as unknowns, (s.first_seen_at <= :snapshot) as in_snapshot,
+                         %s as sort_value
+                  from scored s
+                ),
+                ordered as (
+                  select x.*, case when x.sort_value is null then 1 else 0 end as grp from classified x
+                ),
+                counted as (
+                  select count(*) filter (where in_snapshot and not fails and not unknowns) as total,
+                         count(*) filter (where in_snapshot and not fails and unknowns) as excluded,
+                         count(*) filter (where not in_snapshot and not fails and not unknowns) as pending
+                  from ordered
+                )
+                select k.total, k.excluded, k.pending, p.* from counted k
+                left join lateral (
+                  select * from ordered
+                  where in_snapshot and not fails and not unknowns %s
+                  order by grp, sort_value %s, mint collate "C", chain collate "C"
+                  limit :limit
+                ) p on true
+                """
+                .formatted(
+                        hasSource,
+                        fails.isEmpty() ? "false" : String.join(" or ", fails),
+                        unknowns.isEmpty() ? "false" : String.join(" or ", unknowns),
+                        sortExpression(request.sort()),
+                        keyset,
+                        descending ? "desc" : "asc");
+        return new Sql(text, params);
+    }
+
+    /** AGE ascending lists the youngest first: the creation time descending (stable between pages, BR2.6). */
+    static boolean effectiveDescending(SortField sort, SortOrder order) {
+        boolean descending = order == SortOrder.DESC;
+        return sort == SortField.AGE ? !descending : descending;
+    }
+
+    private static String sortExpression(SortField sort) {
+        return switch (sort) {
+            case AGE -> "s.created";
+            case LIQUIDITY -> "s.liquidity";
+            case VOLUME_24H -> "s.volume";
+            case HOLDERS -> "s.holders";
+            case RISK_SCORE -> "s.risk_score::numeric";
+        };
+    }
+
+    private static String keyset(Optional<Position> after, boolean descending, Map<String, Object> params) {
+        if (after.isEmpty()) {
+            return "";
+        }
+        Position position = after.get();
+        params.put("afterMint", position.mint());
+        params.put("afterChain", position.chain());
+        String tie = "(mint collate \"C\", chain collate \"C\") > (:afterMint, :afterChain)";
+        if (position.sortValue().isEmpty()) {
+            return " and grp = 1 and " + tie;
+        }
+        params.put("afterValue", position.sortValue().get());
+        String beyond = descending ? "sort_value < :afterValue" : "sort_value > :afterValue";
+        return " and ((grp = 0 and (" + beyond + " or (sort_value = :afterValue and " + tie + "))) or grp = 1)";
+    }
+
+    private static void minimum(
+            String column,
+            String param,
+            BigDecimal value,
+            Map<String, Object> params,
+            List<String> fails,
+            List<String> unknowns) {
+        params.put(param, value);
+        fails.add("coalesce(" + column + " < :" + param + ", false)");
+        unknowns.add(column + " is null");
+    }
+
+    private Map<TokenId, Map<MarketField, List<SourcedObservation>>> observations(List<Row> page) {
         if (page.isEmpty()) {
             return Map.of();
         }
-        Set<TokenId> wanted = page.stream().map(Row::token).collect(Collectors.toSet());
-        Instant now = clock.instant();
-        Map<TokenId, Map<MarketField, MarketValue>> result = new HashMap<>();
-        jdbc.sql("""
-                        select o.chain, o.mint, o.field, o.status, o.value, o.unknown_reason, o.observed_at,
-                               s.source_id, s.name, s.simulated
-                        from market_observation o join data_source s on s.source_id = o.source_id
-                        where o.mint in (:mints)
-                        """)
-                .param("mints", wanted.stream().map(TokenId::mint).toList())
-                .query(rs -> {
-                    TokenId token = new TokenId(rs.getString("chain"), rs.getString("mint"));
-                    if (!wanted.contains(token)) {
-                        return;
-                    }
-                    SourceRef source =
-                            new SourceRef(rs.getString("source_id"), rs.getString("name"), rs.getBoolean("simulated"));
-                    MarketValue value = ObservationValues.fromStored(
-                            rs.getString("status"),
-                            rs.getBigDecimal("value"),
-                            rs.getString("unknown_reason"),
-                            source,
-                            rs.getTimestamp("observed_at").toInstant(),
-                            now);
-                    result.computeIfAbsent(token, t -> new EnumMap<>(MarketField.class))
-                            .put(MarketField.valueOf(rs.getString("field")), value);
-                });
-        return result;
+        List<String> chains =
+                page.stream().map(r -> r.token().chain()).distinct().toList();
+        List<String> mints = page.stream().map(r -> r.token().mint()).toList();
+        Map<TokenId, Map<MarketField, List<SourcedObservation>>> all = StoredObservations.read(jdbc.sql(
+                        StoredObservations.COLUMNS + " where o.chain in (:chains) and o.mint in (:mints)")
+                .param("chains", chains)
+                .param("mints", mints));
+        all.keySet().retainAll(page.stream().map(Row::token).toList());
+        return all;
     }
 
-    private record Row(TokenId token, String symbol, String name, ListingPosition position) {}
+    private static Row row(ResultSet rs) throws SQLException {
+        TokenId token = new TokenId(rs.getString("chain"), rs.getString("mint"));
+        int storedScore = rs.getInt("stored_score");
+        boolean hasScore = !rs.wasNull();
+        int version = rs.getInt("risk_version");
+        boolean hasVersion = !rs.wasNull();
+        ListedRisk risk = new ListedRisk(
+                Optional.ofNullable(rs.getString("risk_status")),
+                hasScore ? Optional.of(storedScore) : Optional.empty(),
+                Optional.ofNullable(rs.getString("risk_band")),
+                Optional.ofNullable(rs.getString("risk_reason")),
+                hasVersion ? Optional.of(version) : Optional.empty());
+        return new Row(
+                token,
+                rs.getString("symbol"),
+                rs.getString("name"),
+                risk,
+                new Position(Optional.ofNullable(rs.getBigDecimal("sort_value")), token.mint(), token.chain()));
+    }
+
+    private record Row(TokenId token, String symbol, String name, ListedRisk risk, Position position) {}
 }
