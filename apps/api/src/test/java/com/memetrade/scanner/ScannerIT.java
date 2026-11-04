@@ -178,6 +178,7 @@ class ScannerIT extends AbstractPostgresIT {
         MockHttpServletResponse withTenant = mvc.perform(get("/api/v1/scanner/tokens")
                         .header("Authorization", "Bearer " + accessToken)
                         .param("tenantId", UUID.randomUUID().toString())
+                        .param("sourceId", SOURCE.sourceId())
                         .param("limit", "100"))
                 .andReturn()
                 .getResponse();
@@ -199,13 +200,26 @@ class ScannerIT extends AbstractPostgresIT {
         for (int i = 0; i < 500; i++) {
             insert(i % 25 == 0 ? null : clock.instant().minusSeconds(i * 13L));
         }
-        Instant cutoff = clock.instant();
-        listing.page(Optional.empty(), cutoff, 50);
+        // U4: one query gives the page AND the counters of the whole photo (performance-design.md), so it is measured
+        // alone, on this test's source: the shared test database also holds the thousands of tokens of other classes.
+        MarketListingQuery.ListingRequest request = new MarketListingQuery.ListingRequest(
+                clock.instant(),
+                new MarketListingQuery.Filters(
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(SOURCE.sourceId())),
+                MarketListingQuery.SortField.AGE,
+                MarketListingQuery.SortOrder.ASC,
+                Optional.empty(),
+                50);
+        listing.list(request);
         List<Long> nanos = new ArrayList<>();
         for (int i = 0; i < 60; i++) {
             long start = System.nanoTime();
-            listing.page(Optional.empty(), cutoff, 50);
-            listing.count(cutoff);
+            listing.list(request);
             nanos.add(System.nanoTime() - start);
         }
         nanos.sort(Comparator.naturalOrder());
@@ -281,7 +295,9 @@ class ScannerIT extends AbstractPostgresIT {
     private JsonNode page(String cursor, int limit) throws Exception {
         var request = get("/api/v1/scanner/tokens")
                 .header("Authorization", "Bearer " + accessToken)
-                .param("limit", Integer.toString(limit));
+                .param("limit", Integer.toString(limit))
+                // U4: this test's own source only, so the walks do not page through other classes' tokens.
+                .param("sourceId", SOURCE.sourceId());
         if (cursor != null) {
             request.param("cursor", cursor);
         }

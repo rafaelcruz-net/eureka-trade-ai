@@ -1,6 +1,7 @@
 package com.memetrade.scanner.web;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -12,18 +13,19 @@ import com.memetrade.identity.api.Principal;
 import com.memetrade.identity.api.Role;
 import com.memetrade.identity.api.UnauthenticatedException;
 import com.memetrade.marketdata.api.MarketField;
-import com.memetrade.marketdata.api.MarketListingQuery;
+import com.memetrade.marketdata.api.MarketListingQuery.ListedToken;
 import com.memetrade.marketdata.api.MarketValue;
+import com.memetrade.marketdata.api.ResolvedField;
 import com.memetrade.marketdata.api.SourceRef;
-import com.memetrade.marketdata.api.SourceStatus;
-import com.memetrade.marketdata.api.TokenId;
-import com.memetrade.marketdata.api.UnknownReason;
+import com.memetrade.marketdata.api.SourceStatus.State;
+import com.memetrade.riskassessment.api.AssessmentResult;
+import com.memetrade.riskassessment.api.UnavailableReason;
+import com.memetrade.scanner.FakeListing;
 import com.memetrade.scanner.domain.ScannerService;
 import com.memetrade.shared.error.ProblemDetailsHandler;
 import com.memetrade.testsupport.MutableClock;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -35,14 +37,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
+/** The JSON of C2 for the list: text decimals, explicit unknown, validation, 401, 503 with sources, risk. */
 @Tag("u1")
 class ScannerControllerTest {
 
-    private static final SourceRef SOURCE = new SourceRef("simulated", "Fonte simulada", true);
-
     private final MutableClock clock = new MutableClock();
+    private final FakeListing listing = new FakeListing();
     private Optional<Principal> principal =
             Optional.of(new Principal(UUID.randomUUID(), UUID.randomUUID(), Role.BETA_USER));
     private MockMvc mvc;
@@ -64,14 +65,13 @@ class ScannerControllerTest {
                 .findAndRegisterModules()
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
-        validator.afterPropertiesSet();
-        mvc = MockMvcBuilders.standaloneSetup(new ScannerController(
-                        new ScannerService(new OneToken(), clock), auth, new SimpleMeterRegistry()))
+        ScannerService service = new ScannerService(
+                listing, token -> new AssessmentResult.Unavailable(UnavailableReason.INSUFFICIENT_COVERAGE), clock);
+        mvc = MockMvcBuilders.standaloneSetup(new ScannerController(service, auth, new SimpleMeterRegistry()))
                 .setControllerAdvice(new ProblemDetailsHandler((request, code, reason) -> {}))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(mapper))
-                .setValidator(validator)
                 .build();
+        listing.add("MintOne", clock.instant(), Optional.of(clock.instant()), FakeListing.available(45, "MEDIUM"));
     }
 
     @Test
@@ -79,7 +79,7 @@ class ScannerControllerTest {
         mvc.perform(get("/api/v1/scanner/tokens"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].price.status").value("KNOWN"))
-                .andExpect(jsonPath("$.items[0].price.value").value("0.000012345"))
+                .andExpect(jsonPath("$.items[0].price.value").value("0.00001234"))
                 .andExpect(jsonPath("$.items[0].price.source.simulated").value(true))
                 .andExpect(jsonPath("$.items[0].price.observedAt").value("2026-10-28T12:00:00Z"))
                 .andExpect(jsonPath("$.items[0].liquidity.value").value("0"))
@@ -94,8 +94,7 @@ class ScannerControllerTest {
                 .andExpect(jsonPath("$.items[0].holders.reason").value("NOT_PROVIDED"))
                 .andExpect(jsonPath("$.items[0].holders.value").doesNotExist())
                 .andExpect(jsonPath("$.items[0].coverage.informed").value(4))
-                .andExpect(jsonPath("$.items[0].coverage.total").value(5))
-                .andExpect(jsonPath("$.items[0].risk").doesNotExist());
+                .andExpect(jsonPath("$.items[0].coverage.total").value(5));
     }
 
     @Test
@@ -132,35 +131,71 @@ class ScannerControllerTest {
                 .andExpect(jsonPath("$.fields[0].field").value("cursor"));
     }
 
-    private static final class OneToken implements MarketListingQuery {
-        @Override
-        public ListingPage page(Optional<ListingPosition> after, Instant cutoff, int limit) {
-            Map<MarketField, MarketValue> values = new EnumMap<>(MarketField.class);
-            Instant at = Instant.parse("2026-10-28T12:00:00Z");
-            values.put(MarketField.PRICE, new MarketValue.Known(new BigDecimal("0.000012345"), SOURCE, at, false));
-            values.put(MarketField.LIQUIDITY, new MarketValue.Known(BigDecimal.ZERO, SOURCE, at, false));
-            values.put(MarketField.VOLUME_24H, new MarketValue.Known(new BigDecimal("1500.25"), SOURCE, at, false));
-            values.put(MarketField.HOLDERS, new MarketValue.Unknown(UnknownReason.NOT_PROVIDED, Optional.of(SOURCE)));
-            values.put(MarketField.CREATED_AT, new MarketValue.Known(new BigDecimal("1761650000"), SOURCE, at, false));
-            return new ListingPage(
-                    List.of(new ListedToken(
-                            new TokenId("solana", "Mint111"),
-                            "PEPE",
-                            null,
-                            new ListingPosition(0, 0, "Mint111", "solana"),
-                            values)),
-                    false);
-        }
+    @Test
+    @Tag("u4")
+    void theRiskSummaryIsDiscriminatedByStatus() throws Exception {
+        mvc.perform(get("/api/v1/scanner/tokens"))
+                .andExpect(jsonPath("$.items[0].risk.status").value("AVAILABLE"))
+                .andExpect(jsonPath("$.items[0].risk.score").value(45))
+                .andExpect(jsonPath("$.items[0].risk.band").value("MEDIUM"));
+    }
 
-        @Override
-        public long count(Instant cutoff) {
-            return 1;
-        }
+    @Test
+    @Tag("u4")
+    void everyInvalidParameterIsListedInOne400() throws Exception {
+        mvc.perform(get("/api/v1/scanner/tokens")
+                        .param("minLiquidity", "-1")
+                        .param("maxRiskScore", "101")
+                        .param("color", "red"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.length()").value(3));
+    }
 
-        @Override
-        public List<SourceStatus> sources() {
-            return List.of(new SourceStatus(
-                    SOURCE, SourceStatus.State.OK, Optional.of(Instant.parse("2026-10-28T12:00:00Z"))));
-        }
+    @Test
+    @Tag("u4")
+    void everySourceFailedIs503WithTheStateOfEachSource() throws Exception {
+        listing.sources(State.FAILED, State.FAILED);
+
+        mvc.perform(get("/api/v1/scanner/tokens"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentType("application/problem+json"))
+                .andExpect(jsonPath("$.code").value("SOURCE_UNAVAILABLE"))
+                .andExpect(jsonPath("$.sources.length()").value(2))
+                .andExpect(jsonPath("$.sources[0].status").value("FAILED"))
+                .andExpect(jsonPath("$.items").doesNotExist());
+    }
+
+    @Test
+    @Tag("u4")
+    void aPendingSourceHasNoLastUpdate() throws Exception {
+        listing.sources(State.PENDING);
+
+        mvc.perform(get("/api/v1/scanner/tokens"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items.length()").value(0))
+                .andExpect(jsonPath("$.sources[0].status").value("PENDING"))
+                .andExpect(jsonPath("$.sources[0].lastUpdatedAt").doesNotExist());
+    }
+
+    @Test
+    @Tag("u4")
+    void aDivergentFieldCarriesTheOtherOrigins() throws Exception {
+        listing.tokens.clear();
+        ListedToken base = listing.add("MintTwo", clock.instant(), Optional.empty(), FakeListing.none());
+        SourceRef other = new SourceRef("sim-b", "Fonte simulada B", true);
+        MarketValue.Known shown = FakeListing.known("1.00", clock.instant());
+        MarketValue.Known divergent = new MarketValue.Known(new BigDecimal("1.20"), other, clock.instant(), false);
+        Map<MarketField, ResolvedField> fields = new EnumMap<>(base.fields());
+        fields.put(MarketField.PRICE, new ResolvedField(shown, true, List.of(shown, divergent)));
+        listing.tokens.set(
+                0, new ListedToken(base.token(), base.symbol(), base.name(), fields, base.risk(), base.position()));
+
+        mvc.perform(get("/api/v1/scanner/tokens"))
+                .andExpect(jsonPath("$.items[0].price.divergence.length()").value(1))
+                .andExpect(jsonPath("$.items[0].price.divergence[0].source.sourceId")
+                        .value("sim-b"))
+                .andExpect(jsonPath("$.items[0].price.divergence[0].value").value("1.20"))
+                .andExpect(jsonPath("$.items[0].liquidity.divergence").doesNotExist())
+                .andExpect(jsonPath("$.items[0].risk.reason").value("INSUFFICIENT_COVERAGE"));
     }
 }

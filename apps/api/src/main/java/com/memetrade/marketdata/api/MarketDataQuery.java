@@ -17,6 +17,16 @@ public interface MarketDataQuery {
 
     MarketValue liquidity(TokenId token);
 
+    /**
+     * U7 addition to C11 (BR1.10): the number of decimal places of the token's mint, read from {@code token.decimals}.
+     * {@link MarketValue.Known} carries an integral value (scale 0, 0 to 18) with the source that last observed the
+     * token; a token never observed, or a technical failure, is {@link MarketValue.Unknown}, never zero. Decimals never
+     * go stale. The contract table writes it as {@code MarketValue<Integer>}; the existing {@link MarketValue} is not
+     * generic, so the integer travels as {@link java.math.BigDecimal} and the consumer reads it with
+     * {@code intValueExact()}.
+     */
+    MarketValue decimals(TokenId token);
+
     /** Price and 24 h volume per 5-minute bucket over the last {@code length} (at most 24 hours); gaps are UNKNOWN. */
     PriceVolumeWindow window(TokenId token, Duration length);
 

@@ -1,172 +1,181 @@
 package com.memetrade.scanner.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.memetrade.marketdata.api.MarketField;
-import com.memetrade.marketdata.api.MarketListingQuery;
+import com.memetrade.marketdata.api.MarketListingQuery.Filters;
+import com.memetrade.marketdata.api.MarketListingQuery.SortField;
+import com.memetrade.marketdata.api.MarketListingQuery.SortOrder;
 import com.memetrade.marketdata.api.MarketValue;
-import com.memetrade.marketdata.api.SourceRef;
-import com.memetrade.marketdata.api.SourceStatus;
+import com.memetrade.marketdata.api.SourceStatus.State;
 import com.memetrade.marketdata.api.TokenId;
-import com.memetrade.marketdata.api.UnknownReason;
+import com.memetrade.riskassessment.api.AssessmentResult;
+import com.memetrade.riskassessment.api.RiskBand;
+import com.memetrade.riskassessment.api.UnavailableReason;
+import com.memetrade.scanner.FakeListing;
+import com.memetrade.shared.error.ApiException;
+import com.memetrade.shared.error.ErrorCode;
 import com.memetrade.testsupport.MutableClock;
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+/** F3 in the domain (U1 behaviour kept; U4 sources, photo, cursor and risk added). */
 @Tag("u1")
 class ScannerServiceTest {
 
-    private static final SourceRef SOURCE = new SourceRef("simulated", "Fonte simulada", true);
-
     private final MutableClock clock = new MutableClock();
     private final FakeListing listing = new FakeListing();
-    private final ScannerService service = new ScannerService(listing, clock);
+    private final List<TokenId> assessed = new ArrayList<>();
+    private final ScannerService service = new ScannerService(
+            listing,
+            token -> {
+                assessed.add(token);
+                return new AssessmentResult.Unavailable(UnavailableReason.INSUFFICIENT_COVERAGE);
+            },
+            clock);
 
     @Test
     void theAgeIsWholeMinutesSinceCreationWithTheSourceAndFreshnessOfTheObservation() {
-        listing.add(token("A", clock.instant().minus(Duration.ofMinutes(17)).minusSeconds(30), true));
+        listing.add(
+                "m1", clock.instant(), Optional.of(clock.instant().minus(Duration.ofSeconds(150))), FakeListing.none());
 
-        ScannerRow row = service.list(Optional.empty(), 50).items().getFirst();
+        MarketValue.Known age = (MarketValue.Known) first().ageMinutes();
 
-        MarketValue.Known age = (MarketValue.Known) row.ageMinutes();
-        assertThat(age.value()).isEqualByComparingTo("17");
-        assertThat(age.source()).isEqualTo(SOURCE);
+        assertThat(age.value()).isEqualByComparingTo("2");
+        assertThat(age.source()).isEqualTo(FakeListing.SOURCE);
     }
 
     @Test
     void anUnknownCreationKeepsTheAgeUnknownNeverZero() {
-        listing.add(token("A", null, true));
+        listing.add("m1", clock.instant(), Optional.empty(), FakeListing.none());
 
-        ScannerRow row = service.list(Optional.empty(), 50).items().getFirst();
-
-        assertThat(row.ageMinutes()).isInstanceOf(MarketValue.Unknown.class);
-        assertThat(row.coverageInformed()).isEqualTo(3);
+        assertThat(first().ageMinutes()).isInstanceOf(MarketValue.Unknown.class);
     }
 
     @Test
-    void coverageCountsTheKnownFieldsOutOfFive() {
-        listing.add(token("A", clock.instant().minusSeconds(60), true));
-        listing.add(token("B", clock.instant().minusSeconds(60), false));
+    void coverageCountsTheKnownFieldsOutOfFiveAndAnInformedZeroStaysKnown() {
+        listing.add("m1", clock.instant(), Optional.of(clock.instant()), FakeListing.none());
 
-        List<ScannerRow> rows = service.list(Optional.empty(), 50).items();
-
-        assertThat(rows).extracting(ScannerRow::coverageInformed).containsExactly(4, 3);
-        assertThat(rows).extracting(ScannerRow::coverageTotal).containsOnly(5);
+        ScannerRow row = first();
+        assertThat(row.coverageInformed()).isEqualTo(4);
+        assertThat(row.coverageTotal()).isEqualTo(5);
+        assertThat(((MarketValue.Known) row.liquidity().value()).value()).isEqualByComparingTo("0");
     }
 
     @Test
-    void theFirstPageCountsTotalAndNextPagesReuseItAndTheCutoff() {
+    void theFirstPageFixesThePhotoAndTheNextPagesReuseItFromTheCursor() {
         for (int i = 0; i < 3; i++) {
-            listing.add(token("T" + i, clock.instant().minusSeconds(60L * (i + 1)), true));
+            listing.add("m" + i, clock.instant(), Optional.of(clock.instant().minusSeconds(i)), FakeListing.none());
         }
+        Instant photo = clock.instant();
+        ScannerPage first = service.list(query(Optional.empty(), 2));
+        clock.advance(Duration.ofSeconds(30));
+        ScannerPage second = service.list(query(first.nextCursor(), 2));
 
-        ScannerPage first = service.list(Optional.empty(), 2);
-        listing.count = 999;
-        clock.advance(Duration.ofMinutes(1));
-        ScannerPage second = service.list(first.nextCursor(), 2);
-
-        assertThat(first.total()).isEqualTo(3);
-        assertThat(second.total()).isEqualTo(3);
-        assertThat(listing.lastCutoff).isEqualTo(MutableClock.DEFAULT_START);
+        assertThat(first.items()).hasSize(2);
+        assertThat(second.items()).extracting(ScannerRow::mint).containsExactly("m2");
         assertThat(second.nextCursor()).isEmpty();
+        assertThat(listing.requests).extracting(r -> r.snapshotAt()).containsExactly(photo, photo);
     }
 
     @Test
-    void theLastPageHasNoNextCursorAndU1CountersAreZero() {
-        listing.add(token("A", clock.instant(), true));
+    void aStoredAssessmentIsShownAndAMissingOneIsAskedToC12() {
+        listing.add("m1", clock.instant(), Optional.empty(), FakeListing.available(25, "LOW"));
+        listing.add("m2", clock.instant(), Optional.empty(), FakeListing.none());
 
-        ScannerPage page = service.list(Optional.empty(), 50);
+        ScannerPage page = service.list(query(Optional.empty(), 10));
 
-        assertThat(page.nextCursor()).isEmpty();
-        assertThat(page.excludedByUnknown()).isZero();
-        assertThat(page.pendingNewTokens()).isZero();
-        assertThat(page.sources()).hasSize(1);
+        assertThat(page.items().get(0).risk()).isEqualTo(new AssessmentResult.Available(25, RiskBand.LOW, 1));
+        assertThat(page.items().get(1).risk()).isInstanceOf(AssessmentResult.Unavailable.class);
+        assertThat(assessed).containsExactly(new TokenId("solana", "m2"));
     }
 
     @Test
-    void anInformedZeroStaysAKnownZero() {
-        listing.add(token("A", clock.instant(), true));
+    void whileSomeSourceIsPendingAndNoneIsAvailableTheListIsEmptyWithTheSources() {
+        listing.sources(State.PENDING, State.FAILED);
+        listing.add("m1", clock.instant(), Optional.empty(), FakeListing.none());
 
-        MarketValue liquidity =
-                service.list(Optional.empty(), 50).items().getFirst().liquidity();
+        ScannerPage page = service.list(query(Optional.empty(), 10));
 
-        assertThat(((MarketValue.Known) liquidity).value()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(page.items()).isEmpty();
+        assertThat(page.sources()).hasSize(2);
+        assertThat(listing.requests).isEmpty();
     }
 
     @Test
-    void aBlankCursorMeansTheFirstPage() {
-        listing.add(token("A", clock.instant(), true));
+    void withEverySourceFailedTheListIsSourceUnavailableWithTheirState() {
+        listing.sources(State.FAILED, State.FAILED);
 
-        assertThat(service.list(Optional.of(" "), 50).total()).isEqualTo(1);
+        assertThatThrownBy(() -> service.list(query(Optional.empty(), 10)))
+                .isInstanceOfSatisfying(SourcesUnavailableException.class, failure -> {
+                    assertThat(failure.code()).isEqualTo(ErrorCode.SOURCE_UNAVAILABLE);
+                    assertThat(failure.sources()).hasSize(2);
+                });
     }
 
-    private MarketListingQuery.ListedToken token(String mint, Instant created, boolean holdersKnown) {
-        Map<MarketField, MarketValue> values = new EnumMap<>(MarketField.class);
-        Instant observed = clock.instant();
-        values.put(MarketField.PRICE, new MarketValue.Known(new BigDecimal("0.001"), SOURCE, observed, false));
-        values.put(MarketField.LIQUIDITY, new MarketValue.Known(BigDecimal.ZERO, SOURCE, observed, false));
-        values.put(MarketField.VOLUME_24H, new MarketValue.Unknown(UnknownReason.NOT_PROVIDED, Optional.of(SOURCE)));
-        values.put(
-                MarketField.HOLDERS,
-                holdersKnown
-                        ? new MarketValue.Known(BigDecimal.TEN, SOURCE, observed, false)
-                        : new MarketValue.Unknown(UnknownReason.NOT_PROVIDED, Optional.of(SOURCE)));
-        values.put(
-                MarketField.CREATED_AT,
-                created == null
-                        ? new MarketValue.Unknown(UnknownReason.NOT_PROVIDED, Optional.of(SOURCE))
-                        : new MarketValue.Known(BigDecimal.valueOf(created.getEpochSecond()), SOURCE, observed, false));
-        return new MarketListingQuery.ListedToken(
-                new TokenId("solana", mint),
-                "SYM",
-                null,
-                new MarketListingQuery.ListingPosition(created == null ? 1 : 0, 0, mint, "solana"),
-                values);
+    @Test
+    @Tag("u4")
+    void oneFailedSourceKeepsTheListOfTheOther() {
+        listing.sources(State.FAILED, State.DEGRADED);
+        listing.add("m1", clock.instant(), Optional.empty(), FakeListing.none());
+
+        assertThat(service.list(query(Optional.empty(), 10)).items()).hasSize(1);
     }
 
-    /** Returns tokens in insertion order; ordering itself is covered against PostgreSQL in ScannerIT. */
-    private static final class FakeListing implements MarketListingQuery {
-        private final List<ListedToken> tokens = new ArrayList<>();
-        long count = -1;
-        Instant lastCutoff;
-
-        void add(ListedToken token) {
-            tokens.add(token);
+    @Test
+    @Tag("u4")
+    void aCursorOfOtherFiltersOrAnotherOrderIsRefused() {
+        for (int i = 0; i < 3; i++) {
+            listing.add("m" + i, clock.instant(), Optional.empty(), FakeListing.none());
         }
+        String cursor = service.list(query(Optional.empty(), 1)).nextCursor().orElseThrow();
+        ScannerQuery otherOrder =
+                new ScannerQuery(Filters.none(), SortField.AGE, SortOrder.DESC, Optional.of(cursor), 1);
+        ScannerQuery otherFilters = new ScannerQuery(
+                new Filters(
+                        Optional.empty(),
+                        Optional.of(5L),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty()),
+                SortField.AGE,
+                SortOrder.ASC,
+                Optional.of(cursor),
+                1);
 
-        @Override
-        public ListingPage page(Optional<ListingPosition> after, Instant cutoff, int limit) {
-            lastCutoff = cutoff;
-            int start = after.map(p -> indexOf(p) + 1).orElse(0);
-            int end = Math.min(tokens.size(), start + limit);
-            return new ListingPage(List.copyOf(tokens.subList(start, end)), end < tokens.size());
+        for (ScannerQuery other : List.of(otherOrder, otherFilters)) {
+            assertThatThrownBy(() -> service.list(other))
+                    .isInstanceOfSatisfying(ApiException.class, refused -> assertThat(
+                                    refused.fields().getFirst().field())
+                            .isEqualTo("cursor"));
         }
+    }
 
-        @Override
-        public long count(Instant cutoff) {
-            return count >= 0 ? count : tokens.size();
-        }
+    @Test
+    @Tag("u4")
+    void theCountersComeFromTheWholePhoto() {
+        listing.add("m1", clock.instant(), Optional.empty(), FakeListing.none());
+        listing.excluded = 7;
+        listing.pending = 3;
 
-        @Override
-        public List<SourceStatus> sources() {
-            return List.of(new SourceStatus(SOURCE, SourceStatus.State.OK, Optional.of(Instant.EPOCH)));
-        }
+        ScannerPage page = service.list(query(Optional.empty(), 10));
 
-        private int indexOf(ListingPosition position) {
-            for (int i = 0; i < tokens.size(); i++) {
-                if (tokens.get(i).position().equals(position)) {
-                    return i;
-                }
-            }
-            return -1;
-        }
+        assertThat(page.excludedByUnknown()).isEqualTo(7);
+        assertThat(page.pendingNewTokens()).isEqualTo(3);
+        assertThat(page.total()).isEqualTo(1);
+    }
+
+    private ScannerRow first() {
+        return service.list(query(Optional.empty(), 50)).items().getFirst();
+    }
+
+    private static ScannerQuery query(Optional<String> cursor, int limit) {
+        return new ScannerQuery(Filters.none(), SortField.AGE, SortOrder.ASC, cursor, limit);
     }
 }

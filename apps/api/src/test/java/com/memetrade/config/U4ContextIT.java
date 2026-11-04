@@ -42,14 +42,21 @@ class U4ContextIT extends AbstractPostgresIT {
     private ThreadPoolTaskExecutor riskRecalc;
 
     @Test
-    void theContextStartsWithTheDefaultsOfTheInfrastructureSpecification() {
+    void theContextStartsWithTheDefaultsOfTheInfrastructureSpecification() throws Exception {
         assertThat(market.sources()).containsExactly("sim-a", "sim-b");
         assertThat(market.collectInterval()).isEqualTo(Duration.ofSeconds(30));
         assertThat(market.divergenceTolerancePercent()).isEqualByComparingTo(new BigDecimal("5.0000"));
         assertThat(market.simulated().seed()).isEqualTo(42);
         assertThat(market.simulated().tokenCount()).isEqualTo(200);
-        assertThat(scanner.rateLimitPerMinute()).isEqualTo(60);
-        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("7");
+        // The integration base raises the limit for page walks; the shipped default stays 60.
+        assertThat(scanner.rateLimitPerMinute()).isEqualTo(10_000);
+        assertThat(new org.springframework.boot.env.YamlPropertySourceLoader()
+                        .load("application.yml", new org.springframework.core.io.ClassPathResource("application.yml"))
+                        .getFirst()
+                        .getProperty("memetrade.scanner.rate-limit-per-minute")
+                        .toString())
+                .isEqualTo("${SCANNER_RATE_LIMIT_PER_MINUTE:60}");
+        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("11");
         assertThat(((HikariDataSource) unwrap(dataSource)).getMaximumPoolSize()).isEqualTo(20);
     }
 

@@ -80,6 +80,30 @@ class MarketDataQueryIT extends AbstractPostgresIT {
         assertThat(query.inputsFor(token).orElseThrow().allSourcesFailed()).isTrue();
     }
 
+    /** U7 addition to C11 (BR1.10, Passo 3): decimals of the mint, KNOWN and integral, never stale. */
+    @Test
+    @Tag("u7")
+    void theDecimalsOfTheMintAreKnownWithTheSourceOfTheLastObservation() {
+        observe(a, MarketField.PRICE, "1.0", Duration.ofMinutes(10));
+        observe(b, MarketField.PRICE, "1.0", Duration.ofMinutes(1));
+
+        MarketValue.Known decimals = (MarketValue.Known) query.decimals(token);
+
+        assertThat(decimals.value().intValueExact()).isEqualTo(6);
+        assertThat(decimals.value().scale()).isZero();
+        assertThat(decimals.source()).isEqualTo(b);
+        assertThat(decimals.stale()).isFalse();
+    }
+
+    @Test
+    @Tag("u7")
+    void theDecimalsOfATokenNeverObservedAreUnknownNeverZero() {
+        assertThat(query.decimals(token))
+                .isEqualTo(new MarketValue.Unknown(UnknownReason.NOT_YET_OBSERVED, Optional.empty()));
+        assertThat(query.decimals(new TokenId("solana", SyntheticIds.mint())).isKnown())
+                .isFalse();
+    }
+
     @Test
     void aTokenWithoutObservationsIsNotYetObservedAndHasNoRiskInputs() {
         assertThat(query.referencePrice(token))

@@ -103,8 +103,14 @@ class AuthVerifyIT extends AbstractPostgresIT {
                 .isEqualTo("FORBIDDEN_ROLE");
     }
 
+    /**
+     * U1 refused the invitation fields as undeclared (400, challenge untouched). Since U3 they are part of C1: an
+     * unknown code is refused AFTER the signature with 404 INVITE_NOT_FOUND, the challenge is consumed and no account
+     * is created (BR3.2, BR3.6). Field-level refusals (tenantId, a too long version) stay 400 and leave the challenge
+     * ISSUED ({@code InviteVerificationIT}).
+     */
     @Test
-    void inviteFieldsAreNotAcceptedYetAndNothingChanges() throws Exception {
+    void sinceU3AnUnknownInvitationIsRefusedAfterTheSignatureAndNothingIsCreated() throws Exception {
         TestWallet wallet = TestWallet.generate();
         JsonNode challenge = auth.challenge(wallet);
         String message = challenge.get("message").asText();
@@ -124,8 +130,13 @@ class AuthVerifyIT extends AbstractPostgresIT {
                 .getResponse()
                 .getStatus();
 
-        assertThat(status).isEqualTo(400);
-        assertThat(challengeState(challenge.get("nonce").asText())).isEqualTo("ISSUED");
+        assertThat(status).isEqualTo(404);
+        assertThat(challengeState(challenge.get("nonce").asText())).isEqualTo("CONSUMED");
+        assertThat(jdbc.sql("select count(*) from wallet where address = :a")
+                        .param("a", wallet.address())
+                        .query(Long.class)
+                        .single())
+                .isZero();
     }
 
     @Test

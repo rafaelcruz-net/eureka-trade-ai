@@ -17,4 +17,10 @@ public interface AdminAccess {
      *     exactly one {@code REQUEST_FORBIDDEN}
      */
     Principal requireAdministrator(HttpServletRequest request);
+
+    /**
+     * U3 (C17): whether a principal handed to a module interface is an administrator, so the interface refuses any
+     * other role itself without naming the role.
+     */
+    boolean isAdministrator(Principal principal);
 }

@@ -199,8 +199,12 @@ esse estado. Antes de voltar, confirme que `sim-a` e `sim-b` já coletaram ao me
 2. Sobe `docker-compose.yml` + `infra/docker-compose.test.yml` (perfil `test`, que semeia a conta `BETA_USER` dessa
    carteira).
 3. Espera os três serviços saudáveis e a primeira coleta da fonte simulada (até 60 s).
-4. Roda os specs Playwright da U1, varre os logs da API atrás do endereço completo, derruba o ambiente e devolve
-   código diferente de zero em qualquer falha ou tempo esgotado.
+4. Roda os specs Playwright da U1 e da U2, varre os logs da API atrás do endereço completo, derruba o ambiente e
+   devolve código diferente de zero em qualquer falha ou tempo esgotado.
+
+O smoke da U4 (`e2e/u4-discovery`) já existe, mas entra na linha do Playwright do script por ação do responsável do
+projeto (o script não é editado na geração de código). Até lá, rode-o com o ambiente de teste no ar:
+`pnpm --dir apps/web exec playwright test e2e/u4-discovery`.
 
 Sem `.env`, o script gera senhas e chave efêmeras para a execução.
 

@@ -21,7 +21,7 @@ public record ProblemResponse(
 
     public static ProblemResponse of(ErrorCode code, String detail, String correlationId) {
         return new ProblemResponse(
-                code.type(), code.title(), code.status(), detail, code.name(), correlationId, null, null);
+                code.type(), code.title(), code.status(), detail, code.code(), correlationId, null, null);
     }
 
     public static ProblemResponse of(ApiException exception, String correlationId) {
@@ -32,7 +32,7 @@ public record ProblemResponse(
                 code.title(),
                 code.status(),
                 exception.getMessage(),
-                code.name(),
+                code.code(),
                 correlationId,
                 fields,
                 exception.reason());

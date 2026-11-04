@@ -224,8 +224,21 @@ class ComposeFilesTest {
     @Tag("u2")
     void everyComposeVariableIsListedInTheEnvExampleWithoutAValue() throws IOException {
         String example = read(".env.example");
-        java.util.Set<String> testOnly =
-                java.util.Set.of("SPRING_PROFILES_ACTIVE", "SMOKE_BETA_WALLET_ADDRESS", "LOGIN_RATE_LIMIT_PER_MINUTE");
+        java.util.Set<String> testOnly = java.util.Set.of(
+                "SPRING_PROFILES_ACTIVE",
+                "SMOKE_BETA_WALLET_ADDRESS",
+                "LOGIN_RATE_LIMIT_PER_MINUTE",
+                // U3: test-profile seeds and the loadtest-only lookup limit; never production variables.
+                "SMOKE_INVITE_CODE",
+                "SMOKE_INVITE_CODES",
+                "INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE",
+                // U7 (Passo 23): the size of the load cycle driver, read only by the loadtest profile.
+                "LOADTEST_LEDGER_PEOPLE",
+                "LOADTEST_FILLS_PER_PERSON",
+                "LOADTEST_CYCLE_BOTS",
+                "LOADTEST_TOKENS_PER_BOT",
+                // U7 review repair R-04: bots the driver closes during the u7 run.
+                "LOADTEST_CLOSE_BOTS");
         Matcher variables = Pattern.compile("\\$\\{([A-Z0-9_]+)")
                 .matcher(read("docker-compose.yml") + read("infra/docker-compose.test.yml"));
         java.util.Set<String> missing = new java.util.TreeSet<>();
@@ -240,6 +253,79 @@ class ComposeFilesTest {
         assertThat(missing).isEmpty();
         assertThat(example).doesNotContainPattern("(?m)^[A-Z0-9_]+=\\S");
         assertThat(example).contains("\nAUDIT_RETENTION_MONTHS=\n").contains("\nDB_OWNER_PASSWORD=\n");
+    }
+
+    /**
+     * U4 (infrastructure-specification.md): every variable of the table reaches the api with its default in both
+     * compositions, is listed without a value in .env.example and is read by application.yml with the same default.
+     */
+    @Test
+    @Tag("u4")
+    void everyU4VariableReachesTheApiWithItsDefaultAndIsListedInTheEnvExample() throws IOException {
+        Map<String, String> defaults = new java.util.LinkedHashMap<>();
+        defaults.put("DB_POOL_MAX_SIZE", "20");
+        // U7 (Passo 1): 11 since the four U7 jobs.
+        defaults.put("SCHEDULER_POOL_SIZE", "11");
+        defaults.put("MARKET_SOURCES", "sim-a,sim-b");
+        defaults.put("MARKET_COLLECTION_INTERVAL", "30s");
+        defaults.put("MARKET_SIMULATED_TOKENS_PER_SOURCE", "200");
+        defaults.put("MARKET_SIMULATED_SEED", "42");
+        defaults.put("MARKET_DIVERGENCE_TOLERANCE_PERCENT", "5.0000");
+        defaults.put("SCANNER_RATE_LIMIT_PER_MINUTE", "60");
+        String example = read(".env.example");
+        String application = read("apps/api/src/main/resources/application.yml");
+
+        for (Map<String, Map<String, Object>> services : List.of(services(false), services(true))) {
+            Map<String, Object> api = environment(services, "api");
+            defaults.forEach((name, value) ->
+                    assertThat(String.valueOf(api.get(name))).as(name).isEqualTo("${" + name + ":-" + value + "}"));
+        }
+        defaults.forEach((name, value) -> {
+            assertThat(example).as(name).contains("\n" + name + "=\n");
+            assertThat(application).as(name).contains("${" + name + ":" + value + "}");
+        });
+    }
+
+    /**
+     * U3 (Infrastructure Design review finding): the overlay passes the smoke code, the load codes and the lookup
+     * limit with their defaults (empty, empty, 10); the base file passes none of them, so daily use never seeds an
+     * invitation nor raises the limit.
+     */
+    @Test
+    @Tag("u3")
+    void theTestOverlayPassesTheU3SmokeCodesAndTheLookupLimitWithTheirDefaults() throws IOException {
+        Map<String, Object> api = environment(services(true), "api");
+
+        assertThat(String.valueOf(api.get("SMOKE_INVITE_CODE"))).isEqualTo("${SMOKE_INVITE_CODE:-}");
+        assertThat(String.valueOf(api.get("SMOKE_INVITE_CODES"))).isEqualTo("${SMOKE_INVITE_CODES:-}");
+        assertThat(String.valueOf(api.get("INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE")))
+                .isEqualTo("${INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE:-10}");
+        assertThat(read("docker-compose.yml"))
+                .doesNotContain("SMOKE_INVITE_CODE")
+                .doesNotContain("INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE");
+        assertThat(read(".env.example")).doesNotContain("SMOKE_INVITE_CODE");
+    }
+
+    /**
+     * U7 (Passo 23): only the test overlay passes the size of the load cycle driver, with defaults that keep it idle
+     * (0 people, 0 fills, 0 bots); the base file and .env.example never name it.
+     */
+    @Test
+    @Tag("u7")
+    void onlyTheTestOverlayPassesTheLoadDriverSizeAndItsDefaultsKeepItIdle() throws IOException {
+        Map<String, Object> api = environment(services(true), "api");
+
+        assertThat(String.valueOf(api.get("LOADTEST_LEDGER_PEOPLE"))).isEqualTo("${LOADTEST_LEDGER_PEOPLE:-0}");
+        assertThat(String.valueOf(api.get("LOADTEST_FILLS_PER_PERSON"))).isEqualTo("${LOADTEST_FILLS_PER_PERSON:-0}");
+        assertThat(String.valueOf(api.get("LOADTEST_CYCLE_BOTS"))).isEqualTo("${LOADTEST_CYCLE_BOTS:-0}");
+        assertThat(String.valueOf(api.get("LOADTEST_TOKENS_PER_BOT"))).isEqualTo("${LOADTEST_TOKENS_PER_BOT:-5}");
+        assertThat(String.valueOf(api.get("LOADTEST_CLOSE_BOTS"))).isEqualTo("${LOADTEST_CLOSE_BOTS:-0}");
+        assertThat(read("docker-compose.yml")).doesNotContain("LOADTEST_");
+        assertThat(read(".env.example")).doesNotContain("LOADTEST_");
+        assertThat(read("apps/api/src/main/resources/application.yml")).doesNotContain("LOADTEST_");
+        assertThat(read("apps/api/src/main/resources/application-loadtest.yml"))
+                .contains("${LOADTEST_LEDGER_PEOPLE:0}")
+                .contains("${LOADTEST_CLOSE_BOTS:0}");
     }
 
     /** Merged view of the services: the base file, and with {@code overlay} the test overlay merged on top. */

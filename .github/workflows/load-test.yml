@@ -1,9 +1,25 @@
-# Manual load test (cicd-pipeline.md Q4): profiles test,loadtest raise the login limit ONLY here; 20 simulated users,
-# one action every 2 s, for 5 minutes; fails when p95 of challenge, verify or list exceeds 300 ms.
+# Manual load test (cicd-pipeline.md Q4): profiles test,loadtest raise the login limit and, since U3, the invitation
+# lookup limit ONLY here; 20 simulated users, one action every 2 s. Scenario u1 fails when p95 of challenge, verify or
+# list exceeds 300 ms; u4 adds the filtered list and the assessment; u3 adds the verification with an invitation
+# (500 ms) and the invitation lookup and Account screen (300 ms); growth only records. U7: u7 runs the load cycle
+# driver of the loadtest profile (p95 execute 250 ms, C5 routes 1 s, query plans) and u7-jobs the 30-minute rounds of
+# the marking and the pending close (10 s each).
 name: load-test
 
 on:
   workflow_dispatch:
+    inputs:
+      scenario:
+        description: Load scenario (u1, u4, u3, growth, u7 or u7-jobs)
+        type: choice
+        options:
+          - u1
+          - u4
+          - u3
+          - growth
+          - u7
+          - u7-jobs
+        default: u1
 
 permissions:
   contents: read
@@ -25,11 +41,15 @@ jobs:
         env:
           SPRING_PROFILES_ACTIVE: test,loadtest
           LOGIN_RATE_LIMIT_PER_MINUTE: '100000'
+          INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE: '100000'
+          LOAD_SCENARIO: ${{ inputs.scenario }}
           IMAGE_TAG: ${{ github.sha }}
         run: bash scripts/load-test.sh
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: load-test-report
-          path: load-test-report.json
+          path: |
+            load-test-report.json
+            docs/perf/*.md
           retention-days: 30

@@ -75,6 +75,37 @@ public class JdbcMarketDataQuery implements MarketDataQuery, MarketRiskInputs, S
         return field(token, MarketField.LIQUIDITY);
     }
 
+    /**
+     * U7 (BR1.10): {@code token.decimals} with the source of the most recent observation of the token and the instant
+     * the token was first seen; a token without a row is {@code Unknown(NOT_YET_OBSERVED)}.
+     */
+    @Override
+    public MarketValue decimals(TokenId token) {
+        try {
+            return jdbc.sql("""
+                            select t.decimals, t.first_seen_at, s.source_id, s.name, s.simulated
+                            from token t
+                            join market_observation o on o.chain = t.chain and o.mint = t.mint
+                            join data_source s on s.source_id = o.source_id
+                            where t.chain = :chain and t.mint = :mint
+                            order by o.observed_at desc, s.source_id
+                            limit 1
+                            """)
+                    .param("chain", token.chain())
+                    .param("mint", token.mint())
+                    .query((rs, row) -> (MarketValue) new MarketValue.Known(
+                            java.math.BigDecimal.valueOf(rs.getInt("decimals")),
+                            new SourceRef(rs.getString("source_id"), rs.getString("name"), rs.getBoolean("simulated")),
+                            rs.getTimestamp("first_seen_at").toInstant(),
+                            false))
+                    .optional()
+                    .orElseGet(JdbcMarketDataQuery::notYetObserved);
+        } catch (DataAccessException failure) {
+            logFailure("decimals", failure);
+            return new MarketValue.Unknown(UnknownReason.SOURCE_UNAVAILABLE, Optional.empty());
+        }
+    }
+
     @Override
     @Transactional(readOnly = true)
     public PriceVolumeWindow window(TokenId token, Duration length) {

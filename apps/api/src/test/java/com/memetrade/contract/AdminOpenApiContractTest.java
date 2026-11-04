@@ -96,6 +96,49 @@ class AdminOpenApiContractTest extends AdminOpenApiSlice {
         assertThat(keys(schema("AuditEventPage").get("properties"))).containsExactlyInAnyOrder("items", "nextCursor");
     }
 
+    /** U3 corrections and additions to C8 (functional-spec.md): code only in the 201, suffix, dates, new answers. */
+    @Test
+    @org.junit.jupiter.api.Tag("u3")
+    void theU3InvitationRoutesFollowTheCorrectedC8() {
+        Map<String, Object> invite = schema("Invite");
+        assertThat(keys(invite.get("properties")))
+                .contains(
+                        "inviteId",
+                        "tenantId",
+                        "status",
+                        "expiresAt",
+                        "createdAt",
+                        "usedAt",
+                        "revokedAt",
+                        "codeSuffix",
+                        "code")
+                .doesNotContain("issuedBy");
+        @SuppressWarnings("unchecked")
+        List<String> required = (List<String>) invite.get("required");
+        assertThat(required).doesNotContain("code").contains("codeSuffix", "createdAt", "revokedAt");
+        assertThat(keys(schema("InvitePage").get("properties"))).containsExactlyInAnyOrder("items", "nextCursor");
+
+        Map<String, Object> issue = operation("/api/v1/admin/invites", "post");
+        assertThat(String.valueOf(issue.get("parameters")))
+                .contains("name=Idempotency-Key")
+                .contains("required=true");
+        assertThat(keys(issue.get("responses"))).contains("201", "400", "401", "403", "409", "422");
+        assertThat(String.valueOf(((Map<?, ?>) issue.get("responses")).get("422")))
+                .contains("tenantId")
+                .contains("expiresAt");
+        Map<String, Object> revoke = operation("/api/v1/admin/invites/{inviteId}/revoke", "post");
+        assertThat(keys(revoke.get("responses"))).contains("200", "404", "409");
+        assertThat(String.valueOf(((Map<?, ?>) revoke.get("responses")).get("409")))
+                .contains("INVITE_NOT_REVOCABLE");
+        Map<String, Object> list = operation("/api/v1/admin/invites", "get");
+        assertThat(String.valueOf(list.get("parameters")))
+                .contains("name=cursor")
+                .contains("name=limit")
+                .contains("maximum=100");
+        assertThat(keys(schema("IssueInviteRequest").get("properties")))
+                .containsExactlyInAnyOrder("tenantId", "expiresAt");
+    }
+
     @Test
     void everyAdministrativeOperationIsInTheRouteRegistryAsAdmin() throws Exception {
         Set<String> operations = new HashSet<>();

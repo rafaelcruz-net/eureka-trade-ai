@@ -113,7 +113,7 @@ SMOKE_WALLET_FILE="$KEY_FILE" \
   API_BASE_URL="http://localhost:8080" \
   MANAGEMENT_BASE_URL="http://localhost:8081" \
   DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB:-memetrade}" \
-  "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail
+  "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery
 
 log "scanning the API logs for the full wallet address (NFR7.3)"
 if "${COMPOSE[@]}" logs --no-color api | grep -qF "$SMOKE_BETA_WALLET_ADDRESS"; then

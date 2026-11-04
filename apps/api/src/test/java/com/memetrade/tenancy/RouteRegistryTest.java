@@ -35,14 +35,71 @@ class RouteRegistryTest {
         assertThat(RouteRegistry.load().clientEntriesWithoutNegativeTest()).isEmpty();
     }
 
+    /**
+     * U1 started without CLIENT routes; U3 adds the first one, the caller's own account (NFR5.1); U7 adds the PAPER
+     * ledger and P&L routes of C5, each with its cross-tenant negative test.
+     */
     @Test
-    void inU1TheRegistryStartsWithoutClientRoutes() throws Exception {
+    void theClientRoutesAreTheAccountOfU3AndTheLedgerOfU7AndEveryScopeIsKnown() throws Exception {
         RouteRegistry registry = RouteRegistry.load();
 
-        assertThat(registry.routes()).extracting(RouteRegistry.Entry::scope).doesNotContain("CLIENT");
+        assertThat(registry.routes())
+                .filteredOn(entry -> "CLIENT".equals(entry.scope()))
+                .extracting(RouteRegistry.Entry::key)
+                .containsExactlyInAnyOrder(
+                        "GET /api/v1/account",
+                        "GET /api/v1/bots/{botId}/trades",
+                        "GET /api/v1/bots/{botId}/day-usage",
+                        "GET /api/v1/ledger",
+                        "GET /api/v1/pnl",
+                        "GET /api/v1/reconciliation",
+                        "POST /api/v1/reconciliation/run");
         assertThat(registry.routes())
                 .extracting(RouteRegistry.Entry::scope)
-                .allMatch(s -> Set.of("GLOBAL", "SESSION", "ADMIN").contains(s));
+                .allMatch(s -> Set.of("GLOBAL", "SESSION", "ADMIN", "CLIENT").contains(s));
+    }
+
+    /** U3 (NFR5.2): tenantFromClient is a named exception of ADMIN routes only; today only the issuance has it. */
+    @Test
+    @org.junit.jupiter.api.Tag("u3")
+    void theTenantFromClientMarkIsOnlyOnTheInvitationIssuanceAndOnlyInAdminEntries() throws Exception {
+        RouteRegistry registry = RouteRegistry.load();
+
+        assertThat(registry.tenantFromClientOutsideAdmin()).isEmpty();
+        assertThat(registry.tenantFromClientRoutes()).containsExactly("POST /api/v1/admin/invites");
+    }
+
+    @Test
+    @org.junit.jupiter.api.Tag("u3")
+    void aGlobalOrClientEntryWithTheTenantFromClientMarkFailsTheCheck() {
+        RouteRegistry registry = RouteRegistry.of(
+                List.of(
+                        new RouteRegistry.Entry("GET /api/v1/x", "GLOBAL", null, true),
+                        new RouteRegistry.Entry("GET /api/v1/y", "CLIENT", "a#b", true),
+                        new RouteRegistry.Entry("POST /api/v1/admin/z", "ADMIN", "a#b", true)),
+                List.of(new RouteRegistry.Entry("SomeJob", "GLOBAL", null, true)));
+
+        assertThat(registry.tenantFromClientOutsideAdmin())
+                .containsExactly("GET /api/v1/x", "GET /api/v1/y", "SomeJob");
+    }
+
+    @Test
+    @org.junit.jupiter.api.Tag("u3")
+    void theFiveU3RoutesAreRegisteredWithTheirScopesAndNegativeTests() throws Exception {
+        RouteRegistry registry = RouteRegistry.load();
+
+        assertThat(registry.routes())
+                .filteredOn(
+                        entry -> entry.key().contains("/invites") || entry.key().contains("/account"))
+                .extracting(RouteRegistry.Entry::key, RouteRegistry.Entry::scope)
+                .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("GET /api/v1/invites/{code}", "GLOBAL"),
+                        org.assertj.core.groups.Tuple.tuple("GET /api/v1/account", "CLIENT"),
+                        org.assertj.core.groups.Tuple.tuple("GET /api/v1/admin/invites", "ADMIN"),
+                        org.assertj.core.groups.Tuple.tuple("POST /api/v1/admin/invites", "ADMIN"),
+                        org.assertj.core.groups.Tuple.tuple("POST /api/v1/admin/invites/{inviteId}/revoke", "ADMIN"));
+        assertThat(registry.clientEntriesWithoutNegativeTest()).isEmpty();
+        assertThat(registry.adminEntriesWithoutNegativeTest()).isEmpty();
     }
 
     @Test

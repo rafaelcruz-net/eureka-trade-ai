@@ -3,13 +3,23 @@ import type { components } from '@/lib/api/schema';
 
 export type Problem = components['schemas']['Problem'];
 
-/** An API failure: HTTP status plus the RFC 7807 code and reason when the server sent them. */
+export type FieldError = { field: string; message: string };
+export type SourceStatusProblem = components['schemas']['SourceStatus'];
+
+/**
+ * An API failure: HTTP status plus the RFC 7807 code and reason when the server sent them, the refused fields of a
+ * 400 and, for 503 SOURCE_UNAVAILABLE, the state of each market source.
+ */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
     readonly reason?: string,
     readonly correlationId?: string,
+    readonly fields: FieldError[] = [],
+    readonly sources: SourceStatusProblem[] = [],
+    /** Seconds of the Retry-After header of a 429 (U3 invitation lookup), when the server sent one. */
+    readonly retryAfterSeconds?: number,
   ) {
     super(`${status} ${code}`);
     this.name = 'ApiError';
@@ -112,9 +122,9 @@ async function parse<T>(response: Response): Promise<T> {
   if (response.ok) {
     return (response.status === 204 ? undefined : await response.json()) as T;
   }
-  let problem: Partial<Problem> = {};
+  let problem: Partial<Problem> & { sources?: SourceStatusProblem[] } = {};
   try {
-    problem = (await response.json()) as Partial<Problem>;
+    problem = (await response.json()) as Partial<Problem> & { sources?: SourceStatusProblem[] };
   } catch {
     problem = {};
   }
@@ -123,7 +133,21 @@ async function parse<T>(response: Response): Promise<T> {
     problem.code ?? 'HTTP_ERROR',
     problem.reason,
     problem.correlationId,
+    (problem.fields ?? []).map((field) => ({
+      field: field.field ?? '',
+      message: field.message ?? '',
+    })),
+    problem.sources ?? [],
+    retryAfter(response),
   );
+}
+
+function retryAfter(response: Response): number | undefined {
+  const value = response.headers?.get?.('Retry-After');
+  if (!value || !/^\d+$/.test(value)) {
+    return undefined;
+  }
+  return Number(value);
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;

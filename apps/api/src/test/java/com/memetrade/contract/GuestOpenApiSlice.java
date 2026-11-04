@@ -36,7 +36,17 @@ import org.springframework.transaction.support.TransactionTemplate;
  * check runs in the unit phase. Services are mocks: only the shapes matter here.
  */
 @Tag("u1")
-@WebMvcTest(controllers = {AuthController.class, ScannerController.class})
+@WebMvcTest(
+        controllers = {
+            AuthController.class,
+            ScannerController.class,
+            com.memetrade.scanner.web.AssessmentController.class,
+            com.memetrade.identity.web.InviteLookupController.class,
+            com.memetrade.identity.web.AccountController.class,
+            // U7 (C5): PAPER ledger and P&L of the caller.
+            com.memetrade.ledger.web.LedgerController.class,
+            com.memetrade.pnl.web.PnlController.class
+        })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
     SpringDocConfiguration.class,
@@ -80,6 +90,12 @@ public abstract class GuestOpenApiSlice {
     ScannerService scannerService;
 
     @MockitoBean
+    com.memetrade.riskassessment.api.RiskAssessmentDetails riskAssessmentDetails;
+
+    @MockitoBean
+    com.memetrade.shared.web.PersonRouteRateLimiter personRouteRateLimiter;
+
+    @MockitoBean
     ForbiddenRequestRecorder forbiddenRequestRecorder;
 
     @MockitoBean
@@ -90,6 +106,35 @@ public abstract class GuestOpenApiSlice {
 
     @MockitoBean
     io.micrometer.core.instrument.MeterRegistry meterRegistry;
+
+    /** U3 (C3): invitation lookup and Account screen. */
+    @MockitoBean
+    com.memetrade.identity.domain.invite.InviteLookupService inviteLookupService;
+
+    @MockitoBean
+    com.memetrade.identity.domain.ratelimit.InviteLookupRateLimiter inviteLookupRateLimiter;
+
+    @MockitoBean
+    com.memetrade.identity.web.ClientIpResolver clientIpResolver;
+
+    @MockitoBean
+    com.memetrade.identity.domain.account.AccountQueryService accountQueryService;
+
+    /** U7 (C5): ledger, P&L and reconciliation. */
+    @MockitoBean
+    com.memetrade.ledger.application.LedgerQueries ledgerQueries;
+
+    @MockitoBean
+    com.memetrade.pnl.application.PnlQueryService pnlQueryService;
+
+    @MockitoBean
+    com.memetrade.pnl.application.ReconciliationService reconciliationService;
+
+    @MockitoBean
+    com.memetrade.pnl.web.ReconciliationRunLimiter reconciliationRunLimiter;
+
+    @MockitoBean
+    org.springframework.transaction.PlatformTransactionManager platformTransactionManager;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/guest"))

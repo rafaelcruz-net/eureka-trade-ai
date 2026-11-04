@@ -27,6 +27,8 @@ public final class SensitiveValueScanner {
         NONCE,
         SIGNATURE,
         WALLET_ADDRESS,
+        /** U3 (BR2.3, NFR6.4): the full invitation code; never allowed anywhere, not even in audit details. */
+        INVITE_CODE,
         JWT,
         AUTHORIZATION_HEADER,
         BEARER_PREFIX

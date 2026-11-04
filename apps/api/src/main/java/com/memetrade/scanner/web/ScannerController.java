@@ -45,7 +45,8 @@ public class ScannerController {
     public ScannerController(ScannerService scanner, AuthContext auth, MeterRegistry registry) {
         this.scanner = scanner;
         this.auth = auth;
-        this.excluded = DistributionSummary.builder("scanner_excluded_by_unknown").register(registry);
+        this.excluded =
+                DistributionSummary.builder("scanner_excluded_by_unknown").register(registry);
     }
 
     @Operation(
@@ -57,21 +58,24 @@ public class ScannerController {
                 @ApiResponse(
                         responseCode = "400",
                         description = "VALIDATION_FAILED com a lista de campos (BR2.7)",
-                        content = @Content(
-                                mediaType = ProblemWriter.PROBLEM_JSON,
-                                schema = @Schema(implementation = ProblemResponse.class))),
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class))),
                 @ApiResponse(
                         responseCode = "429",
                         description = "RATE_LIMITED, com Retry-After",
-                        content = @Content(
-                                mediaType = ProblemWriter.PROBLEM_JSON,
-                                schema = @Schema(implementation = ProblemResponse.class))),
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class))),
                 @ApiResponse(
                         responseCode = "503",
                         description = "SOURCE_UNAVAILABLE quando todas as fontes falham (AC2.3.3)",
-                        content = @Content(
-                                mediaType = ProblemWriter.PROBLEM_JSON,
-                                schema = @Schema(implementation = SourceUnavailableProblemDto.class)))
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = SourceUnavailableProblemDto.class)))
             })
     @GetMapping("/api/v1/scanner/tokens")
     public ScannerPageDto list(
@@ -79,10 +83,19 @@ public class ScannerController {
             @Parameter(schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "50"))
                     @RequestParam(required = false)
                     String limit,
-            @Parameter(schema = @Schema(type = "string", allowableValues = {"AGE", "LIQUIDITY", "VOLUME_24H", "HOLDERS", "RISK_SCORE"}))
+            @Parameter(
+                            schema =
+                                    @Schema(
+                                            type = "string",
+                                            allowableValues = {"AGE", "LIQUIDITY", "VOLUME_24H", "HOLDERS", "RISK_SCORE"
+                                            }))
                     @RequestParam(required = false)
                     String sort,
-            @Parameter(schema = @Schema(type = "string", allowableValues = {"ASC", "DESC"}))
+            @Parameter(
+                            schema =
+                                    @Schema(
+                                            type = "string",
+                                            allowableValues = {"ASC", "DESC"}))
                     @RequestParam(required = false)
                     String order,
             @Parameter(schema = @Schema(type = "string", pattern = ScannerDtos.DECIMAL)) @RequestParam(required = false)

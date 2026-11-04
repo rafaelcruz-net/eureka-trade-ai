@@ -44,7 +44,21 @@ export function middleware(request: NextRequest) {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Referrer-Policy', 'no-referrer');
+  if (isPrivatePage(request.nextUrl.pathname)) {
+    // U3 (NFR6.5): the invitation page carries the code in its path and the Account screen carries personal data.
+    response.headers.set('Cache-Control', 'no-store');
+  }
   return response;
+}
+
+/** /convite, /convite/<code> and /conta are never cached by the browser or an intermediary. */
+export function isPrivatePage(pathname: string): boolean {
+  return (
+    pathname === '/convite' ||
+    pathname.startsWith('/convite/') ||
+    pathname === '/conta' ||
+    pathname.startsWith('/conta/')
+  );
 }
 
 export const config = {

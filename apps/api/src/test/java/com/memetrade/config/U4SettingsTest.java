@@ -75,13 +75,13 @@ class U4SettingsTest {
 
     @Test
     void thePoolSizesAreCheckedAtStartUpNamingTheVariable() {
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("20", "7"))).doesNotThrowAnyException();
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("20", "11"))).doesNotThrowAnyException();
         assertThatCode(() -> new RuntimeSettingsGuard(new MockEnvironment())).doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("9", "7")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("9", "11")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("51", "7")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("51", "11")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("twenty", "7")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("twenty", "11")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE");
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("20", "6")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");

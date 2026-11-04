@@ -79,8 +79,9 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
                 .contains("status", "value", "source", "observedAt", "stale");
     }
 
+    /** U1 shipped the five market fields without risk; U4 completes C2 with the risk summary of each row. */
     @Test
-    void theMinimalScannerRowHasTheFiveMarketFieldsAndNoRisk() {
+    void theScannerRowHasTheFiveMarketFieldsAndSinceU4TheRisk() {
         Map<String, Object> row = schema("ScannerRow");
 
         assertThat(keys(row.get("properties")))
@@ -93,10 +94,137 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
                         "liquidity",
                         "volume24h",
                         "holders",
-                        "ageMinutes")
-                .doesNotContain("risk");
+                        "ageMinutes",
+                        "risk");
         assertThat(strings(schema("ScannerPage").get("required")))
                 .contains("items", "nextCursor", "total", "sources", "excludedByUnknown", "pendingNewTokens");
+    }
+
+    /** U4 additions to C2 (functional-spec.md, "Acréscimos a contratos"). */
+    @Test
+    @org.junit.jupiter.api.Tag("u4")
+    void theU4AdditionsToC2AreInTheSpecification() {
+        assertThat(String.valueOf(schema("SourceStatus"))).contains("PENDING");
+        assertThat(strings(schema("SourceStatus").get("required"))).doesNotContain("lastUpdatedAt");
+        assertThat(keys(schema("Assessment").get("properties")))
+                .contains("computedAt", "bandRaisedByUnknown", "inValidation", "decisionHint", "factors");
+        assertThat(keys(schema("SourceUnavailableProblem").get("properties"))).contains("sources", "code");
+        assertThat(keys(schema("KnownValue").get("properties"))).contains("divergence");
+        assertThat(schema("RiskSummary")).containsKey("oneOf");
+        assertThat(String.valueOf(operation("/api/v1/scanner/tokens", "get").get("responses")))
+                .contains("429")
+                .contains("503");
+        assertThat(paths()).containsKey("/api/v1/tokens/{chain}/{mint}/assessment");
+        assertThat(String.valueOf(operation("/api/v1/scanner/tokens", "get").get("parameters")))
+                .contains("name=minLiquidity")
+                .contains("name=maxRiskScore")
+                .doesNotContain("name=parameters");
+    }
+
+    /** U3 corrections and additions to C1 and C3 (functional-spec.md "Acréscimos e correções a contratos"). */
+    @Test
+    @org.junit.jupiter.api.Tag("u3")
+    void theU3AdditionsToC1AndC3AreInTheSpecification() {
+        Map<String, Object> verify = schema("VerifyRequest");
+        assertThat(keys(verify.get("properties"))).contains("inviteCode", "acceptedTermsVersion");
+        assertThat(strings(verify.get("required"))).doesNotContain("inviteCode", "acceptedTermsVersion");
+        assertThat(verify.get("additionalProperties")).isEqualTo(false);
+        assertThat(String.valueOf(verify)).contains("maxLength=32").doesNotContain("tenantId");
+        Map<String, Object> verifyResponses = responses("/api/v1/auth/verify", "post");
+        assertThat(verifyResponses.keySet()).contains("401", "403", "404", "409", "422");
+        assertThat(String.valueOf(verifyResponses.get("409"))).contains("WALLET_ALREADY_LINKED");
+        assertThat(String.valueOf(verifyResponses.get("422")))
+                .contains("INVITE_INVALID")
+                .contains("TENANT_INACTIVE")
+                .contains("TERMS_NOT_ACCEPTED");
+        assertThat(String.valueOf(verifyResponses.get("404"))).contains("INVITE_NOT_FOUND");
+
+        Map<String, Object> lookup = operation("/api/v1/invites/{code}", "get");
+        assertThat(lookup.get("security")).isNull();
+        assertThat(responses("/api/v1/invites/{code}", "get").keySet()).containsExactlyInAnyOrder("200", "404", "429");
+        assertThat(String.valueOf(responses("/api/v1/invites/{code}", "get").get("429")))
+                .contains("Retry-After");
+        assertThat(strings(schema("InviteLookup").get("required")))
+                .containsExactlyInAnyOrder("status", "expiresAt", "termsVersion", "termsText", "riskNoticeText");
+        assertThat(keys(schema("InviteLookup").get("properties"))).doesNotContain("tenantId", "inviteId", "code");
+
+        assertThat(String.valueOf(operation("/api/v1/account", "get").get("security")))
+                .contains("accessToken");
+        Map<String, Object> account = schema("Account");
+        assertThat(strings(account.get("required")))
+                .containsExactlyInAnyOrder("walletAddressMasked", "provider", "sessionExpiresAt", "realMode");
+        assertThat(String.valueOf(account.get("properties")))
+                .contains("UNAVAILABLE")
+                .contains("acceptedTerms");
+        assertThat(strings(schema("AcceptedTerms").get("required")))
+                .contains("version", "acceptedAt", "termsText", "riskNoticeText");
+        assertThat(operation("/api/v1/account", "get").get("parameters")).isNull();
+    }
+
+    /** U7 (C5, functional-spec.md "Acréscimos e correções a contratos"; NFR6.3). */
+    @Test
+    @org.junit.jupiter.api.Tag("u7")
+    void theRoutesOfC5AndTheirU7AdditionsAreInTheSpecification() {
+        assertThat(paths())
+                .containsKeys(
+                        "/api/v1/bots/{botId}/trades",
+                        "/api/v1/bots/{botId}/day-usage",
+                        "/api/v1/ledger",
+                        "/api/v1/pnl",
+                        "/api/v1/reconciliation",
+                        "/api/v1/reconciliation/run");
+        assertThat(String.valueOf(schema("LedgerEntry"))).contains("FUNDING").contains("COMPENSATION");
+        assertThat(keys(schema("PaperTrade").get("properties")))
+                .contains(
+                        "requestedQuantity",
+                        "filledQuantity",
+                        "status",
+                        "notFilledReason",
+                        "spreadPct",
+                        "impactPct",
+                        "liquidityConsumedPct",
+                        "marketSource",
+                        "marketObservedAt",
+                        "limitsVersion",
+                        "idempotencyKey");
+        assertThat(strings(schema("PnlReport").get("required"))).contains("empty", "unrealizedAsOf", "partial");
+        assertThat(schema("PnlAmount")).containsKey("oneOf");
+        assertThat(String.valueOf(schema("PnlUnknown")))
+                .contains("PRICE_UNKNOWN")
+                .contains("NO_LIQUIDITY");
+        assertThat(String.valueOf(schema("ReconciliationDivergence")))
+                .contains("POSITION_MISMATCH")
+                .contains("SUMMARY_MISMATCH");
+        assertThat(keys(schema("DayUsage").get("properties")))
+                .containsExactlyInAnyOrder("exposure", "dayLoss", "utcDay");
+        assertThat(String.valueOf(
+                        operation("/api/v1/reconciliation/run", "post").get("parameters")))
+                .contains("name=Idempotency-Key")
+                .contains("required=true");
+        assertThat(String.valueOf(
+                        responses("/api/v1/reconciliation/run", "post").get("429")))
+                .contains("Retry-After");
+    }
+
+    /** U7 (BR4.3, NFR6.3): no route changes or deletes the ledger; only "check now" is a POST, and it only reads. */
+    @Test
+    @org.junit.jupiter.api.Tag("u7")
+    void noWriteVerbExistsUnderTheLedgerThePnlAndTheTrades() {
+        paths().forEach((path, item) -> {
+            if (path.startsWith("/api/v1/ledger")
+                    || path.startsWith("/api/v1/pnl")
+                    || path.contains("/trades")
+                    || path.contains("/day-usage")
+                    || path.equals("/api/v1/reconciliation")) {
+                assertThat(keys(item)).as(path).containsExactly("get");
+            }
+        });
+        assertThat(keys(paths().get("/api/v1/reconciliation/run"))).containsExactly("post");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> responses(String path, String method) {
+        return (Map<String, Object>) operation(path, method).get("responses");
     }
 
     @Test

@@ -32,7 +32,9 @@ public class LoginVerificationService {
     private final AuditEventPublisher audit;
     private final LoginSettings settings;
     private final Clock clock;
+    private final InviteAccountCreation invitations;
 
+    /** U1 wiring (no invitation path): a verification with an invitation code is refused as unknown invitation. */
     public LoginVerificationService(
             LoginChallengeRepository challenges,
             AccountRepository accounts,
@@ -41,6 +43,18 @@ public class LoginVerificationService {
             AuditEventPublisher audit,
             LoginSettings settings,
             Clock clock) {
+        this(challenges, accounts, sessions, signatures, audit, settings, clock, null);
+    }
+
+    public LoginVerificationService(
+            LoginChallengeRepository challenges,
+            AccountRepository accounts,
+            SessionService sessions,
+            Ed25519SignatureVerifier signatures,
+            AuditEventPublisher audit,
+            LoginSettings settings,
+            Clock clock,
+            InviteAccountCreation invitations) {
         this.challenges = challenges;
         this.accounts = accounts;
         this.sessions = sessions;
@@ -48,6 +62,7 @@ public class LoginVerificationService {
         this.audit = audit;
         this.settings = settings;
         this.clock = clock;
+        this.invitations = invitations;
     }
 
     @Transactional
@@ -86,6 +101,10 @@ public class LoginVerificationService {
         if (signature != Ed25519SignatureVerifier.Result.VALID) {
             return reject(command, RejectionReason.WRONG_SIGNER, now);
         }
+        if (command.inviteCode() != null) {
+            return createWithInvitation(command, challenge, now);
+        }
+        // BR3.8: without an invitation the U1 rules apply unchanged; acceptedTermsVersion alone is ignored.
         if (settings.adminWalletAddresses().contains(challenge.walletAddress())) {
             return reject(command, RejectionReason.ADMIN_WALLET, now);
         }
@@ -106,6 +125,44 @@ public class LoginVerificationService {
         return new VerificationOutcome.Accepted(opened);
     }
 
+    /** U3 F5: the challenge is already CONSUMED; refusals keep it consumed and commit one LOGIN_REJECTED (BR3.6). */
+    private VerificationOutcome createWithInvitation(VerifyCommand command, LoginChallenge challenge, Instant now) {
+        if (invitations == null) {
+            return reject(command, RejectionReason.INVITE_NOT_FOUND, now);
+        }
+        InviteAccountCreation.Result result = invitations.create(
+                new InviteAccountCreation.Request(
+                        challenge.walletAddress(),
+                        command.provider(),
+                        command.inviteCode(),
+                        command.acceptedTermsVersion(),
+                        command.correlationId()),
+                now);
+        return switch (result) {
+            case InviteAccountCreation.Result.Created created -> new VerificationOutcome.Accepted(created.session());
+            case InviteAccountCreation.Result.Refused refused -> reject(command, refused.reason(), now);
+        };
+    }
+
+    /**
+     * BR3.7 / NFR6.9: the verification transaction was rolled back by a unique violation of the wallet (a concurrent
+     * creation won). In a NEW transaction the challenge becomes CONSUMED (when it is still ISSUED) and exactly one
+     * LOGIN_REJECTED is written before the answer, so the signature never becomes valid again.
+     */
+    @Transactional
+    public VerificationOutcome rejectAfterRollback(VerifyCommand command, RejectionReason reason) {
+        Instant now = clock.instant();
+        LoginMessage.parse(command.message())
+                .flatMap(parsed -> challenges.findByNonce(parsed.nonce()))
+                .filter(challenge -> challenge.state() == ChallengeState.ISSUED)
+                .ifPresent(challenge -> {
+                    if (!challenges.consume(challenge.nonce(), now)) {
+                        challenges.expire(challenge.nonce());
+                    }
+                });
+        return reject(command, reason, now);
+    }
+
     private VerificationOutcome reject(VerifyCommand command, RejectionReason reason, Instant now) {
         boolean validAddress = WalletAddress.isValid(command.walletAddress());
         Map<String, String> details = new HashMap<>();
@@ -123,14 +180,29 @@ public class LoginVerificationService {
         return new VerificationOutcome.Rejected(reason);
     }
 
-    /** Verification input (exactly the fields of C1 accepted in U1) plus the request correlation id. */
+    /**
+     * Verification input (the fields of C1) plus the request correlation id. {@code inviteCode} and
+     * {@code acceptedTermsVersion} arrive with U3 and are {@code null} in a sign-in without invitation.
+     */
     public record VerifyCommand(
-            String walletAddress, String message, String signature, String provider, String correlationId) {
+            String walletAddress,
+            String message,
+            String signature,
+            String provider,
+            String correlationId,
+            String inviteCode,
+            String acceptedTermsVersion) {
+
+        /** U1 sign-in without invitation. */
+        public VerifyCommand(
+                String walletAddress, String message, String signature, String provider, String correlationId) {
+            this(walletAddress, message, signature, provider, correlationId, null, null);
+        }
 
         @Override
         public String toString() {
-            // Message (nonce) and signature never reach logs (BR4.3).
-            return "VerifyCommand[provider=" + provider + "]";
+            // Message (nonce), signature and invitation code never reach logs (BR4.3, BR2.3).
+            return "VerifyCommand[provider=" + provider + ", invite=" + (inviteCode != null) + "]";
         }
     }
 }

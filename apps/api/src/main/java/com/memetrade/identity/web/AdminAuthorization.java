@@ -35,11 +35,25 @@ public class AdminAuthorization implements AdminAccess {
         return principal.isPresent() && principal.get().role() == Role.ADMIN;
     }
 
+    @Override
+    public boolean isAdministrator(Principal principal) {
+        return isAdministrator(Optional.ofNullable(principal));
+    }
+
     /** Records the refusal once and returns the {@code 403 FORBIDDEN_ROLE} to answer. */
     public ApiException refuse(HttpServletRequest request) {
         recorder.record(request, ErrorCode.FORBIDDEN_ROLE, REASON);
         return new ApiException(ErrorCode.FORBIDDEN_ROLE, "Only an administrator can use this route.");
     }
+
+    /** U4: an administrator token on a guest route; recorded once as {@code REQUEST_FORBIDDEN}. */
+    public ApiException refuseOnGuestRoute(HttpServletRequest request) {
+        recorder.record(request, ErrorCode.FORBIDDEN_ROLE, GUEST_ROUTE_REASON);
+        return new ApiException(
+                ErrorCode.FORBIDDEN_ROLE, "The administrator token is valid only on administrative routes.");
+    }
+
+    static final String GUEST_ROUTE_REASON = "GUEST_ROUTE";
 
     @Override
     public Principal requireAdministrator(HttpServletRequest request) {

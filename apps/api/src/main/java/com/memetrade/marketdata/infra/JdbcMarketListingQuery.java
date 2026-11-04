@@ -100,11 +100,9 @@ public class JdbcMarketListingQuery implements MarketListingQuery {
     public String explain(ListingRequest request) {
         Sql sql = build(request, clock.instant());
         StringBuilder plan = new StringBuilder();
-        new Sql("explain " + sql.text(), sql.params())
-                .statement(jdbc)
-                .query(rs -> {
-                    plan.append(rs.getString(1)).append('\n');
-                });
+        new Sql("explain " + sql.text(), sql.params()).statement(jdbc).query(rs -> {
+            plan.append(rs.getString(1)).append('\n');
+        });
         return plan.toString();
     }
 
@@ -159,25 +157,13 @@ public class JdbcMarketListingQuery implements MarketListingQuery {
                   select t.chain, t.mint, t.symbol, t.name, t.first_seen_at
                   from token t
                   where exists (select 1 from market_observation r join live l on l.source_id = r.source_id
-                                where r.chain = t.chain and r.mint = t.mint and r.observed_at >= :since)
-                ),
-                picked as (
-                  select distinct on (o.chain, o.mint, o.field) o.chain, o.mint, o.field, o.value
-                  from market_observation o
-                  join live l on l.source_id = o.source_id
-                  join cand c on c.chain = o.chain and c.mint = o.mint
-                  where o.status = 'KNOWN' and o.field in ('LIQUIDITY', 'VOLUME_24H', 'HOLDERS', 'CREATED_AT')
-                  order by o.chain, o.mint, o.field, o.observed_at desc, o.source_id
+                                where r.chain = t.chain and r.mint = t.mint and r.observed_at >= :since%s)
                 ),
                 pivot as (
                   select c.chain, c.mint, c.symbol, c.name, c.first_seen_at,
-                         max(p.value) filter (where p.field = 'LIQUIDITY') as liquidity,
-                         max(p.value) filter (where p.field = 'VOLUME_24H') as volume,
-                         max(p.value) filter (where p.field = 'HOLDERS') as holders,
-                         max(p.value) filter (where p.field = 'CREATED_AT') as created,
+                         %s as liquidity, %s as volume, %s as holders, %s as created,
                          %s as has_source
-                  from cand c left join picked p on p.chain = c.chain and p.mint = c.mint
-                  group by c.chain, c.mint, c.symbol, c.name, c.first_seen_at
+                  from cand c
                 ),
                 scored as (
                   select v.*, ra.status as risk_status, ra.score as stored_score, ra.band as risk_band,
@@ -206,8 +192,13 @@ public class JdbcMarketListingQuery implements MarketListingQuery {
                   order by grp, sort_value %s, mint collate "C", chain collate "C"
                   limit :limit
                 ) p on true
-                """
-                .formatted(
+                """.formatted(
+                        // A source filter narrows the candidates at once: a token of another source fails it anyway.
+                        filters.sourceId().isPresent() ? " and r.source_id = :sourceId" : "",
+                        pick("LIQUIDITY"),
+                        pick("VOLUME_24H"),
+                        pick("HOLDERS"),
+                        pick("CREATED_AT"),
                         hasSource,
                         fails.isEmpty() ? "false" : String.join(" or ", fails),
                         unknowns.isEmpty() ? "false" : String.join(" or ", unknowns),
@@ -215,6 +206,18 @@ public class JdbcMarketListingQuery implements MarketListingQuery {
                         keyset,
                         descending ? "desc" : "asc");
         return new Sql(text, params);
+    }
+
+    /**
+     * Stage 2 for one field: the most recent KNOWN value among the live sources, ties to the smallest source id (BR1.2),
+     * read through the index {@code (chain, mint, field, observed_at DESC, source_id)} per token. A lookup per token
+     * keeps the plan the same whatever the table statistics say (a bulk collection can leave them behind).
+     */
+    private static String pick(String field) {
+        return "(select o.value from market_observation o where o.chain = c.chain and o.mint = c.mint"
+                + " and o.field = '" + field + "' and o.status = 'KNOWN'"
+                + " and o.source_id in (select source_id from live)"
+                + " order by o.observed_at desc, o.source_id limit 1)";
     }
 
     /** AGE ascending lists the youngest first: the creation time descending (stable between pages, BR2.6). */
@@ -268,10 +271,10 @@ public class JdbcMarketListingQuery implements MarketListingQuery {
         List<String> chains =
                 page.stream().map(r -> r.token().chain()).distinct().toList();
         List<String> mints = page.stream().map(r -> r.token().mint()).toList();
-        Map<TokenId, Map<MarketField, List<SourcedObservation>>> all = StoredObservations.read(jdbc.sql(
-                        StoredObservations.COLUMNS + " where o.chain in (:chains) and o.mint in (:mints)")
-                .param("chains", chains)
-                .param("mints", mints));
+        Map<TokenId, Map<MarketField, List<SourcedObservation>>> all = StoredObservations.read(
+                jdbc.sql(StoredObservations.COLUMNS + " where o.chain in (:chains) and o.mint in (:mints)")
+                        .param("chains", chains)
+                        .param("mints", mints));
         all.keySet().retainAll(page.stream().map(Row::token).toList());
         return all;
     }

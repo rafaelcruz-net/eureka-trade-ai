@@ -24,7 +24,8 @@ public record ScannerQuery(Filters filters, SortField sort, SortOrder order, Opt
     /** Summary of the filters, kept in the cursor: a cursor of another query is refused (BR2.7). */
     public String filtersDigest() {
         String canonical = "minLiquidity=" + text(filters.minLiquidity())
-                + "|maxAgeMinutes=" + filters.maxAgeMinutes().map(String::valueOf).orElse("")
+                + "|maxAgeMinutes="
+                + filters.maxAgeMinutes().map(String::valueOf).orElse("")
                 + "|minVolume24h=" + text(filters.minVolume24h())
                 + "|minHolders=" + text(filters.minHolders())
                 + "|maxRiskScore=" + filters.maxRiskScore().map(String::valueOf).orElse("")

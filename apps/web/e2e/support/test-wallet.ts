@@ -1,4 +1,10 @@
-import { createPrivateKey, createPublicKey, sign, type KeyObject } from 'node:crypto';
+import {
+  createPrivateKey,
+  createPublicKey,
+  generateKeyPairSync,
+  sign,
+  type KeyObject,
+} from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { Page } from '@playwright/test';
 
@@ -31,6 +37,33 @@ export function loadSmokeWallet(file = process.env.SMOKE_WALLET_FILE): SmokeWall
   const key = createPrivateKey({ key: der, format: 'der', type: 'pkcs8' });
   const spki = createPublicKey(key).export({ format: 'der', type: 'spki' });
   return { address, key, publicKey: Array.from(spki.subarray(spki.length - 32)) };
+}
+
+const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function base58(bytes: Uint8Array): string {
+  let value = BigInt(`0x${Buffer.from(bytes).toString('hex') || '0'}`);
+  let out = '';
+  while (value > 0n) {
+    out = BASE58[Number(value % 58n)] + out;
+    value /= 58n;
+  }
+  for (const byte of bytes) {
+    if (byte !== 0) break;
+    out = `1${out}`;
+  }
+  return out;
+}
+
+/**
+ * U3: a FRESH wallet generated in this test process (never production code, never a real wallet), different from the
+ * seeded smoke account of U1, so the invitation creates a new account.
+ */
+export function generateTestWallet(): SmokeWallet {
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  const spki = publicKey.export({ format: 'der', type: 'spki' });
+  const raw = spki.subarray(spki.length - 32);
+  return { address: base58(raw), key: privateKey, publicKey: Array.from(raw) };
 }
 
 export function signWith(wallet: SmokeWallet, message: string): Buffer {

@@ -3,6 +3,29 @@ info:
   title: MemeTrade guest API
   version: 1.0.0
 paths:
+  /api/v1/account:
+    get:
+      operationId: getAccount
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+          description: Conta da própria pessoa; Cache-Control no-store
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED; o app tenta renovar e depois leva à entrada
+            com a tela de origem
+      security:
+      - accessToken: []
+      summary: "Dados da conta: carteira abreviada, provedor, fim da sessão e termos\
+        \ aceitos (US1.5)"
+      tags:
+      - account-controller
   /api/v1/auth/challenge:
     post:
       operationId: issueChallenge
@@ -102,10 +125,312 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: FORBIDDEN_ROLE quando a carteira é a de administrador
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "INVITE_NOT_FOUND: código do convite desconhecido ou mal formado\
+            \ (U3)"
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "WALLET_ALREADY_LINKED: a carteira já tem conta; o convite\
+            \ continua pendente (U3)"
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "INVITE_INVALID com reason EXPIRED, REVOKED, USED ou TENANT_INACTIVE;\
+            \ ou TERMS_NOT_ACCEPTED (U3)"
       summary: Verifica a assinatura e abre a sessão; o cookie de renovação vem em
         Set-Cookie
       tags:
       - auth-controller
+  /api/v1/bots/{botId}/day-usage:
+    get:
+      operationId: getBotDayUsage
+      parameters:
+      - in: path
+        name: botId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DayUsage"
+          description: Uso do dia
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: bot de outra pessoa"
+      security:
+      - accessToken: []
+      summary: "Uso do dia UTC: exposição pelo custo e perda do dia (AC4.10.1, BR7.5)"
+      tags:
+      - ledger-controller
+  /api/v1/bots/{botId}/trades:
+    get:
+      operationId: listBotTrades
+      parameters:
+      - in: path
+        name: botId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaperTradePage"
+          description: Página das operações
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VALIDATION_FAILED
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: bot de outra pessoa"
+      security:
+      - accessToken: []
+      summary: "Operações simuladas do bot, cada uma uma única vez (AC4.10.3)"
+      tags:
+      - ledger-controller
+  /api/v1/invites/{code}:
+    get:
+      operationId: lookupInvite
+      parameters:
+      - description: Código do convite recebido no link
+        in: path
+        name: code
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteLookup"
+          description: "Estado derivado, validade, termos e aviso de risco vigentes"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "INVITE_NOT_FOUND, igual para código desconhecido e mal formado"
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED: mais de 10 consultas por minuto deste IP; nã\
+            o diz se o código existe"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              style: simple
+      summary: "Estado do convite e termos a aceitar, sem sessão (AC1.1.1); o código\
+        \ nunca vai para log"
+      tags:
+      - invite-lookup-controller
+  /api/v1/ledger:
+    get:
+      operationId: listLedgerEntries
+      parameters:
+      - in: query
+        name: botId
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerEntryPage"
+          description: Página dos lançamentos
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VALIDATION_FAILED
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: bot de outra pessoa"
+      security:
+      - accessToken: []
+      summary: Lançamentos do ledger PAPER da pessoa (AC5.2.1)
+      tags:
+      - ledger-controller
+  /api/v1/pnl:
+    get:
+      operationId: getPnl
+      parameters:
+      - in: query
+        name: botId
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: from
+        required: true
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: to
+        required: true
+        schema:
+          type: string
+          format: date-time
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PnlReport"
+          description: P&L do período
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: from >= to, período acima de 366 dias ou\
+            \ campo inválido"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: bot de outra pessoa"
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "SERVICE_UNAVAILABLE: não foi possível calcular agora (BR6.6)"
+      security:
+      - accessToken: []
+      summary: "P&L por token, bot e período [from, to) em UTC (FR10.3)"
+      tags:
+      - pnl-controller
+  /api/v1/reconciliation:
+    get:
+      operationId: getReconciliation
+      parameters:
+      - in: query
+        name: botId
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReconciliationResult"
+          description: Última conferência
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: bot de outra pessoa"
+      security:
+      - accessToken: []
+      summary: Resultado da última conferência entre operações e ledger (FR10.5)
+      tags:
+      - pnl-controller
+  /api/v1/reconciliation/run:
+    post:
+      operationId: runReconciliation
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReconciliationResult"
+          description: "Resultado da conferência, gravada como ON_DEMAND"
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: Idempotency-Key ausente"
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED, com Retry-After (6 por minuto por pessoa)"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              style: simple
+      security:
+      - accessToken: []
+      summary: "Verificar agora: confere as contas PAPER da pessoa na hora (BR8.3)"
+      tags:
+      - pnl-controller
   /api/v1/scanner/tokens:
     get:
       operationId: listScannerTokens
@@ -120,24 +445,295 @@ paths:
         required: false
         schema:
           type: integer
-          format: int32
           default: 50
           maximum: 100
           minimum: 1
+      - in: query
+        name: sort
+        required: false
+        schema:
+          type: string
+          enum:
+          - AGE
+          - LIQUIDITY
+          - VOLUME_24H
+          - HOLDERS
+          - RISK_SCORE
+      - in: query
+        name: order
+        required: false
+        schema:
+          type: string
+          enum:
+          - ASC
+          - DESC
+      - in: query
+        name: minLiquidity
+        required: false
+        schema:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+      - in: query
+        name: maxAgeMinutes
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+      - in: query
+        name: minVolume24h
+        required: false
+        schema:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+      - in: query
+        name: minHolders
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+      - in: query
+        name: maxRiskScore
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 0
+      - in: query
+        name: sourceId
+        required: false
+        schema:
+          type: string
       responses:
         "200":
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ScannerPage"
-          description: OK
+          description: Página da foto da lista
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VALIDATION_FAILED com a lista de campos (BR2.7)
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED, com Retry-After"
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/SourceUnavailableProblem"
+          description: SOURCE_UNAVAILABLE quando todas as fontes falham (AC2.3.3)
       security:
       - accessToken: []
-      summary: Lista paginada com ordem determinística e desempate estável (FR5.1)
+      summary: "Lista paginada com filtros, ordem determinística e desempate está\
+        vel (FR5.1, FR5.2)"
       tags:
       - scanner-controller
+  /api/v1/tokens/{chain}/{mint}/assessment:
+    get:
+      operationId: getTokenAssessment
+      parameters:
+      - in: path
+        name: chain
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: mint
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assessment"
+          description: "Avaliação guardada, em validação"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: NOT_FOUND para token sem observação nas últimas 24 horas
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED, com Retry-After"
+      security:
+      - accessToken: []
+      summary: "Avaliação de risco com fatores, pesos e versão (FR6.1 a FR6.3)"
+      tags:
+      - assessment-controller
 components:
   schemas:
+    AcceptedTerms:
+      type: object
+      additionalProperties: false
+      properties:
+        acceptedAt:
+          type: string
+          format: date-time
+          description: UTC
+        riskNoticeText:
+          type:
+          - string
+          - "null"
+          description: Texto simples do aviso de risco daquela versão
+        termsText:
+          type:
+          - string
+          - "null"
+          description: Texto simples dos termos daquela versão
+        version:
+          type: string
+      required:
+      - acceptedAt
+      - riskNoticeText
+      - termsText
+      - version
+    Account:
+      type: object
+      additionalProperties: false
+      properties:
+        acceptedTerms:
+          $ref: "#/components/schemas/AcceptedTerms"
+          description: Ausente só para conta criada sem convite (conta de smoke do
+            perfil de teste)
+        provider:
+          type: string
+          enum:
+          - PHANTOM
+          - SOLFLARE
+        realMode:
+          type: string
+          enum:
+          - UNAVAILABLE
+        sessionExpiresAt:
+          type: string
+          format: date-time
+          description: "Fim absoluto da sessão atual (UTC); pode terminar antes, depois\
+            \ de 8 horas sem uso"
+        walletAddressMasked:
+          type: string
+          description: 4 primeiros e 4 últimos caracteres
+      required:
+      - provider
+      - realMode
+      - sessionExpiresAt
+      - walletAddressMasked
+    Assessment:
+      type: object
+      additionalProperties: false
+      properties:
+        bandRaisedByUnknown:
+          type: boolean
+          description: true quando a faixa Baixo passou a Médio por fator sem dado
+            (BR3.4)
+        computedAt:
+          type: string
+          format: date-time
+        coverage:
+          type: string
+          description: Percentual
+          pattern: ^-?\d+(\.\d+)?$
+        decisionHint:
+          type: string
+          description: NO_TRADE quando indisponível (FR6.2)
+          enum:
+          - NO_TRADE
+          - ELIGIBLE
+        factors:
+          type: array
+          items:
+            $ref: "#/components/schemas/AssessmentFactor"
+        inValidation:
+          type: boolean
+          description: "Sempre true: indicador em validação"
+        minCoverage:
+          type: string
+          description: Percentual
+          pattern: ^-?\d+(\.\d+)?$
+        risk:
+          $ref: "#/components/schemas/RiskSummary"
+        weightSetVersion:
+          type: string
+      required:
+      - bandRaisedByUnknown
+      - computedAt
+      - coverage
+      - decisionHint
+      - factors
+      - inValidation
+      - minCoverage
+      - risk
+      - weightSetVersion
+    AssessmentFactor:
+      type: object
+      additionalProperties: false
+      properties:
+        contribution:
+          description: Pontos do indicador (DecimalString) ou UNKNOWN quando a entrada
+            é unknown
+          oneOf:
+          - type: string
+          - $ref: "#/components/schemas/UnknownValue"
+        factorId:
+          type: string
+          enum:
+          - LIQUIDITY
+          - HOLDERS
+          - VOLUME_24H
+          - PRICE_CHANGE_1H
+        factorRisk:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 0
+        input:
+          $ref: "#/components/schemas/MarketValue"
+        label:
+          type: string
+        weight:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+      required:
+      - contribution
+      - factorId
+      - factorRisk
+      - input
+      - label
+      - weight
+    AvailableRisk:
+      type: object
+      additionalProperties: false
+      properties:
+        band:
+          type: string
+          enum:
+          - LOW
+          - MEDIUM
+          - HIGH
+        score:
+          type: integer
+          format: int32
+          maximum: 100
+          minimum: 0
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+      required:
+      - band
+      - score
+      - status
     ChallengeRequest:
       type: object
       additionalProperties: false
@@ -187,6 +783,40 @@ components:
       required:
       - informed
       - total
+    DayUsage:
+      type: object
+      additionalProperties: false
+      description: Uso do dia UTC; os limites vêm da U5 na tela (BR7.5)
+      properties:
+        dayLoss:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        exposure:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        utcDay:
+          type: string
+          format: date
+      required:
+      - dayLoss
+      - exposure
+      - utcDay
+    Divergence:
+      type: object
+      additionalProperties: false
+      properties:
+        observedAt:
+          type: string
+          format: date-time
+        source:
+          $ref: "#/components/schemas/SourceRef"
+        value:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+      required:
+      - observedAt
+      - source
+      - value
     FieldViolation:
       type: object
       additionalProperties: false
@@ -216,10 +846,45 @@ components:
       - accessTokenExpiresAt
       - role
       - sessionExpiresAt
+    InviteLookup:
+      type: object
+      additionalProperties: false
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+        riskNoticeText:
+          type: string
+          description: Texto simples; nunca HTML
+        status:
+          type: string
+          enum:
+          - PENDING
+          - USED
+          - EXPIRED
+          - REVOKED
+        termsText:
+          type: string
+          description: Texto simples; nunca HTML
+        termsVersion:
+          type: string
+          description: Versão vigente a aceitar
+      required:
+      - expiresAt
+      - riskNoticeText
+      - status
+      - termsText
+      - termsVersion
     KnownValue:
       type: object
       additionalProperties: false
       properties:
+        divergence:
+          type: array
+          description: Presente só quando outra fonte diverge acima da tolerância
+            (FR4.7)
+          items:
+            $ref: "#/components/schemas/Divergence"
         observedAt:
           type: string
           format: date-time
@@ -242,6 +907,79 @@ components:
       - stale
       - status
       - value
+    LedgerEntry:
+      type: object
+      additionalProperties: false
+      description: Lançamento imutável do ledger PAPER (AC5.2.1)
+      properties:
+        amount:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        asset:
+          type: string
+        botId:
+          type: string
+          format: uuid
+        compensatesEntryId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        entryId:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum:
+          - PAPER
+        orderId:
+          type: string
+          format: uuid
+          description: "Operação do lançamento, para agrupar (BR10.2)"
+        referenceId:
+          type: string
+        simulationPolicyVersion:
+          type: string
+        type:
+          type: string
+          enum:
+          - FUNDING
+          - TRADE_COST
+          - TRADE_PROCEEDS
+          - SLIPPAGE
+          - FEE
+          - CLOSE
+          - COMPENSATION
+      required:
+      - amount
+      - asset
+      - botId
+      - createdAt
+      - entryId
+      - mode
+      - referenceId
+      - type
+    LedgerEntryPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LedgerEntry"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: null quando não há próxima página
+        total:
+          type: integer
+          format: int64
+      required:
+      - items
+      - nextCursor
+      - total
     MarketValue:
       discriminator:
         mapping:
@@ -251,6 +989,253 @@ components:
       oneOf:
       - $ref: "#/components/schemas/KnownValue"
       - $ref: "#/components/schemas/UnknownValue"
+    PaperTrade:
+      type: object
+      additionalProperties: false
+      description: "Uma operação simulada do bot, cada uma uma única vez (AC4.10.3)"
+      properties:
+        chain:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        fees:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        fillPrice:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        filledAt:
+          type: string
+          format: date-time
+        filledQuantity:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        grossAmount:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        idempotencyKey:
+          type: string
+        impactPct:
+          type: string
+          description: Pontos percentuais
+          pattern: ^-?\d+(\.\d+)?$
+        kind:
+          type: string
+          enum:
+          - TRADE
+          - CLOSE
+        limitsVersion:
+          type: integer
+          format: int64
+        liquidityConsumedPct:
+          type: string
+          description: Pontos percentuais
+          pattern: ^-?\d+(\.\d+)?$
+        marketObservedAt:
+          type: string
+          format: date-time
+        marketSource:
+          type: string
+        mode:
+          type: string
+          enum:
+          - PAPER
+        notFilledReason:
+          type: string
+          enum:
+          - PRICE_UNAVAILABLE
+          - NO_LIQUIDITY
+          - QUANTITY_BELOW_MINIMUM
+          - NO_POSITION
+          - ACCOUNT_CLOSING
+          - INSUFFICIENT_BALANCE
+          - TENANT_MISMATCH
+        orderId:
+          type: string
+          format: uuid
+        quotedPrice:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        realized:
+          type: string
+          description: Só em venda e fechamento
+          pattern: ^-?\d+(\.\d+)?$
+        referencePrice:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        requestedQuantity:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        side:
+          type: string
+          enum:
+          - BUY
+          - SELL
+        simulationPolicyVersion:
+          type: string
+        slippage:
+          type: string
+          description: "Pontos percentuais: spread mais impacto"
+          pattern: ^-?\d+(\.\d+)?$
+        spreadPct:
+          type: string
+          description: Pontos percentuais
+          pattern: ^-?\d+(\.\d+)?$
+        status:
+          type: string
+          enum:
+          - FILLED
+          - PARTIALLY_FILLED
+          - NOT_FILLED
+          - CLOSE_PENDING
+        tokenMint:
+          type: string
+      required:
+      - chain
+      - createdAt
+      - idempotencyKey
+      - kind
+      - limitsVersion
+      - mode
+      - orderId
+      - requestedQuantity
+      - side
+      - status
+      - tokenMint
+    PaperTradePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaperTrade"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: null quando não há próxima página
+        total:
+          type: integer
+          format: int64
+      required:
+      - items
+      - nextCursor
+      - total
+    PnlAmount:
+      discriminator:
+        mapping:
+          KNOWN: "#/components/schemas/PnlKnown"
+          UNKNOWN: "#/components/schemas/PnlUnknown"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/PnlKnown"
+      - $ref: "#/components/schemas/PnlUnknown"
+    PnlKnown:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - KNOWN
+        value:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+      required:
+      - status
+      - value
+    PnlReport:
+      type: object
+      additionalProperties: false
+      description: "P&L PAPER de um período [from, to) em UTC (FR10.3)"
+      properties:
+        byToken:
+          type: array
+          items:
+            $ref: "#/components/schemas/PnlTokenLine"
+        empty:
+          type: boolean
+          description: Nenhuma operação nem posição (BR6.6)
+        fees:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        from:
+          type: string
+          format: date-time
+        partial:
+          type: boolean
+          description: Algum não realizado unknown (AC5.1.3)
+        realized:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        to:
+          type: string
+          format: date-time
+        unrealized:
+          $ref: "#/components/schemas/PnlAmount"
+        unrealizedAsOf:
+          type: string
+          format: date-time
+          description: "Instante da marcação: o não realizado é das posições abertas\
+            \ agora"
+      required:
+      - byToken
+      - empty
+      - fees
+      - from
+      - partial
+      - realized
+      - to
+      - unrealized
+      - unrealizedAsOf
+    PnlTokenLine:
+      type: object
+      additionalProperties: false
+      properties:
+        chain:
+          type: string
+        fees:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        mark:
+          $ref: "#/components/schemas/MarketValue"
+        mint:
+          type: string
+        noLiquidity:
+          type: boolean
+          description: Marcação sem liquidez (AC5.1.4)
+        realized:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        unrealized:
+          $ref: "#/components/schemas/PnlAmount"
+      required:
+      - chain
+      - fees
+      - mark
+      - mint
+      - noLiquidity
+      - realized
+      - unrealized
+    PnlUnknown:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          enum:
+          - PRICE_UNKNOWN
+          - STALE
+          - NO_LIQUIDITY
+        status:
+          type: string
+          enum:
+          - UNKNOWN
+      required:
+      - reason
+      - status
     Problem:
       type: object
       additionalProperties: false
@@ -281,13 +1266,94 @@ components:
       - status
       - title
       - type
+    ReconciliationDivergence:
+      type: object
+      additionalProperties: false
+      properties:
+        botId:
+          type: string
+          format: uuid
+        entryId:
+          type: string
+          format: uuid
+        expected:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        found:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        kind:
+          type: string
+          enum:
+          - MISSING_ENTRY
+          - AMOUNT_MISMATCH
+          - ORPHAN_ENTRY
+          - POSITION_MISMATCH
+          - SUMMARY_MISMATCH
+        orderId:
+          type: string
+          format: uuid
+        positionId:
+          type: string
+          format: uuid
+        utcDay:
+          type: string
+          format: date
+      required:
+      - botId
+      - expected
+      - found
+      - kind
+    ReconciliationResult:
+      type: object
+      additionalProperties: false
+      description: Última conferência entre operações e ledger (FR10.5)
+      properties:
+        checkedAt:
+          type: string
+          format: date-time
+        divergenceCount:
+          type: integer
+          format: int32
+        divergences:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReconciliationDivergence"
+        status:
+          type: string
+          description: "PENDING: a pessoa tem conta PAPER e ainda não houve conferê\
+            ncia"
+          enum:
+          - RECONCILED
+          - DIVERGENT
+          - PENDING
+        trigger:
+          type: string
+          enum:
+          - SCHEDULED
+          - ON_DEMAND
+      required:
+      - divergenceCount
+      - divergences
+      - status
+    RiskSummary:
+      discriminator:
+        mapping:
+          AVAILABLE: "#/components/schemas/AvailableRisk"
+          UNAVAILABLE: "#/components/schemas/UnavailableRisk"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/AvailableRisk"
+      - $ref: "#/components/schemas/UnavailableRisk"
     ScannerPage:
       type: object
       additionalProperties: false
       properties:
         excludedByUnknown:
           type: integer
-          format: int32
+          format: int64
+          description: "Tokens fora do filtro só por campo unknown, na foto inteira\
+            \ (AC2.2.2)"
         items:
           type: array
           items:
@@ -299,7 +1365,8 @@ components:
           description: null quando não há próxima página
         pendingNewTokens:
           type: integer
-          format: int32
+          format: int64
+          description: Novidades em espera para "Atualizar lista"
         sources:
           type: array
           items:
@@ -334,6 +1401,8 @@ components:
           type: string
         price:
           $ref: "#/components/schemas/MarketValue"
+        risk:
+          $ref: "#/components/schemas/RiskSummary"
         symbol:
           type: string
         volume24h:
@@ -346,6 +1415,7 @@ components:
       - liquidity
       - mint
       - price
+      - risk
       - symbol
       - volume24h
     SourceRef:
@@ -369,17 +1439,65 @@ components:
         lastUpdatedAt:
           type: string
           format: date-time
-          description: Ausente enquanto a fonte nunca coletou
+          description: Ausente enquanto a fonte nunca coletou (PENDING)
         source:
           $ref: "#/components/schemas/SourceRef"
         status:
           type: string
           enum:
+          - PENDING
           - OK
           - DEGRADED
           - FAILED
       required:
       - source
+      - status
+    SourceUnavailableProblem:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          enum:
+          - SOURCE_UNAVAILABLE
+        correlationId:
+          type: string
+        detail:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceStatus"
+        status:
+          type: integer
+          format: int32
+        title:
+          type: string
+        type:
+          type: string
+          format: uri
+      required:
+      - code
+      - correlationId
+      - sources
+      - status
+      - title
+      - type
+    UnavailableRisk:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          enum:
+          - INSUFFICIENT_COVERAGE
+          - SOURCE_UNAVAILABLE
+        status:
+          type: string
+          enum:
+          - UNAVAILABLE
+      required:
+      - reason
       - status
     UnknownValue:
       type: object
@@ -404,6 +1522,17 @@ components:
       type: object
       additionalProperties: false
       properties:
+        acceptedTermsVersion:
+          type: string
+          description: Versão vigente dos termos aceita; obrigatória com inviteCode
+          maxLength: 32
+          minLength: 0
+        inviteCode:
+          type: string
+          description: Código do convite; presente só no primeiro acesso por convite
+            (U3)
+          maxLength: 128
+          minLength: 0
         message:
           type: string
           minLength: 1

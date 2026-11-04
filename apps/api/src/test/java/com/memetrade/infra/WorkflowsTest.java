@@ -94,6 +94,92 @@ class WorkflowsTest {
                 .contains("-Dtest=GuestOpenApiContractTest,AdminOpenApiContractTest");
     }
 
+    /**
+     * U3 (Infrastructure Design review finding, Passo 21): the manual load workflow offers the u3 scenario and passes
+     * the invitation lookup limit next to the login limit, only to the loadtest profile of this job.
+     */
+    @Test
+    @Tag("u3")
+    @SuppressWarnings("unchecked")
+    void theLoadWorkflowOffersTheU3ScenarioAndRaisesTheLookupLimitOnlyThere() throws IOException {
+        String text = Files.readString(WORKFLOWS.resolve("load-test.yml"), StandardCharsets.UTF_8);
+        Map<String, Object> workflow = new Yaml().load(text);
+        // YAML 1.1 (SnakeYAML) reads the key "on" as the boolean true.
+        Object dispatch = workflow.containsKey("on") ? workflow.get("on") : ((Map<?, ?>) workflow).get(Boolean.TRUE);
+
+        assertThat(String.valueOf(dispatch)).contains("u3").contains("u1").contains("u4");
+        Map<String, Object> jobs = (Map<String, Object>) workflow.get("jobs");
+        List<Map<String, Object>> steps =
+                (List<Map<String, Object>>) ((Map<String, Object>) jobs.get("load")).get("steps");
+        Map<String, Object> run = steps.stream()
+                .filter(step -> String.valueOf(step.get("run")).contains("scripts/load-test.sh"))
+                .findFirst()
+                .orElseThrow();
+        Map<String, Object> env = (Map<String, Object>) run.get("env");
+        assertThat(env)
+                .containsEntry("SPRING_PROFILES_ACTIVE", "test,loadtest")
+                .containsKeys("LOGIN_RATE_LIMIT_PER_MINUTE", "INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE", "LOAD_SCENARIO");
+        for (Path other : workflows()) {
+            if (!other.getFileName().toString().equals("load-test.yml")) {
+                assertThat(Files.readString(other, StandardCharsets.UTF_8))
+                        .as(other.toString())
+                        .doesNotContain("INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE")
+                        .doesNotContain("loadtest");
+            }
+        }
+    }
+
+    /** U7 (Passo 23, cicd-pipeline.md): the manual load workflow offers u7 and u7-jobs, run by scripts/load-test.sh. */
+    @Test
+    @Tag("u7")
+    void theLoadWorkflowAndTheScriptOfferTheU7Scenarios() throws IOException {
+        String workflow = Files.readString(WORKFLOWS.resolve("load-test.yml"), StandardCharsets.UTF_8);
+        String script = Files.readString(Path.of("..", "..", "scripts", "load-test.sh"), StandardCharsets.UTF_8);
+        String runner =
+                Files.readString(Path.of("..", "..", "scripts", "load", "load-test.mjs"), StandardCharsets.UTF_8);
+
+        assertThat(workflow).contains("- u7\n").contains("- u7-jobs\n");
+        assertThat(unpinnedActions(workflow)).isEmpty();
+        assertThat(script)
+                .contains("  u7)")
+                .contains("  u7-jobs)")
+                .contains("LOADTEST_CYCLE_BOTS")
+                .contains("LOADTEST_FILLS_PER_PERSON:-10000")
+                .contains("DURATION_S:-600")
+                .contains("DURATION_S:-1800")
+                .as("one invitation per person besides the smoke account")
+                .contains("Number(process.env.LOADTEST_LEDGER_PEOPLE)-1");
+        assertThat(runner)
+                .contains("loadtest_paper_execute_seconds")
+                .contains("Seq Scan on (ledger_entry|fill)")
+                .contains("execute: 0.25")
+                .contains("ms > 10_000")
+                .contains("components?.loadtestLedger")
+                .contains("docs/perf/u7-ledger-pnl-${report.date}.md")
+                .as("the scenarios run since the load cycle driver exists (Passo 23, 2026-11-04)")
+                .doesNotContain("cycle principal of C10 (U5)");
+        // Review repair of the U7 code generation (2026-11-04): closePositions is measured in u7 (R-04), the
+        // reconciliation rounds and "check now" are bounded (R-01), and only PostgreSQL in u7 has the 1 GB memory
+        // guard decided by the project owner (R-02); every other container and scenario keeps 900 MB.
+        assertThat(script).contains("LOADTEST_CLOSE_BOTS=\"${LOADTEST_CLOSE_BOTS:-10}\"");
+        assertThat(runner)
+                .contains("const MEMORY_LIMIT_MB = 900;")
+                .contains("const U7_POSTGRES_MEMORY_LIMIT_MB = 1024;")
+                .contains(
+                        "SCENARIO === 'u7' && container === 'postgres' ? U7_POSTGRES_MEMORY_LIMIT_MB : MEMORY_LIMIT_MB")
+                .contains("loadtest_paper_close_seconds")
+                .contains("close: 0.25")
+                .contains("checkNow: 5.0")
+                .contains("const RECONCILIATION_ROUND_LIMIT_MS = 60_000;");
+        for (Path other : workflows()) {
+            if (!other.getFileName().toString().equals("load-test.yml")) {
+                assertThat(Files.readString(other, StandardCharsets.UTF_8))
+                        .as(other.toString())
+                        .doesNotContain("LOADTEST_");
+            }
+        }
+    }
+
     static List<String> unpinnedActions(String workflow) {
         List<String> unpinned = new ArrayList<>();
         Matcher matcher = USES.matcher(workflow);

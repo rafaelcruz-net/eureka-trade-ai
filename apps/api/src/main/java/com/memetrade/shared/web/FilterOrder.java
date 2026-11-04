@@ -12,6 +12,9 @@ public final class FilterOrder {
     /** U2: only an administrator passes {@code /api/v1/admin/**}, right after authentication (C8). */
     public static final int ADMIN_ROUTE = Ordered.HIGHEST_PRECEDENCE + 15;
 
+    /** U4: per person and route limit of the scanner routes, after authentication and the role rule (NFR6.3). */
+    public static final int RATE_LIMIT = Ordered.HIGHEST_PRECEDENCE + 17;
+
     public static final int MODE_GUARD = Ordered.HIGHEST_PRECEDENCE + 20;
     public static final int IDEMPOTENCY_KEY = Ordered.HIGHEST_PRECEDENCE + 30;
 

@@ -1,0 +1,38 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u3-identity-access",
+  "upstream_ids": [
+    "NFR2.3",
+    "NFR3.1", "NFR3.2", "NFR3.4",
+    "NFR4.1", "NFR4.2", "NFR4.3", "NFR4.4",
+    "NFR6.3", "NFR6.4", "NFR6.5", "NFR6.6", "NFR6.13",
+    "NFR9.1", "NFR9.2", "NFR9.3", "NFR9.5", "NFR9.6",
+    "NFR10.3", "NFR10.4", "NFR10.6",
+    "NFR12.1", "NFR13.1"
+  ],
+  "coverage": [
+    { "id": "NFR2.3", "status": "OK", "target": "Limitador na memória da única api (infrastructure-specification.md, Dimensionamento e Para a hospedagem futura)" },
+    { "id": "NFR3.1", "status": "OK", "target": "Cenário de verificação com convite no scripts/load-test.sh com limite de 500 ms (cicd-pipeline.md; monitoring-design.md)" },
+    { "id": "NFR3.2", "status": "OK", "target": "Cenários de consulta e tela Conta com INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE no perfil loadtest (cicd-pipeline.md)" },
+    { "id": "NFR3.4", "status": "OK", "target": "Smoke Playwright e2e/u3-identity-access com marcação de tempo (cicd-pipeline.md)" },
+    { "id": "NFR4.1", "status": "OK", "target": "Teste de falha injetada no job backend (cicd-pipeline.md)" },
+    { "id": "NFR4.2", "status": "OK", "target": "Índice uq_invite_used_by e bloqueio FOR UPDATE; teste de concorrência (infrastructure-specification.md; cicd-pipeline.md)" },
+    { "id": "NFR4.3", "status": "OK", "target": "Restrição nomeada uq_wallet_address na 0007; teste de concorrência (infrastructure-specification.md; cicd-pipeline.md)" },
+    { "id": "NFR4.4", "status": "OK", "target": "Bloqueio de linha na revogação e na verificação; teste de concorrência (cicd-pipeline.md)" },
+    { "id": "NFR6.3", "status": "OK", "target": "Teste que lê a tabela de idempotência depois da emissão (cicd-pipeline.md)" },
+    { "id": "NFR6.4", "status": "OK", "target": "LogScanIT ampliado e procura do código no log pelo verify.sh; proxy futuro sem caminho de /convite (monitoring-design.md; infrastructure-specification.md)" },
+    { "id": "NFR6.5", "status": "OK", "target": "Testes de cabeçalho na api e no middleware.ts do web (cicd-pipeline.md)" },
+    { "id": "NFR6.6", "status": "OK", "target": "invite-lookup-rate-limit-per-minute fixa em 10 e elevada só no application-loadtest.yml (infrastructure-specification.md)" },
+    { "id": "NFR6.13", "status": "OK", "target": "Termos v1 provisórios em resources/terms/v1 passando pelo catálogo de termos proibidos (infrastructure-specification.md; cicd-pipeline.md)" },
+    { "id": "NFR9.1", "status": "OK", "target": "Indicador de banco do Actuator, sem indicador novo (infrastructure-specification.md)" },
+    { "id": "NFR9.2", "status": "OK", "target": "http_server_requests por uri e status (monitoring-design.md)" },
+    { "id": "NFR9.3", "status": "OK", "target": "MetricsLabelsIT exercitando as rotas da U3 (monitoring-design.md)" },
+    { "id": "NFR9.5", "status": "OK", "target": "CorrelationIdFilter, LogMasking e LogScanIT (monitoring-design.md)" },
+    { "id": "NFR9.6", "status": "OK", "target": "Sem alertas no beta local (monitoring-design.md, Alerts)" },
+    { "id": "NFR10.3", "status": "OK", "target": "Arquivos de termos empacotados na imagem; teste com arquivo inválido (infrastructure-specification.md; cicd-pipeline.md)" },
+    { "id": "NFR10.4", "status": "OK", "target": "Semeadura do tenant Beta com identificador fixo na 0007; migração repetida no teste (infrastructure-specification.md)" },
+    { "id": "NFR10.6", "status": "OK", "target": "Relógio injetável nos testes de validade (cicd-pipeline.md)" },
+    { "id": "NFR12.1", "status": "OK", "target": "Jobs backend e frontend com 80% de cobertura (cicd-pipeline.md)" },
+    { "id": "NFR13.1", "status": "OK", "target": "Termos em UTF-8 e LF; suíte no Linux da CI e Compose no Windows (cicd-pipeline.md)" }
+  ]
+}

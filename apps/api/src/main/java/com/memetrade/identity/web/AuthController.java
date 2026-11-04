@@ -10,10 +10,12 @@ import com.memetrade.identity.api.IdempotentOperation;
 import com.memetrade.identity.api.IdempotentOutcome;
 import com.memetrade.identity.api.IdempotentResponse;
 import com.memetrade.identity.api.UnauthenticatedException;
+import com.memetrade.identity.domain.account.WalletAlreadyLinkedException;
 import com.memetrade.identity.domain.idempotency.RequestDigest;
 import com.memetrade.identity.domain.login.ChallengeService;
 import com.memetrade.identity.domain.login.LoginVerificationService;
 import com.memetrade.identity.domain.login.LoginVerificationService.VerifyCommand;
+import com.memetrade.identity.domain.login.RejectionReason;
 import com.memetrade.identity.domain.login.VerificationOutcome;
 import com.memetrade.identity.domain.session.AuthenticatedSession;
 import com.memetrade.identity.domain.session.OpenedSession;
@@ -176,16 +178,47 @@ public class AuthController {
                     @Content(
                             mediaType = "application/problem+json",
                             schema = @Schema(implementation = ProblemResponse.class)))
+    @ApiResponse(
+            responseCode = "404",
+            description = "INVITE_NOT_FOUND: código do convite desconhecido ou mal formado (U3)",
+            content =
+                    @Content(
+                            mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemResponse.class)))
+    @ApiResponse(
+            responseCode = "409",
+            description = "WALLET_ALREADY_LINKED: a carteira já tem conta; o convite continua pendente (U3)",
+            content =
+                    @Content(
+                            mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemResponse.class)))
+    @ApiResponse(
+            responseCode = "422",
+            description = "INVITE_INVALID com reason EXPIRED, REVOKED, USED ou TENANT_INACTIVE; ou TERMS_NOT_ACCEPTED"
+                    + " (U3)",
+            content =
+                    @Content(
+                            mediaType = "application/problem+json",
+                            schema = @Schema(implementation = ProblemResponse.class)))
     @PostMapping("/verify")
     public ResponseEntity<GuestSession> verify(@Valid @RequestBody VerifyRequest body, HttpServletRequest request) {
         walletOf(body.walletAddress());
         gate.beforeVerification(request, body.walletAddress());
-        VerificationOutcome outcome = verification.verify(new VerifyCommand(
+        VerifyCommand command = new VerifyCommand(
                 body.walletAddress(),
                 body.message(),
                 body.signature(),
                 body.provider().name(),
-                CorrelationId.current()));
+                CorrelationId.current(),
+                body.inviteCode(),
+                body.acceptedTermsVersion());
+        VerificationOutcome outcome;
+        try {
+            outcome = verification.verify(command);
+        } catch (WalletAlreadyLinkedException concurrentLink) {
+            // BR3.7: the creation was rolled back; a NEW transaction consumes the challenge and records the refusal.
+            outcome = verification.rejectAfterRollback(command, RejectionReason.WALLET_ALREADY_LINKED);
+        }
         // The transaction has committed here: the challenge state and the audit event exist before the response.
         return switch (outcome) {
             case VerificationOutcome.Accepted accepted -> {
@@ -212,8 +245,12 @@ public class AuthController {
                         session.role().name()));
     }
 
-    /** The single LOGIN_REJECTED event was already written in the committed transaction (BR1.6). */
-    private static ApiException rejection(VerificationOutcome.Rejected rejected) {
+    /** The single LOGIN_REJECTED event was already written in the committed transaction (BR1.6, BR3.5). */
+    static ApiException rejection(VerificationOutcome.Rejected rejected) {
+        ApiException invitation = invitationRejection(rejected.reason());
+        if (invitation != null) {
+            return invitation.alreadyAudited();
+        }
         if (rejected.forbiddenRole()) {
             return new ApiException(
                             ErrorCode.FORBIDDEN_ROLE,
@@ -230,6 +267,37 @@ public class AuthController {
                         rejected.reason().name(),
                         Map.of())
                 .alreadyAudited();
+    }
+
+    /** U3 refusals of the verification with an invitation (BR3.2); {@code null} for the refusals of U1. */
+    private static ApiException invitationRejection(RejectionReason reason) {
+        return switch (reason) {
+            case INVITE_NOT_FOUND -> new ApiException(ErrorCode.INVITE_NOT_FOUND, "Invitation not found.");
+            case INVITE_EXPIRED -> invalidInvitation("EXPIRED");
+            case INVITE_REVOKED -> invalidInvitation("REVOKED");
+            case INVITE_USED -> invalidInvitation("USED");
+            case TENANT_INACTIVE -> invalidInvitation("TENANT_INACTIVE");
+            case TERMS_NOT_ACCEPTED ->
+                new ApiException(
+                        ErrorCode.TERMS_NOT_ACCEPTED,
+                        "Accept the current terms and risk notice, then request a new challenge.",
+                        List.of(),
+                        reason.name(),
+                        Map.of());
+            case WALLET_ALREADY_LINKED ->
+                new ApiException(
+                        ErrorCode.WALLET_ALREADY_LINKED,
+                        "This wallet already has an account; sign in through the normal entry.",
+                        List.of(),
+                        reason.name(),
+                        Map.of());
+            default -> null;
+        };
+    }
+
+    private static ApiException invalidInvitation(String reason) {
+        return new ApiException(
+                ErrorCode.INVITE_INVALID, "This invitation can no longer be used.", List.of(), reason, Map.of());
     }
 
     @Operation(

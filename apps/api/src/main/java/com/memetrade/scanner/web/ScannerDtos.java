@@ -101,8 +101,12 @@ public final class ScannerDtos {
     @Schema(name = "Divergence")
     public record DivergenceDto(
             @Schema(requiredMode = RequiredMode.REQUIRED) SourceRefDto source,
-            @Schema(requiredMode = RequiredMode.REQUIRED, pattern = DECIMAL) String value,
-            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time") Instant observedAt) {
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, pattern = DECIMAL)
+            String value,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
+            Instant observedAt) {
 
         static DivergenceDto of(MarketValue.Known origin) {
             return new DivergenceDto(
@@ -146,8 +150,11 @@ public final class ScannerDtos {
 
     @Schema(name = "AvailableRisk")
     public record AvailableRiskDto(
-            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "AVAILABLE") String status,
-            @Schema(requiredMode = RequiredMode.REQUIRED, minimum = "0", maximum = "100") int score,
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "AVAILABLE")
+            String status,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, minimum = "0", maximum = "100")
+            int score,
 
             @Schema(
                     requiredMode = RequiredMode.REQUIRED,
@@ -157,7 +164,8 @@ public final class ScannerDtos {
 
     @Schema(name = "UnavailableRisk")
     public record UnavailableRiskDto(
-            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "UNAVAILABLE") String status,
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "UNAVAILABLE")
+            String status,
 
             @Schema(
                     requiredMode = RequiredMode.REQUIRED,
@@ -260,7 +268,10 @@ public final class ScannerDtos {
             @Schema(requiredMode = RequiredMode.REQUIRED) String title,
             @Schema(requiredMode = RequiredMode.REQUIRED) int status,
             String detail,
-            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "SOURCE_UNAVAILABLE") String code,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "SOURCE_UNAVAILABLE")
+            String code,
+
             @Schema(requiredMode = RequiredMode.REQUIRED) String correlationId,
             @Schema(requiredMode = RequiredMode.REQUIRED) List<SourceStatusDto> sources) {}
 }

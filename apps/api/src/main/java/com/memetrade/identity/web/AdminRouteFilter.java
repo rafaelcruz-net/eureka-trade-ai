@@ -40,16 +40,31 @@ public class AdminRouteFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return "OPTIONS".equals(request.getMethod()) || !RequestPaths.isAdministrative(request);
+        return "OPTIONS".equals(request.getMethod())
+                || !RequestPaths.normalized(request).startsWith("/api/v1/");
     }
 
+    /**
+     * Administrative routes admit only an administrator. Since U4 the converse holds too (contract common rule, finding
+     * R-06 of the U4 NFR requirements): an administrator token on a guest route is {@code 403 FORBIDDEN_ROLE}, recorded
+     * once; requests without a session (public routes) pass to their own rules.
+     */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        if (authorization.isAdministrator(auth.optional())) {
-            chain.doFilter(request, response);
+        boolean administrator = authorization.isAdministrator(auth.optional());
+        if (RequestPaths.isAdministrative(request)) {
+            if (administrator) {
+                chain.doFilter(request, response);
+                return;
+            }
+            problemWriter.write(response, authorization.refuse(request));
             return;
         }
-        problemWriter.write(response, authorization.refuse(request));
+        if (administrator) {
+            problemWriter.write(response, authorization.refuseOnGuestRoute(request));
+            return;
+        }
+        chain.doFilter(request, response);
     }
 }

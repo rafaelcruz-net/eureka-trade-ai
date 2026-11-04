@@ -81,6 +81,57 @@ class HealthIT extends AbstractPostgresIT {
                 .contains("market_source_last_collection_age_seconds");
     }
 
+    /** U4 (reliability-design.md, Q1): every source FAILED is DEGRADED with HTTP 200, never DOWN; readiness stays UP. */
+    @Test
+    @org.junit.jupiter.api.Tag("u4")
+    void withEverySourceFailedTheHealthIsStill200WithMarketSourcesDegraded() throws Exception {
+        java.util.List<java.util.Map<String, Object>> before =
+                jdbc.sql("select source_id, status from data_source").query().listOfRows();
+        try {
+            jdbc.sql("update data_source set status = 'FAILED'").update();
+
+            ResponseEntity<String> health = get("/actuator/health");
+
+            assertThat(health.getStatusCode().value()).isEqualTo(200);
+            JsonNode sources = json.readTree(health.getBody()).at("/components/marketSources");
+            assertThat(sources.get("status").asText()).isEqualTo("DEGRADED");
+            assertThat(sources.at("/details/sources/sim-a/status").asText()).isEqualTo("FAILED");
+            assertThat(get("/actuator/health/readiness").getStatusCode().value())
+                    .isEqualTo(200);
+        } finally {
+            for (java.util.Map<String, Object> row : before) {
+                jdbc.sql("update data_source set status = :s where source_id = :id")
+                        .param("s", row.get("status"))
+                        .param("id", row.get("source_id"))
+                        .update();
+            }
+        }
+    }
+
+    /** U4: with a source OK the health is UP with lastUpdatedAt, which scripts/verify.sh waits for. */
+    @Test
+    @org.junit.jupiter.api.Tag("u4")
+    void afterACollectionTheSourcesAreUpWithTheLastUpdateAndTheRecalculationHasItsComponent() throws Exception {
+        collector.collectNow("sim-a");
+
+        JsonNode body = json.readTree(get("/actuator/health").getBody());
+
+        assertThat(body.at("/components/marketSources/status").asText()).isEqualTo("UP");
+        assertThat(body.at("/components/marketSources/details/lastUpdatedAt").asText())
+                .endsWith("Z");
+        assertThat(body.at("/components/riskRecalculation/status").isMissingNode())
+                .isFalse();
+        assertThat(body.at("/components/marketSource").isMissingNode())
+                .as("replaced by marketSources")
+                .isTrue();
+        assertThat(get("/actuator/prometheus").getBody())
+                .contains("market_source_status{source=\"sim-a\"}")
+                .contains("market_collection_total");
+    }
+
+    @Autowired
+    private com.memetrade.marketdata.infra.MarketCollectorJob collector;
+
     @Test
     void theProbeExitsZeroAgainstTheRealReadinessEndpoint() {
         assertThat(HealthProbe.probe(

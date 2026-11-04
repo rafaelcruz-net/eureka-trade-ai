@@ -66,8 +66,9 @@ Valem para C1 a C8 e C21.
 
 | Tipo de valor | Escala | Observação |
 |---|---|---|
-| Quantidade de token | Casas decimais do mint (lidas de `Token.decimals`) | Nunca mais casas que o mint permite (AC4.11.3) |
-| Valor na moeda de referência do saldo virtual (saldo, preço, taxas, P&L, exposição) | Definida no Functional Design (proposta inicial: 6) | Ver OQ-3 |
+| Quantidade de token | Casas decimais do mint (lidas de `Token.decimals` pela C11) | Nunca mais casas que o mint permite; truncada para baixo (`DOWN`) (AC4.11.3, BR1.7 da U7) |
+| Valor na moeda de referência do saldo virtual (saldo, taxas, P&L, exposição, valor bruto) | 6 casas, em USDC, arredondado meio para o par (`HALF_EVEN`) uma única vez, no momento do cálculo | Fechado pela U7 (Q1 e Q5 do Functional Design da U7); fecha o OQ-3 |
+| Preço unitário em USDC (referência, cotado, preenchimento, saída) | 12 casas, `HALF_EVEN` | Acréscimo da U7: preserva spread e impacto em tokens de preço muito baixo (C14 do catálogo) |
 | Percentual (slippage, drawdown, cobertura) | Pontos percentuais com 4 casas decimais | `"1.5000"` significa 1,5%; `"100.0000"` significa 100%. Nunca fração de 0 a 1 |
 | Indicador de risco | Inteiro de 0 a 100 | Não é valor monetário; trafega como número inteiro |
 
@@ -85,7 +86,10 @@ Valem para C1 a C8 e C21.
 | `PAUSED_BY_SYSTEM` | 409 | Kill switch acionado (AC7.2.3) |
 | `LIMIT_INCOHERENT` | 422 | Limites incoerentes (AC4.2.3) |
 | `VIRTUAL_BALANCE_ABOVE_CAP` | 422 | Saldo virtual acima do teto (AC4.2.4) |
-| `INVITE_INVALID` | 422 | Convite expirado, revogado ou usado, com `reason` |
+| `INVITE_INVALID` | 422 | Convite expirado, revogado ou usado, ou tenant do convite não ativo, com `reason` (`EXPIRED`, `REVOKED`, `USED`, `TENANT_INACTIVE`; U3) |
+| `INVITE_NOT_FOUND` | 404 | Código de convite desconhecido ou mal formado, com a mesma mensagem para os dois (U3) |
+| `INVITE_NOT_REVOCABLE` | 409 | Revogação de convite usado ou expirado, com `reason` (U3) |
+| `VALIDATION_FAILED` | 422 | Na emissão de convite, valor que fere a regra de negócio (`tenantId` não ativo, `expiresAt` fora de 1 hora a 30 dias), com a lista de campos (U3) |
 | `TERMS_NOT_ACCEPTED` | 422 | Vínculo de carteira antes do aceite (AC1.1.1) |
 | `WALLET_ALREADY_LINKED` | 409 | Carteira já vinculada a outra conta (AC1.1.5) |
 | `LOGIN_CHALLENGE_REJECTED` | 401 | Nonce expirado, reutilizado ou mensagem alterada (AC1.2.2, AC1.2.3) |
@@ -258,8 +262,8 @@ paths:
                 message: { type: string }
                 signature: { type: string, description: Assinatura em base58 }
                 provider: { type: string, enum: [PHANTOM, SOLFLARE] }
-                inviteCode: { type: string, description: Presente só no primeiro acesso por convite (U3) }
-                acceptedTermsVersion: { type: string, description: Obrigatório quando inviteCode está presente }
+                inviteCode: { type: string, maxLength: 128, description: 'Presente só no primeiro acesso por convite (U3); sem checagem de formato aqui: mal formado é tratado como desconhecido depois da assinatura' }
+                acceptedTermsVersion: { type: string, maxLength: 32, description: Obrigatório quando inviteCode está presente }
       responses:
         '200':
           description: Sessão aberta; o cookie de renovação é emitido em Set-Cookie
@@ -268,10 +272,12 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/GuestSession' }
+        '400': { description: 'VALIDATION_FAILED; campo extra, inclusive tenantId, é recusado (U3, NFR6.8)' }
         '401': { description: LOGIN_CHALLENGE_REJECTED }
         '403': { description: FORBIDDEN_ROLE quando a carteira é a de administrador }
-        '409': { description: WALLET_ALREADY_LINKED ou convite já usado }
-        '422': { description: INVITE_INVALID ou TERMS_NOT_ACCEPTED }
+        '404': { description: 'INVITE_NOT_FOUND: código do convite desconhecido ou mal formado (U3)' }
+        '409': { description: 'WALLET_ALREADY_LINKED; o convite continua pendente (corrigido pela U3: convite usado é 422)' }
+        '422': { description: 'INVITE_INVALID com reason EXPIRED, REVOKED, USED ou TENANT_INACTIVE; ou TERMS_NOT_ACCEPTED (U3)' }
   /api/v1/auth/refresh:
     post:
       summary: Troca o cookie de renovação por um novo token de acesso (Q13); sem Idempotency-Key
@@ -449,6 +455,8 @@ paths:
                   termsVersion: { type: string }
                   termsText: { type: string }
                   riskNoticeText: { type: string }
+        '404': { description: 'INVITE_NOT_FOUND, a mesma resposta para código desconhecido e mal formado (U3, BR2.1, NFR6.7)' }
+        '429': { description: 'RATE_LIMITED com Retry-After: mais de 10 consultas por minuto por IP, decidido antes da busca (U3, BR2.2)' }
   /api/v1/account:
     get:
       summary: Dados da conta (US1.5)
@@ -459,21 +467,27 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [walletAddressMasked, provider, sessionExpiresAt, acceptedTerms, realMode]
+                required: [walletAddressMasked, provider, sessionExpiresAt, realMode]
                 properties:
                   walletAddressMasked: { type: string, description: 4 primeiros e 4 últimos caracteres }
                   provider: { type: string, enum: [PHANTOM, SOLFLARE] }
                   sessionExpiresAt: { $ref: 'common#/components/schemas/Instant' }
                   acceptedTerms:
                     type: object
-                    required: [version, acceptedAt]
+                    description: 'Ausente só para conta criada sem convite (conta de smoke do perfil de teste); U3'
+                    required: [version, acceptedAt, termsText, riskNoticeText]
                     properties:
                       version: { type: string }
                       acceptedAt: { $ref: 'common#/components/schemas/Instant' }
+                      termsText: { type: [string, 'null'], description: 'Texto simples daquela versão (U3, BR5.2)' }
+                      riskNoticeText: { type: [string, 'null'], description: 'Texto simples daquela versão (U3, BR5.2)' }
                   realMode: { type: string, const: UNAVAILABLE }
+        '401': { description: UNAUTHENTICATED; o app tenta uma renovação e depois leva à entrada com a origem }
 ```
 
 Comportamento: a criação da conta acontece em `POST /api/v1/auth/verify` com `inviteCode` e `acceptedTermsVersion` (C1). Dois usos simultâneos do mesmo convite geram uma conta só; o outro recebe `INVITE_INVALID` com `reason: USED` (AC1.1.4).
+
+Registrado pela geração de código da U3 (correções e acréscimos de [functional-spec.md](../../construction/u3-identity-access/functional-design/functional-spec.md)): a consulta do convite ganhou `404` e `429`; `acceptedTerms` passou a ser opcional (só a conta de smoke do perfil de teste não tem aceite) e traz o texto da versão aceita, porque a tela Conta mostra esse texto (BR5.2). A especificação gerada do código fica em `apps/api/openapi/openapi-guest.yaml`.
 
 ### C4 — Bots, decisões e controles (U5)
 
@@ -738,45 +752,72 @@ paths:
       summary: Resultado da última conferência entre operações e ledger (FR10.5)
       parameters: [ { name: botId, in: query, schema: { type: string, format: uuid } } ]
       responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/ReconciliationResult' } } } } }
+  # U7 (BR8.3): "verificar agora" - confere na hora as contas da pessoa, grava ON_DEMAND e devolve o resultado.
+  /api/v1/reconciliation/run:
+    post:
+      summary: Verificar agora (BR8.3); só lê o ledger, no máximo 6 por minuto por pessoa
+      parameters: [ { name: Idempotency-Key, in: header, required: true, schema: { type: string, format: uuid } } ]
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/ReconciliationResult' } } } }
+        '429': { description: 'RATE_LIMITED com Retry-After' }
 components:
   schemas:
+    # U7: um item por ordem, inclusive NOT_FILLED e CLOSE_PENDING; os campos do preenchimento só existem com Fill.
     PaperTrade:
       type: object
-      required: [orderId, mode, side, tokenMint, quantity, referencePrice, quotedPrice, fillPrice, slippage, fees, simulationPolicyVersion, limitsVersion, idempotencyKey, filledAt]
+      required: [orderId, mode, kind, side, chain, tokenMint, status, requestedQuantity, limitsVersion, idempotencyKey, createdAt]
       properties:
         orderId: { type: string, format: uuid }
         mode: { $ref: 'common#/components/schemas/Mode' }
+        kind: { type: string, enum: [TRADE, CLOSE] }
         side: { type: string, enum: [BUY, SELL] }
+        chain: { type: string }
         tokenMint: { type: string }
-        quantity: { $ref: 'common#/components/schemas/DecimalString' }
+        status: { type: string, enum: [FILLED, PARTIALLY_FILLED, NOT_FILLED, CLOSE_PENDING] }
+        notFilledReason: { type: string, enum: [PRICE_UNAVAILABLE, NO_LIQUIDITY, QUANTITY_BELOW_MINIMUM, NO_POSITION, ACCOUNT_CLOSING, INSUFFICIENT_BALANCE, TENANT_MISMATCH] }
+        requestedQuantity: { $ref: 'common#/components/schemas/DecimalString' }
+        filledQuantity: { $ref: 'common#/components/schemas/DecimalString' }
         referencePrice: { $ref: 'common#/components/schemas/DecimalString' }
         quotedPrice: { $ref: 'common#/components/schemas/DecimalString' }
         fillPrice: { $ref: 'common#/components/schemas/DecimalString' }
+        spreadPct: { $ref: 'common#/components/schemas/DecimalString' }
+        impactPct: { $ref: 'common#/components/schemas/DecimalString' }
         slippage: { $ref: 'common#/components/schemas/DecimalString', description: Percentual }
+        liquidityConsumedPct: { $ref: 'common#/components/schemas/DecimalString' }
+        grossAmount: { $ref: 'common#/components/schemas/DecimalString' }
         fees: { $ref: 'common#/components/schemas/DecimalString' }
+        realized: { $ref: 'common#/components/schemas/DecimalString' }
+        marketSource: { type: string }
+        marketObservedAt: { $ref: 'common#/components/schemas/Instant' }
         simulationPolicyVersion: { type: string }
         limitsVersion: { type: integer }
         idempotencyKey: { type: string }
+        createdAt: { $ref: 'common#/components/schemas/Instant' }
         filledAt: { $ref: 'common#/components/schemas/Instant' }
     LedgerEntry:
       type: object
-      required: [entryId, mode, type, amount, asset, referenceId, createdAt]
+      required: [entryId, mode, botId, type, amount, asset, referenceId, createdAt]
       properties:
         entryId: { type: string, format: uuid }
         mode: { $ref: 'common#/components/schemas/Mode' }
-        type: { type: string, enum: [TRADE_COST, TRADE_PROCEEDS, FEE, SLIPPAGE, CLOSE, COMPENSATION] }
+        botId: { type: string, format: uuid }
+        type: { type: string, enum: [FUNDING, TRADE_COST, TRADE_PROCEEDS, FEE, SLIPPAGE, CLOSE, COMPENSATION] }
         amount: { $ref: 'common#/components/schemas/DecimalString' }
         asset: { type: string }
         referenceId: { type: string }
+        orderId: { type: string, format: uuid, description: 'Operação do lançamento, para agrupar (BR10.2)' }
+        simulationPolicyVersion: { type: string }
         compensatesEntryId: { type: string, format: uuid }
         createdAt: { $ref: 'common#/components/schemas/Instant' }
+    # U7: valor do P&L conhecido ou unknown com motivo, discriminado por status como o MarketValue.
     PnlAmount:
       oneOf:
-        - { $ref: 'common#/components/schemas/DecimalString' }
-        - { $ref: 'common#/components/schemas/UnknownValue' }
+        - { type: object, required: [status, value], properties: { status: { const: KNOWN }, value: { $ref: 'common#/components/schemas/DecimalString' } } }
+        - { type: object, required: [status, reason], properties: { status: { const: UNKNOWN }, reason: { type: string, enum: [PRICE_UNKNOWN, STALE, NO_LIQUIDITY] } } }
+      discriminator: { propertyName: status }
     PnlTokenLine:
       type: object
-      required: [chain, mint, realized, unrealized, fees, mark]
+      required: [chain, mint, realized, unrealized, fees, mark, noLiquidity]
       properties:
         chain: { type: string }
         mint: { type: string }
@@ -787,40 +828,51 @@ components:
         noLiquidity: { type: boolean, description: 'Marcação sem liquidez (AC5.1.4)' }
     PnlReport:
       type: object
-      required: [realized, unrealized, fees, partial, byToken]
+      required: [from, to, realized, unrealized, fees, partial, empty, unrealizedAsOf, byToken]
       properties:
+        from: { $ref: 'common#/components/schemas/Instant' }
+        to: { $ref: 'common#/components/schemas/Instant' }
         realized: { $ref: 'common#/components/schemas/DecimalString' }
         unrealized: { $ref: '#/components/schemas/PnlAmount' }
         fees: { $ref: 'common#/components/schemas/DecimalString' }
         partial: { type: boolean, description: 'true quando alguma posição tem não realizado unknown (AC5.1.3)' }
+        empty: { type: boolean, description: 'Nenhum preenchimento no período e nenhuma posição aberta (BR6.6)' }
+        unrealizedAsOf: { $ref: 'common#/components/schemas/Instant' }
         byToken: { type: array, items: { $ref: '#/components/schemas/PnlTokenLine' } }
+    # U7 (Q11, BR7.5): os limites vêm da U5 na tela; a rota devolve só o uso.
     DayUsage:
       type: object
-      required: [exposure, maxTotalExposure, dayLoss, maxDailyLoss, utcDay]
+      required: [exposure, dayLoss, utcDay]
       properties:
         exposure: { $ref: 'common#/components/schemas/DecimalString' }
-        maxTotalExposure: { $ref: 'common#/components/schemas/DecimalString' }
         dayLoss: { $ref: 'common#/components/schemas/DecimalString' }
-        maxDailyLoss: { $ref: 'common#/components/schemas/DecimalString' }
         utcDay: { type: string, format: date }
     ReconciliationResult:
       type: object
-      required: [status, checkedAt, divergenceCount, divergences]
+      required: [status, divergenceCount, divergences]
       properties:
-        status: { type: string, enum: [RECONCILED, DIVERGENT] }
+        # PENDING: a pessoa tem conta PAPER e ainda não houve conferência.
+        status: { type: string, enum: [RECONCILED, DIVERGENT, PENDING] }
+        trigger: { type: string, enum: [SCHEDULED, ON_DEMAND] }
         checkedAt: { $ref: 'common#/components/schemas/Instant' }
         divergenceCount: { type: integer }
         divergences:
           type: array
           items:
             type: object
-            required: [orderId, kind, expected, found]
+            required: [botId, kind, expected, found]
             properties:
+              botId: { type: string, format: uuid }
               orderId: { type: string, format: uuid }
-              kind: { type: string, enum: [MISSING_ENTRY, AMOUNT_MISMATCH, ORPHAN_ENTRY] }
+              positionId: { type: string, format: uuid }
+              entryId: { type: string, format: uuid }
+              utcDay: { type: string, format: date }
+              kind: { type: string, enum: [MISSING_ENTRY, AMOUNT_MISMATCH, ORPHAN_ENTRY, POSITION_MISMATCH, SUMMARY_MISMATCH] }
               expected: { $ref: 'common#/components/schemas/DecimalString' }
               found: { $ref: 'common#/components/schemas/DecimalString' }
 ```
+
+Acréscimos da U7 (Functional Design e NFR Design da U7): `LedgerEntry.type` ganha `FUNDING`; `PaperTrade` ganha `requestedQuantity`, `filledQuantity`, `status`, `notFilledReason`, `spreadPct`, `impactPct`, `liquidityConsumedPct`, `marketSource`, `marketObservedAt`; `PnlReport` ganha `empty` e `unrealizedAsOf`; `PnlTokenLine.unrealized` `UNKNOWN` traz o motivo; `divergences.kind` ganha `POSITION_MISMATCH` e `SUMMARY_MISMATCH`; `DayUsage` perde `maxTotalExposure` e `maxDailyLoss` (a tela da U5 combina com os limites da própria U5); rota nova `POST /api/v1/reconciliation/run`. Bot de outra pessoa: `404 NOT_FOUND` em toda rota; bot ainda não ativado (sem conta PAPER): resposta vazia. Período `from >= to` ou maior que 366 dias: `400 VALIDATION_FAILED`. Falha técnica: `503 SERVICE_UNAVAILABLE`.
 
 Comportamento: só leitura. Não existe rota de alteração ou exclusão de lançamento (FR10.1, AC5.2.2). O total por token soma exatamente o total geral; com algum não realizado `UNKNOWN`, o total não realizado também é `UNKNOWN` e `partial` é `true` (AC5.1.1, AC5.1.3).
 
@@ -912,7 +964,7 @@ paths:
       summary: Lista convites com estado e validade (AC7.1.2)
       parameters:
         - $ref: 'common#/components/parameters/Cursor'
-        - $ref: 'common#/components/parameters/Limit'
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 }, description: 'U3 (NFR2.2): padrão 20; fora de 1 a 100 é 400' }
       responses:
         '200':
           content:
@@ -921,6 +973,7 @@ paths:
                 allOf:
                   - $ref: 'common#/components/schemas/PageMeta'
                   - { type: object, required: [items], properties: { items: { type: array, items: { $ref: '#/components/schemas/Invite' } } } }
+        '400': { description: VALIDATION_FAILED em limit ou cursor }
     post:
       summary: Emite convite de uso único para um tenant (AC7.1.1)
       parameters: [ { $ref: 'common#/components/parameters/IdempotencyKey' } ]
@@ -933,13 +986,20 @@ paths:
               properties:
                 tenantId: { type: string, format: uuid, description: 'Exceção à regra de tenant: o administrador escolhe o tenant do convite (ADR-002)' }
                 expiresAt: { $ref: 'common#/components/schemas/Instant' }
-      responses: { '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Invite' } } } } }
+      responses:
+        '201': { description: 'Convite com o código completo; repetir com a mesma chave devolve o mesmo convite SEM code (U3, BR1.8)', content: { application/json: { schema: { $ref: '#/components/schemas/Invite' } } } }
+        '400': { description: VALIDATION_FAILED (Idempotency-Key ausente ou corpo inválido) }
+        '409': { description: IDEMPOTENCY_CONFLICT }
+        '422': { description: 'VALIDATION_FAILED no campo tenantId (inexistente ou não ACTIVE) ou expiresAt (fora de 1 hora a 30 dias); U3, BR1.1' }
   /api/v1/admin/invites/{inviteId}/revoke:
     post:
       parameters:
         - { name: inviteId, in: path, required: true, schema: { type: string, format: uuid } }
         - $ref: 'common#/components/parameters/IdempotencyKey'
-      responses: { '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Invite' } } } } }
+      responses:
+        '200': { description: 'Revogado; revogar de novo devolve o mesmo convite, sem novo evento (U3, BR1.4)', content: { application/json: { schema: { $ref: '#/components/schemas/Invite' } } } }
+        '404': { description: 'NOT_FOUND: convite inexistente (U3)' }
+        '409': { description: 'INVITE_NOT_REVOCABLE com reason USED ou EXPIRED (U3, BR1.4)' }
   /api/v1/admin/kill-switch:
     get:
       responses:
@@ -1024,17 +1084,22 @@ components:
         role: { type: string, enum: [ADMIN] }
     Invite:
       type: object
-      required: [inviteId, code, tenantId, status, expiresAt]
+      required: [inviteId, tenantId, status, expiresAt, createdAt, usedAt, revokedAt, codeSuffix]
       properties:
         inviteId: { type: string, format: uuid }
-        code: { type: string }
+        code: { type: string, description: 'Só na resposta 201 da emissão, nunca numa repetição nem na lista (U3, Q2, BR1.3)' }
+        codeSuffix: { type: string, minLength: 4, maxLength: 4, description: 4 últimos caracteres do código (U3) }
         tenantId: { type: string, format: uuid }
         status: { type: string, enum: [PENDING, USED, EXPIRED, REVOKED] }
         expiresAt: { $ref: 'common#/components/schemas/Instant' }
-        usedAt: { $ref: 'common#/components/schemas/Instant' }
+        createdAt: { $ref: 'common#/components/schemas/Instant' }
+        usedAt: { type: [string, 'null'], format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
 ```
 
 Comportamento: toda rota exige o token do administrador; um token de convidado recebe `403 FORBIDDEN_ROLE`, auditado (AC7.1.4, AC7.2.5). Não existe rota para iniciar, pausar ou encerrar o bot de um usuário, nem para ler ledger ou operações (AC7.4.2).
+
+Registrado pela geração de código da U3: as rotas de convite já existem no backend (`AdminInviteController`, usado pela tela da U8) e estão em `apps/api/openapi/openapi-admin.yaml`. `Invite` não tem mais `code` obrigatório e nunca traz quem emitiu; a lista e a revogação nunca trazem o código. A rota dos tenants ativos para o formulário de convite fica para a U8, sobre `IdentityAdministration.activeTenants()` (C17).
 
 ### C21 — Ordens recusadas (U6)
 
@@ -1121,6 +1186,20 @@ rules:
   - tenantId vazio só para eventos de antes do login (por exemplo, LOGIN_REJECTED sem conta) com actorType ANONYMOUS, e para ações globais do administrador (kill switch). A consulta restrita mostra eventos sem tenant só ao administrador.
   - Endereço de carteira vai completo só em details da trilha; actor e qualquer saída fora da trilha usam a forma mascarada.
   - audit_outbox é a única tabela da U2 que outros módulos tocam, e só por meio de AuditEventPublisher; ninguém lê a tabela diretamente.
+actions-added-by-u3:
+  - 'INVITE_ISSUED: ator o administrador (ADMIN, sem tenant), targetRef invite:<inviteId>, details tenantId e expiresAt; nunca o código'
+  - 'INVITE_REVOKED: ator o administrador, targetRef invite:<inviteId>, details tenantId; a revogação repetida não grava evento'
+  - 'ACCOUNT_CREATED: ator a nova pessoa (PERSON, tenant do convite), targetRef invite:<inviteId>, details termsVersion, acceptedAt, provider e walletAddress; substitui o LOGIN_SUCCEEDED da primeira entrada'
+  - 'Recusas da verificação com convite gravam um único LOGIN_REJECTED com reason INVITE_NOT_FOUND, INVITE_EXPIRED, INVITE_REVOKED, INVITE_USED, ADMIN_WALLET, WALLET_ALREADY_LINKED, TENANT_INACTIVE ou TERMS_NOT_ACCEPTED'
+actions-added-by-u7:
+  - 'PAPER_ACCOUNT_FUNDED: ator a pessoa do ciclo (PERSON), targetRef bot:<botId>; details sem valores'
+  - 'PAPER_ORDER_FILLED: ator a pessoa do ciclo, targetRef order:<orderId>, details status (FILLED ou PARTIALLY_FILLED) e kind'
+  - 'PAPER_ORDER_NOT_FILLED: ator a pessoa do ciclo, targetRef order:<orderId>, details reason'
+  - 'POSITION_CLOSE_PENDING: ator a pessoa do ciclo, targetRef position:<positionId>'
+  - 'POSITION_CLOSE_COMPLETED: ator system (SYSTEM, sem tenant), targetRef position:<positionId>, details botId'
+  - 'LEDGER_ENTRY_COMPENSATED: ator a pessoa, targetRef entry:<entryId compensado>, details reason'
+  - 'TENANT_MISMATCH nas interfaces C13 e C15 grava REQUEST_FORBIDDEN (reason TENANT_MISMATCH), sem ordem'
+  - 'Duplicate (mesma chave e mesmo conteúdo) não publica evento novo'
 ```
 
 Na U1, a implementação mínima de `AuditEventPublisher` já grava na tabela de saída, e o relay mínimo grava na trilha; a U2 completa consulta, mascaramento, varredura de logs e as demais ações sem mudar a interface nem os chamadores (Q10).
@@ -1156,6 +1235,10 @@ interface: |
   public interface MarketDataQuery {
       MarketValue referencePrice(TokenId token);
       MarketValue liquidity(TokenId token);
+      // U7 (BR1.10): casas decimais do mint (token.decimals). Known com valor inteiro (escala 0, de 0 a 18); token
+      // nunca observado é Unknown, nunca zero. O MarketValue existente não é genérico: o "MarketValue<Integer>" do
+      // functional-spec da U7 trafega como BigDecimal inteiro, lido pelo consumidor com intValueExact().
+      MarketValue decimals(TokenId token);
       PriceVolumeWindow window(TokenId token, Duration length); // pode ter lacunas Unknown
       List<SourceStatus> sourceStatuses();
   }
@@ -1167,6 +1250,7 @@ rules:
   - Valores ausentes são Unknown, nunca zero nem null.
   - stale = true quando a idade passa de 5 minutos; o consumidor aplica o próprio limite de frescor (por exemplo, 60 s na barreira).
   - Chamada síncrona sem nova tentativa; uma falha técnica vira Unknown com reason SOURCE_UNAVAILABLE.
+  - Preço e liquidez em USDC (U7, BR1.10). A U7 considera o preço desatualizado com mais de 5 minutos (BR1.2).
 ```
 
 ### C13 a C15 — Núcleo financeiro (U6, U7, U5)
@@ -1180,11 +1264,14 @@ owners:
 language: java
 interface: |
   // C13 - U7 para U6
+  // Como implementada pela U7 (pacote com.memetrade.pnl.api): recebe o token avaliado; equity é Optional, vazio
+  // quando algum preço não é confiável (nunca zero, BR7.4); bot de outra pessoa lança TenantMismatchException
+  // (auditada com REQUEST_FORBIDDEN); a perda do dia vem direto dos preenchimentos, nunca do resumo diário.
   public interface PortfolioRiskView {
-      RiskSnapshot snapshot(UUID botId, LocalDate utcDay);
+      RiskSnapshot snapshot(UUID botId, String chain, String tokenMint, LocalDate utcDay);
   }
   public record RiskSnapshot(BigDecimal tokenExposure, BigDecimal totalExposure,
-      BigDecimal realizedDayLossWithFees, BigDecimal equity, BigDecimal peakEquity,
+      BigDecimal realizedDayLossWithFees, Optional<BigDecimal> equity, BigDecimal peakEquity,
       BigDecimal availableVirtualBalance, Optional<Instant> lastTradeAt) {}
 
   // C14 - U6 para U5
@@ -1198,12 +1285,27 @@ interface: |
   public enum PauseTrigger { DAILY_LOSS, DRAWDOWN }
 
   // C15 - U7 para U5
+  // Como implementada pela U7 (pacote com.memetrade.ledger.api, tipos aninhados em PaperExecution).
   public interface PaperExecution {
       // Exige a transação do ciclo aberta pela U5 (propagação MANDATORY); grava tudo ou nada.
-      ExecutionResult execute(ApprovedOrder order, String idempotencyKey);
-      CloseResult closePositions(UUID botId, String idempotencyKey);
+      FundResult fund(UUID botId, BigDecimal amount, String idempotencyKey);          // U7: uma vez por bot, PAPER_FUND
+      ExecutionResult execute(PaperOrderRequest order, String idempotencyKey);
+      CloseResult closePositions(UUID botId, long limitsVersion, String idempotencyKey); // U7: PAPER_CLOSE_POSITIONS
   }
-  public sealed interface ExecutionResult permits Filled, Duplicate, Conflict {}
+  public record PaperOrderRequest(UUID botId, UUID decisionId, OrderSide side, String chain, String tokenMint,
+      BigDecimal requestedQuantity, long limitsVersion) {}
+  public sealed interface ExecutionResult permits Filled, NotFilled, Duplicate, Conflict {}
+  public record Filled(UUID orderId, OrderStatus status, BigDecimal requestedQuantity, BigDecimal filledQuantity,
+      FillDetails fill) implements ExecutionResult {}                 // FILLED ou PARTIALLY_FILLED
+  public record NotFilled(Optional<UUID> orderId, NotFilledReason reason) implements ExecutionResult {}
+  // NotFilledReason: PRICE_UNAVAILABLE, NO_LIQUIDITY, QUANTITY_BELOW_MINIMUM, NO_POSITION, ACCOUNT_CLOSING,
+  // INSUFFICIENT_BALANCE, TENANT_MISMATCH (este último sem ordem gravada: orderId vazio)
+  public record Duplicate(ExecutionResult original) implements ExecutionResult {}
+  public record Conflict(String idempotencyKey) implements ExecutionResult {}
+  public sealed interface FundResult permits Funded, Conflict {}       // Conflict: DIFFERENT_CONTENT ou ALREADY_FUNDED
+  public sealed interface CloseResult permits Closed, Conflict, Refused {}
+  public record Closed(UUID botId, AccountStatus accountStatus, List<ClosedPosition> closed,
+      List<PendingPosition> pending, boolean replayed) implements CloseResult {}
 rules:
   - Valores monetários em BigDecimal com a escala da tabela "Escalas"; nunca double ou float.
   - A U5 abre a transação do ciclo, trava a linha do bot (SELECT ... FOR UPDATE), confere que ele está ACTIVE e sem motivo de pausa e, dentro da mesma transação, chama DecisionEngine, OrderGate e PaperExecution (ADR-005, AC4.8.2, Q16).
@@ -1211,6 +1313,11 @@ rules:
   - Uma pausa ou o kill switch gravados pela API esperam a trava do bot; se chegarem antes, o ciclo vê o motivo de pausa e não chama PaperExecution (AC7.2.2).
   - Duplicate devolve o resultado original da mesma chave; Conflict é a mesma chave com conteúdo diferente (AC4.6.3, AC4.6.4).
   - Erros de domínio são resultados explícitos; exceção só para falha técnica, que desfaz a transação inteira do ciclo, sem nova tentativa dentro do ciclo.
+  - U7 - NotFilled é ciclo concluído sem operação (o ciclo confirma, não desfaz); a U5 mostra o motivo e não repete a mesma decisão.
+  - U7 - fund é chamado uma vez na ativação do bot; closePositions recebe a versão dos limites vigente no encerramento.
+  - U7 - closePositions com a conta já em CLOSING ou CLOSED não cria ordem para posição CLOSE_PENDING e devolve o estado atual.
+  - U7 - a execução faz SET LOCAL lock_timeout = '2s' e statement_timeout = '5s'; o efeito vale até o fim da transação do ciclo, inclusive para as gravações seguintes da U5 e da trilha, e a U5 registra isso no seu design.
+  - U7 - o contexto de autenticação do ciclo (C10) dá tenant e pessoa; a U5 liga o Principal do dono do bot antes de chamar a U7.
 ```
 
 ### C16 e C17 — Interfaces usadas pela administração e pelo painel (U5, U3)
@@ -1228,15 +1335,26 @@ interface: |
       Map<BotState, Long> countByState();
       BotDashboardSummary summaryFor(Principal principal);      // usado pelo painel (U9) e pelo canal C7
   }
+  // Como implementada pela U3 (pacote com.memetrade.identity.api):
   public interface IdentityAdministration {
-      Invite issue(UUID tenantId, Instant expiresAt, Principal admin);
-      Invite revoke(UUID inviteId, Principal admin);
-      Page<Invite> list(Cursor cursor);
-      IdentityCounts counts();
+      IssuedInvite issue(UUID tenantId, Instant expiresAt, Principal admin); // transação do chamador (MANDATORY)
+      InviteView revoke(UUID inviteId, Principal admin);                     // transação do chamador (MANDATORY)
+      InvitePage list(Optional<String> cursor, int limit, Principal admin);
+      IdentityCounts counts(Principal admin);
+      List<TenantOption> activeTenants(Principal admin);                     // acréscimo da U3 para a U8 (Q1)
   }
+  public record IssuedInvite(InviteView invite, String code) {}           // code fora do corpo guardado (NFR6.3)
+  public record InviteView(UUID inviteId, UUID tenantId, InviteStatus status, Instant expiresAt,
+      Instant createdAt, Instant usedAt, Instant revokedAt, String codeSuffix) {}
+  public record InvitePage(List<InviteView> items, String nextCursor) {}
+  public record IdentityCounts(long guestCount, Map<InviteStatus, Long> inviteCounts) {} // quatro chaves sempre
+  public record TenantOption(UUID tenantId, String name) {}
+  public enum InviteStatus { PENDING, USED, EXPIRED, REVOKED }
 rules:
   - applySystemPause é repetível: uma falha parcial é repetida até todos os bots ativos terem o motivo SYSTEM (ADR-007).
   - Nenhuma interface expõe ledger, operações ou carteiras à administração (AC7.4.2).
+  - IdentityAdministration confere o papel ADMIN do Principal recebido (403 FORBIDDEN_ROLE), além do filtro das rotas administrativas; nenhum controlador do convidado a usa (ArchUnit, U3).
+  - A emissão devolve o código só em IssuedInvite.code; quem guarda a resposta da idempotência guarda só o InviteView (U3, BR1.8).
 ```
 
 ### C18 — Marcas de última alteração (U4, U5, U7)

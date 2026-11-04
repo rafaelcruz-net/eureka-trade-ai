@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import { NextRequest } from 'next/server';
-import { buildCsp, middleware, newNonce } from '@/middleware';
+import { buildCsp, isPrivatePage, middleware, newNonce } from '@/middleware';
 
 describe('middleware CSP', () => {
   const original = process.env.API_ORIGIN;
@@ -47,6 +47,26 @@ describe('middleware CSP', () => {
     expect(buildCsp('n', 'http://api', false)).not.toContain('unsafe-eval');
     expect(buildCsp('n', 'http://api', true)).toContain('unsafe-eval');
     expect(buildCsp('n', 'http://api', false)).toContain("script-src 'nonce-n' 'strict-dynamic'");
+  });
+
+  // U3 (NFR6.5): the invitation page (code in the path) and the Account screen are never cached.
+  it.each(['/convite/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8', '/convite', '/conta'])(
+    'answers %s with Cache-Control no-store and Referrer-Policy no-referrer',
+    (path) => {
+      const response = middleware(new NextRequest(`http://localhost:3000${path}`));
+
+      expect(response.headers.get('Cache-Control')).toBe('no-store');
+      expect(response.headers.get('Referrer-Policy')).toBe('no-referrer');
+    },
+  );
+
+  it('leaves the caching of the other pages to Next.js', () => {
+    expect(
+      middleware(new NextRequest('http://localhost:3000/scanner')).headers.get('Cache-Control'),
+    ).toBeNull();
+    expect(isPrivatePage('/convites-antigos')).toBe(false);
+    expect(isPrivatePage('/contato')).toBe(false);
+    expect(isPrivatePage('/conta/termos')).toBe(true);
   });
 
   it('generates 128-bit nonces', () => {

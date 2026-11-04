@@ -1,0 +1,15 @@
+Versão provisória, pendente de revisão jurídica.
+
+Termos de uso do beta do MemeTrade Analytics (versão v1).
+
+O MemeTrade Analytics é um beta fechado, por convite, de ferramentas de análise e de simulação de operações com tokens da rede Solana. Neste beta todas as operações são simuladas no modo PAPER, com saldo virtual. Nenhuma operação usa dinheiro real e nenhuma ordem é enviada à rede.
+
+Para entrar, você conecta uma carteira Phantom ou Solflare e assina uma mensagem de login. Essa assinatura só identifica você e não autoriza nenhuma operação. Nunca pedimos sua frase secreta nem sua chave privada, em nenhuma tela e em nenhum contato.
+
+Guardamos o endereço público da sua carteira, o provedor da carteira, a versão destes termos e o horário em que você os aceitou. Esses dados ficam ligados à sua conta e ao convite usado e servem para operar o beta e para a trilha de auditoria.
+
+O convite é pessoal e de uso único. Não compartilhe o link do convite.
+
+O beta pode mudar, ficar indisponível ou ser encerrado a qualquer momento. As informações exibidas podem estar incompletas, atrasadas ou incorretas, e dados ausentes aparecem como "unknown".
+
+Ao marcar o aceite, você confirma que leu estes termos e o aviso de risco.

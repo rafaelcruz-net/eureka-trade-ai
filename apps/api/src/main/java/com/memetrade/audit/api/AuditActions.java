@@ -30,5 +30,32 @@ public final class AuditActions {
     /** U4 (BR4.2): an administrator activated a weight version of the risk indicator; details carry both versions. */
     public static final String RISK_WEIGHTS_ACTIVATED = "RISK_WEIGHTS_ACTIVATED";
 
+    /** U3 (BR1.1): an administrator issued an invitation; target {@code invite:<id>}, never the code. */
+    public static final String INVITE_ISSUED = "INVITE_ISSUED";
+
+    /** U3 (BR1.4): an administrator revoked a pending invitation; a repeated revocation writes nothing. */
+    public static final String INVITE_REVOKED = "INVITE_REVOKED";
+
+    /** U3 (BR3.5): an account was created with an invitation; details carry the terms version and acceptance time. */
+    public static final String ACCOUNT_CREATED = "ACCOUNT_CREATED";
+
+    /** U7 (BR2.6): the initial virtual balance of a bot was recorded; target {@code bot:<botId>}. */
+    public static final String PAPER_ACCOUNT_FUNDED = "PAPER_ACCOUNT_FUNDED";
+
+    /** U7 (F2): a PAPER order was filled, totally or partially; target {@code order:<orderId>}. */
+    public static final String PAPER_ORDER_FILLED = "PAPER_ORDER_FILLED";
+
+    /** U7 (F2): a PAPER order was recorded without a fill; details carry the reason, never values. */
+    public static final String PAPER_ORDER_NOT_FILLED = "PAPER_ORDER_NOT_FILLED";
+
+    /** U7 (BR5.2): a position waits for a reliable price to be closed. */
+    public static final String POSITION_CLOSE_PENDING = "POSITION_CLOSE_PENDING";
+
+    /** U7 (BR5.3): the pending close was completed once by the job, actor {@code system}. */
+    public static final String POSITION_CLOSE_COMPLETED = "POSITION_CLOSE_COMPLETED";
+
+    /** U7 (BR4.2): a ledger entry was corrected by a compensating entry. */
+    public static final String LEDGER_ENTRY_COMPENSATED = "LEDGER_ENTRY_COMPENSATED";
+
     private AuditActions() {}
 }

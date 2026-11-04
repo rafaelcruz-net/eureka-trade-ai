@@ -79,6 +79,174 @@ paths:
         \ NFR7)"
       tags:
       - admin-audit-controller
+  /api/v1/admin/invites:
+    get:
+      operationId: listInvites
+      parameters:
+      - description: Cursor opaco devolvido em nextCursor
+        in: query
+        name: cursor
+        schema:
+          type: string
+      - description: Itens por página
+        in: query
+        name: limit
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitePage"
+          description: Página sem o código e sem quem emitiu
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VALIDATION_FAILED em limit ou cursor
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+      security:
+      - accessToken: []
+      summary: "Convites com estado em texto, validade e final do código, mais recentes\
+        \ primeiro (AC7.1.2)"
+      tags:
+      - admin-invite-controller
+    post:
+      operationId: issueInvite
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IssueInviteRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invite"
+          description: Convite emitido com o código completo; repetir com a mesma
+            chave devolve o mesmo convite sem o código
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: Idempotency-Key ausente ou corpo inválido"
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "IDEMPOTENCY_CONFLICT: mesma chave com outro corpo"
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VALIDATION_FAILED nos campos tenantId (tenant inexistente ou
+            não ativo) ou expiresAt (fora de 1 hora a 30 dias)
+      security:
+      - accessToken: []
+      summary: Emite convite de uso único para um tenant ativo (AC7.1.1); o código
+        só vem nesta resposta
+      tags:
+      - admin-invite-controller
+  /api/v1/admin/invites/{inviteId}/revoke:
+    post:
+      operationId: revokeInvite
+      parameters:
+      - in: path
+        name: inviteId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invite"
+          description: Convite revogado (sem o código)
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: Idempotency-Key ausente ou inviteId invá\
+            lido"
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: convite inexistente"
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: INVITE_NOT_REVOCABLE com reason USED ou EXPIRED; ou IDEMPOTENCY_CONFLICT
+      security:
+      - accessToken: []
+      summary: Revoga um convite pendente; revogar de novo devolve o mesmo convite
+        (BR1.4)
+      tags:
+      - admin-invite-controller
 components:
   schemas:
     AuditEventPage:
@@ -165,6 +333,90 @@ components:
           type: string
         message:
           type: string
+    Invite:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          description: "Código completo: só na resposta 201 da emissão, nunca numa\
+            \ repetição"
+          minLength: 43
+        codeSuffix:
+          type: string
+          description: 4 últimos
+          maxLength: 4
+          minLength: 4
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        inviteId:
+          type: string
+          format: uuid
+        revokedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        status:
+          type: string
+          enum:
+          - PENDING
+          - USED
+          - EXPIRED
+          - REVOKED
+        tenantId:
+          type: string
+          format: uuid
+        usedAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+      required:
+      - codeSuffix
+      - createdAt
+      - expiresAt
+      - inviteId
+      - revokedAt
+      - status
+      - tenantId
+      - usedAt
+    InvitePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invite"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: null quando não há próxima página
+      required:
+      - items
+      - nextCursor
+    IssueInviteRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+          description: "Entre agora + 1 hora e agora + 30 dias, inclusive (UTC)"
+        tenantId:
+          type: string
+          format: uuid
+          description: "Exceção à regra de tenant: o administrador escolhe um tenant\
+            \ ativo (ADR-002)"
+      required:
+      - expiresAt
+      - tenantId
     Problem:
       type: object
       additionalProperties: false

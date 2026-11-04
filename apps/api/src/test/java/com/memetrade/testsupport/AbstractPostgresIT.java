@@ -42,7 +42,9 @@ import org.testcontainers.utility.MountableFile;
             "memetrade.scheduling.enabled=false",
             "management.server.port=0",
             "memetrade.auth.access-token-signing-key=" + AbstractPostgresIT.TEST_SIGNING_KEY,
-            "memetrade.auth.guest-app-origin=http://localhost:3000"
+            "memetrade.auth.guest-app-origin=http://localhost:3000",
+            // U4: tests walk many pages within one minute of the fixed clock; ScannerRateLimitIT checks the real 60.
+            "memetrade.scanner.rate-limit-per-minute=10000"
         })
 @Import(AbstractPostgresIT.FixedClockConfig.class)
 @org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -125,10 +127,19 @@ public abstract class AbstractPostgresIT {
      * Every test starts at the same fixed instant and with empty login counters, whatever an earlier test did to the
      * shared clock and limiter (tests never depend on each other or on execution order).
      */
+    @Autowired
+    private com.memetrade.shared.web.PersonRouteRateLimiter scannerRateLimiter;
+
+    /** U3: the invitation lookup limiter has its own counters, reset like the login ones. */
+    @Autowired
+    private com.memetrade.identity.domain.ratelimit.InviteLookupRateLimiter inviteLookupRateLimiter;
+
     @org.junit.jupiter.api.BeforeEach
     void resetSharedState() {
         clock.set(MutableClock.DEFAULT_START);
         loginRateLimiter.clear();
+        scannerRateLimiter.clear();
+        inviteLookupRateLimiter.clear();
     }
 
     /** Runs the versioned role bootstrap as the container superuser against {@code database}. */

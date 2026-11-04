@@ -1,0 +1,30 @@
+{
+  "stage": "code-generation",
+  "unit": "u4-discovery",
+  "upstream_ids": [
+    "AC2.2.1", "AC2.2.2", "AC2.2.3",
+    "AC2.3.1", "AC2.3.2", "AC2.3.3", "AC2.3.4",
+    "AC2.4.1", "AC2.4.2",
+    "AC3.1.1", "AC3.1.2", "AC3.1.3", "AC3.1.4", "AC3.1.5",
+    "AC3.2.1", "AC3.2.2", "AC3.2.3"
+  ],
+  "coverage": [
+    { "id": "AC2.2.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/scanner/ScannerListQueryIT.java" },
+    { "id": "AC2.2.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/scanner/ScannerListQueryIT.java" },
+    { "id": "AC2.2.3", "status": "OK", "target": "apps/web/src/features/scanner/ScannerScreen.test.tsx" },
+    { "id": "AC2.3.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/marketdata/domain/FieldResolverTest.java" },
+    { "id": "AC2.3.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/scanner/ScannerListQueryIT.java" },
+    { "id": "AC2.3.3", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/scanner/ScannerRoutesIT.java" },
+    { "id": "AC2.3.4", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/marketdata/domain/FieldResolverTest.java" },
+    { "id": "AC2.4.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/marketdata/domain/FieldResolverTest.java" },
+    { "id": "AC2.4.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/marketdata/infra/simulated/SimulatedSourcesTest.java" },
+    { "id": "AC3.1.1", "status": "OK", "target": "apps/web/src/features/scanner/AssessmentPanel.test.tsx" },
+    { "id": "AC3.1.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/scanner/ScannerRoutesIT.java" },
+    { "id": "AC3.1.3", "status": "OK", "target": "apps/web/src/features/scanner/AssessmentPanel.test.tsx" },
+    { "id": "AC3.1.4", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/riskassessment/domain/RiskCalculatorTest.java" },
+    { "id": "AC3.1.5", "status": "OK", "target": "apps/web/src/features/scanner/AssessmentPanel.test.tsx" },
+    { "id": "AC3.2.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/riskassessment/domain/RiskCalculatorTest.java" },
+    { "id": "AC3.2.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/riskassessment/domain/RiskCalculatorTest.java" },
+    { "id": "AC3.2.3", "status": "OK", "target": "apps/web/src/content/prohibited-terms.test.ts" }
+  ]
+}

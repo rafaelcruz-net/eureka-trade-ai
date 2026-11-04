@@ -26,7 +26,16 @@ import org.yaml.snakeyaml.Yaml;
  */
 public final class RouteRegistry {
 
-    public record Entry(String key, String scope, String negativeTest) {}
+    /**
+     * One route or job. {@code tenantFromClient} (U3, NFR5.2) marks the named exception of a route that receives a
+     * tenant from the client; it is accepted only on ADMIN entries ({@link #tenantFromClientOutsideAdmin()}).
+     */
+    public record Entry(String key, String scope, String negativeTest, boolean tenantFromClient) {
+
+        public Entry(String key, String scope, String negativeTest) {
+            this(key, scope, negativeTest, false);
+        }
+    }
 
     private final List<Entry> routes;
     private final List<Entry> jobs;
@@ -42,8 +51,11 @@ public final class RouteRegistry {
             Map<String, Object> yaml = new Yaml().load(in);
             List<Entry> routes = new ArrayList<>();
             for (Map<String, Object> r : (List<Map<String, Object>>) yaml.get("routes")) {
-                routes.add(new Entry(r.get("method") + " " + r.get("path"), (String) r.get("scope"), (String)
-                        r.get("negativeTest")));
+                routes.add(new Entry(
+                        r.get("method") + " " + r.get("path"),
+                        (String) r.get("scope"),
+                        (String) r.get("negativeTest"),
+                        Boolean.TRUE.equals(r.get("tenantFromClient"))));
             }
             List<Entry> jobs = new ArrayList<>();
             for (Map<String, Object> j : (List<Map<String, Object>>) yaml.get("jobs")) {
@@ -85,6 +97,24 @@ public final class RouteRegistry {
             }
         }
         return missing;
+    }
+
+    /** U3 (NFR5.2): entries marked {@code tenantFromClient} whose scope is not ADMIN. */
+    public List<String> tenantFromClientOutsideAdmin() {
+        List<String> wrong = new ArrayList<>();
+        for (Entry entry : concat()) {
+            if (entry.tenantFromClient() && !"ADMIN".equals(entry.scope())) {
+                wrong.add(entry.key());
+            }
+        }
+        return wrong;
+    }
+
+    /** U3 (NFR5.2): keys of the routes marked as the named exception that receives a tenant from the client. */
+    public Set<String> tenantFromClientRoutes() {
+        Set<String> marked = new LinkedHashSet<>();
+        routes.stream().filter(Entry::tenantFromClient).forEach(entry -> marked.add(entry.key()));
+        return marked;
     }
 
     /** "METHOD /path" of every endpoint declared by the application's REST controllers. */

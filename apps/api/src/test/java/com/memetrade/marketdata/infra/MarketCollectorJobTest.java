@@ -147,6 +147,44 @@ class MarketCollectorJobTest {
                 .isEqualTo(1.0);
     }
 
+    /** NFR9.6: the failure log has the source, the category and the exception class, never the error text. */
+    @Test
+    @Tag("u4")
+    void aFailedCollectionLogsTheCategoryAndTheClassButNeverTheErrorText() {
+        ch.qos.logback.classic.Logger logger =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(MarketCollectorJob.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        ch.qos.logback.classic.Level previous = logger.getLevel();
+        logger.setLevel(ch.qos.logback.classic.Level.INFO);
+        try {
+            for (int i = 0; i < 3; i++) {
+                sourceB.thenThrow(new IllegalStateException("upstream said SECRET-DETAIL-42 for MintXYZ"));
+            }
+            job.collectNow("sim-b");
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(previous);
+        }
+
+        List<String> errors = appender.list.stream()
+                .filter(event -> event.getLevel() == ch.qos.logback.classic.Level.ERROR)
+                .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                .toList();
+        assertThat(errors)
+                .singleElement()
+                .asString()
+                .contains("source=sim-b")
+                .contains("failureCategory=ERROR_RESPONSE")
+                .contains("exceptionClass=IllegalStateException")
+                .doesNotContain("SECRET")
+                .doesNotContain("MintXYZ");
+        assertThat(appender.list)
+                .anySatisfy(event -> assertThat(event.getFormattedMessage()).contains("state changed"));
+    }
+
     @Test
     void theCycleNeverThrowsWhenTheDatabaseFails() {
         doThrow(new DataAccessResourceFailureException("down"))

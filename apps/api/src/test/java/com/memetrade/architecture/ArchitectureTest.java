@@ -30,7 +30,7 @@ class ArchitectureTest {
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
             .importPackages("com.memetrade");
 
-    private static final List<String> MODULES = List.of("identity", "marketdata", "scanner", "audit");
+    private static final List<String> MODULES = List.of("identity", "marketdata", "scanner", "audit", "riskassessment");
 
     @Test
     void aModuleTalksToAnotherOnlyThroughItsPublicApiPackage() {
@@ -81,7 +81,8 @@ class ArchitectureTest {
                         "com.memetrade.identity..",
                         "com.memetrade.marketdata..",
                         "com.memetrade.scanner..",
-                        "com.memetrade.audit..")
+                        "com.memetrade.audit..",
+                        "com.memetrade.riskassessment..")
                 .check(PRODUCTION);
     }
 

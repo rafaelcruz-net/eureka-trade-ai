@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 
 /** Request and response bodies of contract C1 (guest authentication). No field accepts a secret or private key. */
@@ -43,7 +44,11 @@ public final class AuthDtos {
         }
     }
 
-    /** U1 accepts exactly these fields; {@code inviteCode}/{@code acceptedTermsVersion} arrive with U3. */
+    /**
+     * Exactly these fields; any other one, {@code tenantId} included, is {@code 400 VALIDATION_FAILED} (NFR6.8), so the
+     * tenant never comes from the body. {@code inviteCode} has no format check here on purpose: a malformed code is
+     * refused after the signature exactly like an unknown one (NFR6.7). No field accepts a secret phrase or a key.
+     */
     @Schema(name = "VerifyRequest")
     public record VerifyRequest(
             @Schema(requiredMode = RequiredMode.REQUIRED) @NotBlank
@@ -56,7 +61,22 @@ public final class AuthDtos {
             String signature,
 
             @Schema(requiredMode = RequiredMode.REQUIRED) @NotNull
-            WalletProvider provider) {}
+            WalletProvider provider,
+
+            @Schema(description = "Código do convite; presente só no primeiro acesso por convite (U3)", maxLength = 128)
+            @Size(max = 128)
+            String inviteCode,
+
+            @Schema(description = "Versão vigente dos termos aceita; obrigatória com inviteCode", maxLength = 32)
+            @Size(max = 32)
+            String acceptedTermsVersion) {
+
+        @Override
+        public String toString() {
+            // The message (nonce), the signature and the invitation code never reach logs (BR4.3, BR2.3).
+            return "VerifyRequest[provider=" + provider + "]";
+        }
+    }
 
     public enum WalletProvider {
         PHANTOM,

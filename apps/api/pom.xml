@@ -64,10 +64,11 @@
             <groupId>org.liquibase</groupId>
             <artifactId>liquibase-core</artifactId>
         </dependency>
+        <!-- Compile scope since U3: the account creation recognises a unique violation BY CONSTRAINT NAME through
+             PSQLException.getServerErrorMessage() (reliability-design.md), never by the database message text. -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>

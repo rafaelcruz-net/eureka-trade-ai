@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -28,6 +29,15 @@ public class AuthenticationFilter extends OncePerRequestFilter {
 
     static final Set<String> PUBLIC_ROUTES =
             Set.of("/api/v1/auth/challenge", "/api/v1/auth/verify", "/api/v1/auth/refresh");
+
+    /**
+     * U3 (security-design.md, NFR6.6): the invitation lookup is public ONLY for GET with the whole normalised path
+     * matching exactly one segment after {@code /api/v1/invites/}. The segment is wider than a valid code on purpose:
+     * a malformed code reaches the controller and gets the same 404 as an unknown one (NFR6.7). Anything else under
+     * the prefix ({@code /api/v1/invites}, {@code /api/v1/invites/}, deeper paths, other methods) still needs a session.
+     */
+    static final Pattern PUBLIC_INVITE_LOOKUP = Pattern.compile("^/api/v1/invites/[^/]{1,128}$");
+
     private static final String BEARER = "Bearer ";
 
     private final SessionService sessions;
@@ -43,7 +53,15 @@ public class AuthenticationFilter extends OncePerRequestFilter {
         // The normalised path, as the dispatcher routes it: "//api/v1/..." or "/api/v1/%73canner/..." still need a
         // session.
         String path = com.memetrade.shared.web.RequestPaths.normalized(request);
-        return !path.startsWith("/api/v1/") || PUBLIC_ROUTES.contains(path) || "OPTIONS".equals(request.getMethod());
+        return !path.startsWith("/api/v1/")
+                || PUBLIC_ROUTES.contains(path)
+                || "OPTIONS".equals(request.getMethod())
+                || isInvitationLookup(request.getMethod(), path);
+    }
+
+    static boolean isInvitationLookup(String method, String normalizedPath) {
+        return "GET".equals(method)
+                && PUBLIC_INVITE_LOOKUP.matcher(normalizedPath).matches();
     }
 
     @Override

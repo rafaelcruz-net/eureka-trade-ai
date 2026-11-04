@@ -46,6 +46,35 @@ public final class AuthFlow {
                 .getResponse();
     }
 
+    /** U3: verification with an invitation code and the accepted terms version (either may be null). */
+    public MockHttpServletResponse verifyWithInvite(
+            TestWallet wallet, String message, String signature, String inviteCode, String termsVersion)
+            throws Exception {
+        ObjectNode request = json.createObjectNode();
+        request.put("walletAddress", wallet.address());
+        request.put("message", message);
+        request.put("signature", signature);
+        request.put("provider", "SOLFLARE");
+        if (inviteCode != null) {
+            request.put("inviteCode", inviteCode);
+        }
+        if (termsVersion != null) {
+            request.put("acceptedTermsVersion", termsVersion);
+        }
+        return mvc.perform(post("/api/v1/auth/verify")
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(request)))
+                .andReturn()
+                .getResponse();
+    }
+
+    /** U3: challenge, sign and verify with the invitation and the current terms "v1" (account creation). */
+    public MockHttpServletResponse createAccount(TestWallet wallet, String inviteCode) throws Exception {
+        String message = challenge(wallet).get("message").asText();
+        return verifyWithInvite(wallet, message, wallet.sign(message), inviteCode, "v1");
+    }
+
     /** Full login; returns the verify response (access token in the body, refresh token in Set-Cookie). */
     public MockHttpServletResponse login(TestWallet wallet) throws Exception {
         String message = challenge(wallet).get("message").asText();

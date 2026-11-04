@@ -66,7 +66,8 @@ public class ScannerService {
                 cursor.map(ScannerCursor::last),
                 query.limit()));
         Instant now = clock.instant();
-        List<ScannerRow> rows = result.tokens().stream().map(token -> row(token, now)).toList();
+        List<ScannerRow> rows =
+                result.tokens().stream().map(token -> row(token, now)).toList();
         long shownBefore = cursor.map(ScannerCursor::offsetShown).orElse(0L);
         Optional<String> next = result.hasMore()
                 ? Optional.of(new ScannerCursor(
@@ -126,7 +127,8 @@ public class ScannerService {
         if (createdAt instanceof MarketValue.Known known) {
             Instant created = Instant.ofEpochSecond(known.value().longValueExact());
             long minutes = Math.max(0, Duration.between(created, now).toMinutes());
-            return new MarketValue.Known(BigDecimal.valueOf(minutes), known.source(), known.observedAt(), known.stale());
+            return new MarketValue.Known(
+                    BigDecimal.valueOf(minutes), known.source(), known.observedAt(), known.stale());
         }
         return createdAt;
     }

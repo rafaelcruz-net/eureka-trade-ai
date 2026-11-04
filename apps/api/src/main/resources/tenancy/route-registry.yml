@@ -8,11 +8,31 @@
 # Every route of the guest and admin OpenAPI and every scheduled job must be listed here.
 routes:
   - { method: GET, path: /api/v1/admin/audit-events, scope: ADMIN, negativeTest: com.memetrade.audit.AdminAuditRouteIT#aGuestTokenIsRefusedWith403AndOneRequestForbiddenEvent }
+  # U3 (C8): invitation routes of the administrator. The issuance is the ONLY route that receives a tenant from the
+  # client (ADR-002, NFR5.2): tenantFromClient marks that named exception, accepted only in ADMIN entries.
+  - { method: GET, path: /api/v1/admin/invites, scope: ADMIN, negativeTest: com.memetrade.identity.AdminInviteRouteIT#aGuestTokenIsRefusedWith403AndOneRequestForbiddenEvent }
+  - { method: POST, path: /api/v1/admin/invites, scope: ADMIN, tenantFromClient: true, negativeTest: com.memetrade.identity.AdminInviteRouteIT#aGuestTokenIsRefusedWith403AndOneRequestForbiddenEvent }
+  - { method: POST, path: '/api/v1/admin/invites/{inviteId}/revoke', scope: ADMIN, negativeTest: com.memetrade.identity.AdminInviteRouteIT#aGuestTokenIsRefusedWith403AndOneRequestForbiddenEvent }
   - { method: POST, path: /api/v1/auth/challenge, scope: GLOBAL }
   - { method: POST, path: /api/v1/auth/verify, scope: GLOBAL }
   - { method: POST, path: /api/v1/auth/refresh, scope: SESSION }
   - { method: POST, path: /api/v1/auth/logout, scope: SESSION }
   - { method: GET, path: /api/v1/scanner/tokens, scope: GLOBAL }
+  # U4: assessment of a token, global market data (no tenant in the tables of U4).
+  - { method: GET, path: '/api/v1/tokens/{chain}/{mint}/assessment', scope: GLOBAL }
+  # U3: invitation lookup without a session; returns no customer data (no tenant, no inviteId, no person), only the
+  # derived state, the validity and the public terms (BR2.1).
+  - { method: GET, path: '/api/v1/invites/{code}', scope: GLOBAL }
+  # U3: personal data of the caller's own account (wallet, acceptance); person and tenant from the token only.
+  - { method: GET, path: /api/v1/account, scope: CLIENT, negativeTest: com.memetrade.identity.AccountRouteIT#anotherTenantsSessionNeverSeesThisAccount }
+  # U7 (C5, BR9.1): PAPER ledger and P&L of the caller; tenant and person from the token, every query filters by
+  # tenant, person and PAPER. A bot of another person is 404 (negative test), a bot not yet activated is empty.
+  - { method: GET, path: '/api/v1/bots/{botId}/trades', scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#anotherPersonsBotIsNotFound }
+  - { method: GET, path: '/api/v1/bots/{botId}/day-usage', scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#anotherPersonsBotIsNotFound }
+  - { method: GET, path: /api/v1/ledger, scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#anotherPersonsBotIsNotFound }
+  - { method: GET, path: /api/v1/pnl, scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#anotherPersonsBotIsNotFound }
+  - { method: GET, path: /api/v1/reconciliation, scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#anotherPersonsBotIsNotFound }
+  - { method: POST, path: /api/v1/reconciliation/run, scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#twoTenantsNeverSeeEachOthersLedger }
 jobs:
   - { name: AuditRelayJob, scope: GLOBAL }
   # U2 retention purge and outbox cleanup: system jobs over the whole trail, no tenant input (BR3.1 to BR3.4).
@@ -20,5 +40,14 @@ jobs:
   - { name: MarketCollectorJob, scope: GLOBAL }
   # U4: market history cleanup over global market data, no tenant input (F6, BR1.8).
   - { name: MarketHistoryCleanup, scope: GLOBAL }
+  # U4: drops idle keys of the per-person scanner limiter; no customer data.
+  - { name: ScannerRateLimitEvictionJob, scope: GLOBAL }
   - { name: IdempotencyCleanupJob, scope: GLOBAL }
   - { name: LoginLimiterEvictionJob, scope: GLOBAL }
+  # U7: system jobs over every PAPER account; each one reads tenant and person FROM THE ROW it handles and passes them
+  # to every query of the round, never mixing people in a query without that filter (BR9.1).
+  - { name: PendingCloseJob, scope: GLOBAL }
+  - { name: EquityMarkingJob, scope: GLOBAL }
+  - { name: ReconciliationJob, scope: GLOBAL }
+  # U7: drops idle keys of the "check now" limiter; no customer data.
+  - { name: ReconciliationRunLimiterEvictionJob, scope: GLOBAL }

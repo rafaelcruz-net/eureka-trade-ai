@@ -160,52 +160,52 @@ Cada passo indica as histórias (US), regras (BR) e requisitos detalhados (NFR) 
 
 ### Scanner e API
 
-- [ ] **Passo 11 — Consulta da lista.**
+- [x] **Passo 11 — Consulta da lista.**
   - `JdbcMarketDataQuery` com a consulta única (CTEs) de performance-design.md: foto, fonte não `FAILED`, valor por campo, pivô, avaliação, filtros com "passa" e "unknown", contadores, ordem com `unknown` no fim e desempate por mint e chain, continuação por tupla sem `OFFSET`.
   - Cursor opaco com `snapshotAt`, `filtersDigest`, ordenação e posição.
   - Depois, os testes de integração: cada filtro na fronteira e um incremento além; combinação de filtros; `excludedByUnknown` (contado uma vez, só quando passaria nos filtros conhecidos); risco indisponível fora do filtro e no fim da ordem; `pendingNewTokens`; ordem estável entre páginas; cursor de outra consulta recusado; fonte `PENDING` dá lista vazia; todas `FAILED` dá `503`; uma `FAILED` mantém os tokens da outra; plano sem varredura completa do histórico.
   - US2.2, US2.3, US3.2; BR2.1 a BR2.8, BR1.3, BR1.4; NFR3.4, NFR2.6.
-- [ ] **Passo 12 — Limitador por pessoa e rota.**
+- [x] **Passo 12 — Limitador por pessoa e rota.**
   - `PersonRouteRateLimiter` em `shared.web`: janela deslizante de 60 s, 60 por pessoa e rota, depois da autenticação; `429` com `Retry-After` e `RATE_LIMITED`; remoção de ociosos após 2 minutos; teto de 10 000 chaves.
   - Depois, os testes: 60ª passa, 61ª recebe `429`; `Retry-After` correto; rotas contadas separadamente; sem sessão dá `401` sem contar; remoção com relógio injetável; teto.
   - BR2.7; NFR6.3, NFR2.8.
-- [ ] **Passo 13 — Rotas da lista e do detalhe.**
+- [x] **Passo 13 — Rotas da lista e do detalhe.**
   - `ScannerController` (F3) e `AssessmentController` (F4) com validação de parâmetros (BR2.7) e respostas do C2 com os acréscimos.
   - Detalhe: avaliação guardada com desatualizado calculado na leitura; cálculo na hora no primeiro acesso; `404` para token sem observação recente.
   - Depois, os testes de integração e de contrato: `401` sem token, `200` com convidado, `403 FORBIDDEN_ROLE` com administrador em cada rota; `400` com a lista de campos; detalhe com todos os campos da BR3.9; indisponível com `NO_TRADE`; OpenAPI do convidado gerado igual ao versionado; tipos do frontend regenerados.
   - US2.2, US3.1, US3.2; BR3.9, BR2.7; NFR6.1, NFR6.2, NFR3.2.
-- [ ] **Passo 14 — Saúde e métricas.**
+- [x] **Passo 14 — Saúde e métricas.**
   - `MarketSourcesHealth` substitui `MarketSourceHealthIndicator` com `lastUpdatedAt` no detalhe: `UP`, `DEGRADED` com todas `FAILED`, `UNKNOWN` com todas `PENDING`, nunca `DOWN`; `RiskRecalculationHealth`; ambos fora da prontidão.
   - Métricas e logs de observability-design.md.
   - Depois, os testes: saúde geral `UP` com as duas fontes `OK`; HTTP 200 com corpo `DEGRADED` e todas `FAILED`; `scripts/verify.sh` continua achando `lastUpdatedAt`; `MetricsLabelsIT` (sem mint, chain, carteira, pessoa ou tenant em rótulos); logs da falha só com classe e categoria; `LogScanIT` cobre a U4.
   - BR1.4; NFR9.1 a NFR9.8, NFR7.1.
-- [ ] **Passo 15 — Regras de arquitetura.**
+- [x] **Passo 15 — Regras de arquitetura.**
   - ArchUnit: sem `double`/`float` nos pacotes da U4; `scanner` só pelas interfaces públicas de `marketdata` e `riskassessment`; nenhum dos três depende de bots, ordens, ledger ou carteira; nenhum outro módulo lê as tabelas da U4; nenhum `Principal` de administrador criado em código de produção da U4.
   - Fundação; NFR4.1, NFR6.9, NFR5.1.
 
 ### Frontend
 
-- [ ] **Passo 16 — Tela S3 com filtros.**
+- [x] **Passo 16 — Tela S3 com filtros.**
   - Filtros (idade com atalhos e personalizado, liquidez, volume, holders, indicador máximo, origem), ordenação, paginação "Exibindo X–Y de N", estados carregando, erro, parcial, vazio com "Limpar filtros", "Aguardando a primeira coleta", aviso de fontes com falha, contador de excluídos por dado ausente, "N novos tokens — Atualizar lista", marca de desatualizado e de divergência com as origens, coluna Risco com `--` e motivo; região `aria-live`; dicas de termos; `data-testid` nos controles.
   - Depois, os testes Jest: cada estado; filtros na URL; atualização sem trocar a seleção; teclado; marcas em texto e não só por cor.
   - US2.2, US2.3, US2.4, US3.2; BR2.4, BR5.4 a BR5.7; NFR11.1 a NFR11.3, NFR14.1.
-- [ ] **Passo 17 — Painel lateral da avaliação.**
+- [x] **Passo 17 — Painel lateral da avaliação.**
   - Abre com clique ou Enter sem recarregar a lista; "Carregando avaliação" sem indicador provisório; indicador, nível por escrito, "maior significa mais risco", "Indicador em validação", versão, cobertura, horário do cálculo, explicação de nível elevado, fatores com peso, entrada, fonte, horário, marca e contribuição; indisponível com motivo e `NO_TRADE`; Esc devolve o foco à mesma linha.
   - Depois, os testes Jest: cada estado; foco; nenhum número durante o carregamento.
   - US3.1, US3.2; BR3.9, BR5.2, BR5.3; NFR11.1, NFR3.3.
-- [ ] **Passo 18 — Termos proibidos.**
+- [x] **Passo 18 — Termos proibidos.**
   - `apps/web/src/content/prohibited-terms.json` (versão, revisor, termos) e teste que percorre o catálogo de textos do app do convidado sem diferença de maiúsculas e acentos; regra de lint contra `dangerouslySetInnerHTML` nas telas da U4.
   - Depois, o teste com um texto plantado que contém um termo (falha esperada) e o catálogo real (passa).
   - US3.2; BR5.1; NFR6.8.
 
 ### Ambiente, carga e smoke
 
-- [ ] **Passo 19 — Compose, `.env` e script de carga.**
+- [x] **Passo 19 — Compose, `.env` e script de carga.**
   - `docker-compose.yml`: variáveis da infrastructure-specification.md no ambiente da `api` com padrões; `.env.example` com as chaves; `ComposeFilesTest` confere cada variável.
   - `scripts/load-test.sh` e `scripts/load/load-test.mjs`: cenários U1 e U4 (e crescimento de 10 000 tokens sem reprovação), limites de p95 por rota (U1 300 ms mantido; lista com filtros 1 s; detalhe 500 ms), leitura de `hikaricp_connections_pending`, memória de `api` e `postgres` (900 MB), `EXPLAIN` sem `Seq Scan` em `observation_sample`, relatório em `docs/perf/u4-discovery-<data>.md`.
   - Depois, `ComposeFilesTest` verde; o script de carga é escrito e conferido com `bash -n`, sem rodar nesta etapa (evidência do ponto de controle).
   - Fundação; NFR3.1, NFR3.2, NFR3.5, NFR2.6, NFR12.3.
-- [ ] **Passo 20 — Smoke da U4.**
+- [x] **Passo 20 — Smoke da U4.**
   - `apps/web/e2e/u4-discovery/smoke.spec.ts`: entrar, abrir o scanner, aplicar um filtro, ver o contador de excluídos, abrir o painel, ver o indicador ou a indisponibilidade com motivo, fechar com Esc e voltar o foco à linha.
   - Texto pronto da mudança em `scripts/verify.sh` (acrescentar `e2e/u4-discovery` à linha do Playwright), para o responsável do projeto aplicar.
   - Depois, `bash scripts/verify.sh` (sem a U4 ainda) roda verde; o smoke da U4 roda pelo comando do Playwright direto com o ambiente de pé.
@@ -213,7 +213,7 @@ Cada passo indica as histórias (US), regras (BR) e requisitos detalhados (NFR) 
 
 ### Documentação
 
-- [ ] **Passo 21 — Documentação e contrato.**
+- [x] **Passo 21 — Documentação e contrato.**
   - `contract-summary.md` não é editado pelo agente; os acréscimos ao C2, a interface `RiskWeightAdministration` e os códigos `RATE_LIMITED` e `WEIGHT_SET_NOT_EDITABLE` ficam em `docs/api/c2-market-scanner-assessment.md`.
   - ADR de duas fontes simuladas e valor mais recente; ADR do indicador em validação (fatores e pesos da versão 1 como hipótese).
   - README: fontes simuladas, variáveis novas, cenário de carga da U4, rollback para a U2 (procedimento manual de cicd-pipeline.md).

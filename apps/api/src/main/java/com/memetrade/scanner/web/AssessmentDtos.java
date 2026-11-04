@@ -53,7 +53,9 @@ public final class AssessmentDtos {
                     description = "true quando a faixa Baixo passou a Médio por fator sem dado (BR3.4)")
             boolean bandRaisedByUnknown,
 
-            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time") Instant computedAt,
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
+            Instant computedAt,
+
             @Schema(requiredMode = RequiredMode.REQUIRED) List<AssessmentFactorDto> factors) {
 
         static AssessmentDto of(AssessmentDetail detail) {
@@ -84,10 +86,13 @@ public final class AssessmentDtos {
 
             @Schema(requiredMode = RequiredMode.REQUIRED) String label,
 
-            @Schema(requiredMode = RequiredMode.REQUIRED, pattern = ScannerDtos.DECIMAL) String weight,
+            @Schema(requiredMode = RequiredMode.REQUIRED, pattern = ScannerDtos.DECIMAL)
+            String weight,
+
             @Schema(requiredMode = RequiredMode.REQUIRED) MarketValueDto input,
 
-            @Schema(requiredMode = RequiredMode.REQUIRED, minimum = "0", maximum = "100") int factorRisk,
+            @Schema(requiredMode = RequiredMode.REQUIRED, minimum = "0", maximum = "100")
+            int factorRisk,
 
             @Schema(
                     requiredMode = RequiredMode.REQUIRED,

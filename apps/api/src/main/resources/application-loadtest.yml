@@ -2,3 +2,26 @@
 memetrade:
   auth:
     login-rate-limit-per-minute: ${LOGIN_RATE_LIMIT_PER_MINUTE:1000}
+    # U3 (performance-design.md): the invitation lookup is measured for real, so its per-IP limit is raised here only.
+    invite-lookup-rate-limit-per-minute: ${INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE:1000}
+  # U7 (cicd-pipeline.md, Passo 23): the load cycle driver of com.memetrade.ledger.loadtest. With people at 0 (the
+  # default, every scenario but u7 and u7-jobs) it does nothing; scripts/load-test.sh sets the values of u7 and u7-jobs.
+  loadtest:
+    ledger:
+      people: ${LOADTEST_LEDGER_PEOPLE:0}
+      fills-per-person: ${LOADTEST_FILLS_PER_PERSON:0}
+      cycle-bots: ${LOADTEST_CYCLE_BOTS:0}
+      tokens-per-bot: ${LOADTEST_TOKENS_PER_BOT:5}
+      # Review repair R-04 (NFR3.1): bots closed during the run, one per cycle interval from close-start on (u7 only).
+      close-bots: ${LOADTEST_CLOSE_BOTS:0}
+      close-start: 120s
+      cycle-interval: 30s
+      # Seed workers (one person each) and cycle workers; well below the 20 connections of the pool.
+      threads: 6
+# The limits of the load scenarios (300 ms, 500 ms, 1 s) become exact histogram buckets, so a p95 read from the
+# buckets is never rounded up past a limit it actually meets. Precision of the measurement only; no limit changes.
+management:
+  metrics:
+    distribution:
+      slo:
+        http.server.requests: 250ms,300ms,500ms,1s

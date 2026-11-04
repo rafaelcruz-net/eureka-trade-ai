@@ -22,9 +22,10 @@ spring:
   task:
     scheduling:
       # Relay, idempotency cleanup and the two daily audit jobs (3) plus U4: two source collections, the history
-      # cleanup and the collection dispatcher (4). RuntimeSettingsGuard refuses less than 7 (SCHEDULER_POOL_SIZE).
+      # cleanup and the collection dispatcher (4), plus U7: marking, pending close, reconciliation and the eviction of
+      # the "check now" limiter (4). RuntimeSettingsGuard refuses less than 11 (SCHEDULER_POOL_SIZE).
       pool:
-        size: ${SCHEDULER_POOL_SIZE:7}
+        size: ${SCHEDULER_POOL_SIZE:11}
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -107,7 +108,14 @@ memetrade:
     session-max-age: 12h
     # BR1.11 / NFR6.5: fixed at 10 in the default profile; raised only by the loadtest profile.
     login-rate-limit-per-minute: 10
+    # U3 (BR2.2, NFR6.6): lookups of an invitation without a session, per IP and minute, with a counter separate from
+    # the login one. Fixed at 10 here, like the login limit; raised only by the loadtest profile.
+    invite-lookup-rate-limit-per-minute: 10
     trusted-proxies: ${TRUSTED_PROXIES:}
+  terms:
+    # U3 (BR3.1, NFR10.3): versioned terms and risk notice, read once at start-up; the api does not start without
+    # exactly one current version with non-empty texts.
+    location: classpath:terms/
   idempotency:
     default-retention: 24h
     cleanup-interval: 1h
@@ -122,6 +130,16 @@ memetrade:
       # Fixed seed: the smoke and the CI are deterministic (NFR12.3); never random by default.
       seed: ${MARKET_SIMULATED_SEED:42}
       token-count: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:200}
+  ledger:
+    # U7 (infrastructure-specification.md): fixed values, never read from the environment, so daily use cannot change
+    # integrity rules by variable. Fallback round of the marking and the pending close (BR5.3), reconciliation (BR8.1),
+    # "check now" limit per person and minute (NFR6.5) and the lock and statement timeouts (NFR10.8).
+    marking-fallback-interval: 60s
+    reconciliation-interval: 5m
+    reconciliation-run-limit-per-minute: 6
+    lock-timeout: 2s
+    statement-timeout: 5s
+    job-lock-timeout: 1s
   scanner:
     # Per person and route, sliding window of 60 s (NFR6.3).
     rate-limit-per-minute: ${SCANNER_RATE_LIMIT_PER_MINUTE:60}

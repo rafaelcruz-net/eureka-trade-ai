@@ -45,6 +45,51 @@ class AuthenticationFilterTest {
             new AuthenticationFilter(sessions, new ProblemWriter(new ObjectMapper()));
     private final RequestAuthContext context = new RequestAuthContext();
 
+    /** U3 Passo 9 (security-design.md): the invitation lookup is public only for GET on exactly one segment. */
+    @Test
+    @Tag("u3")
+    void onlyAGetOnOneSegmentUnderInvitesPassesWithoutToken() throws Exception {
+        String code = "A".repeat(43);
+        MockHttpServletRequest lookup = new MockHttpServletRequest("GET", "/api/v1/invites/" + code);
+        AtomicReference<Boolean> reached = new AtomicReference<>(false);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        filter.doFilter(lookup, response, new MockFilterChain(new HttpServlet() {
+            @Override
+            protected void service(HttpServletRequest req, HttpServletResponse res) {
+                reached.set(true);
+            }
+        }));
+
+        assertThat(reached.get()).isTrue();
+        assertThat(AuthenticationFilter.isInvitationLookup("GET", "/api/v1/invites/x"))
+                .isTrue();
+        assertThat(AuthenticationFilter.isInvitationLookup("GET", "/api/v1/invites/" + "x".repeat(128)))
+                .isTrue();
+        assertThat(AuthenticationFilter.isInvitationLookup("GET", "/api/v1/invites/" + "x".repeat(129)))
+                .isFalse();
+        assertThat(AuthenticationFilter.isInvitationLookup("POST", "/api/v1/invites/x"))
+                .isFalse();
+        assertThat(AuthenticationFilter.isInvitationLookup("DELETE", "/api/v1/invites/x"))
+                .isFalse();
+        assertThat(AuthenticationFilter.isInvitationLookup("GET", "/api/v1/invites/x/y"))
+                .isFalse();
+        assertThat(AuthenticationFilter.isInvitationLookup("GET", "/api/v1/invites/"))
+                .isFalse();
+        assertThat(AuthenticationFilter.isInvitationLookup("GET", "/api/v1/invites"))
+                .isFalse();
+        assertThat(AuthenticationFilter.isInvitationLookup("GET", "/api/v1/invitesx/y"))
+                .isFalse();
+        assertThat(run(new MockHttpServletRequest("GET", "/api/v1/invites/a/b")).getStatus())
+                .isEqualTo(401);
+        assertThat(run(new MockHttpServletRequest("PUT", "/api/v1/invites/" + code))
+                        .getStatus())
+                .isEqualTo(401);
+        assertThat(run(new MockHttpServletRequest("GET", "/api/v1/invites/a%2Fb"))
+                        .getStatus())
+                .as("an encoded slash is decoded into a second segment")
+                .isEqualTo(401);
+    }
+
     @Test
     void aProtectedRouteWithoutBearerTokenIs401() throws Exception {
         MockHttpServletResponse response = run(new MockHttpServletRequest("GET", "/api/v1/scanner/tokens"));

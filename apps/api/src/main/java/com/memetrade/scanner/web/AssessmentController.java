@@ -50,15 +50,17 @@ public class AssessmentController {
                 @ApiResponse(
                         responseCode = "404",
                         description = "NOT_FOUND para token sem observação nas últimas 24 horas",
-                        content = @Content(
-                                mediaType = ProblemWriter.PROBLEM_JSON,
-                                schema = @Schema(implementation = ProblemResponse.class))),
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class))),
                 @ApiResponse(
                         responseCode = "429",
                         description = "RATE_LIMITED, com Retry-After",
-                        content = @Content(
-                                mediaType = ProblemWriter.PROBLEM_JSON,
-                                schema = @Schema(implementation = ProblemResponse.class)))
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class)))
             })
     @GetMapping("/api/v1/tokens/{chain}/{mint}/assessment")
     public AssessmentDto detail(@PathVariable String chain, @PathVariable String mint) {

@@ -34,7 +34,65 @@ class MigrationsIT extends AbstractPostgresIT {
             "observation_sample",
             "risk_weight_set",
             "risk_assessment",
-            "source_status_mark");
+            "source_status_mark",
+            "invite",
+            "terms_acceptance",
+            // U7 (migration 0008).
+            "simulation_policy",
+            "paper_account",
+            "paper_order",
+            "fill",
+            "ledger_entry",
+            "position",
+            "pnl_daily",
+            "equity_peak",
+            "reconciliation_check");
+
+    /**
+     * U7 rollback test (cicd-pipeline.md): the queries and writes of U1 to U4 keep running on the schema migrated by
+     * 0008, which only adds tables, indexes, triggers, privileges and the policy v1.
+     */
+    @Test
+    @org.junit.jupiter.api.Tag("u7")
+    void thePreviousQueriesOfU1ToU4StillRunOnTheU7Schema() {
+        List<String> all = new java.util.ArrayList<>(PREVIOUS_ENTRY_AND_SESSION_QUERIES);
+        all.addAll(PREVIOUS_LISTING_QUERIES);
+        all.add("select * from invite order by created_at desc, invite_id limit 1");
+        all.add("select count(*) from audit_outbox where delivered_at is null");
+        all.add("select * from idempotency_record limit 1");
+        for (String query : all) {
+            assertThatCode(() -> jdbc.sql(query).query().listOfRows()).as(query).doesNotThrowAnyException();
+        }
+        List<String> existing = jdbc.sql(
+                        "select table_name from information_schema.tables where table_schema = 'public'")
+                .query(String.class)
+                .list();
+        assertThat(existing).containsAll(TABLES);
+        assertThat(jdbc.sql("select count(*) from databasechangelog where id like '0008-%'")
+                        .query(Long.class)
+                        .single())
+                .isPositive();
+    }
+
+    /**
+     * U3 rollback test (cicd-pipeline.md): the entry and session SQL of U1, verbatim from JdbcAccountRepository and
+     * JdbcSessionRepository before U3, must keep running on the schema migrated by 0007, so the U4 image works on it.
+     */
+    private static final List<String> PREVIOUS_ENTRY_AND_SESSION_QUERIES =
+            List.of("""
+            select u.user_id, u.tenant_id, u.role, u.status as user_status, t.status as tenant_status
+            from wallet w
+            join app_user u on u.user_id = w.user_id
+            join tenant t on t.tenant_id = u.tenant_id
+            where w.address = 'x'
+            """, """
+            select s.session_id, s.user_id, s.tenant_id, s.role, s.state, s.absolute_expires_at,
+                   u.status as user_status, t.status as tenant_status
+            from user_session s
+            join app_user u on u.user_id = s.user_id
+            join tenant t on t.tenant_id = s.tenant_id
+            where s.session_id = '00000000-0000-0000-0000-000000000000'
+            """, "select * from login_challenge where nonce = 'x'");
 
     /**
      * The SQL of the U1/U2 listing and collector, verbatim from the release before U4 (rollback test of
@@ -79,6 +137,19 @@ class MigrationsIT extends AbstractPostgresIT {
         for (String query : PREVIOUS_LISTING_QUERIES) {
             assertThatCode(() -> jdbc.sql(query).query().listOfRows()).as(query).doesNotThrowAnyException();
         }
+    }
+
+    @Test
+    @org.junit.jupiter.api.Tag("u3")
+    void thePreviousEntryAndSessionQueriesStillRunOnTheU3Schema() {
+        for (String query : PREVIOUS_ENTRY_AND_SESSION_QUERIES) {
+            assertThatCode(() -> jdbc.sql(query).query().listOfRows()).as(query).doesNotThrowAnyException();
+        }
+        // The U1 smoke seeder inserts a tenant, a user and a wallet exactly like this (rollback image on the new
+        // schema).
+        String address = com.memetrade.testsupport.TestWallet.generate().address();
+        assertThatCode(() -> com.memetrade.testsupport.TestAccounts.betaUser(jdbc, address))
+                .doesNotThrowAnyException();
     }
 
     @Test

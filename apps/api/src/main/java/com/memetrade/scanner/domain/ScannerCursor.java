@@ -43,7 +43,9 @@ public record ScannerCursor(
     public static ScannerCursor decode(String text) {
         try {
             JsonNode node = JSON.readTree(Base64.getUrlDecoder().decode(text));
-            if (node.get("v").asInt() != VERSION || !node.get("m").isTextual() || !node.get("c").isTextual()) {
+            if (node.get("v").asInt() != VERSION
+                    || !node.get("m").isTextual()
+                    || !node.get("c").isTextual()) {
                 throw invalid();
             }
             long offset = node.get("n").asLong();
@@ -51,15 +53,15 @@ public record ScannerCursor(
                 throw invalid();
             }
             JsonNode value = node.get("k");
-            Optional<BigDecimal> sortValue = value == null || value.isNull()
-                    ? Optional.empty()
-                    : Optional.of(new BigDecimal(value.asText()));
+            Optional<BigDecimal> sortValue =
+                    value == null || value.isNull() ? Optional.empty() : Optional.of(new BigDecimal(value.asText()));
             return new ScannerCursor(
                     Instant.parse(node.get("s").asText()),
                     node.get("d").asText(),
                     SortField.valueOf(node.get("so").asText()),
                     SortOrder.valueOf(node.get("o").asText()),
-                    new Position(sortValue, node.get("m").asText(), node.get("c").asText()),
+                    new Position(
+                            sortValue, node.get("m").asText(), node.get("c").asText()),
                     offset);
         } catch (ApiException rethrown) {
             throw rethrown;

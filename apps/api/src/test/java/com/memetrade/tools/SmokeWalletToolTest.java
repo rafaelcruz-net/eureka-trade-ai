@@ -47,6 +47,27 @@ class SmokeWalletToolTest {
                 .isEqualTo(Ed25519SignatureVerifier.Result.VALID);
     }
 
+    /** U3 Passo 20: the smoke invitation code has the production shape and is accepted by the seeder. */
+    @Test
+    @org.junit.jupiter.api.Tag("u3")
+    void theInvitationCodeIs43CharactersOfBase64UrlAndPrintedAlone() throws Exception {
+        String code = SmokeWalletTool.inviteCode(new java.security.SecureRandom());
+
+        assertThat(code).hasSize(43).matches("[A-Za-z0-9_-]{43}");
+        assertThat(com.memetrade.identity.domain.invite.InviteCodes.isWellFormed(code))
+                .isTrue();
+        assertThat(SmokeWalletTool.inviteCode(new java.security.SecureRandom())).isNotEqualTo(code);
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        java.io.PrintStream previous = System.out;
+        System.setOut(new java.io.PrintStream(out, true, StandardCharsets.UTF_8));
+        try {
+            SmokeWalletTool.main(new String[] {"--invite-code"});
+        } finally {
+            System.setOut(previous);
+        }
+        assertThat(out.toString(StandardCharsets.UTF_8).strip()).matches("[A-Za-z0-9_-]{43}");
+    }
+
     @Test
     void neverOverwritesAnExistingFileAndRequiresOneArgument() throws Exception {
         Path file = Files.writeString(dir.resolve("existing.json"), "{}");

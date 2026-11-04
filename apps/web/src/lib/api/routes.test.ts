@@ -35,8 +35,9 @@ describe('guest api calls', () => {
     });
     await api.refreshSession();
     await api.logout();
-    await api.listTokens(null);
-    await api.listTokens('abc', 10);
+    await api.listTokens({ cursor: null, limit: 50 });
+    await api.listTokens({ cursor: 'abc', limit: 10, filters: { minLiquidity: '5' } });
+    await api.getAssessment('solana', 'Mint111');
 
     expect(calls.map(([url, init]) => `${init.method} ${url}`)).toEqual([
       'POST http://api/api/v1/auth/challenge',
@@ -44,13 +45,15 @@ describe('guest api calls', () => {
       'POST http://api/api/v1/auth/refresh',
       'POST http://api/api/v1/auth/logout',
       'GET http://api/api/v1/scanner/tokens?limit=50',
-      'GET http://api/api/v1/scanner/tokens?limit=10&cursor=abc',
+      'GET http://api/api/v1/scanner/tokens?limit=10&cursor=abc&minLiquidity=5',
+      'GET http://api/api/v1/tokens/solana/Mint111/assessment',
     ]);
     expect(calls.map(([, init]) => init.credentials)).toEqual([
       'omit',
       'include',
       'include',
       'include',
+      'omit',
       'omit',
       'omit',
     ]);

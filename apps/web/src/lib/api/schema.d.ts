@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+  '/api/v1/account': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Dados da conta: carteira abreviada, provedor, fim da sessão e termos aceitos (US1.5) */
+    get: operations['getAccount'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/auth/challenge': {
     parameters: {
       query?: never;
@@ -72,6 +89,125 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/bots/{botId}/day-usage': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Uso do dia UTC: exposição pelo custo e perda do dia (AC4.10.1, BR7.5) */
+    get: operations['getBotDayUsage'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/bots/{botId}/trades': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Operações simuladas do bot, cada uma uma única vez (AC4.10.3) */
+    get: operations['listBotTrades'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/invites/{code}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Estado do convite e termos a aceitar, sem sessão (AC1.1.1); o código nunca vai para log */
+    get: operations['lookupInvite'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/ledger': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Lançamentos do ledger PAPER da pessoa (AC5.2.1) */
+    get: operations['listLedgerEntries'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/pnl': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** P&L por token, bot e período [from, to) em UTC (FR10.3) */
+    get: operations['getPnl'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/reconciliation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Resultado da última conferência entre operações e ledger (FR10.5) */
+    get: operations['getReconciliation'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/reconciliation/run': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Verificar agora: confere as contas PAPER da pessoa na hora (BR8.3) */
+    post: operations['runReconciliation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/scanner/tokens': {
     parameters: {
       query?: never;
@@ -79,8 +215,25 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** Lista paginada com ordem determinística e desempate estável (FR5.1) */
+    /** Lista paginada com filtros, ordem determinística e desempate estável (FR5.1, FR5.2) */
     get: operations['listScannerTokens'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/tokens/{chain}/{mint}/assessment': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Avaliação de risco com fatores, pesos e versão (FR6.1 a FR6.3) */
+    get: operations['getTokenAssessment'];
     put?: never;
     post?: never;
     delete?: never;
@@ -93,6 +246,75 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AcceptedTerms: {
+      /**
+       * Format: date-time
+       * @description UTC
+       */
+      acceptedAt: string;
+      /** @description Texto simples do aviso de risco daquela versão */
+      riskNoticeText: string | null;
+      /** @description Texto simples dos termos daquela versão */
+      termsText: string | null;
+      version: string;
+    };
+    Account: {
+      /** @description Ausente só para conta criada sem convite (conta de smoke do perfil de teste) */
+      acceptedTerms?: components['schemas']['AcceptedTerms'];
+      /** @enum {string} */
+      provider: 'PHANTOM' | 'SOLFLARE';
+      /** @enum {string} */
+      realMode: 'UNAVAILABLE';
+      /**
+       * Format: date-time
+       * @description Fim absoluto da sessão atual (UTC); pode terminar antes, depois de 8 horas sem uso
+       */
+      sessionExpiresAt: string;
+      /** @description 4 primeiros e 4 últimos caracteres */
+      walletAddressMasked: string;
+    };
+    Assessment: {
+      /** @description true quando a faixa Baixo passou a Médio por fator sem dado (BR3.4) */
+      bandRaisedByUnknown: boolean;
+      /** Format: date-time */
+      computedAt: string;
+      /** @description Percentual */
+      coverage: string;
+      /**
+       * @description NO_TRADE quando indisponível (FR6.2)
+       * @enum {string}
+       */
+      decisionHint: 'NO_TRADE' | 'ELIGIBLE';
+      factors: components['schemas']['AssessmentFactor'][];
+      /** @description Sempre true: indicador em validação */
+      inValidation: boolean;
+      /** @description Percentual */
+      minCoverage: string;
+      risk: components['schemas']['RiskSummary'];
+      weightSetVersion: string;
+    };
+    AssessmentFactor: {
+      /** @description Pontos do indicador (DecimalString) ou UNKNOWN quando a entrada é unknown */
+      contribution: string | components['schemas']['UnknownValue'];
+      /** @enum {string} */
+      factorId: 'LIQUIDITY' | 'HOLDERS' | 'VOLUME_24H' | 'PRICE_CHANGE_1H';
+      /** Format: int32 */
+      factorRisk: number;
+      input: components['schemas']['MarketValue'];
+      label: string;
+      weight: string;
+    };
+    AvailableRisk: {
+      /** @enum {string} */
+      band: 'LOW' | 'MEDIUM' | 'HIGH';
+      /** Format: int32 */
+      score: number;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'AVAILABLE';
+    };
     ChallengeRequest: {
       /** @description Endereço público Solana */
       walletAddress: string;
@@ -114,6 +336,19 @@ export interface components {
       /** Format: int32 */
       total: number;
     };
+    /** @description Uso do dia UTC; os limites vêm da U5 na tela (BR7.5) */
+    DayUsage: {
+      dayLoss: string;
+      exposure: string;
+      /** Format: date */
+      utcDay: string;
+    };
+    Divergence: {
+      /** Format: date-time */
+      observedAt: string;
+      source: components['schemas']['SourceRef'];
+      value: string;
+    };
     FieldViolation: {
       field?: string;
       message?: string;
@@ -127,7 +362,21 @@ export interface components {
       /** Format: date-time */
       sessionExpiresAt: string;
     };
+    InviteLookup: {
+      /** Format: date-time */
+      expiresAt: string;
+      /** @description Texto simples; nunca HTML */
+      riskNoticeText: string;
+      /** @enum {string} */
+      status: 'PENDING' | 'USED' | 'EXPIRED' | 'REVOKED';
+      /** @description Texto simples; nunca HTML */
+      termsText: string;
+      /** @description Versão vigente a aceitar */
+      termsVersion: string;
+    };
     KnownValue: {
+      /** @description Presente só quando outra fonte diverge acima da tolerância (FR4.7) */
+      divergence?: components['schemas']['Divergence'][];
       /** Format: date-time */
       observedAt: string;
       source: components['schemas']['SourceRef'];
@@ -141,7 +390,152 @@ export interface components {
       /** @description Decimal exato em texto */
       value: string;
     };
+    /** @description Lançamento imutável do ledger PAPER (AC5.2.1) */
+    LedgerEntry: {
+      amount: string;
+      asset: string;
+      /** Format: uuid */
+      botId: string;
+      /** Format: uuid */
+      compensatesEntryId?: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      entryId: string;
+      /** @enum {string} */
+      mode: 'PAPER';
+      /**
+       * Format: uuid
+       * @description Operação do lançamento, para agrupar (BR10.2)
+       */
+      orderId?: string;
+      referenceId: string;
+      simulationPolicyVersion?: string;
+      /** @enum {string} */
+      type:
+        | 'FUNDING'
+        | 'TRADE_COST'
+        | 'TRADE_PROCEEDS'
+        | 'SLIPPAGE'
+        | 'FEE'
+        | 'CLOSE'
+        | 'COMPENSATION';
+    };
+    LedgerEntryPage: {
+      items: components['schemas']['LedgerEntry'][];
+      /** @description null quando não há próxima página */
+      nextCursor: string | null;
+      /** Format: int64 */
+      total: number;
+    };
     MarketValue: components['schemas']['KnownValue'] | components['schemas']['UnknownValue'];
+    /** @description Uma operação simulada do bot, cada uma uma única vez (AC4.10.3) */
+    PaperTrade: {
+      chain: string;
+      /** Format: date-time */
+      createdAt: string;
+      fees?: string;
+      fillPrice?: string;
+      /** Format: date-time */
+      filledAt?: string;
+      filledQuantity?: string;
+      grossAmount?: string;
+      idempotencyKey: string;
+      /** @description Pontos percentuais */
+      impactPct?: string;
+      /** @enum {string} */
+      kind: 'TRADE' | 'CLOSE';
+      /** Format: int64 */
+      limitsVersion: number;
+      /** @description Pontos percentuais */
+      liquidityConsumedPct?: string;
+      /** Format: date-time */
+      marketObservedAt?: string;
+      marketSource?: string;
+      /** @enum {string} */
+      mode: 'PAPER';
+      /** @enum {string} */
+      notFilledReason?:
+        | 'PRICE_UNAVAILABLE'
+        | 'NO_LIQUIDITY'
+        | 'QUANTITY_BELOW_MINIMUM'
+        | 'NO_POSITION'
+        | 'ACCOUNT_CLOSING'
+        | 'INSUFFICIENT_BALANCE'
+        | 'TENANT_MISMATCH';
+      /** Format: uuid */
+      orderId: string;
+      quotedPrice?: string;
+      /** @description Só em venda e fechamento */
+      realized?: string;
+      referencePrice?: string;
+      requestedQuantity: string;
+      /** @enum {string} */
+      side: 'BUY' | 'SELL';
+      simulationPolicyVersion?: string;
+      /** @description Pontos percentuais: spread mais impacto */
+      slippage?: string;
+      /** @description Pontos percentuais */
+      spreadPct?: string;
+      /** @enum {string} */
+      status: 'FILLED' | 'PARTIALLY_FILLED' | 'NOT_FILLED' | 'CLOSE_PENDING';
+      tokenMint: string;
+    };
+    PaperTradePage: {
+      items: components['schemas']['PaperTrade'][];
+      /** @description null quando não há próxima página */
+      nextCursor: string | null;
+      /** Format: int64 */
+      total: number;
+    };
+    PnlAmount: components['schemas']['PnlKnown'] | components['schemas']['PnlUnknown'];
+    PnlKnown: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'KNOWN';
+      value: string;
+    };
+    /** @description P&L PAPER de um período [from, to) em UTC (FR10.3) */
+    PnlReport: {
+      byToken: components['schemas']['PnlTokenLine'][];
+      /** @description Nenhuma operação nem posição (BR6.6) */
+      empty: boolean;
+      fees: string;
+      /** Format: date-time */
+      from: string;
+      /** @description Algum não realizado unknown (AC5.1.3) */
+      partial: boolean;
+      realized: string;
+      /** Format: date-time */
+      to: string;
+      unrealized: components['schemas']['PnlAmount'];
+      /**
+       * Format: date-time
+       * @description Instante da marcação: o não realizado é das posições abertas agora
+       */
+      unrealizedAsOf: string;
+    };
+    PnlTokenLine: {
+      chain: string;
+      fees: string;
+      mark: components['schemas']['MarketValue'];
+      mint: string;
+      /** @description Marcação sem liquidez (AC5.1.4) */
+      noLiquidity: boolean;
+      realized: string;
+      unrealized: components['schemas']['PnlAmount'];
+    };
+    PnlUnknown: {
+      /** @enum {string} */
+      reason: 'PRICE_UNKNOWN' | 'STALE' | 'NO_LIQUIDITY';
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'UNKNOWN';
+    };
     Problem: {
       code: string;
       correlationId: string;
@@ -154,13 +548,56 @@ export interface components {
       /** Format: uri */
       type: string;
     };
-    ScannerPage: {
+    ReconciliationDivergence: {
+      /** Format: uuid */
+      botId: string;
+      /** Format: uuid */
+      entryId?: string;
+      expected: string;
+      found: string;
+      /** @enum {string} */
+      kind:
+        | 'MISSING_ENTRY'
+        | 'AMOUNT_MISMATCH'
+        | 'ORPHAN_ENTRY'
+        | 'POSITION_MISMATCH'
+        | 'SUMMARY_MISMATCH';
+      /** Format: uuid */
+      orderId?: string;
+      /** Format: uuid */
+      positionId?: string;
+      /** Format: date */
+      utcDay?: string;
+    };
+    /** @description Última conferência entre operações e ledger (FR10.5) */
+    ReconciliationResult: {
+      /** Format: date-time */
+      checkedAt?: string;
       /** Format: int32 */
+      divergenceCount: number;
+      divergences: components['schemas']['ReconciliationDivergence'][];
+      /**
+       * @description PENDING: a pessoa tem conta PAPER e ainda não houve conferência
+       * @enum {string}
+       */
+      status: 'RECONCILED' | 'DIVERGENT' | 'PENDING';
+      /** @enum {string} */
+      trigger?: 'SCHEDULED' | 'ON_DEMAND';
+    };
+    RiskSummary: components['schemas']['AvailableRisk'] | components['schemas']['UnavailableRisk'];
+    ScannerPage: {
+      /**
+       * Format: int64
+       * @description Tokens fora do filtro só por campo unknown, na foto inteira (AC2.2.2)
+       */
       excludedByUnknown: number;
       items: components['schemas']['ScannerRow'][];
       /** @description null quando não há próxima página */
       nextCursor: string | null;
-      /** Format: int32 */
+      /**
+       * Format: int64
+       * @description Novidades em espera para "Atualizar lista"
+       */
       pendingNewTokens: number;
       sources: components['schemas']['SourceStatus'][];
       /** Format: int64 */
@@ -175,6 +612,7 @@ export interface components {
       mint: string;
       name?: string;
       price: components['schemas']['MarketValue'];
+      risk: components['schemas']['RiskSummary'];
       symbol: string;
       volume24h: components['schemas']['MarketValue'];
     };
@@ -186,12 +624,33 @@ export interface components {
     SourceStatus: {
       /**
        * Format: date-time
-       * @description Ausente enquanto a fonte nunca coletou
+       * @description Ausente enquanto a fonte nunca coletou (PENDING)
        */
       lastUpdatedAt?: string;
       source: components['schemas']['SourceRef'];
       /** @enum {string} */
-      status: 'OK' | 'DEGRADED' | 'FAILED';
+      status: 'PENDING' | 'OK' | 'DEGRADED' | 'FAILED';
+    };
+    SourceUnavailableProblem: {
+      /** @enum {string} */
+      code: 'SOURCE_UNAVAILABLE';
+      correlationId: string;
+      detail?: string;
+      sources: components['schemas']['SourceStatus'][];
+      /** Format: int32 */
+      status: number;
+      title: string;
+      /** Format: uri */
+      type: string;
+    };
+    UnavailableRisk: {
+      /** @enum {string} */
+      reason: 'INSUFFICIENT_COVERAGE' | 'SOURCE_UNAVAILABLE';
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'UNAVAILABLE';
     };
     UnknownValue: {
       /** @enum {string} */
@@ -204,6 +663,10 @@ export interface components {
       status: 'UNKNOWN';
     };
     VerifyRequest: {
+      /** @description Versão vigente dos termos aceita; obrigatória com inviteCode */
+      acceptedTermsVersion?: string;
+      /** @description Código do convite; presente só no primeiro acesso por convite (U3) */
+      inviteCode?: string;
       message: string;
       /** @enum {string} */
       provider: 'PHANTOM' | 'SOLFLARE';
@@ -220,6 +683,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  getAccount: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Conta da própria pessoa; Cache-Control no-store */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Account'];
+        };
+      };
+      /** @description UNAUTHENTICATED; o app tenta renovar e depois leva à entrada com a tela de origem */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   issueChallenge: {
     parameters: {
       query?: never;
@@ -337,11 +829,155 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
+      /** @description INVITE_NOT_FOUND: código do convite desconhecido ou mal formado (U3) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description WALLET_ALREADY_LINKED: a carteira já tem conta; o convite continua pendente (U3) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description INVITE_INVALID com reason EXPIRED, REVOKED, USED ou TENANT_INACTIVE; ou TERMS_NOT_ACCEPTED (U3) */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
     };
   };
-  listScannerTokens: {
+  getBotDayUsage: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        botId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Uso do dia */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DayUsage'];
+        };
+      };
+      /** @description NOT_FOUND: bot de outra pessoa */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listBotTrades: {
     parameters: {
       query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        botId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Página das operações */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PaperTradePage'];
+        };
+      };
+      /** @description VALIDATION_FAILED */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description NOT_FOUND: bot de outra pessoa */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  lookupInvite: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Código do convite recebido no link */
+        code: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Estado derivado, validade, termos e aviso de risco vigentes */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['InviteLookup'];
+        };
+      };
+      /** @description INVITE_NOT_FOUND, igual para código desconhecido e mal formado */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description RATE_LIMITED: mais de 10 consultas por minuto deste IP; não diz se o código existe */
+      429: {
+        headers: {
+          'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listLedgerEntries: {
+    parameters: {
+      query?: {
+        botId?: string;
         cursor?: string;
         limit?: number;
       };
@@ -351,13 +987,253 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description OK */
+      /** @description Página dos lançamentos */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LedgerEntryPage'];
+        };
+      };
+      /** @description VALIDATION_FAILED */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description NOT_FOUND: bot de outra pessoa */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getPnl: {
+    parameters: {
+      query: {
+        botId?: string;
+        from: string;
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description P&L do período */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PnlReport'];
+        };
+      };
+      /** @description VALIDATION_FAILED: from >= to, período acima de 366 dias ou campo inválido */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description NOT_FOUND: bot de outra pessoa */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description SERVICE_UNAVAILABLE: não foi possível calcular agora (BR6.6) */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getReconciliation: {
+    parameters: {
+      query?: {
+        botId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Última conferência */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReconciliationResult'];
+        };
+      };
+      /** @description NOT_FOUND: bot de outra pessoa */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  runReconciliation: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Resultado da conferência, gravada como ON_DEMAND */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReconciliationResult'];
+        };
+      };
+      /** @description VALIDATION_FAILED: Idempotency-Key ausente */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description RATE_LIMITED, com Retry-After (6 por minuto por pessoa) */
+      429: {
+        headers: {
+          'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listScannerTokens: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+        sort?: 'AGE' | 'LIQUIDITY' | 'VOLUME_24H' | 'HOLDERS' | 'RISK_SCORE';
+        order?: 'ASC' | 'DESC';
+        minLiquidity?: string;
+        maxAgeMinutes?: number;
+        minVolume24h?: string;
+        minHolders?: number;
+        maxRiskScore?: number;
+        sourceId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Página da foto da lista */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
           'application/json': components['schemas']['ScannerPage'];
+        };
+      };
+      /** @description VALIDATION_FAILED com a lista de campos (BR2.7) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description RATE_LIMITED, com Retry-After */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description SOURCE_UNAVAILABLE quando todas as fontes falham (AC2.3.3) */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['SourceUnavailableProblem'];
+        };
+      };
+    };
+  };
+  getTokenAssessment: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        chain: string;
+        mint: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Avaliação guardada, em validação */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Assessment'];
+        };
+      };
+      /** @description NOT_FOUND para token sem observação nas últimas 24 horas */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description RATE_LIMITED, com Retry-After */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
         };
       };
     };

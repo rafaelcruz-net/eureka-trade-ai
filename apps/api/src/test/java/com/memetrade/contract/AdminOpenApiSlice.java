@@ -34,7 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * mocks: only the shapes matter here.
  */
 @Tag("u2")
-@WebMvcTest(controllers = AdminAuditController.class)
+@WebMvcTest(controllers = {AdminAuditController.class, com.memetrade.identity.web.AdminInviteController.class})
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
     SpringDocConfiguration.class,
@@ -49,6 +49,10 @@ public abstract class AdminOpenApiSlice {
 
     @MockitoBean
     AuditQueryService auditQueryService;
+
+    /** U4 filter of the scanner routes, present in every web slice. */
+    @MockitoBean
+    com.memetrade.shared.web.PersonRouteRateLimiter personRouteRateLimiter;
 
     @MockitoBean
     com.memetrade.identity.web.AdminAuthorization adminAuthorization;
@@ -82,6 +86,10 @@ public abstract class AdminOpenApiSlice {
 
     @MockitoBean
     io.micrometer.core.instrument.MeterRegistry meterRegistry;
+
+    /** U3 (C8): invitation routes of the administrator. */
+    @MockitoBean
+    com.memetrade.identity.api.IdentityAdministration identityAdministration;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/admin"))

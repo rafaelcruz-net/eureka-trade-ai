@@ -143,6 +143,150 @@ class LogScanIT extends AbstractPostgresIT {
                 .isPositive();
     }
 
+    /**
+     * U4 (NFR9.6 to NFR9.8, NFR7.1): collection with a failing source, recalculation, filtered list and detail log the
+     * source, the category and the exception class only: never the session token, the wallet, a mint or the text of
+     * the source failure.
+     */
+    @Test
+    @Tag("u4")
+    void theU4FlowsLogNoTokenWalletMintOrFailureText() throws Exception {
+        ch.qos.logback.classic.Logger root =
+                (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+                new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        root.addAppender(appender);
+        try {
+            runU4Flows(appender);
+        } finally {
+            root.detachAppender(appender);
+        }
+    }
+
+    private void runU4Flows(ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender)
+            throws Exception {
+        AuthFlow auth = new AuthFlow(mvc, json);
+        TestWallet wallet = TestWallet.generate();
+        TestAccounts.betaUser(jdbc, wallet.address());
+        String accessToken = auth.accessToken(auth.login(wallet));
+        collector.collectNow("sim-a");
+        recalculator.recalculateNow();
+        String mint = jdbc.sql("select mint from market_observation where source_id = 'sim-a' limit 1")
+                .query(String.class)
+                .single();
+        mvc.perform(get("/api/v1/scanner/tokens?minHolders=10").header("Authorization", "Bearer " + accessToken));
+        mvc.perform(
+                get("/api/v1/tokens/solana/" + mint + "/assessment").header("Authorization", "Bearer " + accessToken));
+        com.memetrade.testsupport.ScriptedMarketSource failing = new com.memetrade.testsupport.ScriptedMarketSource(
+                        com.memetrade.testsupport.FixtureMarketSource.load("sim-a")
+                                .as("log-scan-src"))
+                .thenThrow(new IllegalStateException("upstream said SECRET-DETAIL-42"))
+                .thenThrow(new IllegalStateException("upstream said SECRET-DETAIL-42"))
+                .thenThrow(new IllegalStateException("upstream said SECRET-DETAIL-42"));
+        store.registerSource(failing.source(), Duration.ofSeconds(30));
+        new com.memetrade.marketdata.domain.MarketCollector(
+                        store,
+                        new com.memetrade.marketdata.infra.SourceCaller(
+                                java.util.concurrent.Executors.newSingleThreadExecutor(),
+                                d -> {},
+                                new java.util.Random(1),
+                                Duration.ofSeconds(1),
+                                (s, n) -> {}),
+                        com.memetrade.marketdata.domain.UnitOfWork.DIRECT,
+                        clock)
+                .collect(failing);
+
+        String logs = appender.list.stream()
+                .map(event -> event.getFormattedMessage() + " " + event.getMDCPropertyMap())
+                .collect(java.util.stream.Collectors.joining("\n"));
+        assertThat(logs)
+                .doesNotContain(accessToken)
+                .doesNotContain(wallet.address())
+                .doesNotContain(mint)
+                .doesNotContain("SECRET-DETAIL-42");
+        // The positive check (what the failure log does contain) is MarketCollectorJobTest: in the full integration
+        // run the logging context may be stopped by another test context closing, so this sweep can see no event.
+    }
+
+    /**
+     * U3 (NFR6.4, NFR7.1, NFR9.5, BR2.3): issue, look up (valid and malformed), create the account, open the Account
+     * screen and revoke; the invitation code, the full address, the nonce, the signature and the tokens never appear in
+     * the api logs, the PostgreSQL logs, the Prometheus output, the outbox, the trail (code not even in details) or the
+     * idempotency records.
+     */
+    @Test
+    @Tag("u3")
+    void theU3FlowsNeverLeakTheInvitationCodeTheFullAddressOrASecret(CapturedOutput output) throws Exception {
+        SensitiveValueScanner scanner = new SensitiveValueScanner();
+        AuthFlow auth = new AuthFlow(mvc, json);
+        AdminSessions.AdminSession admin = adminSessions.openAdminSession();
+        scanner.register(Kind.ACCESS_TOKEN, admin.token());
+        MockHttpServletResponse issued = mvc.perform(post("/api/v1/admin/invites")
+                        .header("Authorization", admin.bearer())
+                        .header("Idempotency-Key", java.util.UUID.randomUUID().toString())
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"tenantId\":\"" + com.memetrade.testsupport.TestInvites.BETA_TENANT
+                                + "\",\"expiresAt\":\"" + clock.instant().plus(Duration.ofDays(1)) + "\"}"))
+                .andReturn()
+                .getResponse();
+        String code = json.readTree(issued.getContentAsString()).get("code").asText();
+        scanner.register(Kind.INVITE_CODE, code);
+        TestWallet wallet = TestWallet.generate();
+        scanner.register(Kind.WALLET_ADDRESS, wallet.address());
+
+        mvc.perform(get("/api/v1/invites/" + code));
+        mvc.perform(get("/api/v1/invites/" + code.substring(1)));
+        JsonNode challenge = auth.challenge(wallet);
+        String message = challenge.get("message").asText();
+        String signature = wallet.sign(message);
+        scanner.register(Kind.NONCE, challenge.get("nonce").asText()).register(Kind.SIGNATURE, signature);
+        MockHttpServletResponse created = auth.verifyWithInvite(wallet, message, signature, code, "v1");
+        String accessToken = auth.accessToken(created);
+        scanner.register(Kind.ACCESS_TOKEN, accessToken).register(Kind.REFRESH_TOKEN, AuthFlow.refreshToken(created));
+        auth.verifyWithInvite(wallet, message, signature, code, "v1"); // replay: LOGIN_REJECTED
+        mvc.perform(get("/api/v1/account").header("Authorization", "Bearer " + accessToken));
+        String inviteId =
+                json.readTree(issued.getContentAsString()).get("inviteId").asText();
+        mvc.perform(post("/api/v1/admin/invites/" + inviteId + "/revoke")
+                .header("Authorization", admin.bearer())
+                .header("Idempotency-Key", java.util.UUID.randomUUID().toString()));
+        while (relay.relayBatch() > 0) {
+            // deliver every event of this flow to the trail
+        }
+
+        List<Finding> findings = new ArrayList<>();
+        findings.addAll(scanner.scan("api logs", output.getAll()));
+        findings.addAll(scanner.scan("postgresql logs", POSTGRES.getLogs()));
+        findings.addAll(scanner.scan("prometheus", prometheus()));
+        scanOutbox(scanner, findings);
+        scanTrail(scanner, findings);
+        // The U3 operations only: the U1 challenge record keeps the challenge it replays by design (BR1.10 of U1).
+        for (String body : jdbc.sql("""
+                        select coalesce(response_body::text, '') from idempotency_record
+                        where scope like '%:admin.invite.%'
+                        """).query(String.class).list()) {
+            findings.addAll(scanner.scan("idempotency_record.response_body", body));
+        }
+
+        assertThat(created.getStatus()).isEqualTo(200);
+        assertThat(jdbc.sql("select count(*) from idempotency_record where scope like '%:admin.invite.%'")
+                        .query(Long.class)
+                        .single())
+                .as("the issuance and the revocation records were scanned")
+                .isGreaterThanOrEqualTo(2);
+        assertThat(findings).as(SensitiveValueScanner.report(findings)).isEmpty();
+    }
+
+    @Autowired
+    private com.memetrade.marketdata.infra.MarketCollectorJob collector;
+
+    @Autowired
+    private com.memetrade.riskassessment.infra.RiskRecalculator recalculator;
+
+    @Autowired
+    private com.memetrade.marketdata.domain.MarketStore store;
+
     /** {@code payload} without its {@code details} (no address allowed) and the details (address allowed). */
     private void scanOutbox(SensitiveValueScanner scanner, List<Finding> findings) throws Exception {
         for (String payload : jdbc.sql("select payload::text from audit_outbox")

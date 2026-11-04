@@ -1,0 +1,39 @@
+{
+  "stage": "functional-design",
+  "unit": "u3-identity-access",
+  "upstream_ids": [
+    "AC1.1.1", "AC1.1.2", "AC1.1.3", "AC1.1.4", "AC1.1.5", "AC1.1.6",
+    "AC1.3.1", "AC1.3.2", "AC1.3.3",
+    "AC1.5.1", "AC1.5.2", "AC1.5.3",
+    "AC7.1.1", "AC7.1.2", "AC7.1.3", "AC7.1.4"
+  ],
+  "coverage": [
+    { "id": "AC1.1.1", "status": "OK", "target": "BR2.1, BR3.1" },
+    { "id": "AC1.1.2", "status": "OK", "target": "BR1.2, BR3.2" },
+    { "id": "AC1.1.3", "status": "OK", "target": "BR3.3, BR3.5" },
+    { "id": "AC1.1.4", "status": "OK", "target": "BR3.4" },
+    { "id": "AC1.1.5", "status": "OK", "target": "BR3.7" },
+    { "id": "AC1.1.6", "status": "OK", "target": "BR6.1" },
+    { "id": "AC1.3.1", "status": "OK", "target": "BR4.1, BR4.2, BR4.3" },
+    { "id": "AC1.3.2", "status": "OK", "target": "BR4.4" },
+    { "id": "AC1.3.3", "status": "OK", "target": "BR4.1" },
+    { "id": "AC1.5.1", "status": "OK", "target": "BR5.1, BR5.4" },
+    { "id": "AC1.5.2", "status": "OK", "target": "BR5.2" },
+    { "id": "AC1.5.3", "status": "OK", "target": "BR5.3" },
+    { "id": "AC7.1.1", "status": "OK", "target": "BR1.1" },
+    { "id": "AC7.1.2", "status": "OK", "target": "BR1.2, BR1.3" },
+    { "id": "AC7.1.3", "status": "OK", "target": "BR1.4, BR3.2" },
+    { "id": "AC7.1.4", "status": "OK", "target": "BR1.5" }
+  ],
+  "reverse": [
+    { "id": "BR1.6", "status": "N/A", "target": "contagens do estado do sistema (C17, AC7.4.1 entregue pela u8-admin-feedback)" },
+    { "id": "BR1.7", "status": "N/A", "target": "tenant Beta semeado (ADR-002, Q1)" },
+    { "id": "BR1.8", "status": "N/A", "target": "repetição idempotente da emissão sem guardar o código (Q2, BR2.3)" },
+    { "id": "BR2.2", "status": "N/A", "target": "limite de consultas do convite (Q5)" },
+    { "id": "BR2.3", "status": "N/A", "target": "código fora de log e trilha (Q2, Q5, PRD §12)" },
+    { "id": "BR3.6", "status": "N/A", "target": "nonce consumido continua consumido (FR1.3, regra da U1)" },
+    { "id": "BR3.8", "status": "N/A", "target": "verificação sem convite sem mudança (FR1.3, US1.2 da U1)" },
+    { "id": "BR3.9", "status": "N/A", "target": "só endereço e provedor guardados (FR1.5, AC1.2.5 da U1)" },
+    { "id": "BR6.2", "status": "N/A", "target": "textos sem promessa de lucro (C-16)" }
+  ]
+}

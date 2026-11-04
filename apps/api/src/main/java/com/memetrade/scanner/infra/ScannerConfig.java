@@ -14,4 +14,11 @@ public class ScannerConfig {
     public ScannerService scannerService(MarketListingQuery market, RiskAssessmentQuery risk, Clock clock) {
         return new ScannerService(market, risk, clock);
     }
+
+    /** Per person and route limit of the list and the detail (NFR6.3). */
+    @Bean
+    public com.memetrade.shared.web.PersonRouteRateLimiter scannerRateLimiter(
+            ScannerProperties properties, Clock clock) {
+        return new com.memetrade.shared.web.PersonRouteRateLimiter(properties.rateLimitPerMinute(), clock);
+    }
 }
