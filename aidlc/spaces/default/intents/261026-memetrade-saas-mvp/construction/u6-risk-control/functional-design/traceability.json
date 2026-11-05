@@ -1,0 +1,30 @@
+{
+  "stage": "functional-design",
+  "unit": "u6-risk-control",
+  "upstream_ids": [
+    "AC4.6.1", "AC4.6.2", "AC4.6.3", "AC4.6.4", "AC4.6.5",
+    "AC4.7.1", "AC4.7.2", "AC4.7.3", "AC4.7.4", "AC4.7.5", "AC4.7.6"
+  ],
+  "coverage": [
+    { "id": "AC4.6.1", "status": "OK", "target": "BR1.3, BR1.4, BR1.5, BR2.1, BR2.2, BR2.3, BR2.4, BR2.5, BR2.6, BR2.7, BR2.8, BR3.1, BR3.2, BR3.5" },
+    { "id": "AC4.6.2", "status": "OK", "target": "BR1.6, BR2.9" },
+    { "id": "AC4.6.3", "status": "N/A", "target": "operação e lançamentos únicos por chave entregues pela u7-ledger-pnl; a barreira só recusa a segunda avaliação da decisão (BR2.8)" },
+    { "id": "AC4.6.4", "status": "N/A", "target": "conflito de chave e unicidade no banco entregues pela u7-ledger-pnl" },
+    { "id": "AC4.6.5", "status": "N/A", "target": "chave e versão dos limites na operação persistida entregues pela u7-ledger-pnl; a barreira grava a versão avaliada (BR3.4)" },
+    { "id": "AC4.7.1", "status": "OK", "target": "BR2.10, BR3.3" },
+    { "id": "AC4.7.2", "status": "OK", "target": "BR2.11, BR3.3" },
+    { "id": "AC4.7.3", "status": "N/A", "target": "meia-noite UTC e limite de 3 bots ativos entregues pela u5-bots-decision" },
+    { "id": "AC4.7.4", "status": "N/A", "target": "remoção só do motivo perda diária entregue pela u5-bots-decision" },
+    { "id": "AC4.7.5", "status": "N/A", "target": "retomada com limite maior que a perda acumulada entregue pela u5-bots-decision" },
+    { "id": "AC4.7.6", "status": "N/A", "target": "motivo e horário de reinício na tela do bot entregues pela u5-bots-decision" }
+  ],
+  "reverse": [
+    { "id": "BR1.1", "status": "N/A", "target": "regra do contrato C14 e da transação do ciclo (ADR-005); sem critério de aceite próprio" },
+    { "id": "BR1.2", "status": "N/A", "target": "validação técnica de defesa da entrada da C14" },
+    { "id": "BR2.12", "status": "N/A", "target": "política da venda decidida na Q2 deste design" },
+    { "id": "BR3.4", "status": "N/A", "target": "registro da avaliação por decisão, decidido na Q9; apoia AC4.6.5 da U7" },
+    { "id": "BR4.1", "status": "N/A", "target": "isolamento da rota C21 (DP-1, FR2.1)" },
+    { "id": "BR4.2", "status": "N/A", "target": "paginação e campos da rota C21, ampliada na Q10" },
+    { "id": "BR4.3", "status": "N/A", "target": "imutabilidade dos registros de risco (NFR4, FR2.3)" }
+  ]
+}

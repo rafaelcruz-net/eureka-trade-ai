@@ -57,5 +57,11 @@ public final class AuditActions {
     /** U7 (BR4.2): a ledger entry was corrected by a compensating entry. */
     public static final String LEDGER_ENTRY_COMPENSATED = "LEDGER_ENTRY_COMPENSATED";
 
+    /**
+     * U6 (BR3.5): the barrier refused an order; actor {@code system}, target {@code bot:<botId>}, details rejectionId,
+     * decisionId, reasons, pauseTriggers and limitsVersion. One per rejection; an approval publishes nothing.
+     */
+    public static final String ORDER_REJECTED = "ORDER_REJECTED";
+
     private AuditActions() {}
 }

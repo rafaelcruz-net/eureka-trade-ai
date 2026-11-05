@@ -44,8 +44,9 @@ class AuditPropertiesTest {
         assertThat(value(yml, "memetrade.audit.jobs.batch-size")).isEqualTo(1000);
         assertThat(value(yml, "memetrade.audit.jobs.lock-at-most-for")).isEqualTo("35m");
         assertThat(value(yml, "memetrade.audit.jobs.lock-at-least-for")).isEqualTo("5m");
-        // U4: the 3 threads of U1/U2 plus 4 for the U4 jobs; U7 adds 4 more (code-generation-plan.md, Passo 1).
-        assertThat(value(yml, "spring.task.scheduling.pool.size")).isEqualTo("${SCHEDULER_POOL_SIZE:11}");
+        // U4: the 3 threads of U1/U2 plus 4 for the U4 jobs; U7 adds 4 more (code-generation-plan.md, Passo 1); U6
+        // counts one thread per scheduled job, 12 existing plus its purge (U6 code-generation-plan.md, Passo 1).
+        assertThat(value(yml, "spring.task.scheduling.pool.size")).isEqualTo("${SCHEDULER_POOL_SIZE:13}");
     }
 
     @Test

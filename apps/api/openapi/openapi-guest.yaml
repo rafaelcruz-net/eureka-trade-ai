@@ -178,6 +178,53 @@ paths:
       summary: "Uso do dia UTC: exposição pelo custo e perda do dia (AC4.10.1, BR7.5)"
       tags:
       - ledger-controller
+  /api/v1/bots/{botId}/rejections:
+    get:
+      operationId: listBotRejections
+      parameters:
+      - in: path
+        name: botId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RejectionPage"
+          description: "Página das recusas, vazia quando nenhuma"
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VALIDATION_FAILED
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: nenhuma avaliação desse bot para a pessoa do token"
+      security:
+      - accessToken: []
+      summary: Ordens recusadas com o limite que barrou e o horário (AC4.10.4)
+      tags:
+      - rejection-controller
   /api/v1/bots/{botId}/trades:
     get:
       operationId: listBotTrades
@@ -989,6 +1036,68 @@ components:
       oneOf:
       - $ref: "#/components/schemas/KnownValue"
       - $ref: "#/components/schemas/UnknownValue"
+    OrderRejection:
+      type: object
+      additionalProperties: false
+      description: Ordem recusada com o limite que barrou e o horário (AC4.10.4)
+      properties:
+        decisionId:
+          type: string
+          format: uuid
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/RejectionReasonDetail"
+        evaluatedAt:
+          type: string
+          format: date-time
+        limitsVersion:
+          type: integer
+          format: int64
+        market:
+          $ref: "#/components/schemas/RejectionMarket"
+        mode:
+          type: string
+          enum:
+          - PAPER
+        pauseTriggers:
+          type: array
+          description: Vazio quando nenhum
+          items:
+            type: string
+            enum:
+            - DAILY_LOSS
+            - DRAWDOWN
+        reasons:
+          type: array
+          description: Na ordem fixa; o primeiro é o motivo principal
+          items:
+            type: string
+            enum:
+            - ORDER_SIZE
+            - TOKEN_EXPOSURE
+            - TOTAL_EXPOSURE
+            - SLIPPAGE
+            - MIN_LIQUIDITY
+            - STALE_DATA
+            - INTERVAL
+            - DUPLICATE
+            - INSUFFICIENT_PAPER_BALANCE
+            - DAILY_LOSS
+            - DRAWDOWN
+        rejectionId:
+          type: string
+          format: uuid
+      required:
+      - decisionId
+      - details
+      - evaluatedAt
+      - limitsVersion
+      - market
+      - mode
+      - pauseTriggers
+      - reasons
+      - rejectionId
     PaperTrade:
       type: object
       additionalProperties: false
@@ -1336,6 +1445,81 @@ components:
       - divergenceCount
       - divergences
       - status
+    RejectionMarket:
+      type: object
+      additionalProperties: false
+      description: Dados de mercado usados na avaliação
+      properties:
+        estimatedSlippagePct:
+          type: string
+          description: "Pontos com 4 casas, ou UNKNOWN"
+          pattern: ^(-?\d+(\.\d+)?|UNKNOWN)$
+        liquidity:
+          $ref: "#/components/schemas/MarketValue"
+        orderValue:
+          type: string
+          description: "USDC com 6 casas, ou UNKNOWN"
+          pattern: ^(-?\d+(\.\d+)?|UNKNOWN)$
+        referencePrice:
+          $ref: "#/components/schemas/MarketValue"
+      required:
+      - estimatedSlippagePct
+      - liquidity
+      - orderValue
+      - referencePrice
+    RejectionPage:
+      type: object
+      additionalProperties: false
+      description: "Página das ordens recusadas do bot, da mais recente para a mais\
+        \ antiga"
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderRejection"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: null quando não há próxima página
+        total:
+          type: integer
+          format: int64
+          description: Contagem limitada a 10000
+        totalCapped:
+          type: boolean
+          description: true quando há mais de 10000 recusas
+      required:
+      - items
+      - nextCursor
+      - total
+      - totalCapped
+    RejectionReasonDetail:
+      type: object
+      additionalProperties: false
+      description: O número que barrou um motivo
+      properties:
+        limit:
+          type: string
+          description: "DecimalString; em DUPLICATE, o evaluationId original"
+        measured:
+          type: string
+          description: "DecimalString na escala da unidade ou UNKNOWN; em DUPLICATE,\
+            \ a decisão"
+        reason:
+          type: string
+        unit:
+          type: string
+          enum:
+          - USDC
+          - PERCENT
+          - SECONDS
+          - REFERENCE
+      required:
+      - limit
+      - measured
+      - reason
+      - unit
     RiskSummary:
       discriminator:
         mapping:

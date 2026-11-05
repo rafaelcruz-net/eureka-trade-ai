@@ -752,6 +752,345 @@ if (SCENARIO === 'u7' || SCENARIO === 'u7-jobs') {
   await runU7();
 }
 
+// ----- U6 scenario (cicd-pipeline.md) -----
+//   LOAD_SCENARIO=u6  the ledger load prepares 60 PAPER accounts of 20 people (no seeded fills); the load risk driver of
+//                     the loadtest profile seeds 10000 rejections on one bot of each person, 80000 on one bot and
+//                     200000 approved evaluations 32 to 40 days old, then evaluates one order per bot every 30 s (half
+//                     refused) while 20 users read C21 of their bots, one read every 2 s. Two windows of the same run:
+//                     before the purge (0 to LOADTEST_U6_PURGE_AT) and with the purge (from there to DURATION_S).
+//                     p95 evaluate <= 250 ms in each window (NFR2.1, timer loadtest_risk_evaluate_seconds by window),
+//                     the second at most 10% above the first, p95 of C21 <= 1 s in each window (NFR3.1), every batch of
+//                     the purge <= 100 ms (NFR2.5, from the "Risk purge batch" lines of the api log) and no Seq Scan on
+//                     order_evaluation or order_rejection in the page of C21, the lookup of the decision and the
+//                     selection of the purge. Report: docs/perf/u6-risk-control-<date>.md.
+const U6_LIMITS = { evaluateS: 0.25, rejectionsS: 1.0, batchMs: 100, withPurgeRatio: 1.1 };
+
+/** Waits for the health component loadtestRisk to be UP (seed done, cycles running), at most 120 minutes. */
+async function waitForRisk() {
+  const deadline = Date.now() + 120 * 60 * 1_000;
+  let lastProgress = 0;
+  while (Date.now() < deadline) {
+    const health = await (await fetch(`${MANAGEMENT}/actuator/health`)).json().catch(() => ({}));
+    const component = health.components?.loadtestRisk;
+    if (!component) {
+      throw new Error('the load risk driver is not active: SPRING_PROFILES_ACTIVE=test,loadtest and LOADTEST_U6_ENABLED=true');
+    }
+    const details = component.details ?? {};
+    if (details.state === 'FAILED') throw new Error(`the load risk driver failed: ${details.failure}`);
+    if (component.status === 'UP') return details;
+    if (Date.now() - lastProgress > 60_000) {
+      lastProgress = Date.now();
+      console.warn(
+        `risk preparation: ${details.state}, rejections ${details.rejectionsSeeded}, old approved ${details.oldApprovedSeeded}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10_000));
+  }
+  throw new Error('the preparation of the risk load did not finish in 120 minutes');
+}
+
+/** Cumulative bucket counts of one histogram series, by upper bound. */
+function buckets(metrics, linePattern) {
+  const counts = new Map();
+  for (const line of metrics.split('\n')) {
+    const m = linePattern.exec(line);
+    if (!m) continue;
+    const le = /le="([^"]+)"/.exec(line)[1];
+    const bound = le === '+Inf' ? Infinity : Number(le);
+    counts.set(bound, (counts.get(bound) ?? 0) + Number(line.split(' ').at(-1)));
+  }
+  return counts;
+}
+
+function routeBuckets(metrics, uri) {
+  const escaped = uri.replace(/[/{}]/g, (c) => `\\${c}`);
+  return buckets(metrics, new RegExp(`^http_server_requests_seconds_bucket\\{[^}]*uri="${escaped}"[^}]*\\} `));
+}
+
+function windowBuckets(metrics, window) {
+  return buckets(metrics, new RegExp(`^loadtest_risk_evaluate_seconds_bucket\\{[^}]*window="${window}"[^}]*\\} `));
+}
+
+/** p95 of the requests between two snapshots of the same histogram (null without requests). */
+function p95Between(before, after) {
+  const sorted = [...after.entries()]
+    .map(([bound, count]) => [bound, count - (before.get(bound) ?? 0)])
+    .sort((a, b) => a[0] - b[0]);
+  const total = sorted.at(-1)?.[1] ?? 0;
+  if (total === 0) return null;
+  return sorted.find(([, count]) => count >= total * 0.95)?.[0] ?? null;
+}
+
+async function prometheus() {
+  return (await fetch(`${MANAGEMENT}/actuator/prometheus`)).text();
+}
+
+/** One reader per person: the refused orders of each of their bots in turn (404 before a bot is first evaluated). */
+async function u6User(index, deadline, person, state) {
+  let step = index;
+  while (Date.now() < deadline) {
+    const started = Date.now();
+    const botId = person.bots[step % person.bots.length];
+    try {
+      const response = await fetch(`${API}/api/v1/bots/${botId}/rejections?limit=50`, {
+        headers: { Authorization: `Bearer ${person.token}` },
+      });
+      if (response.status === 401) {
+        state.reauthenticated += 1;
+        await signIn(person);
+      } else if (response.status === 404) {
+        state.notYetEvaluated += 1;
+      } else if (response.status !== 200) {
+        state.errors += 1;
+        console.error(`user ${index}: status ${response.status} on C21`);
+      } else {
+        state.reads += 1;
+      }
+    } catch (failure) {
+      state.errors += 1;
+      console.error(`user ${index}: ${failure.name}`);
+    }
+    step += 1;
+    await new Promise((resolve) => setTimeout(resolve, Math.max(0, 2_000 - (Date.now() - started))));
+  }
+}
+
+/** The bots of a person, from the ledger entries of their FUNDING (one per bot). */
+async function botsOf(person) {
+  const response = await fetch(`${API}/api/v1/ledger?limit=100`, { headers: { Authorization: `Bearer ${person.token}` } });
+  const body = await response.json().catch(() => ({}));
+  return [...new Set((body.items ?? []).map((item) => item.botId).filter(Boolean))];
+}
+
+/** NFR2.5: the batches and the totals of the purge round, from the api log. */
+async function purgeLog() {
+  if (!process.env.API_CONTAINER) return { batches: [], finished: [] };
+  const { stdout, stderr } = await run('docker', ['logs', process.env.API_CONTAINER], { maxBuffer: 512 * 1024 * 1024 });
+  const text = `${stdout}\n${stderr}`;
+  return {
+    batches: [...text.matchAll(/Risk purge batch: batch=(\d+), deleted=(\d+), durationMs=(\d+)/g)].map((m) => ({
+      batch: Number(m[1]),
+      deleted: Number(m[2]),
+      durationMs: Number(m[3]),
+    })),
+    finished: [...text.matchAll(/Risk purge finished:[^"]*deleted=(\d+), batches=(\d+)/g)].map((m) => ({
+      deleted: Number(m[1]),
+      batches: Number(m[2]),
+    })),
+  };
+}
+
+async function psql(sql) {
+  const { stdout } = await run('docker', [
+    'exec',
+    process.env.POSTGRES_CONTAINER,
+    'psql',
+    '-At',
+    '-U',
+    process.env.DB_SUPERUSER ?? 'postgres',
+    '-d',
+    process.env.DB_NAME ?? 'memetrade',
+    '-c',
+    sql,
+  ]);
+  return stdout;
+}
+
+/** The plans of the page of C21, the lookup of the decision and the selection of the purge; no Seq Scan allowed. */
+async function u6Plans() {
+  if (!process.env.POSTGRES_CONTAINER) return { checked: false, seqScan: [] };
+  const sample = "(select r.tenant_id, r.owner_user_id, r.bot_id from order_rejection r limit 1)";
+  const queries = {
+    page:
+      `select * from order_rejection where (tenant_id, owner_user_id, bot_id) = ${sample} and mode = 'PAPER' ` +
+      'order by evaluated_at desc, rejection_id desc limit 51',
+    decision:
+      "select * from order_evaluation where (tenant_id, bot_id) = (select r.tenant_id, r.bot_id from order_rejection r limit 1) " +
+      "and mode = 'PAPER' and decision_id = '00000000-0000-0000-0000-000000000000'",
+    purge:
+      "select e.evaluation_id from order_evaluation e where e.outcome = 'APPROVED' " +
+      "and e.evaluated_at < now() - interval '31 days' " +
+      'and not exists (select 1 from order_rejection r where r.evaluation_id = e.evaluation_id) ' +
+      'order by e.evaluated_at limit 1000',
+  };
+  const seqScan = [];
+  const plans = {};
+  for (const [name, sql] of Object.entries(queries)) {
+    plans[name] = await psql(`EXPLAIN ${sql}`);
+    if (/Seq Scan on (order_evaluation|order_rejection)\b/.test(plans[name])) seqScan.push(name);
+  }
+  return { checked: true, seqScan, plans };
+}
+
+/** NFR2.6: rows and size (data and indexes) of the four tables of U6 after the run. */
+async function u6Tables() {
+  if (!process.env.POSTGRES_CONTAINER) return [];
+  const out = await psql(
+    "select c.relname, c.reltuples::bigint, pg_total_relation_size(c.oid) from pg_class c " +
+      "where c.relname in ('order_evaluation', 'order_rejection', 'rejection_reason_detail', 'risk_purge_run') " +
+      'order by c.relname',
+  );
+  return out
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => {
+      const [table, rows, bytes] = line.split('|');
+      return { table, rows: Number(rows), megabytes: Math.round(Number(bytes) / 1024 / 1024) };
+    });
+}
+
+function ms(seconds) {
+  return seconds === null ? 'sem dados' : `${Math.round(seconds * 1000)} ms`;
+}
+
+function u6Markdown(report) {
+  const w = report.windows;
+  const tables = report.tables.map((t) => `| \`${t.table}\` | ${t.rows} | ${t.megabytes} MB |`).join('\n');
+  const batches = report.purge.batches;
+  return `# Carga local — U6 Barreira de limites (${report.date})
+
+Gerado por \`scripts/load-test.sh\` (\`LOAD_SCENARIO=u6\`).
+
+- Pessoas: ${report.people} · bots: ${report.preparation.bots ?? 'n/d'} · leitores da C21: ${report.users} · duração: ${report.durationSeconds} s · expurgo disparado em ${report.purgeAtSeconds} s
+- Preparação: ${report.risk.rejectionsSeeded ?? 0} recusas e ${report.risk.oldApprovedSeeded ?? 0} aprovadas antigas semeadas em ${report.preparationSeconds} s
+- Avaliações ao fim: ${report.risk.evaluations ?? 0} (aprovadas ${report.risk.approved ?? 0}, recusadas ${report.risk.rejected ?? 0}, puladas sem preço ${report.risk.skipped ?? 0}, falhas técnicas ${report.risk.cycleFailures ?? 0})
+- Resultado: **${report.passed ? 'aprovado' : 'reprovado'}**
+
+## Janela sem expurgo
+
+| Medida | p95 | Limite |
+|---|---|---|
+| \`OrderGate.evaluate\` | ${ms(w.beforePurge.evaluate)} | 250 ms |
+| C21 \`GET /api/v1/bots/{botId}/rejections\` | ${ms(w.beforePurge.rejections)} | 1000 ms |
+
+## Janela com expurgo
+
+| Medida | p95 | Limite |
+|---|---|---|
+| \`OrderGate.evaluate\` | ${ms(w.withPurge.evaluate)} | 250 ms e no máximo 10% acima da primeira janela |
+| C21 \`GET /api/v1/bots/{botId}/rejections\` | ${ms(w.withPurge.rejections)} | 1000 ms |
+
+- Rodada do expurgo: ${report.risk.purgeResult ?? 'não rodou'}; apagadas ${report.risk.purgeDeleted ?? 0} em ${report.risk.purgeBatches ?? 0} lotes; tamanho do lote ${report.batchSize}
+- Lotes no log: ${batches.length}; maior ${Math.max(0, ...batches.map((b) => b.durationMs))} ms (limite ${U6_LIMITS.batchMs} ms)
+
+## Banco
+
+| Tabela | Linhas (estimadas) | Tamanho com índices |
+|---|---|---|
+${tables}
+
+- Planos sem \`Seq Scan\` em \`order_evaluation\` ou \`order_rejection\` (página da C21, procura da decisão, seleção do expurgo): ${report.plans.checked ? (report.plans.seqScan.length === 0 ? 'sim' : `não (${report.plans.seqScan.join(', ')})`) : 'não conferido'}
+- Espera do pool: máximo de ${report.pool.maxPending} conexões pendentes; maior sequência ${report.pool.longestPendingSeconds} s (limite 10 s)
+- Memória máxima: api ${Math.round(report.maxMemoryMb.api ?? 0)} MB, postgres ${Math.round(report.maxMemoryMb.postgres ?? 0)} MB (limite ${MEMORY_LIMIT_MB} MB)
+- Leituras da C21: ${report.reads} com 200, ${report.notYetEvaluated} com 404 (bot ainda não avaliado), erros de cliente ${report.errors}, novos logins ${report.reauthenticated}
+- Falhas: ${report.failures.length === 0 ? 'nenhuma' : report.failures.join(', ')}
+`;
+}
+
+async function runU6() {
+  const preparationStarted = Date.now();
+  const people = await u7People();
+  const preparation = await waitForPreparation();
+  const risk = await waitForRisk();
+  const preparationSeconds = Math.round((Date.now() - preparationStarted) / 1_000);
+  for (const person of people) {
+    await signIn(person);
+    person.bots = await botsOf(person);
+    if (person.bots.length === 0) throw new Error('a person of the load has no bot');
+  }
+  const purgeAtMs = Number(risk.purgeAtSeconds ?? 300) * 1_000;
+  const cyclesStarted = Date.parse(risk.cyclesStartedAt);
+  const windowEnd = cyclesStarted + purgeAtMs;
+  const deadline = cyclesStarted + DURATION_S * 1_000;
+  const state = { errors: 0, reauthenticated: 0, notYetEvaluated: 0, reads: 0 };
+  const pool = { maxPending: 0, longestPendingSeconds: 0, poolReadErrors: 0 };
+  const memory = { maxMemoryMb: {} };
+  const route = '/api/v1/bots/{botId}/rejections';
+  const snapshots = { start: routeBuckets(await prometheus(), route) };
+  const firstWindow = new Promise((resolve) => setTimeout(resolve, Math.max(0, windowEnd - Date.now()))).then(
+    async () => {
+      snapshots.purge = routeBuckets(await prometheus(), route);
+    },
+  );
+  await Promise.all([
+    ...people.map((person, i) => u6User(i, deadline, person, state)),
+    watchPool(deadline, pool),
+    watchMemory(deadline, memory),
+    firstWindow,
+    new Promise((resolve) => setTimeout(resolve, Math.max(0, deadline - Date.now()))),
+  ]);
+  const metrics = await prometheus();
+  snapshots.end = routeBuckets(metrics, route);
+  const health = await (await fetch(`${MANAGEMENT}/actuator/health`)).json().catch(() => ({}));
+  const report = {
+    scenario: 'u6',
+    date: new Date().toISOString().slice(0, 10),
+    people: people.length,
+    users: people.length,
+    durationSeconds: DURATION_S,
+    purgeAtSeconds: purgeAtMs / 1_000,
+    batchSize: 1000,
+    preparation,
+    preparationSeconds,
+    risk: health.components?.loadtestRisk?.details ?? {},
+    windows: {
+      beforePurge: {
+        evaluate: p95Between(new Map(), windowBuckets(metrics, 'before-purge')),
+        rejections: p95Between(snapshots.start, snapshots.purge ?? snapshots.end),
+      },
+      withPurge: {
+        evaluate: p95Between(new Map(), windowBuckets(metrics, 'with-purge')),
+        rejections: p95Between(snapshots.purge ?? snapshots.end, snapshots.end),
+      },
+    },
+    purge: await purgeLog(),
+    plans: await u6Plans(),
+    tables: await u6Tables(),
+    pool,
+    maxMemoryMb: memory.maxMemoryMb,
+    ...state,
+  };
+  const w = report.windows;
+  const slowBatches = report.purge.batches.filter((b) => b.durationMs > U6_LIMITS.batchMs).length;
+  report.failures = [
+    ...[
+      ['p95 evaluate before the purge', w.beforePurge.evaluate, U6_LIMITS.evaluateS],
+      ['p95 evaluate with the purge', w.withPurge.evaluate, U6_LIMITS.evaluateS],
+      ['p95 C21 before the purge', w.beforePurge.rejections, U6_LIMITS.rejectionsS],
+      ['p95 C21 with the purge', w.withPurge.rejections, U6_LIMITS.rejectionsS],
+    ]
+      .filter(([, value, limit]) => value === null || value > limit)
+      .map(([name]) => name),
+    ...(w.beforePurge.evaluate !== null &&
+    w.withPurge.evaluate !== null &&
+    w.withPurge.evaluate > w.beforePurge.evaluate * U6_LIMITS.withPurgeRatio
+      ? ['evaluate with the purge more than 10% above']
+      : []),
+    ...(report.risk.purgeResult === 'SUCCEEDED' ? [] : ['purge round did not succeed']),
+    ...(report.purge.batches.length === 0 ? ['no purge batch in the log'] : []),
+    ...(slowBatches > 0 ? [`${slowBatches} purge batches above ${U6_LIMITS.batchMs} ms`] : []),
+    ...(report.plans.seqScan.length > 0 ? ['query plan'] : []),
+    ...(state.errors > 0 ? ['client errors'] : []),
+    ...(Number(report.risk.cycleFailures ?? 0) > 0 ? ['cycle failures'] : []),
+    ...(pool.longestPendingSeconds > 10 ? ['pool wait'] : []),
+    ...Object.entries(memory.maxMemoryMb)
+      .filter(([, mb]) => mb > MEMORY_LIMIT_MB)
+      .map(([name]) => `memory ${name}`),
+  ];
+  report.passed = report.failures.length === 0;
+  delete report.plans.plans;
+  writeFileSync('load-test-report.json', JSON.stringify(report, null, 2));
+  mkdirSync('docs/perf', { recursive: true });
+  writeFileSync(`docs/perf/u6-risk-control-${report.date}.md`, u6Markdown(report));
+  console.warn(JSON.stringify(report));
+  process.exit(report.passed ? 0 : 1);
+}
+
+if (SCENARIO === 'u6') {
+  await runU6();
+}
+
 const state = { token: await login(), errors: 0, mints: new Set() };
 const deadline = Date.now() + DURATION_S * 1_000;
 const pool = { maxPending: 0, longestPendingSeconds: 0, poolReadErrors: 0 };

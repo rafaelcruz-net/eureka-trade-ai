@@ -1,0 +1,188 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u6-risk-control",
+  "upstream_ids": [
+    "NFR2.1",
+    "NFR2.2",
+    "NFR2.3",
+    "NFR2.4",
+    "NFR2.5",
+    "NFR2.6",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR4.3",
+    "NFR4.4",
+    "NFR4.5",
+    "NFR4.6",
+    "NFR5.1",
+    "NFR5.3",
+    "NFR6.1",
+    "NFR6.2",
+    "NFR7.1",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR9.1",
+    "NFR9.2",
+    "NFR9.3",
+    "NFR9.4",
+    "NFR10.2",
+    "NFR10.6",
+    "NFR10.7",
+    "NFR12.1",
+    "NFR13.1"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "LoadtestRiskCycleDriver no cenário u6 com p95 de evaluate (cicd-pipeline.md; monitoring-design.md)"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "Deferred",
+      "target": "soma barreira e execução medida quando o ciclo da u5-bots-decision existir; o cenário u6 mede só a barreira"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "Sem trava própria; índice único da 0009 e EvaluationDuplicateIT (infrastructure-specification.md; cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "Índice da C21 na 0009 e cenário u6 com 10.000 e 80.000 recusas (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR2.5",
+      "status": "OK",
+      "target": "Índice parcial da 0009, purge.batch-size, pool do agendador em 12 e medição de lote por janela no cenário u6 (infrastructure-specification.md; cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR2.6",
+      "status": "OK",
+      "target": "Índices da 0009 e EXPLAIN no cenário u6 (infrastructure-specification.md; cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "Cenário u6 com 20 leitores da C21 (cicd-pipeline.md; monitoring-design.md)"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "Deferred",
+      "target": "tela do bot medida no estágio da u5-bots-decision"
+    },
+    {
+      "id": "NFR4.1",
+      "status": "OK",
+      "target": "Catálogo E1 a E21 e RiskGatePropertyTest no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "ArchUnit sem ponto flutuante e colunas numeric da 0009 (cicd-pipeline.md; infrastructure-specification.md)"
+    },
+    {
+      "id": "NFR4.3",
+      "status": "OK",
+      "target": "Gatilhos e matriz de privilégios da 0009, papel risk_retention no 10-roles.sql, RiskPrivilegesIT (infrastructure-specification.md; cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR4.4",
+      "status": "OK",
+      "target": "Restrição única da 0009 e EvaluationDuplicateIT (infrastructure-specification.md; cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR4.5",
+      "status": "OK",
+      "target": "ArchUnit contra BigDecimal.ZERO no lugar de Unknown e casos E5, E6, E13, E18, E19 no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR4.6",
+      "status": "OK",
+      "target": "RiskGateFailClosedIT com falha depois de cada gravação no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "RejectionRoutesIT no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR5.3",
+      "status": "OK",
+      "target": "CHECK mode = PAPER na 0009 (infrastructure-specification.md)"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "Sem acesso de saída; ArchUnit no job backend (infrastructure-specification.md; cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "Teste de contrato só GET na rota C21 (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR7.1",
+      "status": "OK",
+      "target": "LogScanIT sobre ciclo de teste com recusa (monitoring-design.md)"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "RejectionReplayTest no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR8.2",
+      "status": "OK",
+      "target": "RejectionReplayTest e RiskGatePropertyTest com Clock e seed fixos (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "Indicador riskcontrol no actuator, fora de liveness e readiness, sobre risk_purge_run (infrastructure-specification.md; monitoring-design.md)"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "Contadores riskcontrol.evaluation.errors e riskcontrol.purge.errors no Micrometer (monitoring-design.md)"
+    },
+    {
+      "id": "NFR9.3",
+      "status": "OK",
+      "target": "CorrelationIdFilter e MDC do ciclo (monitoring-design.md)"
+    },
+    {
+      "id": "NFR9.4",
+      "status": "OK",
+      "target": "Eventos ORDER_REJECTED contados por caso do catálogo no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR10.2",
+      "status": "OK",
+      "target": "RiskGateFailClosedIT no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR10.6",
+      "status": "OK",
+      "target": "Expurgo com ShedLock riskcontrol-purge, cron 03:30 UTC e pool de retenção próprio da U6 (infrastructure-specification.md)"
+    },
+    {
+      "id": "NFR10.7",
+      "status": "OK",
+      "target": "PurgedDecisionReplayIT no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "OK",
+      "target": "Marcador u6 com testes escritos antes do código e cobertura de 80% no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR13.1",
+      "status": "OK",
+      "target": "Mesma suíte no Linux da CI e no Windows local (cicd-pipeline.md)"
+    }
+  ]
+}

@@ -1142,9 +1142,40 @@ paths:
                                 enum: [ORDER_SIZE, TOKEN_EXPOSURE, TOTAL_EXPOSURE, SLIPPAGE, MIN_LIQUIDITY, STALE_DATA, INTERVAL, DUPLICATE, INSUFFICIENT_PAPER_BALANCE, DAILY_LOSS, DRAWDOWN]
                             limitsVersion: { type: integer }
                             evaluatedAt: { $ref: 'common#/components/schemas/Instant' }
+                            # Acréscimos aditivos da U6 (Q10 do Functional Design)
+                            pauseTriggers:
+                              type: array
+                              items: { type: string, enum: [DAILY_LOSS, DRAWDOWN] }
+                            details:
+                              type: array
+                              items:
+                                type: object
+                                required: [reason, measured, limit, unit]
+                                properties:
+                                  reason: { type: string }
+                                  measured: { type: string, description: 'DecimalString na escala da unidade, ou UNKNOWN; em DUPLICATE, a decisão' }
+                                  limit: { type: string, description: 'DecimalString; em DUPLICATE, o evaluationId original' }
+                                  unit: { type: string, enum: [USDC, PERCENT, SECONDS, REFERENCE] }
+                            market:
+                              type: object
+                              required: [referencePrice, liquidity, estimatedSlippagePct, orderValue]
+                              properties:
+                                referencePrice: { $ref: 'common#/components/schemas/MarketValue' }
+                                liquidity: { $ref: 'common#/components/schemas/MarketValue' }
+                                estimatedSlippagePct: { type: string, description: 'pontos com 4 casas, ou UNKNOWN' }
+                                orderValue: { type: string, description: 'USDC com 6 casas, ou UNKNOWN' }
+        '404':
+          description: 'NOT_FOUND: nenhuma avaliação desse bot para a pessoa do token'
 ```
 
-Comportamento: a U6 grava `tenantId` e `ownerUserId` em cada recusa e filtra a leitura por eles, a partir do token, sem consultar a U5. Um bot de outra pessoa responde `404`.
+Comportamento: a U6 grava `tenantId`, `ownerUserId` e `mode` em cada avaliação e recusa e filtra toda leitura por eles, a partir do token, sem consultar a U5. Só `GET`.
+
+Mudanças registradas pela U6 (Functional Design e NFR Design da U6):
+- **404 para todo bot sem avaliação da pessoa do token.** Bot de outra pessoa (avaliado ou não), de outro tenant, inexistente, bot próprio que ainda não passou pela barreira e bot cujas avaliações foram todas apagadas pelo expurgo respondem o mesmo `404 NOT_FOUND`. A tela do bot (U5) trata esse `404` como "nenhuma recusa".
+- **Página vazia** quando o bot foi avaliado e nenhuma avaliação foi recusada.
+- **Ordem e cursor.** Da mais recente para a mais antiga (`evaluatedAt` e `rejectionId` decrescentes), cursor opaco, `limit` de 1 a 100 (padrão 50). Cursor ilegível ou de outra consulta e parâmetro desconhecido respondem `400 VALIDATION_FAILED`.
+- **Total limitado.** `total` conta até 10.000; acima disso vem `10000` com `totalCapped = true`.
+- **DUPLICATE de decisão já executada** aparece na tela como "decisão já avaliada; vale o resultado original", não como limite violado.
 
 ### C9 — Auditoria por tabela de saída (U2; implementação mínima em U1)
 
@@ -1275,13 +1306,24 @@ interface: |
       BigDecimal availableVirtualBalance, Optional<Instant> lastTradeAt) {}
 
   // C14 - U6 para U5
+  // Como implementada pela U6 (pacote com.memetrade.riskcontrol.api; Approved e Rejected aninhados em GateResult).
+  // Mudanças do Functional Design da U6: Set<PauseTrigger> no lugar de Optional<PauseTrigger> (Q8), rejectionId (Q9)
+  // e os tipos que a C14 deixou abertos.
   public interface OrderGate {
       GateResult evaluate(CandidateOrder order, BotLimitsVersionRef limits);
   }
   public sealed interface GateResult permits Approved, Rejected {}
   public record Approved(CandidateOrder order) implements GateResult {}
-  public record Rejected(List<RejectionReason> reasons, long limitsVersion,
-      Optional<PauseTrigger> pauseTrigger) implements GateResult {}
+  public record Rejected(UUID rejectionId, List<RejectionReason> reasons, long limitsVersion,
+      Set<PauseTrigger> pauseTriggers) implements GateResult {}     // pauseTriggers vazio quando nenhum
+  public record CandidateOrder(UUID botId, UUID decisionId, OrderSide side, String chain, String tokenMint,
+      BigDecimal requestedQuantity) {}                                // requestedQuantity > 0
+  public enum OrderSide { BUY, SELL }
+  public record BotLimitsVersionRef(long version, BigDecimal maxOrderSize, BigDecimal maxTokenExposure,
+      BigDecimal maxTotalExposure, BigDecimal maxSlippagePct, BigDecimal minLiquidity, long minIntervalSeconds,
+      BigDecimal maxDailyLoss, BigDecimal maxDrawdownPct) {}         // valores da versão vigente, entregues pela U5
+  public enum RejectionReason { ORDER_SIZE, TOKEN_EXPOSURE, TOTAL_EXPOSURE, SLIPPAGE, MIN_LIQUIDITY, STALE_DATA,
+      INTERVAL, DUPLICATE, INSUFFICIENT_PAPER_BALANCE, DAILY_LOSS, DRAWDOWN }   // a ordem é a ordem fixa (BR3.1)
   public enum PauseTrigger { DAILY_LOSS, DRAWDOWN }
 
   // C15 - U7 para U5
@@ -1318,6 +1360,9 @@ rules:
   - U7 - closePositions com a conta já em CLOSING ou CLOSED não cria ordem para posição CLOSE_PENDING e devolve o estado atual.
   - U7 - a execução faz SET LOCAL lock_timeout = '2s' e statement_timeout = '5s'; o efeito vale até o fim da transação do ciclo, inclusive para as gravações seguintes da U5 e da trilha, e a U5 registra isso no seu design.
   - U7 - o contexto de autenticação do ciclo (C10) dá tenant e pessoa; a U5 liga o Principal do dono do bot antes de chamar a U7.
+  - U6 - OrderGate.evaluate exige a transação do ciclo aberta (propagação MANDATORY); sem ela falha sem gravar nada. Tenant e pessoa vêm só do contexto de autenticação do ciclo (C10); nunca da ordem nem dos limites. A transação do ciclo roda em READ COMMITTED.
+  - U6 - Rejected traz rejectionId, os motivos na ordem fixa (o primeiro é o principal) e o conjunto pauseTriggers; a U5 não chama a execução e aplica cada gatilho na mesma transação. A segunda avaliação da mesma decisão volta Rejected([DUPLICATE]) com pauseTriggers vazio.
+  - U6 - Toda recusa grava OrderRejection, os detalhes por motivo e um evento ORDER_REJECTED na mesma transação; Approved não gera evento. Falha técnica (C11, C13, banco, tempo de espera) lança exceção e desfaz o ciclo, sem nova tentativa e nunca como aprovação.
 ```
 
 ### C16 e C17 — Interfaces usadas pela administração e pelo painel (U5, U3)

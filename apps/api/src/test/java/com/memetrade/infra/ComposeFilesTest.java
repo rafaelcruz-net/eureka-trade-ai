@@ -238,7 +238,13 @@ class ComposeFilesTest {
                 "LOADTEST_CYCLE_BOTS",
                 "LOADTEST_TOKENS_PER_BOT",
                 // U7 review repair R-04: bots the driver closes during the u7 run.
-                "LOADTEST_CLOSE_BOTS");
+                "LOADTEST_CLOSE_BOTS",
+                // U6 (Passo 16): the switch and the size of the load risk driver, read only by the loadtest profile.
+                "LOADTEST_U6_ENABLED",
+                "LOADTEST_U6_REJECTIONS_PER_BOT",
+                "LOADTEST_U6_HEAVY_BOT_REJECTIONS",
+                "LOADTEST_U6_OLD_APPROVED",
+                "LOADTEST_U6_PURGE_AT");
         Matcher variables = Pattern.compile("\\$\\{([A-Z0-9_]+)")
                 .matcher(read("docker-compose.yml") + read("infra/docker-compose.test.yml"));
         java.util.Set<String> missing = new java.util.TreeSet<>();
@@ -264,8 +270,8 @@ class ComposeFilesTest {
     void everyU4VariableReachesTheApiWithItsDefaultAndIsListedInTheEnvExample() throws IOException {
         Map<String, String> defaults = new java.util.LinkedHashMap<>();
         defaults.put("DB_POOL_MAX_SIZE", "20");
-        // U7 (Passo 1): 11 since the four U7 jobs.
-        defaults.put("SCHEDULER_POOL_SIZE", "11");
+        // U7 (Passo 1): 11 since the four U7 jobs; U6 (Passo 1): 13, one per scheduled job plus the purge.
+        defaults.put("SCHEDULER_POOL_SIZE", "13");
         defaults.put("MARKET_SOURCES", "sim-a,sim-b");
         defaults.put("MARKET_COLLECTION_INTERVAL", "30s");
         defaults.put("MARKET_SIMULATED_TOKENS_PER_SOURCE", "200");
@@ -326,6 +332,34 @@ class ComposeFilesTest {
         assertThat(read("apps/api/src/main/resources/application-loadtest.yml"))
                 .contains("${LOADTEST_LEDGER_PEOPLE:0}")
                 .contains("${LOADTEST_CLOSE_BOTS:0}");
+    }
+
+    /**
+     * U6 (Passo 16, cicd-pipeline.md): only the test overlay passes the switch and the size of the load risk driver,
+     * off by default; the base file, .env.example and application.yml never name them, and there is no
+     * LOADTEST_U6_PEOPLE (the people of u6 come from LOADTEST_LEDGER_PEOPLE).
+     */
+    @Test
+    @Tag("u6")
+    void onlyTheTestOverlayPassesTheU6LoadVariablesAndTheDriverIsOffByDefault() throws IOException {
+        Map<String, Object> api = environment(services(true), "api");
+
+        assertThat(String.valueOf(api.get("LOADTEST_U6_ENABLED"))).isEqualTo("${LOADTEST_U6_ENABLED:-false}");
+        assertThat(String.valueOf(api.get("LOADTEST_U6_REJECTIONS_PER_BOT")))
+                .isEqualTo("${LOADTEST_U6_REJECTIONS_PER_BOT:-10000}");
+        assertThat(String.valueOf(api.get("LOADTEST_U6_HEAVY_BOT_REJECTIONS")))
+                .isEqualTo("${LOADTEST_U6_HEAVY_BOT_REJECTIONS:-80000}");
+        assertThat(String.valueOf(api.get("LOADTEST_U6_OLD_APPROVED")))
+                .isEqualTo("${LOADTEST_U6_OLD_APPROVED:-200000}");
+        assertThat(String.valueOf(api.get("LOADTEST_U6_PURGE_AT"))).isEqualTo("${LOADTEST_U6_PURGE_AT:-300s}");
+        assertThat(api).doesNotContainKey("LOADTEST_U6_PEOPLE");
+        assertThat(environment(services(false), "api")).doesNotContainKey("LOADTEST_U6_ENABLED");
+        assertThat(read("docker-compose.yml")).doesNotContain("LOADTEST_U6_");
+        assertThat(read(".env.example")).doesNotContain("LOADTEST_U6_");
+        assertThat(read("apps/api/src/main/resources/application.yml")).doesNotContain("LOADTEST_U6_");
+        assertThat(read("apps/api/src/main/resources/application-loadtest.yml"))
+                .contains("${LOADTEST_U6_ENABLED:false}")
+                .contains("${LOADTEST_U6_PURGE_AT:300s}");
     }
 
     /** Merged view of the services: the base file, and with {@code overlay} the test overlay merged on top. */

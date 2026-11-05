@@ -345,6 +345,14 @@ public class LoadtestCycleDriver {
         return bots.size();
     }
 
+    /**
+     * U6 (scenario {@code u6}): the funded bots of the load and their owners, once the preparation is over; the load
+     * cycle driver of RiskControl evaluates orders of these same bots. Empty before {@link State#RUNNING}.
+     */
+    public List<Bot> preparedBots() {
+        return state == State.RUNNING ? bots : List.of();
+    }
+
     public long cycles() {
         return cycles.get();
     }

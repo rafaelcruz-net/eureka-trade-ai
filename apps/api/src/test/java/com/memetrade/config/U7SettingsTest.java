@@ -22,25 +22,27 @@ import org.springframework.mock.env.MockEnvironment;
 @Tag("u7")
 class U7SettingsTest {
 
+    /** Since U6 the minimum is 13 (U6SettingsTest); the eleven threads of U7 are no longer enough. */
     @Test
-    void theGuardRefusesTenSchedulerThreadsAndAcceptsEleven() {
+    void theGuardRefusesElevenSchedulerThreadsSinceU6() {
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("10")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 11 and 32");
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("11"))).doesNotThrowAnyException();
+                .hasMessageContaining("between 13 and 32");
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("11")))
+                .hasMessageContaining("SCHEDULER_POOL_SIZE");
         assertThatCode(() -> new RuntimeSettingsGuard(environment("32"))).doesNotThrowAnyException();
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("33")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }
 
     @Test
-    void applicationYmlShipsElevenSchedulerThreadsAndTheFixedLedgerValues() throws IOException {
+    void applicationYmlShipsTheSchedulerThreadsOfU6AndTheFixedLedgerValues() throws IOException {
         PropertySource<?> yml = new YamlPropertySourceLoader()
                 .load("application.yml", new ClassPathResource("application.yml"))
                 .getFirst();
 
         assertThat(String.valueOf(yml.getProperty("spring.task.scheduling.pool.size")))
-                .isEqualTo("${SCHEDULER_POOL_SIZE:11}");
+                .isEqualTo("${SCHEDULER_POOL_SIZE:13}");
         assertThat(String.valueOf(yml.getProperty("memetrade.ledger.marking-fallback-interval")))
                 .isEqualTo("60s");
         assertThat(String.valueOf(yml.getProperty("memetrade.ledger.reconciliation-interval")))
@@ -63,8 +65,8 @@ class U7SettingsTest {
         String compose = Files.readString(Path.of("..", "..", "docker-compose.yml"), StandardCharsets.UTF_8);
         String example = Files.readString(Path.of("..", "..", ".env.example"), StandardCharsets.UTF_8);
 
-        assertThat(compose).contains("SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-11}");
-        assertThat(example).contains("Scheduler threads, 11 to 32 [11]");
+        assertThat(compose).contains("SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-13}");
+        assertThat(example).contains("Scheduler threads, 13 to 32 [13]");
     }
 
     @Test

@@ -45,7 +45,9 @@ import org.springframework.transaction.support.TransactionTemplate;
             com.memetrade.identity.web.AccountController.class,
             // U7 (C5): PAPER ledger and P&L of the caller.
             com.memetrade.ledger.web.LedgerController.class,
-            com.memetrade.pnl.web.PnlController.class
+            com.memetrade.pnl.web.PnlController.class,
+            // U6 (C21): refused orders of the caller's bot.
+            com.memetrade.riskcontrol.web.RejectionController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -135,6 +137,10 @@ public abstract class GuestOpenApiSlice {
 
     @MockitoBean
     org.springframework.transaction.PlatformTransactionManager platformTransactionManager;
+
+    /** U6 (C21): the reading of the refused orders. */
+    @MockitoBean
+    com.memetrade.riskcontrol.domain.RejectionQueries rejectionQueries;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/guest"))

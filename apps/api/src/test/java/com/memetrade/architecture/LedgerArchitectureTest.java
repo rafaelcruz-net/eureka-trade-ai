@@ -194,9 +194,11 @@ class LedgerArchitectureTest {
                         "org.springframework.jdbc..")
                 .because("the load bots call PaperExecution, C10 and C11 only, never tables nor internals")
                 .check(PRODUCTION);
+        // U6 (Passo 16): the load package of RiskControl, itself only in the loadtest profile, reuses the prepared
+        // bots.
         noClasses()
                 .that()
-                .resideOutsideOfPackage("com.memetrade.ledger.loadtest..")
+                .resideOutsideOfPackages("com.memetrade.ledger.loadtest..", "com.memetrade.riskcontrol.loadtest..")
                 .should()
                 .dependOnClassesThat()
                 .resideInAPackage("com.memetrade.ledger.loadtest..")

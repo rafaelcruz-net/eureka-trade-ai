@@ -9,6 +9,8 @@
 # only by the loadtest profile and defaults to the shipped 10 (Infrastructure Design review finding).
 # U7: the LOADTEST_* values size the load cycle driver of the loadtest profile (scenarios u7 and u7-jobs); they are
 # read only by application-loadtest.yml and default to 0, so the driver does nothing in the smoke and the e2e run.
+# U6: the LOADTEST_U6_* values switch on and size the load risk driver of the loadtest profile (scenario u6); it is off
+# unless LOADTEST_U6_ENABLED is true, so the smoke and the e2e run never seed nor evaluate anything.
 services:
   api:
     environment:
@@ -23,3 +25,8 @@ services:
       LOADTEST_CYCLE_BOTS: ${LOADTEST_CYCLE_BOTS:-0}
       LOADTEST_TOKENS_PER_BOT: ${LOADTEST_TOKENS_PER_BOT:-5}
       LOADTEST_CLOSE_BOTS: ${LOADTEST_CLOSE_BOTS:-0}
+      LOADTEST_U6_ENABLED: ${LOADTEST_U6_ENABLED:-false}
+      LOADTEST_U6_REJECTIONS_PER_BOT: ${LOADTEST_U6_REJECTIONS_PER_BOT:-10000}
+      LOADTEST_U6_HEAVY_BOT_REJECTIONS: ${LOADTEST_U6_HEAVY_BOT_REJECTIONS:-80000}
+      LOADTEST_U6_OLD_APPROVED: ${LOADTEST_U6_OLD_APPROVED:-200000}
+      LOADTEST_U6_PURGE_AT: ${LOADTEST_U6_PURGE_AT:-300s}

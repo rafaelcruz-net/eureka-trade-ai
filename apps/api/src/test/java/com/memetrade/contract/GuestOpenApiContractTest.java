@@ -222,6 +222,38 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
         assertThat(keys(paths().get("/api/v1/reconciliation/run"))).containsExactly("post");
     }
 
+    /** U6 (C21 with the additive fields of Q10; BR4.1, BR4.2; NFR6.2): only GET, 404 and 400 documented. */
+    @Test
+    @org.junit.jupiter.api.Tag("u6")
+    void theRejectionsRouteOfC21IsOnlyGetWithItsAdditiveFields() {
+        String route = "/api/v1/bots/{botId}/rejections";
+        assertThat(paths()).containsKey(route);
+        assertThat(keys(paths().get(route))).containsExactly("get");
+        assertThat(String.valueOf(operation(route, "get").get("security"))).contains("accessToken");
+        assertThat(responses(route, "get").keySet()).contains("200", "400", "404");
+        assertThat(String.valueOf(operation(route, "get").get("parameters")))
+                .contains("name=cursor")
+                .contains("name=limit")
+                .doesNotContain("name=parameters")
+                .doesNotContain("tenantId");
+        assertThat(strings(schema("RejectionPage").get("required")))
+                .contains("items", "nextCursor", "total", "totalCapped");
+        Map<String, Object> rejection = schema("OrderRejection");
+        assertThat(strings(rejection.get("required")))
+                .contains("rejectionId", "decisionId", "reasons", "limitsVersion", "evaluatedAt")
+                .contains("pauseTriggers", "details", "market");
+        assertThat(String.valueOf(rejection.get("properties")))
+                .contains("INSUFFICIENT_PAPER_BALANCE")
+                .contains("DRAWDOWN")
+                .contains("DAILY_LOSS");
+        assertThat(strings(schema("RejectionReasonDetail").get("required")))
+                .containsExactlyInAnyOrder("reason", "measured", "limit", "unit");
+        assertThat(String.valueOf(schema("RejectionMarket").get("properties")))
+                .contains("MarketValue")
+                .contains("estimatedSlippagePct")
+                .contains("orderValue");
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> responses(String path, String method) {
         return (Map<String, Object>) operation(path, method).get("responses");

@@ -53,7 +53,9 @@ class RouteRegistryTest {
                         "GET /api/v1/ledger",
                         "GET /api/v1/pnl",
                         "GET /api/v1/reconciliation",
-                        "POST /api/v1/reconciliation/run");
+                        "POST /api/v1/reconciliation/run",
+                        // U6 (C21): refused orders of the caller's bot.
+                        "GET /api/v1/bots/{botId}/rejections");
         assertThat(registry.routes())
                 .extracting(RouteRegistry.Entry::scope)
                 .allMatch(s -> Set.of("GLOBAL", "SESSION", "ADMIN", "CLIENT").contains(s));

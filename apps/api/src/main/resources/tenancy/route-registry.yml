@@ -33,6 +33,10 @@ routes:
   - { method: GET, path: /api/v1/pnl, scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#anotherPersonsBotIsNotFound }
   - { method: GET, path: /api/v1/reconciliation, scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#anotherPersonsBotIsNotFound }
   - { method: POST, path: /api/v1/reconciliation/run, scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#twoTenantsNeverSeeEachOthersLedger }
+  # U6 (C21, BR4.1): refused orders of a bot of the caller; tenant, person and PAPER from the token in every query.
+  # Every bot without an evaluation of the caller (another person's, another tenant's, unknown, never evaluated or
+  # purged) is the same 404 (negative test).
+  - { method: GET, path: '/api/v1/bots/{botId}/rejections', scope: CLIENT, negativeTest: com.memetrade.riskcontrol.RejectionRoutesIT#anotherPersonsEvaluatedBotIsNotFound }
 jobs:
   - { name: AuditRelayJob, scope: GLOBAL }
   # U2 retention purge and outbox cleanup: system jobs over the whole trail, no tenant input (BR3.1 to BR3.4).
@@ -51,3 +55,6 @@ jobs:
   - { name: ReconciliationJob, scope: GLOBAL }
   # U7: drops idle keys of the "check now" limiter; no customer data.
   - { name: ReconciliationRunLimiterEvictionJob, scope: GLOBAL }
+  # U6: daily purge of approved evaluations older than 30 days without a rejection citing them, through the retention
+  # pool; the only U6 task across tenants: it reads no tenant input, returns nothing per person and logs only totals.
+  - { name: RiskEvaluationPurgeJob, scope: GLOBAL }

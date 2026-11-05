@@ -18,6 +18,16 @@ memetrade:
       cycle-interval: 30s
       # Seed workers (one person each) and cycle workers; well below the 20 connections of the pool.
       threads: 6
+    # U6 (cicd-pipeline.md, Passo 16): the load cycle driver of com.memetrade.riskcontrol.loadtest. Disabled by default
+    # (every scenario but u6); scripts/load-test.sh enables it for u6, on the 60 PAPER accounts of the ledger load.
+    risk:
+      enabled: ${LOADTEST_U6_ENABLED:false}
+      rejections-per-bot: ${LOADTEST_U6_REJECTIONS_PER_BOT:10000}
+      heavy-bot-rejections: ${LOADTEST_U6_HEAVY_BOT_REJECTIONS:80000}
+      old-approved: ${LOADTEST_U6_OLD_APPROVED:200000}
+      purge-at: ${LOADTEST_U6_PURGE_AT:300s}
+      cycle-interval: 30s
+      threads: 6
 # The limits of the load scenarios (300 ms, 500 ms, 1 s) become exact histogram buckets, so a p95 read from the
 # buckets is never rounded up past a limit it actually meets. Precision of the measurement only; no limit changes.
 management:

@@ -46,7 +46,40 @@ class MigrationsIT extends AbstractPostgresIT {
             "position",
             "pnl_daily",
             "equity_peak",
-            "reconciliation_check");
+            "reconciliation_check",
+            // U6 (migration 0009).
+            "order_evaluation",
+            "order_rejection",
+            "rejection_reason_detail",
+            "risk_purge_run");
+
+    /**
+     * U6 rollback test (cicd-pipeline.md): the queries of U1 to U7 keep running on the schema migrated by 0009, which
+     * only adds tables, indexes, triggers and privileges (the U7 image runs on it with the new tables unused).
+     */
+    @Test
+    @org.junit.jupiter.api.Tag("u6")
+    void thePreviousQueriesOfU1ToU7StillRunOnTheU6Schema() {
+        List<String> all = new java.util.ArrayList<>(PREVIOUS_ENTRY_AND_SESSION_QUERIES);
+        all.addAll(PREVIOUS_LISTING_QUERIES);
+        all.add("select * from invite order by created_at desc, invite_id limit 1");
+        all.add("select count(*) from audit_outbox where delivered_at is null");
+        all.add("select * from simulation_policy where version = 'v1'");
+        all.add("select * from paper_order order by created_at desc, order_id desc limit 1");
+        all.add(
+                "select coalesce(sum(amount), 0) from ledger_entry where bot_id = '00000000-0000-0000-0000-000000000000'");
+        all.add("select * from position where quantity > 0 limit 1");
+        all.add("select * from equity_peak limit 1");
+        all.add("select * from pnl_daily limit 1");
+        all.add("select * from shedlock");
+        for (String query : all) {
+            assertThatCode(() -> jdbc.sql(query).query().listOfRows()).as(query).doesNotThrowAnyException();
+        }
+        assertThat(jdbc.sql("select count(*) from databasechangelog where id like '0009-%'")
+                        .query(Long.class)
+                        .single())
+                .isPositive();
+    }
 
     /**
      * U7 rollback test (cicd-pipeline.md): the queries and writes of U1 to U4 keep running on the schema migrated by

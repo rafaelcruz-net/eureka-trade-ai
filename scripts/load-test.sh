@@ -70,10 +70,22 @@ case "$LOAD_SCENARIO" in
     export LOADTEST_CYCLE_BOTS="${LOADTEST_CYCLE_BOTS:-60}" LOADTEST_TOKENS_PER_BOT="${LOADTEST_TOKENS_PER_BOT:-5}"
     export LOADTEST_CLOSE_BOTS=0
     ;;
-  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7 or u7-jobs" >&2; exit 1 ;;
+  # U6 (cicd-pipeline.md): u6 reuses the 60 PAPER accounts of the ledger load (FUNDING only, no seeded fills) of 20
+  # people (counted by LOADTEST_LEDGER_PEOPLE, no variable of its own), seeds 10000 rejections on one bot of each person,
+  # 80000 on one bot and 200000 approved evaluations 32 to 40 days old, then runs one evaluation per bot every 30 s
+  # (half refused) and 20 users reading C21 for 10 minutes; the purge fires at LOADTEST_U6_PURGE_AT (300 s). p95 of
+  # evaluate <= 250 ms in each window (NFR2.1), the second window at most 10% above the first, p95 of C21 <= 1 s
+  # (NFR3.1), every purge batch <= 100 ms (NFR2.5) and no Seq Scan on order_evaluation or order_rejection.
+  u6)
+    export MARKET_SIMULATED_TOKENS_PER_SOURCE="${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}" DURATION_S="${DURATION_S:-600}"
+    export LOADTEST_LEDGER_PEOPLE="${LOADTEST_LEDGER_PEOPLE:-20}" LOADTEST_FILLS_PER_PERSON=0
+    export LOADTEST_CYCLE_BOTS=60 LOADTEST_TOKENS_PER_BOT="${LOADTEST_TOKENS_PER_BOT:-5}" LOADTEST_CLOSE_BOTS=0
+    export LOADTEST_U6_ENABLED=true
+    ;;
+  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs or u6" >&2; exit 1 ;;
 esac
 case "$LOAD_SCENARIO" in
-  u7 | u7-jobs)
+  u7 | u7-jobs | u6)
     # One throw-away invitation per person besides the smoke account, never written to a file (as in u3).
     SMOKE_INVITE_CODES="$(node -e "const c=require('node:crypto');console.log(Array.from({length:Math.max(0,Number(process.env.LOADTEST_LEDGER_PEOPLE)-1)},()=>c.randomBytes(32).toString('base64url')).join(','))")"
     export SMOKE_INVITE_CODES USERS="${USERS:-$LOADTEST_LEDGER_PEOPLE}"
@@ -81,6 +93,8 @@ case "$LOAD_SCENARIO" in
   # The scenarios of U1 to U4 measure without the ledger load.
   *) export LOADTEST_LEDGER_PEOPLE=0 LOADTEST_FILLS_PER_PERSON=0 LOADTEST_CYCLE_BOTS=0 LOADTEST_CLOSE_BOTS=0 ;;
 esac
+# Only u6 runs the load risk driver of U6.
+[ "$LOAD_SCENARIO" = "u6" ] || export LOADTEST_U6_ENABLED=false
 export SCANNER_RATE_LIMIT_PER_MINUTE="${SCANNER_RATE_LIMIT_PER_MINUTE:-10000}" LOAD_SCENARIO
 
 "${COMPOSE[@]}" up -d --build --wait --wait-timeout 300

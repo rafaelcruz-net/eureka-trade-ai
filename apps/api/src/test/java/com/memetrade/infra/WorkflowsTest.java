@@ -180,6 +180,39 @@ class WorkflowsTest {
         }
     }
 
+    /**
+     * U6 (Passo 16, cicd-pipeline.md): the manual load workflow offers u6, run by scripts/load-test.sh over the ledger
+     * load (people from LOADTEST_LEDGER_PEOPLE, no seeded fills, 60 bots, invitations as in u7), with its windows,
+     * limits, plans and report in scripts/load/load-test.mjs; the actions stay pinned by SHA.
+     */
+    @Test
+    @Tag("u6")
+    void theLoadWorkflowAndTheScriptOfferTheU6Scenario() throws IOException {
+        String workflow = Files.readString(WORKFLOWS.resolve("load-test.yml"), StandardCharsets.UTF_8);
+        String script = Files.readString(Path.of("..", "..", "scripts", "load-test.sh"), StandardCharsets.UTF_8);
+        String runner =
+                Files.readString(Path.of("..", "..", "scripts", "load", "load-test.mjs"), StandardCharsets.UTF_8);
+
+        assertThat(workflow).contains("- u6\n");
+        assertThat(unpinnedActions(workflow)).isEmpty();
+        assertThat(script)
+                .contains("  u6)")
+                .contains("LOADTEST_LEDGER_PEOPLE=\"${LOADTEST_LEDGER_PEOPLE:-20}\" LOADTEST_FILLS_PER_PERSON=0")
+                .contains("LOADTEST_CYCLE_BOTS=60")
+                .contains("LOADTEST_U6_ENABLED=true")
+                .contains("u7 | u7-jobs | u6)")
+                .doesNotContain("LOADTEST_U6_PEOPLE");
+        assertThat(runner)
+                .contains("loadtest_risk_evaluate_seconds")
+                .contains("components?.loadtestRisk")
+                .contains("Seq Scan on (order_evaluation|order_rejection)")
+                .contains("evaluateS: 0.25")
+                .contains("rejectionsS: 1.0")
+                .contains("batchMs: 100")
+                .contains("withPurgeRatio: 1.1")
+                .contains("docs/perf/u6-risk-control-${report.date}.md");
+    }
+
     static List<String> unpinnedActions(String workflow) {
         List<String> unpinned = new ArrayList<>();
         Matcher matcher = USES.matcher(workflow);

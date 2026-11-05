@@ -106,6 +106,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/bots/{botId}/rejections': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Ordens recusadas com o limite que barrou e o horário (AC4.10.4) */
+    get: operations['listBotRejections'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/bots/{botId}/trades': {
     parameters: {
       query?: never;
@@ -429,6 +446,37 @@ export interface components {
       total: number;
     };
     MarketValue: components['schemas']['KnownValue'] | components['schemas']['UnknownValue'];
+    /** @description Ordem recusada com o limite que barrou e o horário (AC4.10.4) */
+    OrderRejection: {
+      /** Format: uuid */
+      decisionId: string;
+      details: components['schemas']['RejectionReasonDetail'][];
+      /** Format: date-time */
+      evaluatedAt: string;
+      /** Format: int64 */
+      limitsVersion: number;
+      market: components['schemas']['RejectionMarket'];
+      /** @enum {string} */
+      mode: 'PAPER';
+      /** @description Vazio quando nenhum */
+      pauseTriggers: ('DAILY_LOSS' | 'DRAWDOWN')[];
+      /** @description Na ordem fixa; o primeiro é o motivo principal */
+      reasons: (
+        | 'ORDER_SIZE'
+        | 'TOKEN_EXPOSURE'
+        | 'TOTAL_EXPOSURE'
+        | 'SLIPPAGE'
+        | 'MIN_LIQUIDITY'
+        | 'STALE_DATA'
+        | 'INTERVAL'
+        | 'DUPLICATE'
+        | 'INSUFFICIENT_PAPER_BALANCE'
+        | 'DAILY_LOSS'
+        | 'DRAWDOWN'
+      )[];
+      /** Format: uuid */
+      rejectionId: string;
+    };
     /** @description Uma operação simulada do bot, cada uma uma única vez (AC4.10.3) */
     PaperTrade: {
       chain: string;
@@ -583,6 +631,38 @@ export interface components {
       status: 'RECONCILED' | 'DIVERGENT' | 'PENDING';
       /** @enum {string} */
       trigger?: 'SCHEDULED' | 'ON_DEMAND';
+    };
+    /** @description Dados de mercado usados na avaliação */
+    RejectionMarket: {
+      /** @description Pontos com 4 casas, ou UNKNOWN */
+      estimatedSlippagePct: string;
+      liquidity: components['schemas']['MarketValue'];
+      /** @description USDC com 6 casas, ou UNKNOWN */
+      orderValue: string;
+      referencePrice: components['schemas']['MarketValue'];
+    };
+    /** @description Página das ordens recusadas do bot, da mais recente para a mais antiga */
+    RejectionPage: {
+      items: components['schemas']['OrderRejection'][];
+      /** @description null quando não há próxima página */
+      nextCursor: string | null;
+      /**
+       * Format: int64
+       * @description Contagem limitada a 10000
+       */
+      total: number;
+      /** @description true quando há mais de 10000 recusas */
+      totalCapped: boolean;
+    };
+    /** @description O número que barrou um motivo */
+    RejectionReasonDetail: {
+      /** @description DecimalString; em DUPLICATE, o evaluationId original */
+      limit: string;
+      /** @description DecimalString na escala da unidade ou UNKNOWN; em DUPLICATE, a decisão */
+      measured: string;
+      reason: string;
+      /** @enum {string} */
+      unit: 'USDC' | 'PERCENT' | 'SECONDS' | 'REFERENCE';
     };
     RiskSummary: components['schemas']['AvailableRisk'] | components['schemas']['UnavailableRisk'];
     ScannerPage: {
@@ -879,6 +959,49 @@ export interface operations {
         };
       };
       /** @description NOT_FOUND: bot de outra pessoa */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listBotRejections: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        botId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Página das recusas, vazia quando nenhuma */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RejectionPage'];
+        };
+      };
+      /** @description VALIDATION_FAILED */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description NOT_FOUND: nenhuma avaliação desse bot para a pessoa do token */
       404: {
         headers: {
           [name: string]: unknown;

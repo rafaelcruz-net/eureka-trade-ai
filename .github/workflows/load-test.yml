@@ -3,14 +3,15 @@
 # list exceeds 300 ms; u4 adds the filtered list and the assessment; u3 adds the verification with an invitation
 # (500 ms) and the invitation lookup and Account screen (300 ms); growth only records. U7: u7 runs the load cycle
 # driver of the loadtest profile (p95 execute 250 ms, C5 routes 1 s, query plans) and u7-jobs the 30-minute rounds of
-# the marking and the pending close (10 s each).
+# the marking and the pending close (10 s each). U6: u6 runs the load risk driver (p95 evaluate 250 ms in each window,
+# C21 1 s, purge batches 100 ms, query plans).
 name: load-test
 
 on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: Load scenario (u1, u4, u3, growth, u7 or u7-jobs)
+        description: Load scenario (u1, u4, u3, growth, u7, u7-jobs or u6)
         type: choice
         options:
           - u1
@@ -19,6 +20,7 @@ on:
           - growth
           - u7
           - u7-jobs
+          - u6
         default: u1
 
 permissions:

@@ -31,8 +31,8 @@ class U7ContextIT extends AbstractU7IT {
     private AuthContext auth;
 
     @Test
-    void theContextStartsWithElevenSchedulerThreadsAndTheControllableMarketData() {
-        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("11");
+    void theContextStartsWithTheSchedulerThreadsOfU6AndTheControllableMarketData() {
+        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("13");
         assertThat(marketData).isInstanceOf(ControllableMarketData.class);
         assertThat(auth).isInstanceOf(CycleAuthContext.class);
     }

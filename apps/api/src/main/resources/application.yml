@@ -21,11 +21,12 @@ spring:
     enabled: false
   task:
     scheduling:
-      # Relay, idempotency cleanup and the two daily audit jobs (3) plus U4: two source collections, the history
-      # cleanup and the collection dispatcher (4), plus U7: marking, pending close, reconciliation and the eviction of
-      # the "check now" limiter (4). RuntimeSettingsGuard refuses less than 11 (SCHEDULER_POOL_SIZE).
+      # One thread per @Scheduled method (counted by U6): U1 to U3 relay, idempotency cleanup, the two daily audit jobs
+      # and the login limiter eviction (5); U4 collection dispatcher, history cleanup and scanner limiter eviction (3);
+      # U7 marking, pending close, reconciliation and the "check now" limiter eviction (4); U6 purge of the old approved
+      # evaluations (1). RuntimeSettingsGuard refuses less than 13 (SCHEDULER_POOL_SIZE).
       pool:
-        size: ${SCHEDULER_POOL_SIZE:11}
+        size: ${SCHEDULER_POOL_SIZE:13}
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -140,6 +141,20 @@ memetrade:
     lock-timeout: 2s
     statement-timeout: 5s
     job-lock-timeout: 1s
+  riskcontrol:
+    # U6 (infrastructure-specification.md): fixed values, never read from the environment; risk rules never change by
+    # variable. freshness-max-age is the platform freshness limit of the barrier (BR2.6). The purge of the approved
+    # evaluations runs daily at 03:30 UTC, after the trail purge of 03:00, through its own retention pool; it selects
+    # rows older than selection-age (31 days), one day more than the trigger-age the database trigger enforces
+    # (30 days), in batches of batch-size per transaction, for at most max-run (ShedLock held at most lock-at-most-for).
+    freshness-max-age: 60s
+    purge:
+      cron: '0 30 3 * * *'
+      batch-size: 1000
+      max-run: 30m
+      lock-at-most-for: 45m
+      selection-age: 31d
+      trigger-age: 30d
   scanner:
     # Per person and route, sliding window of 60 s (NFR6.3).
     rate-limit-per-minute: ${SCANNER_RATE_LIMIT_PER_MINUTE:60}
