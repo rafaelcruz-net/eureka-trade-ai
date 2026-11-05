@@ -56,8 +56,8 @@ class U4ContextIT extends AbstractPostgresIT {
                         .getProperty("memetrade.scanner.rate-limit-per-minute")
                         .toString())
                 .isEqualTo("${SCANNER_RATE_LIMIT_PER_MINUTE:60}");
-        // U6: one thread per scheduled job of U1 to U7 (RuntimeSettingsGuard).
-        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("13");
+        // U6: one thread per scheduled job of U1 to U7 (RuntimeSettingsGuard); U5 adds the live channel poller.
+        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("14");
         assertThat(((HikariDataSource) unwrap(dataSource)).getMaximumPoolSize()).isEqualTo(20);
     }
 

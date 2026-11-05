@@ -25,8 +25,25 @@ import java.util.Random;
  * tokens belong to one source only. Mandatory cases of each source (kept from U1): token #0 without holders, token #1
  * with liquidity informed as 0, token #2 without creation time, tokens #3 and #4 sharing a symbol with different mints.
  * All values are exact decimals (never floating point).
+ *
+ * <p>U5 (load scenario {@code u5}, test profile only): with {@link Scenario#FREQUENT_SIGNALS} every token {@code i >= 5}
+ * with {@code i % 10} in {1, 5, 9} (never a mandatory case nor a divergent one) follows a 30-minute saw: price +1% and
+ * volume +5% of its own base per minute of the phase, with a liquidity of at least 1.000.000 USDC, then back to the
+ * base. A 15-minute window then sees about +15% of price and +75% of volume (momentum entries) and the drop at the end
+ * of the phase reaches the stop loss (exits). Same values in sim-a and sim-b for common tokens; {@link
+ * Scenario#STANDARD} keeps the behaviour of U1 and U4 unchanged.
  */
 public class SimulatedMarketSource implements MarketSourceAdapter {
+
+    /** The values the simulated source produces; FREQUENT_SIGNALS exists only for the load scenario u5. */
+    public enum Scenario {
+        STANDARD,
+        FREQUENT_SIGNALS
+    }
+
+    static final int SIGNAL_PHASE_MINUTES = 30;
+    private static final BigDecimal SIGNAL_MIN_LIQUIDITY = new BigDecimal("1000000.00");
+    private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     public static final SourceRef SOURCE_A = new SourceRef("sim-a", "Fonte simulada A", true);
     public static final SourceRef SOURCE_B = new SourceRef("sim-b", "Fonte simulada B", true);
@@ -50,6 +67,7 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
     private final boolean isB;
     private final List<TokenInfo> tokens;
     private final List<Instant> creationTimes;
+    private final Scenario scenario;
 
     /** U1 constructor: the sim-a source. */
     public SimulatedMarketSource(long seed, int tokenCount, Clock clock) {
@@ -57,6 +75,14 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
     }
 
     public SimulatedMarketSource(SourceRef source, long seed, int tokenCount, Clock clock) {
+        this(source, seed, tokenCount, clock, Scenario.STANDARD);
+    }
+
+    public SimulatedMarketSource(SourceRef source, long seed, int tokenCount, Clock clock, Scenario scenario) {
+        if (scenario == null) {
+            throw new IllegalArgumentException("The simulated source needs a scenario");
+        }
+        this.scenario = scenario;
         if (tokenCount < MIN_TOKENS) {
             throw new IllegalArgumentException("The simulated source needs at least " + MIN_TOKENS + " tokens");
         }
@@ -87,11 +113,22 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
     }
 
     public static SimulatedMarketSource forSource(String sourceId, long seed, int tokenCount, Clock clock) {
+        return forSource(sourceId, seed, tokenCount, clock, Scenario.STANDARD);
+    }
+
+    public static SimulatedMarketSource forSource(
+            String sourceId, long seed, int tokenCount, Clock clock, Scenario scenario) {
         SourceRef ref = KNOWN.get(sourceId);
         if (ref == null) {
             throw new IllegalArgumentException("Unknown simulated source " + sourceId);
         }
-        return new SimulatedMarketSource(ref, seed, tokenCount, clock);
+        return new SimulatedMarketSource(ref, seed, tokenCount, clock, scenario);
+    }
+
+    /** Whether token {@code i} follows the saw of {@link Scenario#FREQUENT_SIGNALS}. */
+    static boolean isSignalToken(int i) {
+        int last = i % 10;
+        return i >= MIN_TOKENS && (last == 1 || last == 5 || last == 9);
     }
 
     @Override
@@ -119,6 +156,20 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
         BigDecimal liquidity = i == 1 ? BigDecimal.ZERO : decimal(random.nextInt(20_000_000), 2);
         BigDecimal volume = decimal(random.nextInt(200_000_000), 2);
         BigDecimal holders = BigDecimal.valueOf(10L + random.nextInt(6_000));
+        if (scenario == Scenario.FREQUENT_SIGNALS && isSignalToken(i)) {
+            // The base of the token never depends on time; only the phase of the saw does.
+            Random base = new Random(seed * 7_777L + i);
+            long phase = (at.getEpochSecond() / 60) % SIGNAL_PHASE_MINUTES;
+            BigDecimal basePrice = decimal(1_000 + base.nextInt(9_000_000), 9);
+            BigDecimal baseVolume = decimal(100_000_000L + base.nextInt(100_000_000), 2);
+            price = basePrice
+                    .multiply(HUNDRED.add(BigDecimal.valueOf(phase)))
+                    .divide(HUNDRED, 9, java.math.RoundingMode.HALF_EVEN);
+            volume = baseVolume
+                    .multiply(HUNDRED.add(BigDecimal.valueOf(5 * phase)))
+                    .divide(HUNDRED, 2, java.math.RoundingMode.HALF_EVEN);
+            liquidity = SIGNAL_MIN_LIQUIDITY.add(decimal(base.nextInt(100_000_000), 2));
+        }
         if (divergeAsB && i % 10 == 3) {
             price = price.multiply(DIVERGENT_PRICE);
         }

@@ -169,8 +169,17 @@ public final class RouteRegistry {
 
     private static List<Class<?>> scan(Class<? extends java.lang.annotation.Annotation> annotation)
             throws ClassNotFoundException {
-        ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false);
-        scanner.addIncludeFilter(new AnnotationTypeFilter(annotation));
+        AnnotationTypeFilter filter = new AnnotationTypeFilter(annotation);
+        // U5: the conditions (@ProcessRole, @ConditionalOnProperty) are NOT evaluated, so the registry covers the jobs
+        // of every process (api and worker) and every switch, not only those of the process running the test.
+        ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false) {
+            @Override
+            protected boolean isCandidateComponent(org.springframework.core.type.classreading.MetadataReader reader)
+                    throws java.io.IOException {
+                return filter.match(reader, getMetadataReaderFactory());
+            }
+        };
+        scanner.addIncludeFilter(filter);
         List<Class<?>> classes = new ArrayList<>();
         for (BeanDefinition definition : scanner.findCandidateComponents("com.memetrade")) {
             Class<?> type = Class.forName(definition.getBeanClassName());

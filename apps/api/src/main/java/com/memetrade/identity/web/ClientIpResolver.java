@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
  * honoured only when the direct peer is a configured trusted proxy; the local list is empty, so it is ignored.
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class ClientIpResolver {
 
     private final Set<String> trustedProxies;

@@ -24,9 +24,10 @@ spring:
       # One thread per @Scheduled method (counted by U6): U1 to U3 relay, idempotency cleanup, the two daily audit jobs
       # and the login limiter eviction (5); U4 collection dispatcher, history cleanup and scanner limiter eviction (3);
       # U7 marking, pending close, reconciliation and the "check now" limiter eviction (4); U6 purge of the old approved
-      # evaluations (1). RuntimeSettingsGuard refuses less than 13 (SCHEDULER_POOL_SIZE).
+      # evaluations (1); U5 the live channel mark poller of the api (1). RuntimeSettingsGuard refuses less than 14 in the
+      # api (SCHEDULER_POOL_SIZE); the worker (application-worker.yml) has its own 4.
       pool:
-        size: ${SCHEDULER_POOL_SIZE:13}
+        size: ${SCHEDULER_POOL_SIZE:14}
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -96,8 +97,37 @@ springdoc:
       paths-to-match: /api/v1/admin/**
 
 memetrade:
+  # U5 (C20, NFR10.9): api (default) or worker; @ProcessRole beans exist only in their process.
+  process: ${MEMETRADE_PROCESS:api}
   scheduling:
     enabled: true
+  bots:
+    # U5 (infrastructure-specification.md "Configuração"): fixed values, never read from the environment; risk and
+    # cycle rules never change by variable. The scheduler of the cycle is on only in the worker profile.
+    scheduler:
+      enabled: false
+    # BR3.1: start of each 5-minute UTC slot plus 60 s, after the U4 collection of the bucket that closed.
+    slot-cron: '0 1/5 * * * *'
+    cycle-threads: 4
+    # BR3.3, NFR10.7: the cycle and the commands wait at most 2 s for a lock; a statement runs at most 5 s.
+    lock-timeout: 2s
+    statement-timeout: 5s
+    # BR1.4 (A4): virtual balance floor and cap of the beta, USDC with 6 places.
+    virtual-balance:
+      min: '100.000000'
+      cap: '10000.000000'
+      default-value: '1000.000000'
+    # BR9.1: HOLD and NO_TRADE decisions older than this are purged daily, in batches.
+    decision-retention: 30d
+    decision-purge-cron: '0 15 4 * * *'
+    decision-purge-batch-size: 1000
+    # BR7.1: bots per batch of the system pause.
+    system-pause-batch-size: 100
+    # BR8.2, NFR3.3: the live channel compares the marks every 2 s and sends a heartbeat every 15 s.
+    stream:
+      poll-interval: 2s
+      heartbeat-interval: 15s
+      timeout: 30m
   auth:
     access-token-signing-key: ${ACCESS_TOKEN_SIGNING_KEY:}
     guest-app-origin: ${GUEST_APP_ORIGIN:http://localhost:3000}

@@ -227,7 +227,114 @@ export function guestApi(client: ApiClient) {
         }),
       );
     },
+    /** U6 (C21): the refused orders of a bot; 404 means no rejection of this person (the screen says so). */
+    listBotRejections(botId: string, request: { cursor?: string | null; limit?: number } = {}) {
+      return withRenewal(() =>
+        client.request<RejectionPage>(
+          `/api/v1/bots/${encodeURIComponent(botId)}/rejections${query({
+            cursor: request.cursor,
+            limit: request.limit,
+          })}`,
+          { authenticated: true },
+        ),
+      );
+    },
+    /** U5 (C4): the two template strategies with their parameters. */
+    listStrategyTemplates() {
+      return withRenewal(() =>
+        client.request<StrategyTemplate[]>('/api/v1/strategy-templates', { authenticated: true }),
+      );
+    },
+    /** U5 (C4): the bots of the person, optionally of one state, with the active counter. */
+    listBots(request: { state?: BotState; cursor?: string | null; limit?: number } = {}) {
+      return withRenewal(() =>
+        client.request<BotPage>(
+          `/api/v1/bots${query({ state: request.state, cursor: request.cursor, limit: request.limit })}`,
+          { authenticated: true },
+        ),
+      );
+    },
+    /** U5 (C4): one bot with its draft and limits. */
+    getBot(botId: string) {
+      return withRenewal(() =>
+        client.request<BotDetail>(`/api/v1/bots/${encodeURIComponent(botId)}`, {
+          authenticated: true,
+        }),
+      );
+    },
+    /** U5 (BR1.1): a draft from a template. */
+    createBot(body: CreateBotRequest) {
+      return withRenewal(() =>
+        client.request<BotSummary>('/api/v1/bots', {
+          method: 'POST',
+          body,
+          idempotent: true,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U5 (AC4.1.3): one accepted step of the wizard. */
+    saveBotDraft(botId: string, body: DraftStepRequest) {
+      return withRenewal(() =>
+        client.request<BotSummary>(`/api/v1/bots/${encodeURIComponent(botId)}/draft`, {
+          method: 'PUT',
+          body,
+          idempotent: true,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U5 (BR2.2 to BR2.7): start, pause, resume or stop; the answer is the confirmed state. */
+    runBotCommand(botId: string, command: BotCommand) {
+      return withRenewal(() =>
+        client.request<BotSummary>(
+          `/api/v1/bots/${encodeURIComponent(botId)}/commands/${command}`,
+          { method: 'POST', idempotent: true, authenticated: true },
+        ),
+      );
+    },
+    /** U5 (BR5.1): a new version of the limits. */
+    changeBotLimits(botId: string, body: BotLimits) {
+      return withRenewal(() =>
+        client.request<BotSummary>(`/api/v1/bots/${encodeURIComponent(botId)}/limits`, {
+          method: 'POST',
+          body,
+          idempotent: true,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U5 (C4, US4.5): the explained decisions of a bot, newest first. */
+    listBotDecisions(botId: string, request: { cursor?: string | null; limit?: number } = {}) {
+      return withRenewal(() =>
+        client.request<DecisionPage>(
+          `/api/v1/bots/${encodeURIComponent(botId)}/decisions${query({
+            cursor: request.cursor,
+            limit: request.limit,
+          })}`,
+          { authenticated: true },
+        ),
+      );
+    },
   };
 }
+
+// U5 (C4): bots, wizard, commands and decisions; U6 (C21): refused orders.
+export type RejectionPage = components['schemas']['RejectionPage'];
+export type OrderRejection = components['schemas']['OrderRejection'];
+export type StrategyTemplate = components['schemas']['StrategyTemplate'];
+export type StrategyParameter = components['schemas']['StrategyParameter'];
+export type BotSummary = components['schemas']['BotSummary'];
+export type BotDetail = components['schemas']['BotDetail'];
+export type BotPage = components['schemas']['BotPage'];
+export type BotLimits = components['schemas']['BotLimits'];
+export type BotTokenSelection = components['schemas']['TokenSelection'];
+export type CreateBotRequest = components['schemas']['CreateBotRequest'];
+export type DraftStepRequest = components['schemas']['DraftStepRequest'];
+export type Decision = components['schemas']['Decision'];
+export type DecisionPage = components['schemas']['DecisionPage'];
+export type BotState = BotSummary['state'];
+export type PauseReason = BotSummary['pauseReasons'][number];
+export type BotCommand = 'start' | 'pause' | 'resume' | 'stop';
 
 export type GuestApi = ReturnType<typeof guestApi>;

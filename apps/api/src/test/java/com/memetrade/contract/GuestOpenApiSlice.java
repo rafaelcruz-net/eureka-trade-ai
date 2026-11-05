@@ -47,7 +47,10 @@ import org.springframework.transaction.support.TransactionTemplate;
             com.memetrade.ledger.web.LedgerController.class,
             com.memetrade.pnl.web.PnlController.class,
             // U6 (C21): refused orders of the caller's bot.
-            com.memetrade.riskcontrol.web.RejectionController.class
+            com.memetrade.riskcontrol.web.RejectionController.class,
+            // U5 (C4 and C7): the bots, the wizard, the commands, the decisions and the live channel.
+            com.memetrade.bots.web.BotController.class,
+            com.memetrade.bots.web.DashboardStreamController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -141,6 +144,16 @@ public abstract class GuestOpenApiSlice {
     /** U6 (C21): the reading of the refused orders. */
     @MockitoBean
     com.memetrade.riskcontrol.domain.RejectionQueries rejectionQueries;
+
+    /** U5 (C4, C7): the commands, the reads and the live channel of the bots. */
+    @MockitoBean
+    com.memetrade.bots.application.BotCommandService botCommandService;
+
+    @MockitoBean
+    com.memetrade.bots.application.BotQueries botQueries;
+
+    @MockitoBean
+    com.memetrade.bots.web.DashboardMarkPoller dashboardMarkPoller;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/guest"))

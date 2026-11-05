@@ -63,5 +63,32 @@ public final class AuditActions {
      */
     public static final String ORDER_REJECTED = "ORDER_REJECTED";
 
+    /** U5 (NFR9.4): a bot draft was created; target {@code bot:<botId>}. */
+    public static final String BOT_CREATED = "BOT_CREATED";
+
+    /** U5 (BR2.2): the bot became ACTIVE (and was funded on its first activation). */
+    public static final String BOT_STARTED = "BOT_STARTED";
+
+    /** U5 (BR2.3, BR3.4, BR7.1): a pause reason was added; details carry the reason (PERSON, DAILY_LOSS, ...). */
+    public static final String BOT_PAUSED = "BOT_PAUSED";
+
+    /** U5 (BR2.4, BR2.6): the bot returned to ACTIVE, by its owner or at UTC midnight (actor system). */
+    public static final String BOT_RESUMED = "BOT_RESUMED";
+
+    /** U5 (BR2.6): the UTC midnight removed the daily loss reason; actor system. */
+    public static final String BOT_DAILY_LOSS_CLEARED = "BOT_DAILY_LOSS_CLEARED";
+
+    /** U5 (BR5.1): a new limits version; details carry the version numbers, never amounts of other people. */
+    public static final String BOT_LIMITS_CHANGED = "BOT_LIMITS_CHANGED";
+
+    /** U5 (BR2.7, BR2.8): the bot is STOPPED (by its owner, or by the closing check with actor system). */
+    public static final String BOT_STOPPED = "BOT_STOPPED";
+
+    /** U5 (BR2.7): the stop left positions without a reliable price; the bot waits in CLOSING_PENDING. */
+    public static final String BOT_CLOSING_PENDING = "BOT_CLOSING_PENDING";
+
+    /** U5 (BR7.2): the kill switch was switched off; SYSTEM became ADMIN_RELEASED on this bot; actor system. */
+    public static final String BOT_SYSTEM_PAUSE_LIFTED = "BOT_SYSTEM_PAUSE_LIFTED";
+
     private AuditActions() {}
 }

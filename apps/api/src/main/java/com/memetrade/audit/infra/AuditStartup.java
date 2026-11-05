@@ -26,6 +26,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConditionalOnProperty(name = "memetrade.scheduling.enabled", havingValue = "true", matchIfMissing = true)
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AuditStartup {
 
     private static final Logger log = LoggerFactory.getLogger(AuditStartup.class);

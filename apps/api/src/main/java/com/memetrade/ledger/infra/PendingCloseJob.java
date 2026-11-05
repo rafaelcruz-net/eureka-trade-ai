@@ -30,6 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * The round logs start, end, accounts handled and skipped, with identifiers only (NFR9.4).
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class PendingCloseJob implements com.memetrade.ledger.api.LedgerJobs {
 
     private static final Logger log = LoggerFactory.getLogger(PendingCloseJob.class);

@@ -18,6 +18,9 @@ import java.util.UUID;
 
 /**
  * The ONLY way the {@code pnl} module (and the routes of {@code ledger.web}) read the ledger (logical-components.md).
+ * Since U5 (contract change registered by the U5 Functional Design), the bots module is also a read-only consumer, per
+ * bot: {@link #account} (closing check, BR2.8), {@link #positions} and {@link #balance} (the inputs of the decision
+ * inside the cycle transaction, BR4.1, BR3.7). U5 never calls {@link #lockAccountForMarking}.
  * Read only, except {@link #lockAccountForMarking}, which locks the account so the marking sees balance and positions
  * of the same instant (BR2.8, BR7.3). Every query of customer data filters by tenant, person and {@code PAPER}
  * (BR9.1, BR9.2); the jobs pass the tenant and person read from the account row itself.

@@ -44,6 +44,7 @@ import org.springframework.scheduling.annotation.Scheduled;
  * {@code market_source_last_collection_age_seconds}. Labels only from closed lists (never a mint, chain or person).
  */
 @org.springframework.stereotype.Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class MarketCollectorJob {
 
     private static final Logger log = LoggerFactory.getLogger(MarketCollectorJob.class);

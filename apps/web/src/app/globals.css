@@ -302,3 +302,55 @@ fieldset label {
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
+
+/* U5: dialogs of the bot screens (focus kept inside, NFR11.1) and market terms explained on hover and focus. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 640px;
+  width: 100%;
+}
+
+.term {
+  position: relative;
+  text-decoration: underline dotted;
+}
+
+.term-tip {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 1;
+  width: 320px;
+  padding: 8px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+
+.term:hover .term-tip,
+.term:focus .term-tip {
+  display: block;
+}
+
+.field-error {
+  color: var(--danger);
+}
+
+.wizard-steps {
+  display: flex;
+  gap: 16px;
+  list-style: none;
+  padding: 0;
+}

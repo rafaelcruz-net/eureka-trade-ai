@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  * observation in the last 24 hours is {@code 404 NOT_FOUND}; the first detail of a new token computes it at once.
  */
 @RestController
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AssessmentController {
 
     private static final Pattern CHAIN = Pattern.compile("[a-z0-9]{1,64}");

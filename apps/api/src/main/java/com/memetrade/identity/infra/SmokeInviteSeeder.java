@@ -32,6 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Component
 @Profile("test")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class SmokeInviteSeeder {
 
     /** Fixed identifier of the tenant "Beta" seeded by the migration 0007 (BR1.7). */

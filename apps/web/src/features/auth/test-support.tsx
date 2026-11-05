@@ -101,6 +101,33 @@ export function fakeApi(overrides: Partial<GuestApi> = {}): jest.Mocked<GuestApi
       divergenceCount: 0,
       divergences: [],
     })),
+    // U6 (C21) and U5 (C4): no rejection, no bot, no decision unless a test says otherwise.
+    listBotRejections: jest.fn(async () => {
+      throw new Error('no rejections configured');
+    }),
+    listStrategyTemplates: jest.fn(async () => []),
+    listBots: jest.fn(async () => ({
+      items: [],
+      nextCursor: null,
+      activeCount: 0,
+      activeLimit: 3,
+    })),
+    getBot: jest.fn(async () => {
+      throw new Error('no bot configured');
+    }),
+    createBot: jest.fn(async () => {
+      throw new Error('no bot configured');
+    }),
+    saveBotDraft: jest.fn(async () => {
+      throw new Error('no bot configured');
+    }),
+    runBotCommand: jest.fn(async () => {
+      throw new Error('no bot configured');
+    }),
+    changeBotLimits: jest.fn(async () => {
+      throw new Error('no bot configured');
+    }),
+    listBotDecisions: jest.fn(async () => ({ items: [], nextCursor: null })),
     ...overrides,
   } as jest.Mocked<GuestApi>;
 }

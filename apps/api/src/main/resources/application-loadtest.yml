@@ -28,6 +28,13 @@ memetrade:
       purge-at: ${LOADTEST_U6_PURGE_AT:300s}
       cycle-interval: 30s
       threads: 6
+    # U5 (cicd-pipeline.md, Passo 20): the bot seed of the api (people, 3 ACTIVE bots each through the real commands,
+    # decisions on one bot per person) and the cycle stopwatch of the worker. Off by default (every scenario but u5).
+    bots:
+      enabled: ${LOADTEST_U5_ENABLED:false}
+      people: ${LOADTEST_U5_PEOPLE:20}
+      bots-per-person: 3
+      decisions-per-bot: ${LOADTEST_U5_DECISIONS_PER_BOT:20000}
 # The limits of the load scenarios (300 ms, 500 ms, 1 s) become exact histogram buckets, so a p95 read from the
 # buckets is never rounded up past a limit it actually meets. Precision of the measurement only; no limit changes.
 management:

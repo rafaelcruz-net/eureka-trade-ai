@@ -1,5 +1,6 @@
 package com.memetrade.marketdata.infra;
 
+import com.memetrade.marketdata.infra.simulated.SimulatedMarketSource;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.LinkedHashSet;
@@ -58,15 +59,28 @@ public record MarketDataProperties(
      * @param tokenCount tokens per source ({@code MARKET_SIMULATED_TOKENS_PER_SOURCE}), 50 to 10000; the first 50 are
      *     common to sim-a and sim-b
      */
-    public record Simulated(long seed, int tokenCount) {
+    public record Simulated(long seed, int tokenCount, SimulatedMarketSource.Scenario scenario) {
 
         public static final int MIN_TOKENS = 50;
         public static final int MAX_TOKENS = 10_000;
 
+        /**
+         * @param scenario U5: {@code STANDARD} (the default) or {@code FREQUENT_SIGNALS} ({@code
+         *     MARKET_SIMULATED_SCENARIO}), which only the test profile accepts ({@code MarketDataConfig})
+         */
+        @org.springframework.boot.context.properties.bind.ConstructorBinding
         public Simulated {
             if (tokenCount < MIN_TOKENS || tokenCount > MAX_TOKENS) {
                 throw invalid("MARKET_SIMULATED_TOKENS_PER_SOURCE", "between 50 and 10000");
             }
+            if (scenario == null) {
+                scenario = SimulatedMarketSource.Scenario.STANDARD;
+            }
+        }
+
+        /** U4 form: the standard scenario. */
+        public Simulated(long seed, int tokenCount) {
+            this(seed, tokenCount, SimulatedMarketSource.Scenario.STANDARD);
         }
     }
 

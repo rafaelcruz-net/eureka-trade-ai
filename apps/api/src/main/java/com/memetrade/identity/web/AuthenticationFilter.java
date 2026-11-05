@@ -25,6 +25,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Component
 @Order(FilterOrder.AUTHENTICATION)
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AuthenticationFilter extends OncePerRequestFilter {
 
     static final Set<String> PUBLIC_ROUTES =

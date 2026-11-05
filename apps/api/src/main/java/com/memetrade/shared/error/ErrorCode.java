@@ -36,7 +36,21 @@ public enum ErrorCode {
     /** U3 (BR3.7): the wallet already has an account; it signs in through the normal entry. */
     WALLET_ALREADY_LINKED(409, "conflict", "Wallet already linked"),
     /** U3 (BR1.4): only a PENDING invitation can be revoked; {@code reason} is USED or EXPIRED. */
-    INVITE_NOT_REVOCABLE(409, "conflict", "Invitation cannot be revoked");
+    INVITE_NOT_REVOCABLE(409, "conflict", "Invitation cannot be revoked"),
+    /** U5 (BR2.1, AC4.4.3): a bot transition outside the table of the annex; nothing changes. */
+    INVALID_TRANSITION(409, "conflict", "Invalid bot transition"),
+    /** U5 (BR2.2, AC4.3.2): the person already has 3 active bots. */
+    ACTIVE_BOT_LIMIT(409, "conflict", "Active bot limit reached"),
+    /** U5 (BR2.4, AC7.2.3): the kill switch is on; start and resume are refused. */
+    PAUSED_BY_SYSTEM(409, "conflict", "Paused by the system"),
+    /** U5 (BR2.4, AC4.7.5): resume after the daily loss with a limit not above the loss of the UTC day. */
+    DAILY_LOSS_LIMIT_REACHED(409, "conflict", "Daily loss limit reached"),
+    /** U5 (BR1.5, AC4.2.3): incoherent limits (order above token exposure or token exposure above total). */
+    LIMIT_INCOHERENT(422, "validation", "Incoherent limits"),
+    /** U5 (BR1.4, AC4.2.4): virtual balance above the cap of the platform. */
+    VIRTUAL_BALANCE_ABOVE_CAP(422, "validation", "Virtual balance above the cap"),
+    /** U5 (BR1.1 to BR1.7): a well-formed draft or limits body whose values break a rule; the fields say which. */
+    BOT_VALIDATION_FAILED(422, "validation", "Validation failed", "VALIDATION_FAILED");
 
     private static final String TYPE_BASE = "https://memetrade.app/problems/";
 

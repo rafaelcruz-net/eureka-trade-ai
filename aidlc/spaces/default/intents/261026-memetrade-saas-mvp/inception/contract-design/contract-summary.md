@@ -612,7 +612,7 @@ components:
       enum: [DRAFT, VALIDATED, ACTIVE, PAUSED, CLOSING_PENDING, STOPPED]
     PauseReason:
       type: string
-      enum: [PERSON, DAILY_LOSS, DRAWDOWN, SYSTEM]
+      enum: [PERSON, DAILY_LOSS, DRAWDOWN, SYSTEM, ADMIN_RELEASED, WAITING_ACTIVE_SLOT]   # U5: ADMIN_RELEASED (BR7.2), WAITING_ACTIVE_SLOT (BR2.6)
     StrategyTemplate:
       type: object
       required: [templateId, name, description, version, parameters]
@@ -639,7 +639,7 @@ components:
       required: [rules]
       properties:
         tokens: { type: array, items: { type: object, required: [chain, mint], properties: { chain: { type: string }, mint: { type: string } } } }
-        rules: { type: array, items: { type: object, required: [field, operator, value], properties: { field: { type: string }, operator: { type: string, enum: [GTE, LTE, EQ] }, value: { $ref: 'common#/components/schemas/DecimalString' } } } }
+        rules: { type: array, items: { type: object, required: [field, operator, value], properties: { field: { type: string, enum: [LIQUIDITY, VOLUME_24H, HOLDERS, AGE_MINUTES, RISK_SCORE] }, operator: { type: string, enum: [GTE, LTE] }, value: { $ref: 'common#/components/schemas/DecimalString' } } } }   # U5: field fechado e operador só GTE/LTE (BR1.3)
     BotLimits:
       type: object
       required: [maxOrderSize, maxTokenExposure, maxTotalExposure, maxDailyLoss, maxDrawdown, maxSlippage, minLiquidity, minIntervalSeconds]
@@ -666,20 +666,26 @@ components:
         limitsVersion: { type: integer }
     Decision:
       type: object
-      required: [decisionId, cycleId, action, strategyVersion, factors, inputs, summary, validUntil, createdAt]
+      required: [decisionId, cycleId, action, strategyVersion, limitsVersion, factors, inputs, summary, validUntil, createdAt]
       properties:
         decisionId: { type: string, format: uuid }
         cycleId: { type: string, format: uuid }
+        chain: { type: string }                       # U5: acompanha tokenMint
         tokenMint: { type: string }
         action: { type: string, enum: [BUY, SELL, HOLD, NO_TRADE] }
-        noTradeReason: { type: string, enum: [UNKNOWN_DATA, STALE_DATA, INSUFFICIENT_HISTORY, ASSESSMENT_UNAVAILABLE, NO_POSITION_TO_SELL] }
+        noTradeReason: { type: string, enum: [UNKNOWN_DATA, STALE_DATA, INSUFFICIENT_HISTORY, ASSESSMENT_UNAVAILABLE, NO_POSITION_TO_SELL, RISK_BAND_HIGH, NO_SIGNAL, NO_TOKENS, QUANTITY_BELOW_MINIMUM] }
+        exitReason: { type: string, enum: [TAKE_PROFIT, STOP_LOSS, MAX_HOLD, RANGE_EXIT] }   # U5
+        requestedQuantity: { $ref: 'common#/components/schemas/DecimalString' }          # U5: só BUY e SELL
+        limitsVersion: { type: integer }                                                 # U5
         strategyVersion: { type: string }
         factors:
           type: array
           items:
             type: object
-            required: [name, value, threshold, satisfied]
+            required: [token, name, value, satisfied]   # U5: threshold ausente só quando o fator não tem limiar (faixa de risco, com label)
             properties:
+              token: { type: object, required: [chain, mint], properties: { chain: { type: string }, mint: { type: string } } }   # U5
+              label: { type: string }                                                    # U5: LOW, MEDIUM ou HIGH na faixa de risco
               name: { type: string }
               value:
                 oneOf:
@@ -694,6 +700,26 @@ components:
 ```
 
 Comportamento: comandos repetidos com a mesma `Idempotency-Key` produzem uma única transição e um único evento de auditoria (AC4.3.3, AC4.8.3). `stop` sem preço confiável leva a `CLOSING_PENDING` (AC4.12.3). Não existe comando de transferência de saldo nem de mudança de modo (AC4.2.5).
+
+**Acréscimos da U5 (geração de código, registrados pelo Functional Design da U5).** Todos aditivos; a fonte da verdade é o `apps/api/openapi/openapi-guest.yaml` gerado do código.
+
+| Acréscimo | Detalhe |
+|---|---|
+| `PauseReason` | `ADMIN_RELEASED` (BR7.2) e `WAITING_ACTIVE_SLOT` (BR2.6) |
+| `Decision` | `noTradeReason` com `RISK_BAND_HIGH`, `NO_SIGNAL`, `NO_TOKENS` e `QUANTITY_BELOW_MINIMUM`; campos `exitReason`, `requestedQuantity`, `limitsVersion` e `chain`; `factors[].token` (chain e mint) e `factors[].label` |
+| `BotLimits` | Os nomes REST `maxDrawdown` e `maxSlippage` (percentuais) continuam; internamente `maxDrawdownPct` e `maxSlippagePct`, com o mapeamento no controlador |
+| `TokenSelection.rules` | `field` fechado em `LIQUIDITY`, `VOLUME_24H`, `HOLDERS`, `AGE_MINUTES` e `RISK_SCORE`; `operator` só `GTE` e `LTE` |
+| `StrategyTemplate` | Parâmetros v1 das duas estratégias (BR4.3 a BR4.6) |
+| `GET /api/v1/bots/{botId}` | Leitura do bot da pessoa (resumo, rascunho e limites vigentes) usada pelo assistente para retomar o rascunho (AC4.4.1) e pela tela S5; outro dono: `404` |
+| Erros | `409 DAILY_LOSS_LIMIT_REACHED` na retomada depois da perda diária, com a perda do dia no `detail` (BR2.4); estouro do `lock_timeout` de 2 s responde `503 SERVICE_UNAVAILABLE` com "tentar de novo" (NFR10.7) |
+
+**Usos novos de interfaces públicas pela U5** (consumidora registrada, só leitura):
+
+| Interface | Dono | Uso pela U5 |
+|---|---|---|
+| `LedgerReadModel.account(botId)` | U7 | Conferência do encerramento pendente (BR2.8), com o bot travado |
+| `LedgerReadModel.positions(botId)` e `balance(botId)` | U7 | Entradas da decisão dentro da transação do ciclo (BR4.1, BR3.7) |
+| `PortfolioRiskView.snapshot(botId, chain, tokenMint, utcDay)` | U7 (C13) | Perda do dia na retomada depois de `DAILY_LOSS` (BR2.4), com o Principal do próprio dono. O token é o primeiro da lista explícita, senão o primeiro com posição, senão o token neutro `solana:11111111111111111111111111111111`, que nunca tem posição; a perda do dia não depende do token |
 
 ### C5 — Operações, ledger, P&L e reconciliação (U7)
 
@@ -935,6 +961,8 @@ paths:
               schema: { type: string }
         '401': { description: UNAUTHENTICATED }
 ```
+
+**Como implementado pela U5.** O canal fica no processo de API (`DashboardStreamController`), aberto com `GET` e `Authorization: Bearer`. Um único `DashboardMarkPoller` lê a cada 2 s as marcas (U5 `BotChangeMarks`, U7 `LedgerChangeMarks`, U4 `SourceStatusMarks`) só das pessoas com canal aberto e envia, para cada canal cuja marca mudou: `bot.state` (lista de `BotSummary` da pessoa), `trade.recorded` (as operações novas da pessoa, `PaperTrade` de C5) e `pnl.updated` (aviso com a marca do ledger, para a tela buscar o P&L de C5; o corpo completo do `PnlReport` fica com a U9) e `data.status` (estado das fontes). `heartbeat` sai a cada 15 s; a cada 60 s, junto do `heartbeat`, o canal refaz a leitura completa e reenvia `bot.state` (corrige a marca de ordem trocada descrita em C18). Cada evento tem `id` crescente por canal; `Last-Event-ID` retoma sem repetir os já entregues. O token vencido gera `auth.expired` e o canal fecha.
 
 ### C8 — API administrativa (U8)
 
@@ -1402,6 +1430,23 @@ rules:
   - A emissão devolve o código só em IssuedInvite.code; quem guarda a resposta da idempotência guarda só o InviteView (U3, BR1.8).
 ```
 
+**C16 como implementada pela U5** (pacote `com.memetrade.bots.api`):
+
+```java
+public interface BotAdministration {
+    SystemPauseResult applySystemPause(String correlationId); // grava o estado e confirma antes dos lotes; repetível
+    SystemPauseResult liftSystemPause(String correlationId);  // SYSTEM vira ADMIN_RELEASED; nenhum bot é retomado
+    Map<BotState, Long> countByState();                        // todos os tenants, sem identificador
+    BotDashboardSummary summaryFor(Principal principal);       // só os bots da pessoa
+    boolean systemPaused();                                    // cópia da U5 do estado do kill switch
+}
+record SystemPauseResult(boolean systemPaused, int changed, List<UUID> failed) {}
+record BotDashboardSummary(long active, long paused, long activeLimit, Optional<LastDecision> lastDecision) {}
+record LastDecision(UUID botId, String action, Optional<String> tokenMint, String summary, Instant createdAt) {}
+```
+
+Regras da implementação: cada bot é alterado na sua própria transação com a trava do bot; `failed` lista os bots cuja transação falhou, e a U8 repete até a lista ficar vazia. Os eventos `BOT_PAUSED` (motivo `SYSTEM`) e `BOT_SYSTEM_PAUSE_LIFTED` saem por bot com ator `system`; o evento do administrador (acionamento e desligamento) é da U8 (AC7.2.5).
+
 ### C18 — Marcas de última alteração (U4, U5, U7)
 
 ```yaml
@@ -1424,6 +1469,8 @@ rules:
   - O canal C7 (U5) compara as marcas a cada 2 s e só busca detalhes quando uma muda; nenhum módulo lê a tabela de marcas de outro.
   - As marcas substituem os eventos em processo do painel da primeira versão, porque funcionam também para gravações feitas no worker (Q19).
 ```
+
+**`BotChangeMarks` como implementada pela U5** (pacote `com.memetrade.bots.api`, `long markFor(Principal principal)`): `bot.change_seq` recebe o próximo valor da sequência global `bot_change_seq` na mesma gravação de toda mudança de estado, motivo de pausa ou limites (BR8.1); a marca é o máximo de `change_seq` dos bots da pessoa, por índice (tenant, pessoa, `change_seq` decrescente), sem travar linha nenhuma. Ressalva registrada: duas transações da mesma pessoa que confirmam fora da ordem da sequência podem fazer o leitor ver primeiro o valor maior; o efeito é só atraso de tela, corrigido pela próxima mudança ou pela leitura completa que o canal C7 refaz a cada 60 s, junto do `heartbeat`.
 
 ### C19 — Porta de adaptador de mercado (U4)
 

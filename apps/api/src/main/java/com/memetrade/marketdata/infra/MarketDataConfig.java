@@ -33,13 +33,21 @@ public class MarketDataConfig {
     public static final String SOURCE_CALLS_EXECUTOR = "marketSourceCalls";
 
     @Bean
-    public ConfiguredSources configuredSources(MarketDataProperties properties, Clock clock) {
+    public ConfiguredSources configuredSources(
+            MarketDataProperties properties, Clock clock, org.springframework.core.env.Environment environment) {
+        SimulatedMarketSource.Scenario scenario = properties.simulated().scenario();
+        // U5: the frequent-signal scenario exists only for the load scenario u5, never outside the test profile.
+        if (scenario != SimulatedMarketSource.Scenario.STANDARD
+                && !environment.acceptsProfiles(org.springframework.core.env.Profiles.of("test"))) {
+            throw MarketDataProperties.invalid("MARKET_SIMULATED_SCENARIO", "STANDARD outside the test profile");
+        }
         return new ConfiguredSources(properties.sources().stream()
                 .map(id -> (MarketSourceAdapter) SimulatedMarketSource.forSource(
                         id,
                         properties.simulated().seed(),
                         properties.simulated().tokenCount(),
-                        clock))
+                        clock,
+                        scenario))
                 .toList());
     }
 

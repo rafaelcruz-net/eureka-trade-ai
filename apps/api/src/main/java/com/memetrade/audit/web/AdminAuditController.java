@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code AUDIT_QUERIED} in the same transaction (BR2.5). Responses are never cached.
  */
 @RestController
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AdminAuditController {
 
     private static final Logger log = LoggerFactory.getLogger(AdminAuditController.class);

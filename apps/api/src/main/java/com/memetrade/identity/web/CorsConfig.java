@@ -9,6 +9,7 @@ import org.springframework.web.filter.CorsFilter;
 
 /** Registers the CORS filter before authentication so preflight requests never need a token. */
 @Configuration
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class CorsConfig {
 
     @Bean

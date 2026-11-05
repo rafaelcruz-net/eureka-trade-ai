@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
  * call {@link AuditJobRunner} directly.
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AuditJobSchedule {
 
     private final AuditJobRunner runner;

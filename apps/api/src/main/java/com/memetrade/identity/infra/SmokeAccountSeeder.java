@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Component
 @Profile("test")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class SmokeAccountSeeder {
 
     private static final Logger log = LoggerFactory.getLogger(SmokeAccountSeeder.class);

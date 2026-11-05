@@ -111,12 +111,18 @@ public class IdentityConfig {
         return new RefreshTokens(secureRandom);
     }
 
+    /**
+     * U5 (NFR10.9): the signing key reaches only the api process; the session and login services built on it exist
+     * only there, so the worker starts without {@code ACCESS_TOKEN_SIGNING_KEY}.
+     */
     @Bean
+    @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
     public AccessTokens accessTokens(IdentityProperties properties) {
         return new HmacAccessTokens(properties.accessTokenSigningKey());
     }
 
     @Bean
+    @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
     public SessionService sessionService(
             SessionRepository sessions,
             AccessTokens accessTokens,
@@ -128,6 +134,7 @@ public class IdentityConfig {
     }
 
     @Bean
+    @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
     public LoginVerificationService loginVerificationService(
             LoginChallengeRepository challenges,
             AccountRepository accounts,
@@ -143,6 +150,7 @@ public class IdentityConfig {
 
     /** U3 F5: account creation inside the verification transaction. */
     @Bean
+    @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
     public InviteAccountCreation inviteAccountCreation(
             InviteRepository invites,
             IdentityDirectory directory,
@@ -156,6 +164,7 @@ public class IdentityConfig {
     }
 
     @Bean
+    @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
     public ChallengeService challengeService(
             LoginChallengeRepository repository,
             NonceGenerator nonceGenerator,

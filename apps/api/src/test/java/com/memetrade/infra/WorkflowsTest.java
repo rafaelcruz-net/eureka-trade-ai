@@ -213,6 +213,44 @@ class WorkflowsTest {
                 .contains("docs/perf/u6-risk-control-${report.date}.md");
     }
 
+    /**
+     * U5 (Passo 20, cicd-pipeline.md): the manual load workflow offers u5, run by scripts/load-test.sh with the worker
+     * (actuator on loopback 8082, docker stats, the stopwatch lines), the bot seed and the frequent-signal scenario;
+     * the ledger load of U7 stays at 0 and the actions stay pinned by SHA.
+     */
+    @Test
+    @Tag("u5")
+    void theLoadWorkflowAndTheScriptOfferTheU5Scenario() throws IOException {
+        String workflow = Files.readString(WORKFLOWS.resolve("load-test.yml"), StandardCharsets.UTF_8);
+        String script = Files.readString(Path.of("..", "..", "scripts", "load-test.sh"), StandardCharsets.UTF_8);
+        String runner =
+                Files.readString(Path.of("..", "..", "scripts", "load", "load-test.mjs"), StandardCharsets.UTF_8);
+
+        assertThat(workflow).contains("- u5\n");
+        assertThat(unpinnedActions(workflow)).isEmpty();
+        assertThat(script)
+                .contains("  u5)")
+                .contains("DURATION_S=\"${DURATION_S:-1800}\"")
+                .contains("LOADTEST_U5_ENABLED=true")
+                .contains("MARKET_SIMULATED_SCENARIO=FREQUENT_SIGNALS")
+                .contains("export LOADTEST_LEDGER_PEOPLE=0 LOADTEST_FILLS_PER_PERSON=0 LOADTEST_CYCLE_BOTS=0")
+                .contains("WORKER_CONTAINER=\"$WORKER_CONTAINER\"")
+                .contains("WORKER_MANAGEMENT_URL=\"http://127.0.0.1:8082\"");
+        assertThat(runner)
+                .contains("components?.loadtestBots")
+                .contains("loadtest_bots_cycle_seconds")
+                .contains("loadtest_bots_gate_seconds")
+                .contains("Loadtest cycle timing")
+                .contains("cycleS: 2.0")
+                .contains("gateS: 0.5")
+                .contains("routesS: 1.0")
+                .contains("screenS: 2.0")
+                .contains("liveS: 4.0")
+                .contains("maxConnections: 14")
+                .contains("/api/v1/stream/dashboard")
+                .contains("docs/perf/u5-bots-decision-${report.date}.md");
+    }
+
     static List<String> unpinnedActions(String workflow) {
         List<String> unpinned = new ArrayList<>();
         Matcher matcher = USES.matcher(workflow);

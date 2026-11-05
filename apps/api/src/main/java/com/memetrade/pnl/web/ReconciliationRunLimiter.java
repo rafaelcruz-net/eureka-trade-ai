@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
  * the beans that inject the scanner limiter by type are not affected. In process memory: one instance in the beta.
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class ReconciliationRunLimiter {
 
     static final String ROUTE = "reconciliation-run";

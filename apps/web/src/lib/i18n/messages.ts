@@ -1,3 +1,5 @@
+import { botMessages } from '@/features/bots/messages';
+
 /**
  * Single pt-BR text catalog of the guest app (NFR14.1). Market terms stay in English with an explanation shown on
  * hover and focus (CT-UX-1). No screen hard-codes user-facing text outside this file.
@@ -13,6 +15,7 @@ export const messages = {
     accountMenu: 'Menu da conta',
     account: 'Conta',
     pnl: 'Resultado (P&L)',
+    bots: 'Bots',
   },
   invite: {
     title: 'Entrar com convite',
@@ -420,4 +423,6 @@ export const messages = {
     reconciliationLoading: 'Carregando a reconciliação…',
     reconciliationError: 'Não foi possível carregar a reconciliação agora.',
   },
+  // U5: the bot screens (wizard, list, bot screen), kept in the feature and part of this single catalog.
+  bots: botMessages,
 } as const;

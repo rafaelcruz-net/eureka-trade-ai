@@ -51,7 +51,39 @@ class MigrationsIT extends AbstractPostgresIT {
             "order_evaluation",
             "order_rejection",
             "rejection_reason_detail",
-            "risk_purge_run");
+            "risk_purge_run",
+            // U5 (migration 0010).
+            "strategy_template",
+            "bot_owner",
+            "bot",
+            "bot_limits_version",
+            "bot_cycle",
+            "bot_holding",
+            "system_pause_state",
+            "decision");
+
+    /**
+     * U5 rollback test (cicd-pipeline.md "Implantação e rollback"): the queries of U1 to U7 and U6 keep running on the
+     * schema migrated by 0010, which only adds tables, indexes, a sequence and seeds (the U6 image runs on it with the
+     * new tables unused).
+     */
+    @Test
+    @org.junit.jupiter.api.Tag("u5")
+    void thePreviousQueriesOfU1ToU7AndU6StillRunOnTheU5Schema() {
+        List<String> all = new java.util.ArrayList<>(PREVIOUS_ENTRY_AND_SESSION_QUERIES);
+        all.addAll(PREVIOUS_LISTING_QUERIES);
+        all.add("select * from order_evaluation order by evaluated_at desc limit 1");
+        all.add("select * from order_rejection order by evaluated_at desc limit 1");
+        all.add("select * from paper_order order by created_at desc, order_id desc limit 1");
+        all.add("select * from shedlock");
+        for (String query : all) {
+            assertThatCode(() -> jdbc.sql(query).query().listOfRows()).as(query).doesNotThrowAnyException();
+        }
+        assertThat(jdbc.sql("select count(*) from databasechangelog where id like '0010-%'")
+                        .query(Long.class)
+                        .single())
+                .isPositive();
+    }
 
     /**
      * U6 rollback test (cicd-pipeline.md): the queries of U1 to U7 keep running on the schema migrated by 0009, which

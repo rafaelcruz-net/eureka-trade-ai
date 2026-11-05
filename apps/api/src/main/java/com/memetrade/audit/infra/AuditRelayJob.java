@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
  * {@code audit_outbox_oldest_age_seconds}. A database error ends the cycle with an ERROR log; the next cycle retries.
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AuditRelayJob {
 
     private static final Logger log = LoggerFactory.getLogger(AuditRelayJob.class);

@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
  * access token only (NFR5.1). Answers are never cached; REAL mode is always {@code UNAVAILABLE} (NFR6.12).
  */
 @RestController
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AccountController {
 
     private final AccountQueryService accounts;

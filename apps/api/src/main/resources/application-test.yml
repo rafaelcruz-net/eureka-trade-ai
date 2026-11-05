@@ -8,3 +8,8 @@ memetrade:
     invite-code: ${SMOKE_INVITE_CODE:}
     # U3 load scenario: codes separated by commas (one per simulated user); empty creates nothing.
     invite-codes: ${SMOKE_INVITE_CODES:}
+  market:
+    simulated:
+      # U5 (cicd-pipeline.md): STANDARD by default; FREQUENT_SIGNALS only for the load scenario u5, and only here
+      # (MarketDataConfig refuses it outside the test profile).
+      scenario: ${MARKET_SIMULATED_SCENARIO:STANDARD}

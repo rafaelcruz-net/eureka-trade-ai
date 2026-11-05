@@ -1,0 +1,158 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u5-bots-decision",
+  "upstream_ids": [
+    "NFR2.1",
+    "NFR2.2",
+    "NFR2.3",
+    "NFR2.4",
+    "NFR2.5",
+    "NFR2.6",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.3",
+    "NFR4.2",
+    "NFR4.3",
+    "NFR4.4",
+    "NFR4.7",
+    "NFR5.1",
+    "NFR5.3",
+    "NFR6.1",
+    "NFR9.1",
+    "NFR9.2",
+    "NFR10.2",
+    "NFR10.4",
+    "NFR10.5",
+    "NFR10.9",
+    "NFR12.1",
+    "NFR13.1",
+    "NFR10.3"
+  ],
+  "coverage": [
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "Ciclo cronometrado no cenário u5 (cicd-pipeline.md; monitoring-design.md)"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "OK",
+      "target": "Relatório u5 com fim da fatia e recusas por frescor (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "Ciclo do perfil loadtest com evaluate e execute (monitoring-design.md)"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "Worker com DB_POOL_MAX_SIZE=14, SCHEDULER_POOL_SIZE=4, guarda por processo e conta de conexões (infrastructure-specification.md)"
+    },
+    {
+      "id": "NFR2.5",
+      "status": "OK",
+      "target": "Índices da 0010 e 20.000 decisões por bot no cenário u5 (infrastructure-specification.md; cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR2.6",
+      "status": "OK",
+      "target": "20 canais ao vivo no cenário u5 (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "Cenário u5 com as rotas C4 (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "Cenário u5 com as chamadas da S5 e smoke Playwright (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "DashboardStreamIT e cenário u5 (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "Testes de comandos e idempotência no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR4.3",
+      "status": "OK",
+      "target": "Teste de 3 ativos em paralelo no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR4.4",
+      "status": "OK",
+      "target": "CycleIT e SystemPauseIT no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR4.7",
+      "status": "OK",
+      "target": "CycleIT com fatias repetidas e reinício (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "BotRoutesIT e DashboardStreamIT com dois tenants (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR5.3",
+      "status": "OK",
+      "target": "CHECK mode = PAPER na 0010 (infrastructure-specification.md)"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "Sem acesso de saída; ArchUnit no job backend (infrastructure-specification.md; cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "Indicador botCycles fora do healthcheck do worker (infrastructure-specification.md; monitoring-design.md)"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "Contador bots.cycle.errors (monitoring-design.md)"
+    },
+    {
+      "id": "NFR10.2",
+      "status": "OK",
+      "target": "CycleFailureIT no job backend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR10.4",
+      "status": "OK",
+      "target": "LockOrderIT e teste de código-fonte das travas (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR10.5",
+      "status": "OK",
+      "target": "ShedLock das tarefas da U5 (infrastructure-specification.md)"
+    },
+    {
+      "id": "NFR10.9",
+      "status": "OK",
+      "target": "Serviço worker, @ProcessRole e tabela de trabalhos por processo, ProcessRoleContextIT (infrastructure-specification.md; cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "OK",
+      "target": "Marcador u5 e cobertura de 80% nos jobs backend e frontend (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR13.1",
+      "status": "OK",
+      "target": "Mesma suíte no Linux da CI e no Windows (cicd-pipeline.md)"
+    },
+    {
+      "id": "NFR10.3",
+      "status": "OK",
+      "target": "Reinício do worker no meio da fatia com ShedLock e BotCycle único (infrastructure-specification.md; CycleIT em cicd-pipeline.md)"
+    }
+  ]
+}

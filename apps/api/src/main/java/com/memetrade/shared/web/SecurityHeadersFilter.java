@@ -13,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /** Security headers on every API response, including errors (security-design.md, NFR6.9). */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class SecurityHeadersFilter extends OncePerRequestFilter {
 
     @Override

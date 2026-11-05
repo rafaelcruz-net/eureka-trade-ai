@@ -21,6 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Component
 @Order(FilterOrder.IDEMPOTENCY_KEY)
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class IdempotencyKeyFilter extends OncePerRequestFilter {
 
     public static final String ATTRIBUTE = IdempotencyKeyFilter.class.getName() + ".key";

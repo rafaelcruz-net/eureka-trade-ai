@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Profile("loadtest")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoadtestTokens {
 
     /** USDC per simulated trade: far below the 10% liquidity ceiling of the simulation policy (BR1.4). */

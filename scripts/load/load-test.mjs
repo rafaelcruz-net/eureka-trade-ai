@@ -183,7 +183,12 @@ function megabytes(usage) {
 
 /** Memory of the api and postgres containers through docker stats, every 15 s. */
 async function watchMemory(deadline, report) {
-  const containers = { api: process.env.API_CONTAINER, postgres: process.env.POSTGRES_CONTAINER };
+  // U5: the worker container joins when the script passes it (scenario u5).
+  const containers = {
+    api: process.env.API_CONTAINER,
+    postgres: process.env.POSTGRES_CONTAINER,
+    ...(SCENARIO === 'u5' && process.env.WORKER_CONTAINER ? { worker: process.env.WORKER_CONTAINER } : {}),
+  };
   while (Date.now() < deadline) {
     for (const [name, id] of Object.entries(containers)) {
       if (!id) continue;
@@ -1089,6 +1094,418 @@ async function runU6() {
 
 if (SCENARIO === 'u6') {
   await runU6();
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+//   LOAD_SCENARIO=u5  (cicd-pipeline.md of U5) api and worker with test,loadtest. The people of u7 (smoke account plus
+//                     one invited account each) make 3 ACTIVE bots each through the real C4 routes (create, the three
+//                     wizard steps, start), selecting by rule the tokens of the frequent-signal scenario (liquidity
+//                     >= 1.000.000 USDC). The bot seed of the api then writes 20000 decisions on one bot of each person
+//                     (health component loadtestBots). For DURATION_S (30 minutes, 6 slices) the worker cycles run with
+//                     the stopwatch of the loadtest profile while 20 users act every 2 s (list, S5 screen with its calls
+//                     in parallel, decisions, templates, pause and resume) with 20 live channels open.
+//                     Limits: p95 cycle <= 2 s (NFR2.1, timer loadtest_bots_cycle_seconds of the worker actuator), p95
+//                     barrier plus execution <= 500 ms (NFR2.3, loadtest_bots_gate_seconds), zero decisions for stale
+//                     data and every slice completed (NFR2.2), p95 of each C4 route <= 1 s (NFR3.1), p95 of the S5
+//                     calls together <= 2 s (NFR3.2), p95 from a command answer to its bot.state event <= 4 s (NFR3.3),
+//                     at most 14 active connections in the worker pool and no acquisition above 1 s, memory of api,
+//                     postgres and worker <= 900 MB. Report: docs/perf/u5-bots-decision-<date>.md.
+const U5_LIMITS = {
+  cycleS: 2.0,
+  gateS: 0.5,
+  routesS: 1.0,
+  screenS: 2.0,
+  liveS: 4.0,
+  maxConnections: 14,
+  acquireS: 1.0,
+};
+const WORKER_MANAGEMENT = process.env.WORKER_MANAGEMENT_URL ?? 'http://127.0.0.1:8082';
+const U5_ROUTES = [
+  '/api/v1/bots',
+  '/api/v1/bots/{botId}',
+  '/api/v1/bots/{botId}/decisions',
+  '/api/v1/bots/{botId}/commands/{command}',
+  '/api/v1/strategy-templates',
+];
+const U5_PARAMETERS = {
+  windowMinutes: '15',
+  volumeGrowthMinPct: '20.0000',
+  priceRiseMinPct: '2.0000',
+  takeProfitPct: '10.0000',
+  stopLossPct: '5.0000',
+  maxHoldMinutes: '240',
+  buyFractionPct: '10.0000',
+};
+const U5_LIMITS_OF_BOT = {
+  maxOrderSize: '100.000000',
+  maxTokenExposure: '200.000000',
+  maxTotalExposure: '500.000000',
+  maxDailyLoss: '50.000000',
+  maxDrawdown: '10.0000',
+  maxSlippage: '2.0000',
+  minLiquidity: '10000.000000',
+  minIntervalSeconds: 240,
+};
+
+/** A C4 call of a person with a fresh Idempotency-Key on writes; signs the person in again on 401. */
+async function u5Call(person, method, path, body) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const headers = { Authorization: `Bearer ${person.token}` };
+    if (method !== 'GET') headers['Idempotency-Key'] = randomUUID();
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    const response = await fetch(`${API}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    if (response.status === 401 && attempt === 0) {
+      await signIn(person);
+      continue;
+    }
+    return { status: response.status, body: await response.json().catch(() => ({})) };
+  }
+  throw new Error('unreachable');
+}
+
+/** Three ACTIVE bots of a person, made exactly as the wizard makes them. */
+async function u5Bots(person) {
+  person.bots = [];
+  for (let n = 1; n <= 3; n += 1) {
+    const created = await u5Call(person, 'POST', '/api/v1/bots', { templateId: 'MOMENTUM_VOLUME', name: `Carga ${n}` });
+    if (created.status !== 201 && created.status !== 200) throw new Error(`create bot failed with ${created.status}`);
+    const botId = created.body.botId;
+    const steps = [
+      {
+        step: 1,
+        parameters: U5_PARAMETERS,
+        tokenSelection: { tokens: [], rules: [{ field: 'LIQUIDITY', operator: 'GTE', value: '1000000' }] },
+      },
+      { step: 2, limits: U5_LIMITS_OF_BOT, virtualBalance: '1000.000000' },
+      { step: 3 },
+    ];
+    for (const step of steps) {
+      const saved = await u5Call(person, 'PUT', `/api/v1/bots/${botId}/draft`, step);
+      if (saved.status !== 200) throw new Error(`draft step ${step.step} failed with ${saved.status}`);
+    }
+    const started = await u5Call(person, 'POST', `/api/v1/bots/${botId}/commands/start`);
+    if (started.status !== 200) throw new Error(`start failed with ${started.status}`);
+    person.bots.push(botId);
+  }
+}
+
+/** Waits for the health component loadtestBots to be UP with state READY (decisions seeded), at most 60 minutes. */
+async function waitForBots() {
+  const deadline = Date.now() + 60 * 60 * 1_000;
+  let lastProgress = 0;
+  while (Date.now() < deadline) {
+    const health = await (await fetch(`${MANAGEMENT}/actuator/health`)).json().catch(() => ({}));
+    const component = health.components?.loadtestBots;
+    if (!component) {
+      throw new Error('the load bot seed is not active: SPRING_PROFILES_ACTIVE=test,loadtest and LOADTEST_U5_ENABLED=true');
+    }
+    const details = component.details ?? {};
+    if (details.state === 'FAILED') throw new Error(`the load bot seed failed: ${details.failure}`);
+    if (details.state === 'READY') return details;
+    if (Date.now() - lastProgress > 60_000) {
+      lastProgress = Date.now();
+      console.warn(
+        `bot preparation: ${details.state}, active ${details.activeBots}/${details.botsExpected}, decisions ${details.decisionsSeeded}/${details.decisionsExpected}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10_000));
+  }
+  throw new Error('the preparation of the bot load did not finish in 60 minutes');
+}
+
+/**
+ * The live channel of a person (C7), read with fetch and the Authorization header (never EventSource). Each bot.state
+ * event after a command of that person gives one latency sample; the channel reopens after auth.expired.
+ */
+async function u5Channel(person, deadline, state) {
+  while (Date.now() < deadline) {
+    const abort = new AbortController();
+    const stop = setTimeout(() => abort.abort(), Math.max(0, deadline - Date.now()));
+    try {
+      const response = await fetch(`${API}/api/v1/stream/dashboard`, {
+        headers: { Authorization: `Bearer ${person.token}`, Accept: 'text/event-stream' },
+        signal: abort.signal,
+      });
+      if (response.status === 401) {
+        await signIn(person);
+        continue;
+      }
+      if (response.status !== 200) {
+        state.channelErrors += 1;
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+        continue;
+      }
+      state.channelsOpened += 1;
+      const decoder = new TextDecoder();
+      let buffer = '';
+      for await (const chunk of response.body) {
+        buffer += decoder.decode(chunk, { stream: true });
+        let end;
+        while ((end = buffer.indexOf('\n\n')) >= 0) {
+          const event = /^event:\s*(.+)$/m.exec(buffer.slice(0, end))?.[1]?.trim();
+          buffer = buffer.slice(end + 2);
+          if (event === 'bot.state' && person.commandAt) {
+            state.liveLatencies.push((Date.now() - person.commandAt) / 1_000);
+            person.commandAt = null;
+          }
+          if (event === 'auth.expired') await signIn(person);
+        }
+      }
+    } catch (failure) {
+      if (failure.name !== 'AbortError') {
+        state.channelErrors += 1;
+        console.error(`channel: ${failure.name}`);
+      }
+    } finally {
+      clearTimeout(stop);
+    }
+  }
+}
+
+/** One person acting every 2 s: list, the S5 screen (its calls in parallel), decisions, templates, pause and resume. */
+async function u5User(index, deadline, person, state) {
+  const [heavyBot, , commandBot] = person.bots;
+  let paused = false;
+  let step = index;
+  while (Date.now() < deadline) {
+    const started = Date.now();
+    try {
+      const kind = step % 5;
+      if (kind === 0) {
+        const listed = await u5Call(person, 'GET', '/api/v1/bots');
+        if (listed.status !== 200) state.errors += 1;
+      } else if (kind === 1) {
+        const screenStarted = Date.now();
+        const calls = await Promise.all([
+          u5Call(person, 'GET', `/api/v1/bots/${heavyBot}`),
+          u5Call(person, 'GET', `/api/v1/bots/${heavyBot}/day-usage`),
+          u5Call(person, 'GET', `/api/v1/bots/${heavyBot}/trades?limit=20`),
+          u5Call(person, 'GET', `/api/v1/bots/${heavyBot}/rejections?limit=20`),
+          u5Call(person, 'GET', `/api/v1/bots/${heavyBot}/decisions?limit=20`),
+        ]);
+        state.screens.push((Date.now() - screenStarted) / 1_000);
+        // 404 of C21 means "no rejection yet" (U6); any other status but 200 is an error.
+        state.errors += calls.filter((c, i) => c.status !== 200 && !(i === 3 && c.status === 404)).length;
+      } else if (kind === 2) {
+        const page = await u5Call(person, 'GET', `/api/v1/bots/${heavyBot}/decisions?limit=50`);
+        if (page.status !== 200) state.errors += 1;
+      } else if (kind === 3) {
+        const templates = await u5Call(person, 'GET', '/api/v1/strategy-templates');
+        if (templates.status !== 200) state.errors += 1;
+      } else {
+        const command = paused ? 'resume' : 'pause';
+        const answer = await u5Call(person, 'POST', `/api/v1/bots/${commandBot}/commands/${command}`);
+        if (answer.status === 200) {
+          person.commandAt = Date.now();
+          paused = !paused;
+          state.commands += 1;
+        } else if (answer.status !== 409) {
+          state.errors += 1;
+          console.error(`user ${index}: status ${answer.status} on ${command}`);
+        }
+      }
+    } catch (failure) {
+      state.errors += 1;
+      console.error(`user ${index}: ${failure.name}`);
+    }
+    step += 1;
+    await new Promise((resolve) => setTimeout(resolve, Math.max(0, 2_000 - (Date.now() - started))));
+  }
+}
+
+/** The worker pool, every 5 s: the most active connections and the longest acquisition seen. */
+async function watchWorkerPool(deadline, report) {
+  while (Date.now() < deadline) {
+    try {
+      const metrics = await (await fetch(`${WORKER_MANAGEMENT}/actuator/prometheus`)).text();
+      const read = (prefix) => {
+        const line = metrics.split('\n').find((l) => l.startsWith(prefix));
+        return line ? Number(line.split(' ').at(-1)) : 0;
+      };
+      report.maxActive = Math.max(report.maxActive, read('hikaricp_connections_active{'));
+      report.maxPending = Math.max(report.maxPending, read('hikaricp_connections_pending{'));
+      report.maxAcquireS = Math.max(report.maxAcquireS, read('hikaricp_connections_acquire_seconds_max{'));
+    } catch (failure) {
+      report.readErrors += 1;
+      console.error(`worker pool read: ${failure.name}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5_000));
+  }
+}
+
+/** The stopwatch lines of the worker log (one per cycle). */
+async function stopwatchLines() {
+  if (!process.env.WORKER_CONTAINER) return [];
+  const { stdout, stderr } = await run('docker', ['logs', process.env.WORKER_CONTAINER], {
+    maxBuffer: 512 * 1024 * 1024,
+  });
+  return `${stdout}\n${stderr}`
+    .split('\n')
+    .map((line) => /Loadtest cycle timing totalMs=(\d+) decisionMs=(\d+) gateMs=(\d+) kind=(\w+)/.exec(line))
+    .filter(Boolean)
+    .map((m) => ({ totalMs: Number(m[1]), decisionMs: Number(m[2]), gateMs: Number(m[3]), kind: m[4] }));
+}
+
+/** NFR2.2 and the slices, from the database of the run. */
+async function u5Database(startedAt) {
+  if (!process.env.POSTGRES_CONTAINER) return { checked: false };
+  const since = new Date(startedAt).toISOString();
+  const value = async (sql) => Number((await psql(sql)).trim() || 0);
+  return {
+    checked: true,
+    staleDecisions: await value(
+      `select count(*) from decision where no_trade_reason = 'STALE_DATA' and created_at >= '${since}'`,
+    ),
+    slices: await value(
+      `select count(distinct slot_start) from bot_cycle where status = 'COMPLETED' and slot_start >= '${since}'`,
+    ),
+    failedCycles: await value(`select count(*) from bot_cycle where status = 'FAILED' and started_at >= '${since}'`),
+    completedCycles: await value(
+      `select count(*) from bot_cycle where status = 'COMPLETED' and started_at >= '${since}'`,
+    ),
+    decisions: await value('select count(*) from decision'),
+  };
+}
+
+function u5Markdown(report) {
+  const routes = Object.entries(report.routes)
+    .map(([route, p95]) => `| \`${route}\` | ${ms(p95)} | 1000 ms |`)
+    .join('\n');
+  const db = report.database;
+  return `# Carga local — U5 Bots e decisão (${report.date})
+
+Gerado por \`scripts/load-test.sh\` (\`LOAD_SCENARIO=u5\`).
+
+- Pessoas: ${report.people} · bots ativos: ${report.people * 3} · duração: ${report.durationSeconds} s · fonte simulada no cenário de sinais frequentes
+- Preparação: ${report.seed.decisionsSeeded ?? 0} decisões semeadas em ${report.preparationSeconds} s
+- Resultado: **${report.passed ? 'aprovado' : 'reprovado'}**
+
+## Ciclo (worker)
+
+| Medida | p95 | Limite |
+|---|---|---|
+| Ciclo inteiro (NFR2.1) | ${ms(report.cycle)} | 2000 ms |
+| Barreira mais execução (NFR2.3) | ${ms(report.gate)} | 500 ms |
+
+- Linhas do cronômetro: ${report.stopwatch.lines}; maior ciclo ${report.stopwatch.maxTotalMs} ms; falhas ${report.stopwatch.failed}
+- Fatias completas: ${db.checked ? db.slices : 'não conferido'} (esperado ao menos ${Math.floor(report.durationSeconds / 300)}); ciclos completos ${db.completedCycles ?? 'n/d'}, com falha ${db.failedCycles ?? 'n/d'}
+- Decisões por dado desatualizado durante a carga (NFR2.2): ${db.checked ? db.staleDecisions : 'não conferido'} (limite 0)
+- Pool do worker: no máximo ${report.workerPool.maxActive} conexões ativas (limite ${U5_LIMITS.maxConnections}); maior espera ${report.workerPool.maxAcquireS.toFixed(3)} s (limite 1 s)
+
+## Rotas C4 (NFR3.1)
+
+| Rota | p95 | Limite |
+|---|---|---|
+${routes}
+
+## Tela S5 e canal ao vivo
+
+- Tela S5, chamadas em paralelo (NFR3.2): p95 ${ms(report.screen)} (limite 2000 ms) em ${report.screens} aberturas
+- Canal ao vivo, da resposta do comando ao evento \`bot.state\` (NFR3.3): p95 ${ms(report.live)} (limite 4000 ms) em ${report.liveSamples} amostras; canais abertos ${report.channelsOpened}, erros ${report.channelErrors}
+- Comandos aceitos: ${report.commands}; erros de cliente ${report.errors}
+- Memória máxima: api ${Math.round(report.maxMemoryMb.api ?? 0)} MB, postgres ${Math.round(report.maxMemoryMb.postgres ?? 0)} MB, worker ${Math.round(report.maxMemoryMb.worker ?? 0)} MB (limite ${MEMORY_LIMIT_MB} MB)
+- Falhas: ${report.failures.length === 0 ? 'nenhuma' : report.failures.join(', ')}
+`;
+}
+
+async function runU5() {
+  const preparationStarted = Date.now();
+  const people = await u7People();
+  for (const person of people) await u5Bots(person);
+  const seed = await waitForBots();
+  const preparationSeconds = Math.round((Date.now() - preparationStarted) / 1_000);
+  for (const person of people) await signIn(person);
+  const startedAt = Date.now();
+  const deadline = startedAt + DURATION_S * 1_000;
+  const state = {
+    errors: 0,
+    commands: 0,
+    screens: [],
+    liveLatencies: [],
+    channelsOpened: 0,
+    channelErrors: 0,
+  };
+  const pool = { maxPending: 0, longestPendingSeconds: 0, poolReadErrors: 0 };
+  const workerPool = { maxActive: 0, maxPending: 0, maxAcquireS: 0, readErrors: 0 };
+  const memory = { maxMemoryMb: {} };
+  const apiBefore = await prometheus();
+  const before = Object.fromEntries(U5_ROUTES.map((route) => [route, routeBuckets(apiBefore, route)]));
+  await Promise.all([
+    ...people.map((person, i) => u5User(i, deadline, person, state)),
+    ...people.map((person) => u5Channel(person, deadline, state)),
+    watchPool(deadline, pool),
+    watchWorkerPool(deadline, workerPool),
+    watchMemory(deadline, memory),
+  ]);
+  const apiAfter = await prometheus();
+  const worker = await (await fetch(`${WORKER_MANAGEMENT}/actuator/prometheus`)).text();
+  const lines = await stopwatchLines();
+  const report = {
+    scenario: 'u5',
+    date: new Date().toISOString().slice(0, 10),
+    people: people.length,
+    durationSeconds: DURATION_S,
+    preparationSeconds,
+    seed,
+    cycle: timerP95(worker, 'loadtest_bots_cycle_seconds'),
+    gate: timerP95(worker, 'loadtest_bots_gate_seconds'),
+    stopwatch: {
+      lines: lines.length,
+      maxTotalMs: Math.max(0, ...lines.map((l) => l.totalMs)),
+      failed: lines.filter((l) => l.kind === 'FAILED').length,
+    },
+    routes: Object.fromEntries(
+      U5_ROUTES.map((route) => [route, p95Between(before[route], routeBuckets(apiAfter, route))]),
+    ),
+    screen: percentile95(state.screens),
+    screens: state.screens.length,
+    live: percentile95(state.liveLatencies),
+    liveSamples: state.liveLatencies.length,
+    channelsOpened: state.channelsOpened,
+    channelErrors: state.channelErrors,
+    commands: state.commands,
+    errors: state.errors,
+    database: await u5Database(startedAt),
+    pool,
+    workerPool,
+    maxMemoryMb: memory.maxMemoryMb,
+  };
+  const db = report.database;
+  report.failures = [
+    ...[
+      ['p95 cycle', report.cycle, U5_LIMITS.cycleS],
+      ['p95 barrier plus execution', report.gate, U5_LIMITS.gateS],
+      ['p95 S5 screen', report.screen, U5_LIMITS.screenS],
+      ['p95 live channel', report.live, U5_LIMITS.liveS],
+      ...Object.entries(report.routes).map(([route, p95]) => [`p95 ${route}`, p95, U5_LIMITS.routesS]),
+    ]
+      .filter(([, value, limit]) => value === null || value > limit)
+      .map(([name]) => name),
+    ...(db.checked && db.staleDecisions > 0 ? ['decisions for stale data'] : []),
+    ...(db.checked && db.slices < Math.floor(DURATION_S / 300) ? ['fewer completed slices than expected'] : []),
+    ...(report.stopwatch.failed > 0 ? ['failed cycles'] : []),
+    ...(workerPool.maxActive > U5_LIMITS.maxConnections ? ['worker pool above 14 connections'] : []),
+    ...(workerPool.maxAcquireS > U5_LIMITS.acquireS ? ['worker pool wait above 1 s'] : []),
+    ...(pool.longestPendingSeconds > 10 ? ['api pool wait'] : []),
+    ...(state.errors > 0 ? ['client errors'] : []),
+    ...Object.entries(memory.maxMemoryMb)
+      .filter(([, mb]) => mb > MEMORY_LIMIT_MB)
+      .map(([name]) => `memory ${name}`),
+  ];
+  report.passed = report.failures.length === 0;
+  writeFileSync('load-test-report.json', JSON.stringify(report, null, 2));
+  mkdirSync('docs/perf', { recursive: true });
+  writeFileSync(`docs/perf/u5-bots-decision-${report.date}.md`, u5Markdown(report));
+  console.warn(JSON.stringify(report));
+  process.exit(report.passed ? 0 : 1);
+}
+
+if (SCENARIO === 'u5') {
+  await runU5();
 }
 
 const state = { token: await login(), errors: 0, mints: new Set() };

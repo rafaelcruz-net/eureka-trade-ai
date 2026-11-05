@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
  * (NFR9.7), never a person, a bot or a value; the same count reaches the health indicator {@code ledgerJobs}.
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class ReconciliationJob {
 
     private static final Logger log = LoggerFactory.getLogger(ReconciliationJob.class);

@@ -55,6 +55,7 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code Retry-After}); the reads have no limit.
  */
 @RestController
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class PnlController {
 
     private final PnlQueryService pnl;

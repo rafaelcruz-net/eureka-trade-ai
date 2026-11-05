@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Profile("loadtest")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoadtestRiskPurgeTrigger {
 
     private static final Logger log = LoggerFactory.getLogger(LoadtestRiskPurgeTrigger.class);

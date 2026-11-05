@@ -31,6 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Component
 @Profile("loadtest")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoadtestLedgerSeed {
 
     /** Initial virtual balance per bot, USDC scale 6: enough for every fee of the seed and of the cycles. */

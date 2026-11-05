@@ -54,6 +54,7 @@ import org.springframework.web.bind.annotation.RestController;
 /** Guest authentication routes of contract C1. */
 @RestController
 @RequestMapping("/api/v1/auth")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AuthController {
 
     private final ChallengeService challenges;

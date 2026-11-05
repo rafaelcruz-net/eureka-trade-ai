@@ -26,6 +26,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Component
 @Order(FilterOrder.ADMIN_ROUTE)
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AdminRouteFilter extends OncePerRequestFilter {
 
     private final AuthContext auth;

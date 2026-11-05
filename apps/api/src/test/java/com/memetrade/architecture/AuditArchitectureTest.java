@@ -48,6 +48,13 @@ class AuditArchitectureTest {
             .doNotHaveFullyQualifiedName(SessionService.class.getName())
             .and()
             .doNotHaveFullyQualifiedName(Principal.class.getName())
+            // U5 (security-design.md, BR2.10, BR3.6): the worker jobs act as the OWNER of the bot, a principal built
+            // from the bot row itself (tenant, person, BETA_USER) and bound by the production cycle context; never
+            // from a request. These two value types are the only place of U5 that builds it.
+            .and()
+            .doNotHaveFullyQualifiedName("com.memetrade.bots.domain.Bot")
+            .and()
+            .doNotHaveFullyQualifiedName("com.memetrade.bots.domain.BotRef")
             .should()
             .callConstructorWhere(new DescribedPredicate<JavaConstructorCall>("a constructor of Principal") {
                 @Override

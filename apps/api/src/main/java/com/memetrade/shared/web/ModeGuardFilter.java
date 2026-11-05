@@ -23,6 +23,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  */
 @Component
 @Order(FilterOrder.MODE_GUARD)
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class ModeGuardFilter extends OncePerRequestFilter {
 
     static final String PAPER = "PAPER";

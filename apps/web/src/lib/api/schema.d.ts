@@ -89,6 +89,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/bots': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Bots da pessoa por estado, inclusive rascunhos, com o contador de ativos (FR7.7) */
+    get: operations['listBots'];
+    put?: never;
+    /** Cria o rascunho (DRAFT) a partir de uma estratégia modelo (BR1.1) */
+    post: operations['createBot'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/bots/{botId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Um bot da pessoa com o rascunho e os limites vigentes (AC4.4.1, BR6.2) */
+    get: operations['getBot'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/bots/{botId}/commands/{command}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Comandos de ciclo de vida: start, pause, resume e stop (BR2.2 a BR2.7) */
+    post: operations['runBotCommand'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/bots/{botId}/day-usage': {
     parameters: {
       query?: never;
@@ -100,6 +152,57 @@ export interface paths {
     get: operations['getBotDayUsage'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/bots/{botId}/decisions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Decisões explicadas do bot, mais novas primeiro (US4.5) */
+    get: operations['listBotDecisions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/bots/{botId}/draft': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Salva a etapa do assistente (AC4.1.3) */
+    put: operations['saveBotDraft'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/bots/{botId}/limits': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Nova versão dos limites, válida só para operações futuras (US4.9) */
+    post: operations['changeBotLimits'];
     delete?: never;
     options?: never;
     head?: never;
@@ -242,6 +345,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/strategy-templates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Estratégias modelo com parâmetros, padrões e faixas (FR7.1) */
+    get: operations['listStrategyTemplates'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/stream/dashboard': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Server-Sent Events do painel: bot.state, trade.recorded, pnl.updated, data.status, heartbeat e auth.expired (FR12.2) */
+    get: operations['openDashboardStream'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/tokens/{chain}/{mint}/assessment': {
     parameters: {
       query?: never;
@@ -332,6 +469,81 @@ export interface components {
        */
       status: 'AVAILABLE';
     };
+    BotDetail: {
+      /** Format: date-time */
+      activatedAt?: string;
+      /** Format: uuid */
+      botId: string;
+      /** Format: int32 */
+      draftStep: number;
+      limits?: components['schemas']['BotLimits'];
+      /** Format: int32 */
+      limitsVersion?: number;
+      mode: string;
+      name: string;
+      parameters: {
+        [key: string]: string;
+      };
+      pauseReasons: string[];
+      /** Format: date-time */
+      resumesAt?: string;
+      state: string;
+      /** Format: date-time */
+      stoppedAt?: string;
+      templateId: string;
+      templateVersion: string;
+      tokenSelection: components['schemas']['TokenSelection'];
+      /** Format: date-time */
+      updatedAt: string;
+      virtualBalance?: string;
+    };
+    BotLimits: {
+      maxDailyLoss: string;
+      /** @description Percentual */
+      maxDrawdown: string;
+      maxOrderSize: string;
+      /** @description Percentual */
+      maxSlippage: string;
+      maxTokenExposure: string;
+      maxTotalExposure: string;
+      /** Format: int64 */
+      minIntervalSeconds: number;
+      minLiquidity: string;
+    };
+    BotPage: {
+      /** Format: int64 */
+      activeCount: number;
+      /** Format: int32 */
+      activeLimit: number;
+      items: components['schemas']['BotSummary'][];
+      nextCursor: string | null;
+    };
+    BotSummary: {
+      /** Format: uuid */
+      botId: string;
+      /** Format: int32 */
+      draftStep?: number;
+      /** Format: int32 */
+      limitsVersion?: number;
+      /** @enum {string} */
+      mode: 'PAPER';
+      name: string;
+      pauseReasons: (
+        | 'PERSON'
+        | 'DAILY_LOSS'
+        | 'DRAWDOWN'
+        | 'SYSTEM'
+        | 'ADMIN_RELEASED'
+        | 'WAITING_ACTIVE_SLOT'
+      )[];
+      /** Format: date-time */
+      resumesAt?: string;
+      /** @enum {string} */
+      state: 'DRAFT' | 'VALIDATED' | 'ACTIVE' | 'PAUSED' | 'CLOSING_PENDING' | 'STOPPED';
+      templateId?: string;
+      /** Format: date-time */
+      updatedAt?: string;
+    };
     ChallengeRequest: {
       /** @description Endereço público Solana */
       walletAddress: string;
@@ -353,6 +565,10 @@ export interface components {
       /** Format: int32 */
       total: number;
     };
+    CreateBotRequest: {
+      name: string;
+      templateId: string;
+    };
     /** @description Uso do dia UTC; os limites vêm da U5 na tela (BR7.5) */
     DayUsage: {
       dayLoss: string;
@@ -360,11 +576,86 @@ export interface components {
       /** Format: date */
       utcDay: string;
     };
+    Decision: {
+      /** @enum {string} */
+      action: 'BUY' | 'SELL' | 'HOLD' | 'NO_TRADE';
+      chain?: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      cycleId: string;
+      /** Format: uuid */
+      decisionId: string;
+      /** @enum {string} */
+      exitReason?: 'TAKE_PROFIT' | 'STOP_LOSS' | 'MAX_HOLD' | 'RANGE_EXIT';
+      factors: components['schemas']['DecisionFactor'][];
+      inputs: components['schemas']['DecisionInput'][];
+      /** Format: int64 */
+      limitsVersion: number;
+      /** @enum {string} */
+      noTradeReason?:
+        | 'UNKNOWN_DATA'
+        | 'STALE_DATA'
+        | 'INSUFFICIENT_HISTORY'
+        | 'ASSESSMENT_UNAVAILABLE'
+        | 'NO_POSITION_TO_SELL'
+        | 'RISK_BAND_HIGH'
+        | 'NO_SIGNAL'
+        | 'NO_TOKENS'
+        | 'QUANTITY_BELOW_MINIMUM';
+      requestedQuantity?: string;
+      strategyVersion: string;
+      summary: string;
+      tokenMint?: string;
+      /** Format: date-time */
+      validUntil: string;
+    };
+    DecisionFactor: {
+      label?: string;
+      name: string;
+      satisfied: boolean;
+      threshold?: string;
+      token: components['schemas']['TokenRef'];
+      value: components['schemas']['FactorValue'];
+    };
+    DecisionInput: {
+      observedAt?: string;
+      reason?: string;
+      source?: components['schemas']['DecisionSource'];
+      stale?: boolean;
+      /** @enum {string} */
+      status: 'KNOWN' | 'UNKNOWN';
+      value?: string;
+    };
+    DecisionPage: {
+      items: components['schemas']['Decision'][];
+      nextCursor: string | null;
+    };
+    DecisionSource: {
+      name?: string;
+      simulated?: boolean;
+      sourceId?: string;
+    };
     Divergence: {
       /** Format: date-time */
       observedAt: string;
       source: components['schemas']['SourceRef'];
       value: string;
+    };
+    DraftStepRequest: {
+      limits?: components['schemas']['BotLimits'];
+      parameters?: {
+        [key: string]: string;
+      };
+      /** Format: int32 */
+      step: number;
+      tokenSelection?: components['schemas']['TokenSelection'];
+      virtualBalance?: string;
+    };
+    FactorValue: {
+      /** @enum {string} */
+      status: 'KNOWN' | 'UNKNOWN';
+      value?: string;
     };
     FieldViolation: {
       field?: string;
@@ -723,6 +1014,37 @@ export interface components {
       /** Format: uri */
       type: string;
     };
+    StrategyParameter: {
+      default: string;
+      key: string;
+      label: string;
+      max: string;
+      min: string;
+      step: string;
+      unit: string;
+    };
+    StrategyTemplate: {
+      description: string;
+      name: string;
+      parameters: components['schemas']['StrategyParameter'][];
+      templateId: string;
+      version: string;
+    };
+    TokenRef: {
+      chain: string;
+      mint: string;
+    };
+    TokenRule: {
+      /** @enum {string} */
+      field: 'LIQUIDITY' | 'VOLUME_24H' | 'HOLDERS' | 'AGE_MINUTES' | 'RISK_SCORE';
+      /** @enum {string} */
+      operator: 'GTE' | 'LTE';
+      value: string;
+    };
+    TokenSelection: {
+      rules?: components['schemas']['TokenRule'][];
+      tokens?: components['schemas']['TokenRef'][];
+    };
     UnavailableRisk: {
       /** @enum {string} */
       reason: 'INSUFFICIENT_COVERAGE' | 'SOURCE_UNAVAILABLE';
@@ -938,6 +1260,148 @@ export interface operations {
       };
     };
   };
+  listBots: {
+    parameters: {
+      query?: {
+        state?: 'DRAFT' | 'VALIDATED' | 'ACTIVE' | 'PAUSED' | 'CLOSING_PENDING' | 'STOPPED';
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Página dos bots */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotPage'];
+        };
+      };
+      /** @description VALIDATION_FAILED */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  createBot: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateBotRequest'];
+      };
+    };
+    responses: {
+      /** @description Rascunho criado */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotSummary'];
+        };
+      };
+      /** @description VALIDATION_FAILED */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getBot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        botId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description O bot */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotDetail'];
+        };
+      };
+      /** @description NOT_FOUND: bot de outra pessoa */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  runBotCommand: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        botId: string;
+        command: 'start' | 'pause' | 'resume' | 'stop';
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Estado confirmado */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotSummary'];
+        };
+      };
+      /** @description INVALID_TRANSITION, ACTIVE_BOT_LIMIT, PAUSED_BY_SYSTEM ou DAILY_LOSS_LIMIT_REACHED */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description SERVICE_UNAVAILABLE: tentar de novo */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   getBotDayUsage: {
     parameters: {
       query?: never;
@@ -960,6 +1424,114 @@ export interface operations {
       };
       /** @description NOT_FOUND: bot de outra pessoa */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listBotDecisions: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        botId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Página das decisões */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DecisionPage'];
+        };
+      };
+      /** @description NOT_FOUND: bot de outra pessoa */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  saveBotDraft: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        botId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DraftStepRequest'];
+      };
+    };
+    responses: {
+      /** @description Etapa salva */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotSummary'];
+        };
+      };
+      /** @description LIMIT_INCOHERENT, VIRTUAL_BALANCE_ABOVE_CAP ou VALIDATION_FAILED */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  changeBotLimits: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        botId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['BotLimits'];
+      };
+    };
+    responses: {
+      /** @description Nova versão gravada */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotSummary'];
+        };
+      };
+      /** @description LIMIT_INCOHERENT */
+      422: {
         headers: {
           [name: string]: unknown;
         };
@@ -1316,6 +1888,57 @@ export interface operations {
         };
         content: {
           'application/problem+json': components['schemas']['SourceUnavailableProblem'];
+        };
+      };
+    };
+  };
+  listStrategyTemplates: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['StrategyTemplate'][];
+        };
+      };
+    };
+  };
+  openDashboardStream: {
+    parameters: {
+      query?: never;
+      header?: {
+        'Last-Event-ID'?: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fluxo de eventos do painel */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/event-stream': string;
+        };
+      };
+      /** @description UNAUTHENTICATED */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/event-stream': string;
         };
       };
     };

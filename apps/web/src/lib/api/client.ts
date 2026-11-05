@@ -27,7 +27,8 @@ export class ApiError extends Error {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST';
+  /** U5 adds PUT for the steps of the bot wizard (C4 {@code PUT /bots/{botId}/draft}). */
+  method?: 'GET' | 'POST' | 'PUT';
   body?: unknown;
   /** Adds a fresh Idempotency-Key (UUID); such requests may be retried. */
   idempotent?: boolean;

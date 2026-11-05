@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 /** Drops the limiter keys idle for more than 2 minutes, every minute, so memory stays bounded (NFR2.8). */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class ScannerRateLimitEvictionJob {
 
     private final PersonRouteRateLimiter limiter;

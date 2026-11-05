@@ -35,6 +35,7 @@ import org.springframework.web.bind.annotation.RestController;
  * (NFR6.4): authentication and pages of at most 100 items.
  */
 @RestController
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class RejectionController {
 
     static final int DEFAULT_LIMIT = 50;

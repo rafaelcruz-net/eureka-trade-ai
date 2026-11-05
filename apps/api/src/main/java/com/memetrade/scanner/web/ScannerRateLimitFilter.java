@@ -34,6 +34,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Component
 @Order(FilterOrder.RATE_LIMIT)
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class ScannerRateLimitFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(ScannerRateLimitFilter.class);

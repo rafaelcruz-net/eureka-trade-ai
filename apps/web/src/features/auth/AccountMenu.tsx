@@ -11,6 +11,9 @@ import { SignOutButton } from '@/features/auth/SignOutButton';
 export function AccountMenu() {
   return (
     <nav aria-label={messages.app.accountMenu} data-testid="app-account-menu">
+      <Link href="/bots" data-testid="app-bots-link">
+        {messages.app.bots}
+      </Link>{' '}
       <Link href="/pnl" data-testid="app-pnl-link">
         {messages.app.pnl}
       </Link>{' '}

@@ -4,7 +4,8 @@
 #                                -> "dev": database with roles and migrations, for api and web outside containers;
 #                                   run `docker compose up db-migrate` again to apply a new migration
 # Start order: postgres (healthy over TCP) -> db-bootstrap (logins and privileges, superuser) -> db-migrate
-# (Liquibase with the schema owner) -> api (application and retention logins only, never the owner) -> web.
+# (Liquibase with the schema owner) -> api (application and retention logins only, never the owner) -> web; the
+# worker (U5) starts after db-migrate and a healthy api. The only profile this file names is the worker's own.
 # This file never enables a test profile, a seeded account or a raised login limit (ComposeFilesTest checks it);
 # scripts/verify.sh adds infra/docker-compose.test.yml for the smoke test.
 name: memetrade
@@ -119,7 +120,7 @@ services:
       ADMIN_WALLET_ADDRESSES: ${ADMIN_WALLET_ADDRESSES:-}
       # U4 (infrastructure-specification.md): none is a secret; the api checks each range at start-up.
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-20}
-      SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-13}
+      SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-14}
       MARKET_SOURCES: ${MARKET_SOURCES:-sim-a,sim-b}
       MARKET_COLLECTION_INTERVAL: ${MARKET_COLLECTION_INTERVAL:-30s}
       MARKET_SIMULATED_TOKENS_PER_SOURCE: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}
@@ -144,6 +145,53 @@ services:
       timeout: 5s
       retries: 6
       start_period: 60s
+    mem_limit: 1g
+    logging: *logging
+
+  worker:
+    # U5 (C20, ADR-005, NFR10.9): the same image as the api in the worker process. It runs the bot cycle every 5-minute
+    # slot, the midnight job, the closing check and the decision purge; it has no controller and publishes NO port
+    # (8081 answers only the actuator, inside the network). It receives only what it uses: never the signing key, the
+    # app origin, the trusted proxies, the administrator wallets nor the retention login.
+    # Connections of PostgreSQL (max_connections 100 of postgres:17): api 20 + trail retention (U2) 1 + U6 retention 1
+    # + worker 14 + db-bootstrap and db-migrate at start-up 2 + 3 reserved for the superuser = 41 (ComposeFilesTest).
+    image: memetrade-api:${IMAGE_TAG:-local}
+    environment:
+      SPRING_PROFILES_ACTIVE: worker
+      MEMETRADE_PROCESS: worker
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_NAME: ${POSTGRES_DB:-memetrade}
+      DB_USER: ${DB_USER:-memetrade_app}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      DB_POOL_MAX_SIZE: '14'
+      SCHEDULER_POOL_SIZE: '4'
+      MARKET_SOURCES: ${MARKET_SOURCES:-sim-a,sim-b}
+      MARKET_COLLECTION_INTERVAL: ${MARKET_COLLECTION_INTERVAL:-30s}
+      MARKET_SIMULATED_TOKENS_PER_SOURCE: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}
+      MARKET_SIMULATED_SEED: ${MARKET_SIMULATED_SEED:-42}
+      MARKET_DIVERGENCE_TOLERANCE_PERCENT: ${MARKET_DIVERGENCE_TOLERANCE_PERCENT:-5.0000}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      api:
+        # The api collects the market data the cycle reads (U4 runs only in the api process).
+        condition: service_healthy
+    healthcheck:
+      # Liveness only: the informational botCycles indicator stays out (Q6 of the NFR Requirements).
+      test:
+        - CMD
+        - java
+        - -Dloader.main=com.memetrade.ops.HealthProbe
+        - -cp
+        - /app/app.jar
+        - org.springframework.boot.loader.launch.PropertiesLauncher
+        - http://127.0.0.1:8081/actuator/health/liveness
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+    restart: unless-stopped
     mem_limit: 1g
     logging: *logging
 

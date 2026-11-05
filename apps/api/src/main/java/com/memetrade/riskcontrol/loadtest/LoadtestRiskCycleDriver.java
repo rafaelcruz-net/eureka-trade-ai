@@ -49,6 +49,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Component
 @Profile("loadtest")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoadtestRiskCycleDriver {
 
     /** Where the preparation is; read by the health component {@code loadtestRisk}. */

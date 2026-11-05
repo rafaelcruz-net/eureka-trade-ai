@@ -37,6 +37,7 @@ import org.springframework.web.bind.annotation.RestController;
  * unknown parameter. A bot of another person is {@code 404}; a bot not yet activated is empty.
  */
 @RestController
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LedgerController {
 
     static final int DEFAULT_LIMIT = 20;

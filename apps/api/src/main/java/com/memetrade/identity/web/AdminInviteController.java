@@ -51,6 +51,7 @@ import org.springframework.web.bind.annotation.RestController;
  * the code is added to the HTTP answer only when the answer is not a replay.
  */
 @RestController
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AdminInviteController {
 
     private static final Logger log = LoggerFactory.getLogger(AdminInviteController.class);

@@ -27,10 +27,12 @@ class ComposeFilesTest {
     void theDefaultComposeFileNeverEnablesTheTestProfileTheSeedOrARaisedLimit() throws IOException {
         String compose = read("docker-compose.yml");
 
-        assertThat(compose)
+        // U5: the only profile the base file names is the worker's own, on the worker service.
+        assertThat(compose.replace("SPRING_PROFILES_ACTIVE: worker\n", ""))
                 .doesNotContain("SPRING_PROFILES_ACTIVE")
                 .doesNotContain("SMOKE_BETA_WALLET_ADDRESS")
                 .doesNotContain("LOGIN_RATE_LIMIT_PER_MINUTE");
+        assertThat(compose).doesNotContainPattern("SPRING_PROFILES_ACTIVE: .*test");
     }
 
     @Test
@@ -47,7 +49,9 @@ class ComposeFilesTest {
         Map<String, Object> services =
                 (Map<String, Object>) yaml("docker-compose.yml").get("services");
 
-        assertThat(services).containsOnlyKeys("postgres", "db-bootstrap", "db-migrate", "api", "web");
+        assertThat(services).containsOnlyKeys("postgres", "db-bootstrap", "db-migrate", "api", "worker", "web");
+        // U5 (NFR10.9): the worker publishes no port in the base file.
+        assertThat((Map<String, Object>) services.get("worker")).doesNotContainKey("ports");
         for (String oneShot : List.of("db-bootstrap", "db-migrate")) {
             Map<String, Object> service = (Map<String, Object>) services.get(oneShot);
             assertThat(service).as(oneShot).doesNotContainKey("ports").containsEntry("restart", "no");
@@ -60,9 +64,8 @@ class ComposeFilesTest {
                 continue;
             }
             Map<String, Object> service = (Map<String, Object>) entry.getValue();
-            assertThat((List<String>) service.get("ports"))
-                    .as(entry.getKey())
-                    .allMatch(port -> port.startsWith("127.0.0.1:"));
+            List<String> ports = (List<String>) service.getOrDefault("ports", List.of());
+            assertThat(ports).as(entry.getKey()).allMatch(port -> port.startsWith("127.0.0.1:"));
             assertThat(service).as(entry.getKey()).containsKeys("healthcheck", "mem_limit", "logging");
             Map<String, Object> logging = (Map<String, Object>) service.get("logging");
             assertThat(String.valueOf(logging.get("options")))
@@ -165,7 +168,8 @@ class ComposeFilesTest {
         Map<String, Object> overlay =
                 (Map<String, Object>) yaml("infra/docker-compose.test.yml").get("services");
 
-        assertThat(overlay).containsOnlyKeys("api");
+        // U5: the overlay also gives the worker the test profile and the loopback actuator port of the load scenario.
+        assertThat(overlay).containsOnlyKeys("api", "worker");
         assertThat(String.valueOf(overlay)).doesNotContain("PASSWORD").doesNotContain("DB_OWNER");
     }
 
@@ -244,7 +248,13 @@ class ComposeFilesTest {
                 "LOADTEST_U6_REJECTIONS_PER_BOT",
                 "LOADTEST_U6_HEAVY_BOT_REJECTIONS",
                 "LOADTEST_U6_OLD_APPROVED",
-                "LOADTEST_U6_PURGE_AT");
+                "LOADTEST_U6_PURGE_AT",
+                // U5 (Passo 20): the switch and the size of the bot load scenario, read only by the loadtest profile.
+                "LOADTEST_U5_ENABLED",
+                "LOADTEST_U5_DECISIONS_PER_BOT",
+                "LOADTEST_U5_PEOPLE",
+                // U5 (Passo 20): the frequent-signal scenario, accepted by the test profile only.
+                "MARKET_SIMULATED_SCENARIO");
         Matcher variables = Pattern.compile("\\$\\{([A-Z0-9_]+)")
                 .matcher(read("docker-compose.yml") + read("infra/docker-compose.test.yml"));
         java.util.Set<String> missing = new java.util.TreeSet<>();
@@ -270,8 +280,8 @@ class ComposeFilesTest {
     void everyU4VariableReachesTheApiWithItsDefaultAndIsListedInTheEnvExample() throws IOException {
         Map<String, String> defaults = new java.util.LinkedHashMap<>();
         defaults.put("DB_POOL_MAX_SIZE", "20");
-        // U7 (Passo 1): 11 since the four U7 jobs; U6 (Passo 1): 13, one per scheduled job plus the purge.
-        defaults.put("SCHEDULER_POOL_SIZE", "13");
+        // U7 (Passo 1): 11 since the four U7 jobs; U6 (Passo 1): 13, one per scheduled job plus the purge; U5: 14.
+        defaults.put("SCHEDULER_POOL_SIZE", "14");
         defaults.put("MARKET_SOURCES", "sim-a,sim-b");
         defaults.put("MARKET_COLLECTION_INTERVAL", "30s");
         defaults.put("MARKET_SIMULATED_TOKENS_PER_SOURCE", "200");
@@ -360,6 +370,86 @@ class ComposeFilesTest {
         assertThat(read("apps/api/src/main/resources/application-loadtest.yml"))
                 .contains("${LOADTEST_U6_ENABLED:false}")
                 .contains("${LOADTEST_U6_PURGE_AT:300s}");
+    }
+
+    // ----- U5 (infrastructure-specification.md "Serviço worker no Compose", NFR10.9, NFR2.4) -----
+
+    /** The worker: same image, worker profile and process, only the variables it uses, liveness probe, restart. */
+    @Test
+    @Tag("u5")
+    @SuppressWarnings("unchecked")
+    void theWorkerRunsTheSameImageWithOnlyTheVariablesItUses() throws IOException {
+        for (Map<String, Map<String, Object>> services : List.of(services(false), services(true))) {
+            Map<String, Object> worker = services.get("worker");
+            Map<String, Object> environment = environment(services, "worker");
+
+            assertThat(worker.get("image")).isEqualTo(services.get("api").get("image"));
+            assertThat(environment)
+                    .doesNotContainKeys(
+                            "ACCESS_TOKEN_SIGNING_KEY",
+                            "GUEST_APP_ORIGIN",
+                            "TRUSTED_PROXIES",
+                            "ADMIN_WALLET_ADDRESSES",
+                            "DB_RETENTION_USER",
+                            "DB_RETENTION_PASSWORD",
+                            "DB_OWNER_USER",
+                            "DB_OWNER_PASSWORD",
+                            "POSTGRES_PASSWORD")
+                    .containsKeys("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD", "MARKET_SOURCES");
+            assertThat(String.valueOf(environment.get("MEMETRADE_PROCESS"))).isEqualTo("worker");
+            assertThat(String.valueOf(environment.get("DB_POOL_MAX_SIZE"))).isEqualTo("14");
+            assertThat(String.valueOf(environment.get("SCHEDULER_POOL_SIZE"))).isEqualTo("4");
+            assertThat(String.valueOf(environment.get("SPRING_PROFILES_ACTIVE")))
+                    .endsWith("worker");
+            assertThat(dependsOn(services, "worker"))
+                    .containsEntry("db-migrate", "service_completed_successfully")
+                    .containsEntry("api", "service_healthy");
+            assertThat(worker).containsEntry("restart", "unless-stopped").containsEntry("mem_limit", "1g");
+            Map<String, Object> healthcheck = (Map<String, Object>) worker.get("healthcheck");
+            assertThat(String.valueOf(healthcheck.get("test")))
+                    .contains("com.memetrade.ops.HealthProbe")
+                    .contains("http://127.0.0.1:8081/actuator/health/liveness");
+            assertThat(healthcheck)
+                    .containsEntry("interval", "10s")
+                    .containsEntry("timeout", "5s")
+                    .containsEntry("retries", 6)
+                    .containsEntry("start_period", "60s");
+        }
+    }
+
+    /** Only the test overlay publishes the worker actuator, on loopback 8082, and adds the test profile. */
+    @Test
+    @Tag("u5")
+    @SuppressWarnings("unchecked")
+    void onlyTheTestOverlayPublishesTheWorkerPortOnLoopback() throws IOException {
+        assertThat(services(false).get("worker")).doesNotContainKey("ports");
+        Map<String, Object> worker = services(true).get("worker");
+
+        assertThat((List<String>) worker.get("ports")).containsExactly("127.0.0.1:8082:8081");
+        assertThat(String.valueOf(environment(services(true), "worker").get("SPRING_PROFILES_ACTIVE")))
+                .isEqualTo("${SPRING_PROFILES_ACTIVE:-test},worker");
+        assertThat(String.valueOf(environment(services(true), "api").get("LOADTEST_U5_ENABLED")))
+                .isEqualTo("${LOADTEST_U5_ENABLED:-false}");
+        assertThat(read("docker-compose.yml")).doesNotContain("8082").doesNotContain("LOADTEST_U5_");
+    }
+
+    /** NFR2.4: the connection tally written in docker-compose.yml fits the max_connections of postgres:17 (100). */
+    @Test
+    @Tag("u5")
+    void theConnectionTallyFitsTheDatabaseLimit() throws IOException {
+        int api = 20;
+        int trailRetention = 1;
+        int riskRetention = 1;
+        int worker = 14;
+        int startUp = 2;
+        int superuserReserved = 3;
+        int total = api + trailRetention + riskRetention + worker + startUp + superuserReserved;
+
+        assertThat(total).isEqualTo(41).isLessThanOrEqualTo(100);
+        assertThat(read("docker-compose.yml"))
+                .contains("api 20 + trail retention (U2) 1 + U6 retention 1")
+                .contains(
+                        "+ worker 14 + db-bootstrap and db-migrate at start-up 2 + 3 reserved for the superuser = 41");
     }
 
     /** Merged view of the services: the base file, and with {@code overlay} the test overlay merged on top. */

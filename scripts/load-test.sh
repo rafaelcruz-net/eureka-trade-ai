@@ -82,9 +82,26 @@ case "$LOAD_SCENARIO" in
     export LOADTEST_CYCLE_BOTS=60 LOADTEST_TOKENS_PER_BOT="${LOADTEST_TOKENS_PER_BOT:-5}" LOADTEST_CLOSE_BOTS=0
     export LOADTEST_U6_ENABLED=true
     ;;
-  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs or u6" >&2; exit 1 ;;
+  # U5 (cicd-pipeline.md): u5 runs api and worker with test,loadtest (the worker adds its own profile in the overlay).
+  # load-test.mjs signs 20 people in and makes 3 ACTIVE bots each through the real C4 routes; the bot seed of the api
+  # then writes 20000 decisions on one bot of each person and the worker cycles run with the stopwatch of the loadtest
+  # profile, over the frequent-signal scenario of the simulated source, for 30 minutes (6 slices). The ledger load of
+  # U7 stays at 0 (the cycles are those of the worker), so the people are counted by LOADTEST_U5_PEOPLE.
+  u5)
+    export MARKET_SIMULATED_TOKENS_PER_SOURCE="${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}" DURATION_S="${DURATION_S:-1800}"
+    export LOADTEST_U5_ENABLED=true LOADTEST_U5_PEOPLE="${LOADTEST_U5_PEOPLE:-20}"
+    export LOADTEST_U5_DECISIONS_PER_BOT="${LOADTEST_U5_DECISIONS_PER_BOT:-20000}"
+    export MARKET_SIMULATED_SCENARIO=FREQUENT_SIGNALS
+    ;;
+  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs, u6 or u5" >&2; exit 1 ;;
 esac
 case "$LOAD_SCENARIO" in
+  u5)
+    # As in u7: one throw-away invitation per person besides the smoke account, never written to a file.
+    SMOKE_INVITE_CODES="$(node -e "const c=require('node:crypto');console.log(Array.from({length:Math.max(0,Number(process.env.LOADTEST_U5_PEOPLE)-1)},()=>c.randomBytes(32).toString('base64url')).join(','))")"
+    export SMOKE_INVITE_CODES USERS="${USERS:-$LOADTEST_U5_PEOPLE}"
+    export LOADTEST_LEDGER_PEOPLE=0 LOADTEST_FILLS_PER_PERSON=0 LOADTEST_CYCLE_BOTS=0 LOADTEST_CLOSE_BOTS=0
+    ;;
   u7 | u7-jobs | u6)
     # One throw-away invitation per person besides the smoke account, never written to a file (as in u3).
     SMOKE_INVITE_CODES="$(node -e "const c=require('node:crypto');console.log(Array.from({length:Math.max(0,Number(process.env.LOADTEST_LEDGER_PEOPLE)-1)},()=>c.randomBytes(32).toString('base64url')).join(','))")"
@@ -95,12 +112,20 @@ case "$LOAD_SCENARIO" in
 esac
 # Only u6 runs the load risk driver of U6.
 [ "$LOAD_SCENARIO" = "u6" ] || export LOADTEST_U6_ENABLED=false
+# Only u5 runs the bot seed and the cycle stopwatch, over the frequent-signal scenario.
+if [ "$LOAD_SCENARIO" != "u5" ]; then
+  export LOADTEST_U5_ENABLED=false MARKET_SIMULATED_SCENARIO=STANDARD
+fi
 export SCANNER_RATE_LIMIT_PER_MINUTE="${SCANNER_RATE_LIMIT_PER_MINUTE:-10000}" LOAD_SCENARIO
 
 "${COMPOSE[@]}" up -d --build --wait --wait-timeout 300
 API_CONTAINER="$("${COMPOSE[@]}" ps -q api)"
 POSTGRES_CONTAINER="$("${COMPOSE[@]}" ps -q postgres)"
+# U5: the worker container (docker stats, JSON logs of the stopwatch) and its actuator, published on loopback 8082
+# by the test overlay only.
+WORKER_CONTAINER="$("${COMPOSE[@]}" ps -q worker)"
 SMOKE_WALLET_FILE="$KEY_FILE" API_BASE_URL="http://127.0.0.1:8080" \
   API_CONTAINER="$API_CONTAINER" POSTGRES_CONTAINER="$POSTGRES_CONTAINER" \
+  WORKER_CONTAINER="$WORKER_CONTAINER" WORKER_MANAGEMENT_URL="http://127.0.0.1:8082" \
   DB_SUPERUSER="$POSTGRES_USER" DB_NAME="${POSTGRES_DB:-memetrade}" COMPOSE_LOGS_SERVICE=api \
   node scripts/load/load-test.mjs

@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/invites")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class InviteLookupController {
 
     static final String ROUTE = "/api/v1/invites/{code}";

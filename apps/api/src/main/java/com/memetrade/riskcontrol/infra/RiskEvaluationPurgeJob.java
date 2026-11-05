@@ -32,6 +32,7 @@ import org.springframework.stereotype.Component;
  * </ol>
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class RiskEvaluationPurgeJob {
 
     private static final Logger log = LoggerFactory.getLogger(RiskEvaluationPurgeJob.class);

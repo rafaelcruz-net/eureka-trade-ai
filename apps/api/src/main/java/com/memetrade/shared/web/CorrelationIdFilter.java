@@ -14,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 /** Reads or generates {@code X-Correlation-Id}, puts it in the MDC and returns it on every response. */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class CorrelationIdFilter extends OncePerRequestFilter {
 
     @Override

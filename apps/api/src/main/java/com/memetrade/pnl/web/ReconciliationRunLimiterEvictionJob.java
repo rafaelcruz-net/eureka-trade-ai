@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 /** Drops the "check now" limiter keys idle for more than 2 minutes, every minute (NFR6.5); no customer data. */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class ReconciliationRunLimiterEvictionJob {
 
     private final ReconciliationRunLimiter limiter;

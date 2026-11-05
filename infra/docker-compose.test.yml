@@ -11,6 +11,10 @@
 # read only by application-loadtest.yml and default to 0, so the driver does nothing in the smoke and the e2e run.
 # U6: the LOADTEST_U6_* values switch on and size the load risk driver of the loadtest profile (scenario u6); it is off
 # unless LOADTEST_U6_ENABLED is true, so the smoke and the e2e run never seed nor evaluate anything.
+# U5: LOADTEST_U5_ENABLED switches on the bot seed of the api and the cycle stopwatch of the worker (scenario u5);
+# LOADTEST_U5_DECISIONS_PER_BOT sizes the decisions seeded in one bot per person and LOADTEST_U5_PEOPLE the people
+# (the ledger load of U7 stays at 0 in u5). MARKET_SIMULATED_SCENARIO=FREQUENT_SIGNALS (u5 only) is read by the test
+# profile alone. Off and STANDARD by default.
 services:
   api:
     environment:
@@ -30,3 +34,16 @@ services:
       LOADTEST_U6_HEAVY_BOT_REJECTIONS: ${LOADTEST_U6_HEAVY_BOT_REJECTIONS:-80000}
       LOADTEST_U6_OLD_APPROVED: ${LOADTEST_U6_OLD_APPROVED:-200000}
       LOADTEST_U6_PURGE_AT: ${LOADTEST_U6_PURGE_AT:-300s}
+      LOADTEST_U5_ENABLED: ${LOADTEST_U5_ENABLED:-false}
+      LOADTEST_U5_DECISIONS_PER_BOT: ${LOADTEST_U5_DECISIONS_PER_BOT:-20000}
+      LOADTEST_U5_PEOPLE: ${LOADTEST_U5_PEOPLE:-20}
+      MARKET_SIMULATED_SCENARIO: ${MARKET_SIMULATED_SCENARIO:-STANDARD}
+  # U5: the worker with the same test profile plus its own; the seeds of the test profile never run here
+  # (@ProcessRole(API)). ONLY this overlay publishes the worker actuator, on loopback 8082, for the load scenario u5
+  # (botCycles, Hikari metrics); the base file publishes no worker port (ComposeFilesTest).
+  worker:
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-test},worker
+      LOADTEST_U5_ENABLED: ${LOADTEST_U5_ENABLED:-false}
+    ports:
+      - '127.0.0.1:8082:8081'

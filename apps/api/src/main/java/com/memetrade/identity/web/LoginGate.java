@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 /** Applies the login limits to challenge and verification and answers 429 with Retry-After (BR1.11). */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoginGate {
 
     private static final Logger log = LoggerFactory.getLogger(LoginGate.class);

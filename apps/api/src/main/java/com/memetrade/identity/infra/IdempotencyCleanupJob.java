@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 /** Hourly cleanup of expired idempotency records in batches of up to 1,000 (reliability-design.md). */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class IdempotencyCleanupJob {
 
     private static final Logger log = LoggerFactory.getLogger(IdempotencyCleanupJob.class);

@@ -28,6 +28,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * never deleted: other Units reference them; a token without a recent observation simply leaves the list.
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class MarketHistoryCleanup {
 
     private static final Logger log = LoggerFactory.getLogger(MarketHistoryCleanup.class);

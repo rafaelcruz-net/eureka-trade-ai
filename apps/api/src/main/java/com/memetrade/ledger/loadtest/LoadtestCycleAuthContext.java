@@ -26,6 +26,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Primary
 @Profile("loadtest")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoadtestCycleAuthContext implements AuthContext {
 
     private static final ThreadLocal<Principal> CYCLE = new ThreadLocal<>();

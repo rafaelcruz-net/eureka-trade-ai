@@ -36,6 +36,7 @@ import org.springframework.web.bind.annotation.RestController;
  * state of the sources (BR1.4). Authentication, the role rule and the per-person rate limit run before (filters).
  */
 @RestController
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class ScannerController {
 
     private final ScannerService scanner;

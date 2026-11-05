@@ -26,7 +26,21 @@ public enum IdempotentOperation {
      * U7 (BR8.3): "check now" of the reconciliation, {@code POST /api/v1/reconciliation/run}. Added beyond the plan
      * because every POST takes an Idempotency-Key and project.md asks for the common mechanism in every new Unit.
      */
-    RECONCILIATION_RUN("pnl.reconciliation.run", Retention.DEFAULT);
+    RECONCILIATION_RUN("pnl.reconciliation.run", Retention.DEFAULT),
+    /** U5 (BR1.1): creation of a bot draft, {@code POST /api/v1/bots}. */
+    BOT_CREATE("bots.create", Retention.DEFAULT),
+    /** U5 (BR1.1): one accepted step of the wizard, {@code PUT /api/v1/bots/{botId}/draft}. */
+    BOT_DRAFT_SAVE("bots.draft-save", Retention.DEFAULT),
+    /** U5 (BR2.2, AC4.3.3): start; the same key gives one transition and one BOT_STARTED event. */
+    BOT_START("bots.start", Retention.DEFAULT),
+    /** U5 (BR2.3, AC4.8.3): pause by the owner. */
+    BOT_PAUSE("bots.pause", Retention.DEFAULT),
+    /** U5 (BR2.4): resume by the owner. */
+    BOT_RESUME("bots.resume", Retention.DEFAULT),
+    /** U5 (BR2.7): stop with the closing of the positions. */
+    BOT_STOP("bots.stop", Retention.DEFAULT),
+    /** U5 (BR5.1): a new version of the limits. */
+    BOT_LIMITS("bots.limits", Retention.DEFAULT);
 
     public enum Retention {
         DEFAULT,

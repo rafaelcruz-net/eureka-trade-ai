@@ -1,0 +1,39 @@
+# U5 (infrastructure-specification.md, C20, NFR10.9): the worker process. Same image as the api, started by the
+# worker service of docker-compose.yml with SPRING_PROFILES_ACTIVE=worker and MEMETRADE_PROCESS=worker. It runs the
+# bot cycle, the midnight job, the closing check and the decision purge; it has no controller, no request filter and
+# no web secret (the @ProcessRole(API) beans do not exist here). Port 8081 serves only the actuator.
+spring:
+  datasource:
+    hikari:
+      # scalability-design.md: 4 cycles, 4 reserve for writes of other Units inside the cycle, 6 for the jobs.
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:14}
+      minimum-idle: 2
+      connection-timeout: 5000
+      pool-name: memetrade-worker-pool
+  task:
+    scheduling:
+      # Slot dispatch, midnight, closing check and decision purge (RuntimeSettingsGuard: 4 to 8 in the worker).
+      pool:
+        size: ${SCHEDULER_POOL_SIZE:4}
+
+server:
+  # The embedded server has no controller in the worker; the management port is the only one that answers.
+  port: 8081
+
+management:
+  server:
+    port: 8081
+  endpoint:
+    health:
+      group:
+        # The informational botCycles indicator stays out of liveness and readiness (Q6 of the NFR Requirements).
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db
+
+memetrade:
+  process: ${MEMETRADE_PROCESS:worker}
+  bots:
+    scheduler:
+      enabled: true

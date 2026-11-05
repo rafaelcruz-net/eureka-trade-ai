@@ -37,6 +37,19 @@ routes:
   # Every bot without an evaluation of the caller (another person's, another tenant's, unknown, never evaluated or
   # purged) is the same 404 (negative test).
   - { method: GET, path: '/api/v1/bots/{botId}/rejections', scope: CLIENT, negativeTest: com.memetrade.riskcontrol.RejectionRoutesIT#anotherPersonsEvaluatedBotIsNotFound }
+  # U5 (C4, BR2.10, NFR5.1): the bots of the caller; tenant and person from the token in every query and command. A
+  # bot of another person, of the same or another tenant, is 404 on every route (negative test). The templates are
+  # the same for everybody (no customer data).
+  - { method: GET, path: /api/v1/strategy-templates, scope: GLOBAL }
+  - { method: GET, path: /api/v1/bots, scope: CLIENT, negativeTest: com.memetrade.bots.web.BotRoutesIT#anotherPersonsBotIsNotFoundOnEveryRoute }
+  - { method: POST, path: /api/v1/bots, scope: CLIENT, negativeTest: com.memetrade.bots.web.BotRoutesIT#anotherPersonsBotIsNotFoundOnEveryRoute }
+  - { method: GET, path: '/api/v1/bots/{botId}', scope: CLIENT, negativeTest: com.memetrade.bots.web.BotRoutesIT#anotherPersonsBotIsNotFoundOnEveryRoute }
+  - { method: PUT, path: '/api/v1/bots/{botId}/draft', scope: CLIENT, negativeTest: com.memetrade.bots.web.BotRoutesIT#anotherPersonsBotIsNotFoundOnEveryRoute }
+  - { method: POST, path: '/api/v1/bots/{botId}/commands/{command}', scope: CLIENT, negativeTest: com.memetrade.bots.web.BotRoutesIT#anotherPersonsBotIsNotFoundOnEveryRoute }
+  - { method: POST, path: '/api/v1/bots/{botId}/limits', scope: CLIENT, negativeTest: com.memetrade.bots.web.BotRoutesIT#anotherPersonsBotIsNotFoundOnEveryRoute }
+  - { method: GET, path: '/api/v1/bots/{botId}/decisions', scope: CLIENT, negativeTest: com.memetrade.bots.web.BotRoutesIT#anotherPersonsBotIsNotFoundOnEveryRoute }
+  # U5 (C7, BR8.2): the live channel of the caller; every event is read with the scope of the channel's own person.
+  - { method: GET, path: /api/v1/stream/dashboard, scope: CLIENT, negativeTest: com.memetrade.bots.web.DashboardStreamIT#aChannelNeverReceivesAnEventOfAnotherPerson }
 jobs:
   - { name: AuditRelayJob, scope: GLOBAL }
   # U2 retention purge and outbox cleanup: system jobs over the whole trail, no tenant input (BR3.1 to BR3.4).
@@ -58,3 +71,10 @@ jobs:
   # U6: daily purge of approved evaluations older than 30 days without a rejection citing them, through the retention
   # pool; the only U6 task across tenants: it reads no tenant input, returns nothing per person and logs only totals.
   - { name: RiskEvaluationPurgeJob, scope: GLOBAL }
+  # U5 (C20, BR2.10): the worker schedules (slot dispatch with the closing check, UTC midnight, decision purge). Each
+  # cycle and change reads tenant and person FROM THE BOT ROW, binds that owner as the principal before U6 and U7 and
+  # never mixes people in a query (two-tenant test below).
+  - { name: BotSchedules, scope: CLIENT, negativeTest: com.memetrade.bots.worker.CycleIT#twoTenantsInTheSameSlotNeverMix }
+  # U5 (C7, performance-design.md): the single mark reader of the api; one query of marks for the explicit pairs of the
+  # open channels, then the details of each channel's own person only.
+  - { name: DashboardMarkPoller, scope: CLIENT, negativeTest: com.memetrade.bots.web.DashboardStreamIT#aChannelNeverReceivesAnEventOfAnotherPerson }

@@ -29,6 +29,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * carry counts and identifiers only (NFR9.4).
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class EquityMarkingJob {
 
     private static final Logger log = LoggerFactory.getLogger(EquityMarkingJob.class);

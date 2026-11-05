@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
  * the route and job registry.
  */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoginLimiterEvictionJob {
 
     private final LoginRateLimiter limiter;

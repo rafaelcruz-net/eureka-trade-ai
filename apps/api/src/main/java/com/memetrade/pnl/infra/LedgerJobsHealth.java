@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
  * instant of the last round of each job and the NUMBER of people with divergences, never a person or a value.
  */
 @Component("ledgerJobsHealthIndicator")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LedgerJobsHealth implements HealthIndicator {
 
     static final int LATE_AFTER_INTERVALS = 3;

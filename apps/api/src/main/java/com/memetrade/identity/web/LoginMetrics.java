@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 /** IdentityAccess metrics (observability-design.md); labels never carry an address, token or person id. */
 @Component
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoginMetrics {
 
     private final MeterRegistry registry;

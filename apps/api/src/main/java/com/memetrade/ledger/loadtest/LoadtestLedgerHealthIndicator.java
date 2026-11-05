@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Profile("loadtest")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoadtestLedgerHealthIndicator implements HealthIndicator {
 
     private final LoadtestCycleDriver driver;

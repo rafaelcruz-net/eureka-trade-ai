@@ -45,7 +45,14 @@ const config = [
   {
     // U7 (cicd-pipeline.md, project.md): money, quantities, prices and P&L are DecimalString from the API to the screen
     // and are never converted to a JavaScript number (floating point). Calendar parts use parseInt with radix 10.
-    files: ['src/features/pnl/**/*.{ts,tsx}', 'src/app/pnl/**/*.{ts,tsx}'],
+    // U5 (code-generation plan Step 18): the bot screens follow the same rule for balances, limits and parameters;
+    // the only integer is the interval in seconds, read with parseInt and radix 10.
+    files: [
+      'src/features/pnl/**/*.{ts,tsx}',
+      'src/app/pnl/**/*.{ts,tsx}',
+      'src/features/bots/**/*.{ts,tsx}',
+      'src/app/bots/**/*.{ts,tsx}',
+    ],
     rules: {
       'react/no-danger': 'error',
       'no-restricted-globals': [

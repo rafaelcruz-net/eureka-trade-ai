@@ -44,6 +44,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Profile("loadtest")
+@com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class LoadtestCycleDriver {
 
     /** Where the preparation is; read by the health component {@code loadtestLedger}. */
