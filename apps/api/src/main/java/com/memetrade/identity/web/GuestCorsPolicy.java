@@ -35,7 +35,9 @@ public final class GuestCorsPolicy {
     private static CorsConfiguration configuration(String origin, boolean credentials) {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(origin));
-        config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        // The cookie routes take only POST; the bearer routes also take the PUT of the bot draft (U5, F2).
+        config.setAllowedMethods(
+                credentials ? List.of("GET", "POST", "OPTIONS") : List.of("GET", "POST", "PUT", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-Id"));
         config.setExposedHeaders(List.of("X-Correlation-Id", "Retry-After"));
         config.setAllowCredentials(credentials);

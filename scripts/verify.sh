@@ -11,6 +11,8 @@ cd "$ROOT"
 COMPOSE=(docker compose -f docker-compose.yml -f infra/docker-compose.test.yml)
 KEY_DIR="$(mktemp -d)"
 KEY_FILE="$KEY_DIR/smoke-wallet.json"
+ADMIN_KEY_FILE="$KEY_DIR/smoke-admin-wallet.json"
+SMOKE_FEEDBACK_MARKER="smoke-u8-$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 HEALTH_TIMEOUT_S="${HEALTH_TIMEOUT_S:-240}"
 COLLECTION_TIMEOUT_S="${COLLECTION_TIMEOUT_S:-60}"
 AUDIT_JOBS_TIMEOUT_S="${AUDIT_JOBS_TIMEOUT_S:-60}"
@@ -29,8 +31,8 @@ log() { printf '[verify] %s\n' "$*" >&2; }
 cleanup() {
   local status=$?
   if [ "$status" -ne 0 ]; then
-    log "failure (exit $status); last API logs:"
-    "${COMPOSE[@]}" logs --no-color --tail 80 api >&2 || true
+    log "failure (exit $status); last api, worker and admin logs:"
+    "${COMPOSE[@]}" logs --no-color --tail 80 api worker admin >&2 || true
   fi
   "${COMPOSE[@]}" down -v --remove-orphans >/dev/null 2>&1 || true
   rm -rf "$KEY_DIR"
@@ -70,6 +72,15 @@ sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml test-compile exec:java \
 SMOKE_BETA_WALLET_ADDRESS="$(sed -n 's/.*"address":"\([^"]*\)".*/\1/p' "$KEY_FILE")"
 export SMOKE_BETA_WALLET_ADDRESS
 [ -n "$SMOKE_BETA_WALLET_ADDRESS" ] || { log "wallet generation failed"; exit 1; }
+log "generating the administrator smoke wallet (test-scope tool)"
+sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml exec:java \
+  -Dexec.classpathScope=test \
+  -Dexec.mainClass=com.memetrade.tools.SmokeWalletTool \
+  -Dexec.args="$ADMIN_KEY_FILE" >/dev/null
+ADMIN_WALLET_ADDRESSES="$(sed -n 's/.*"address":"\([^"]*\)".*/\1/p' "$ADMIN_KEY_FILE")"
+[ -n "$ADMIN_WALLET_ADDRESSES" ] || { log "administrator wallet generation failed"; exit 1; }
+export ADMIN_WALLET_ADDRESSES
+
 
 log "starting postgres, api and web with the test profile"
 "${COMPOSE[@]}" up -d --build
@@ -81,10 +92,10 @@ service_health() {
   docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$id"
 }
 
-log "waiting for the three services to be healthy (<= ${HEALTH_TIMEOUT_S}s)"
+log "waiting for the four services to be healthy (<= ${HEALTH_TIMEOUT_S}s)"
 deadline=$((SECONDS + HEALTH_TIMEOUT_S))
 until [ "$(service_health postgres)" = healthy ] && [ "$(service_health api)" = healthy ] \
-  && [ "$(service_health web)" = healthy ]; do
+  && [ "$(service_health web)" = healthy ] && [ "$(service_health admin)" = healthy ]; do
   [ "$SECONDS" -lt "$deadline" ] || { log "timeout waiting for healthy services"; exit 1; }
   sleep 3
 done
@@ -109,16 +120,22 @@ done
 
 log "running the Playwright smoke"
 SMOKE_WALLET_FILE="$KEY_FILE" \
+  SMOKE_ADMIN_WALLET_FILE="$ADMIN_KEY_FILE" \
+  SMOKE_FEEDBACK_MARKER="$SMOKE_FEEDBACK_MARKER" \
+  ADMIN_BASE_URL="http://localhost:3001" \
   WEB_BASE_URL="http://localhost:3000" \
   API_BASE_URL="http://localhost:8080" \
   MANAGEMENT_BASE_URL="http://localhost:8081" \
   DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB:-memetrade}" \
-  "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl
+  "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl e2e/u5-bots-decision e2e/u8-admin-feedback
 
-log "scanning the API logs for the full wallet address (NFR7.3)"
-if "${COMPOSE[@]}" logs --no-color api | grep -qF "$SMOKE_BETA_WALLET_ADDRESS"; then
-  log "the full smoke wallet address appeared in the logs"
-  exit 1
-fi
+log "scanning the api, worker and admin logs for full wallet addresses and the feedback text (NFR7.3)"
+SERVICE_LOGS="$("${COMPOSE[@]}" logs --no-color api worker admin)"
+for needle in "$SMOKE_BETA_WALLET_ADDRESS" "$ADMIN_WALLET_ADDRESSES" "$SMOKE_FEEDBACK_MARKER"; do
+  if printf '%s' "$SERVICE_LOGS" | grep -qF "$needle"; then
+    log "a full wallet address or the feedback text appeared in the logs"
+    exit 1
+  fi
+done
 
 log "walking skeleton verified"

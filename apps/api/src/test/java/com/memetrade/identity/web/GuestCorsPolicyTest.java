@@ -3,6 +3,7 @@ package com.memetrade.identity.web;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.net.URI;
+import java.util.UUID;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
@@ -44,6 +45,21 @@ class GuestCorsPolicyTest {
                 .isNull();
         assertThat(preflight(GUEST, "/api/v1/scanner/tokens", "GET").getHeader("Access-Control-Allow-Credentials"))
                 .isNull();
+    }
+
+    /** Regression: the U5 wizard saves the draft with a cross-origin PUT, which the guest policy used to refuse. */
+    @Test
+    void thePutOfTheBotDraftIsAllowedButNotOnTheCookieRoutes() throws Exception {
+        MockHttpServletResponse draft = preflight(GUEST, "/api/v1/bots/" + UUID.randomUUID() + "/draft", "PUT");
+
+        assertThat(draft.getStatus()).isEqualTo(200);
+        assertThat(draft.getHeader("Access-Control-Allow-Methods")).contains("PUT");
+        assertThat(draft.getHeader("Access-Control-Allow-Credentials")).isNull();
+        for (String route : GuestCorsPolicy.CREDENTIAL_ROUTES) {
+            assertThat(preflight(GUEST, route, "PUT").getStatus()).as(route).isEqualTo(403);
+        }
+        assertThat(preflight(GUEST, "/api/v1/scanner/tokens", "DELETE").getStatus())
+                .isEqualTo(403);
     }
 
     @Test
