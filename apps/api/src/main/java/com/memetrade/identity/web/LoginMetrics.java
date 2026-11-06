@@ -38,6 +38,14 @@ public class LoginMetrics {
                 .increment();
     }
 
+    /** U8 (NFR9.5): {@code admin.login.refused_total{reason}}, a closed reason of the administrator entry. */
+    public void adminRefused(String reason) {
+        Counter.builder("admin.login.refused_total")
+                .tag("reason", reason)
+                .register(registry)
+                .increment();
+    }
+
     public void refreshReused() {
         Counter.builder("session_refresh_reuse_total").register(registry).increment();
     }

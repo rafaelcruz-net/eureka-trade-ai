@@ -38,6 +38,9 @@ services:
       LOADTEST_U5_DECISIONS_PER_BOT: ${LOADTEST_U5_DECISIONS_PER_BOT:-20000}
       LOADTEST_U5_PEOPLE: ${LOADTEST_U5_PEOPLE:-20}
       MARKET_SIMULATED_SCENARIO: ${MARKET_SIMULATED_SCENARIO:-STANDARD}
+      # U8 (cicd-pipeline.md): the public address of the throw-away administrator wallet of the smoke, exported by
+      # scripts/verify.sh before the `up`; empty by default, so no administrator exists outside that run.
+      ADMIN_WALLET_ADDRESSES: ${ADMIN_WALLET_ADDRESSES:-}
   # U5: the worker with the same test profile plus its own; the seeds of the test profile never run here
   # (@ProcessRole(API)). ONLY this overlay publishes the worker actuator, on loopback 8082, for the load scenario u5
   # (botCycles, Hikari metrics); the base file publishes no worker port (ComposeFilesTest).

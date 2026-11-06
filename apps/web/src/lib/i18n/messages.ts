@@ -425,4 +425,26 @@ export const messages = {
   },
   // U5: the bot screens (wizard, list, bot screen), kept in the feature and part of this single catalog.
   bots: botMessages,
+  // U8 (S9, US6.1): the feedback dialog of the header.
+  feedback: {
+    open: 'Enviar feedback',
+    title: 'Enviar feedback',
+    label: 'Seu comentário',
+    help: 'Conte o que funcionou, o que confundiu ou o que faltou nesta tela.',
+    visibility: 'Visível só para a administração do beta. Não escreva dados pessoais nem chaves.',
+    screen: (screen: string) => `Tela de origem: ${screen}`,
+    counter: (used: string) => `${used} / 2.000`,
+    send: 'Enviar',
+    sending: 'Enviando…',
+    cancel: 'Cancelar',
+    sent: 'Obrigado! Seu comentário foi enviado.',
+    empty: 'Escreva o comentário antes de enviar.',
+    tooLong: 'O comentário tem mais de 2.000 caracteres. Encurte o texto para enviar.',
+    invalid: 'O comentário não foi aceito. Revise o texto e tente de novo.',
+    rateLimited: (minutes: number) =>
+      `Você já enviou 10 comentários na última hora. Tente de novo em ${minutes} min.`,
+    unavailable: 'Não foi possível enviar agora. Seu texto continua aqui; tente de novo.',
+    network: 'Sem conexão com o servidor. Seu texto continua aqui; tente de novo.',
+    sessionEnded: 'Sua sessão terminou. Entre de novo; seu texto continua aqui até você fechar.',
+  },
 } as const;

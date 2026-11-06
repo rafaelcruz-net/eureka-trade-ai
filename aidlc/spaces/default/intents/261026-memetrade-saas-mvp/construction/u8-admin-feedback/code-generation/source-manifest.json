@@ -1,0 +1,643 @@
+{
+  "stage": "code-generation",
+  "unit": "u8-admin-feedback",
+  "version": 1,
+  "writes": [
+    {
+      "path": ".env.example"
+    },
+    {
+      "path": ".github/dependabot.yml"
+    },
+    {
+      "path": ".github/workflows/security.yml"
+    },
+    {
+      "path": "apps/admin/.dockerignore"
+    },
+    {
+      "path": "apps/admin/.prettierignore"
+    },
+    {
+      "path": "apps/admin/.prettierrc.json"
+    },
+    {
+      "path": "apps/admin/Dockerfile"
+    },
+    {
+      "path": "apps/admin/eslint.config.mjs"
+    },
+    {
+      "path": "apps/admin/jest.config.ts"
+    },
+    {
+      "path": "apps/admin/jest.setup.ts"
+    },
+    {
+      "path": "apps/admin/next.config.ts"
+    },
+    {
+      "path": "apps/admin/package.json"
+    },
+    {
+      "path": "apps/admin/pnpm-lock.yaml"
+    },
+    {
+      "path": "apps/admin/scripts/check-api-types.mjs"
+    },
+    {
+      "path": "apps/admin/src/app/api/health/route.ts"
+    },
+    {
+      "path": "apps/admin/src/app/convites/page.tsx"
+    },
+    {
+      "path": "apps/admin/src/app/feedback/page.tsx"
+    },
+    {
+      "path": "apps/admin/src/app/globals.css"
+    },
+    {
+      "path": "apps/admin/src/app/kill-switch/page.tsx"
+    },
+    {
+      "path": "apps/admin/src/app/layout.tsx"
+    },
+    {
+      "path": "apps/admin/src/app/page.tsx"
+    },
+    {
+      "path": "apps/admin/src/app/routes.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/components/Dialog.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/auth/AdminSessionProvider.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/auth/AdminSignIn.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/auth/RestrictedAccess.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/auth/auth.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/auth/sign-in.ts"
+    },
+    {
+      "path": "apps/admin/src/features/auth/use-failure.ts"
+    },
+    {
+      "path": "apps/admin/src/features/auth/wallets.ts"
+    },
+    {
+      "path": "apps/admin/src/features/feedback/FeedbackListPage.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/feedback/FeedbackListPage.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/invites/InvitesPage.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/invites/InvitesPage.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/invites/IssueInviteDialog.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/invites/RevokeInviteDialog.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/killswitch/KillSwitchDialog.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/killswitch/KillSwitchPage.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/killswitch/KillSwitchPage.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/layout/AdminLayout.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/layout/AdminShell.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/layout/KillSwitchBanner.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/layout/KillSwitchContext.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/layout/layout.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/status/SystemStatusPage.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/status/SystemStatusPage.tsx"
+    },
+    {
+      "path": "apps/admin/src/lib/api/ApiProvider.tsx"
+    },
+    {
+      "path": "apps/admin/src/lib/api/admin-api.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/api/client.test.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/api/client.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/api/schema.d.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/auth/token-store.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/base58.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/format.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/i18n/messages.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/theme/tokens.test.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/theme/tokens.ts"
+    },
+    {
+      "path": "apps/admin/src/middleware.test.ts"
+    },
+    {
+      "path": "apps/admin/src/middleware.ts"
+    },
+    {
+      "path": "apps/admin/src/test-support.tsx"
+    },
+    {
+      "path": "apps/admin/tsconfig.json"
+    },
+    {
+      "path": "apps/api/openapi/openapi-admin.yaml"
+    },
+    {
+      "path": "apps/api/openapi/openapi-guest.yaml"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/api/package-info.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/domain/ActiveBots.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchChange.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchSnapshot.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchStore.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/domain/SwitchState.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatus.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/infra/AdminKillSwitchHealthIndicator.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/infra/AdminProperties.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/infra/AdministrationConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/infra/ApplyLock.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/infra/JdbcKillSwitchStore.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchMetrics.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchStartup.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/web/AdminKillSwitchController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/web/AdminSystemController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/web/KillSwitchDtos.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/administration/web/SystemStatusDtos.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/audit/api/AuditBacklog.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/audit/infra/OutboxAuditBacklog.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/api/package-info.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackEntry.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackEvents.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackScreen.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackStore.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackMetrics.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackProperties.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackPurgeHealthIndicator.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackPurgeJob.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackRetentionDataSource.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackRetentionDataSourceConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/infra/JdbcFeedbackStore.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/web/AdminFeedbackController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackDtos.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/api/IdempotentOperation.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/api/IdentityAdministration.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/invite/IdentityDirectory.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminAccounts.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginSettings.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminRejection.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminWallets.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/login/ChallengeService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/login/LoginVerificationService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/ratelimit/AdminLoginLimiter.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/session/RefreshOutcome.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/session/SessionService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/AdminLoginProperties.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/IdentityAdministrationImpl.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/IdentityConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/JdbcAdminAccounts.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/JdbcIdentityDirectory.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/LoginLimiterEvictionJob.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/RateLimitConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/AdminAuthController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/AdminAuthDtos.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/AdminCorsPolicy.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/AdminRefreshCookie.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/AdminRouteFilter.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/AuthenticationFilter.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/CorsConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/GuestCorsPolicy.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/LoginMetrics.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/riskcontrol/api/RejectionCounts.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/riskcontrol/infra/JdbcRejectionCounts.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/shared/config/RuntimeSettingsGuard.java"
+    },
+    {
+      "path": "apps/api/src/main/resources/application.yml"
+    },
+    {
+      "path": "apps/api/src/main/resources/db/changelog/changes/0011-admin-feedback.sql"
+    },
+    {
+      "path": "apps/api/src/main/resources/db/changelog/db.changelog-master.yaml"
+    },
+    {
+      "path": "apps/api/src/main/resources/tenancy/route-registry.yml"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/AdminReadLatencyIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/ApplyLockIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/KillSwitchCrashIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/KillSwitchFencingIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/KillSwitchPerformanceIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/KillSwitchRaceIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/SystemStatusIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/U8ContractsIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/db/U8PrivilegesIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/domain/InMemoryKillSwitchStore.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/domain/KillSwitchServiceTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/infra/KillSwitchReconcilerTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/web/SystemStatusDtosAccess.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/architecture/AuditArchitectureTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/architecture/U8ArchitectureTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/audit/infra/AuditJobLockIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/audit/infra/AuditPropertiesTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/audit/infra/JdbcAuditEventReaderIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/ProcessRoleContextIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U4ContextIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U4SettingsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U5SettingsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U6ContextIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U6SettingsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U7ContextIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U7SettingsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U8SettingsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/contract/AdminOpenApiSlice.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/contract/GuestOpenApiSlice.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/contract/U8OpenApiContractTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/db/MigrationsBackwardCompatIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/db/MigrationsIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/feedback/AdminFeedbackListIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/feedback/FeedbackConcurrencyIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/feedback/FeedbackDedupIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/feedback/FeedbackPurgeIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/feedback/FeedbackRateLimitIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/feedback/domain/FeedbackServiceTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/feedback/domain/InMemoryFeedbackStore.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/AdminAuthIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/AdminCorsIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/infra/LoginLimiterEvictionJobTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/infra/ComposeFilesTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/infra/WorkflowsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/ops/U8ObservabilityIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/tenancy/RouteRegistryTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/AbstractPostgresIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/AbstractU8IT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/AdminAuthFlow.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/AdminSessions.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/ControllableBotAdministration.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/MutableAdminWallets.java"
+    },
+    {
+      "path": "apps/api/src/test/resources/db/changelog/u5-only.yaml"
+    },
+    {
+      "path": "apps/web/e2e/u8-admin-feedback/smoke.spec.ts"
+    },
+    {
+      "path": "apps/web/package.json"
+    },
+    {
+      "path": "apps/web/scripts/guest-bundle-test.mjs"
+    },
+    {
+      "path": "apps/web/src/features/auth/AccountMenu.tsx"
+    },
+    {
+      "path": "apps/web/src/features/auth/test-support.tsx"
+    },
+    {
+      "path": "apps/web/src/features/feedback/FeedbackButton.tsx"
+    },
+    {
+      "path": "apps/web/src/features/feedback/FeedbackDialog.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/feedback/FeedbackDialog.tsx"
+    },
+    {
+      "path": "apps/web/src/features/feedback/screens.ts"
+    },
+    {
+      "path": "apps/web/src/features/scanner/ScannerScreen.test.tsx"
+    },
+    {
+      "path": "apps/web/src/lib/api/client.ts"
+    },
+    {
+      "path": "apps/web/src/lib/api/guest-api.ts"
+    },
+    {
+      "path": "apps/web/src/lib/api/schema.d.ts"
+    },
+    {
+      "path": "apps/web/src/lib/i18n/messages.ts"
+    },
+    {
+      "path": "docker-compose.yml"
+    },
+    {
+      "path": "docs/api/u8-admin-feedback.md"
+    },
+    {
+      "path": "infra/docker-compose.test.yml"
+    },
+    {
+      "path": "infra/postgres/bootstrap/10-roles.sql"
+    }
+  ]
+}

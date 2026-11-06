@@ -13,6 +13,20 @@ routes:
   - { method: GET, path: /api/v1/admin/invites, scope: ADMIN, negativeTest: com.memetrade.identity.AdminInviteRouteIT#aGuestTokenIsRefusedWith403AndOneRequestForbiddenEvent }
   - { method: POST, path: /api/v1/admin/invites, scope: ADMIN, tenantFromClient: true, negativeTest: com.memetrade.identity.AdminInviteRouteIT#aGuestTokenIsRefusedWith403AndOneRequestForbiddenEvent }
   - { method: POST, path: '/api/v1/admin/invites/{inviteId}/revoke', scope: ADMIN, negativeTest: com.memetrade.identity.AdminInviteRouteIT#aGuestTokenIsRefusedWith403AndOneRequestForbiddenEvent }
+  # U8 (C8): the administrator entry. challenge, verify and refresh read no access token (public by the normalised path);
+  # their negative tests prove that a wallet outside the list, a guest wallet and a guest cookie never get an
+  # administrator session. Every other administrative route of U8 refuses a guest token (one REQUEST_FORBIDDEN).
+  - { method: POST, path: /api/v1/admin/auth/challenge, scope: ADMIN, negativeTest: com.memetrade.identity.AdminAuthIT#aWalletOutsideTheListIsRefusedGenerically }
+  - { method: POST, path: /api/v1/admin/auth/verify, scope: ADMIN, negativeTest: com.memetrade.identity.AdminAuthIT#aGuestWalletIsRefusedWithTheSameAnswerAndStaysAGuest }
+  - { method: POST, path: /api/v1/admin/auth/refresh, scope: ADMIN, negativeTest: com.memetrade.identity.AdminAuthIT#aGuestCookieNeverRenewsAnAdministratorSession }
+  - { method: POST, path: /api/v1/admin/auth/logout, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: GET, path: /api/v1/admin/kill-switch, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: PUT, path: /api/v1/admin/kill-switch, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: GET, path: /api/v1/admin/system-status, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: GET, path: /api/v1/admin/tenants, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: GET, path: /api/v1/admin/feedback, scope: ADMIN, negativeTest: com.memetrade.feedback.AdminFeedbackListIT#aGuestCannotReadTheFeedback }
+  # U8 (C6, BR6.2): a comment of the caller; tenant and person from the token only, a tenant in the body is refused.
+  - { method: POST, path: /api/v1/feedback, scope: CLIENT, negativeTest: com.memetrade.feedback.FeedbackDedupIT#theTenantComesFromTheTokenNeverFromTheBody }
   - { method: POST, path: /api/v1/auth/challenge, scope: GLOBAL }
   - { method: POST, path: /api/v1/auth/verify, scope: GLOBAL }
   - { method: POST, path: /api/v1/auth/refresh, scope: SESSION }
@@ -78,3 +92,8 @@ jobs:
   # U5 (C7, performance-design.md): the single mark reader of the api; one query of marks for the explicit pairs of the
   # open channels, then the details of each channel's own person only.
   - { name: DashboardMarkPoller, scope: CLIENT, negativeTest: com.memetrade.bots.web.DashboardStreamIT#aChannelNeverReceivesAnEventOfAnotherPerson }
+  # U8 (BR2.5): the kill switch reconciliation applies the global state of the kill switch through C16; it reads no
+  # tenant input and returns nothing per person (only counts in the logs).
+  - { name: KillSwitchReconciler, scope: GLOBAL }
+  # U8 (BR6.7): daily purge of the comments older than 180 days, through the retention pool; logs only totals.
+  - { name: FeedbackPurgeJob, scope: GLOBAL }

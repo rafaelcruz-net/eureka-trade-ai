@@ -930,6 +930,13 @@ paths:
         '400': { description: VALIDATION_FAILED; o app preserva o texto (AC6.1.3) }
 ```
 
+**Registrado pela geração de código da U8.** A fonte da verdade é o `apps/api/openapi/openapi-guest.yaml` gerado do código.
+
+- `text` tem de 1 a 2.000 pontos de código e não pode ficar vazio depois de tirar os espaços; `screen` fica entre `S1` e `S9`. Qualquer campo a mais, inclusive `tenantId` ou `userId`, é `400 VALIDATION_FAILED`, pela regra comum de corpo fechado. O tenant e a pessoa vêm só do token.
+- A resposta `201` traz `feedbackId` e `createdAt`.
+- Acréscimo `429 RATE_LIMITED` com `Retry-After`: a pessoa já enviou 10 comentários na última hora. Respostas `400` e `429` não ficam guardadas pela idempotência; a mesma `Idempotency-Key` com o mesmo corpo depois de um `201` devolve o mesmo `201`, e com outro corpo devolve `409 IDEMPOTENCY_CONFLICT`.
+- Token de administrador nesta rota: `403 FORBIDDEN_ROLE`, auditado como `REQUEST_FORBIDDEN`.
+
 ### C7 — Canal ao vivo do painel (hospedado pela U5, consumido pela U9)
 
 ```yaml
@@ -1128,6 +1135,17 @@ components:
 Comportamento: toda rota exige o token do administrador; um token de convidado recebe `403 FORBIDDEN_ROLE`, auditado (AC7.1.4, AC7.2.5). Não existe rota para iniciar, pausar ou encerrar o bot de um usuário, nem para ler ledger ou operações (AC7.4.2).
 
 Registrado pela geração de código da U3: as rotas de convite já existem no backend (`AdminInviteController`, usado pela tela da U8) e estão em `apps/api/openapi/openapi-admin.yaml`. `Invite` não tem mais `code` obrigatório e nunca traz quem emitiu; a lista e a revogação nunca trazem o código. A rota dos tenants ativos para o formulário de convite fica para a U8, sobre `IdentityAdministration.activeTenants()` (C17).
+
+**Registrado pela geração de código da U8** (desenho funcional, NFR Design e infraestrutura da U8). Todos os acréscimos são aditivos; a fonte da verdade é o `apps/api/openapi/openapi-admin.yaml` gerado do código.
+
+| Acréscimo | Detalhe |
+|---|---|
+| Rotas `admin/auth/*` | `challenge` responde `200` com um desafio para qualquer endereço válido, sem revelar a lista de administradores (R-05 do NFR Design). `verify` recusa com a mesma resposta genérica `403 FORBIDDEN_ROLE` a carteira fora da lista e a carteira de convidado; o motivo exato (`NOT_ADMIN_WALLET`, `WALLET_IS_GUEST`) fica só no evento `LOGIN_REJECTED`. Nonce reutilizado, vencido, de outro escopo ou assinatura inválida: `401 UNAUTHENTICATED`. Acima de 5 pedidos por minuto por IP ou por par (endereço, IP): `429 RATE_LIMITED` com `Retry-After`. `verify` e `refresh` devolvem `AdminSession` (`accessToken`, `accessTokenExpiresAt`, `sessionExpiresAt`, `role: ADMIN`, `walletMasked`) e o cookie `mt_admin_refresh` (`HttpOnly; Secure; SameSite=Strict; Path=/api/v1/admin/auth/refresh`). O desafio do administrador tem domínio próprio (o do app do administrador): um desafio do convidado não vale aqui, e vice-versa |
+| Kill switch | `GET` e `PUT` devolvem `KillSwitch` com `state`, `changedBy` (carteira mascarada 4 + 4), `changedAt`, `reason`, `pendingBots`, `reconcileNeeded` e `version`; o `GET` traz também `activeBotsToPause`. O `PUT` exige `Idempotency-Key`; `reason` tem de 1 a 500 caracteres (`400 VALIDATION_FAILED`) |
+| `system-status` | Cada parte (`guestCount`, `inviteCounts`, `botCountsByState`, `killSwitch`, `sources`, `auditOutboxPending` e o novo `rejectedOrdersToday`) é uma união `{status: OK, value}` ou `{status: UNKNOWN, reason: TIMEOUT \| UNAVAILABLE}`, para uma contagem ausente nunca virar zero (BR3.3). Inclui `generatedAt` |
+| `GET /api/v1/admin/tenants` | Lista de `TenantOption` (`tenantId`, `name`) dos tenants ativos, para o formulário de convite |
+| Feedback | Cada item ganha `tenantName`; nunca `userId` nem carteira. Paginação por cursor, do mais novo para o mais antigo, até 100 por página |
+| CORS | `AdminCorsPolicy` só para `/api/v1/admin/**`, origem única `ADMIN_APP_ORIGIN`, métodos `GET`, `POST`, `PUT` e `OPTIONS`, credenciais só em `verify`, `refresh` e `logout` (R-08 do NFR Design). A política do convidado não muda e não aceita a origem do administrador |
 
 ### C21 — Ordens recusadas (U6)
 
@@ -1447,6 +1465,24 @@ record LastDecision(UUID botId, String action, Optional<String> tokenMint, Strin
 
 Regras da implementação: cada bot é alterado na sua própria transação com a trava do bot; `failed` lista os bots cuja transação falhou, e a U8 repete até a lista ficar vazia. Os eventos `BOT_PAUSED` (motivo `SYSTEM`) e `BOT_SYSTEM_PAUSE_LIFTED` saem por bot com ator `system`; o evento do administrador (acionamento e desligamento) é da U8 (AC7.2.5).
 
+**Interfaces acrescentadas pela geração de código da U8** (todas devolvem só números, nomes de tenant ou a carteira mascarada; nenhuma devolve pessoa, bot, ordem ou lançamento):
+
+```java
+// U6, pacote com.memetrade.riskcontrol.api (BR3.2 da U8)
+public interface RejectionCounts {
+    long countRejectedSince(Instant from);   // ordens recusadas de todos os tenants desde o instante
+}
+// U2, pacote com.memetrade.audit.api (BR3.1 da U8)
+public interface AuditBacklog {
+    long pending();                          // eventos ainda na tabela de saída
+}
+// U3 (C17), acréscimos a IdentityAdministration, com a mesma conferência do papel ADMIN
+Map<UUID, String> tenantNames(Collection<UUID> tenantIds, Principal admin);           // lista de feedback (BR6.6)
+Optional<String> maskedAdministratorWallet(UUID adminUserId, Principal admin);        // "quem" do kill switch (BR2.7)
+```
+
+Na U8, só a classe `KillSwitchApplier` chama `applySystemPause` e `liftSystemPause` (ArchUnit). As leituras `countByState()` e `systemPaused()` são usadas pelo estado do sistema, pela consulta do kill switch e pela reconciliação.
+
 ### C18 — Marcas de última alteração (U4, U5, U7)
 
 ```yaml
@@ -1471,6 +1507,8 @@ rules:
 ```
 
 **`BotChangeMarks` como implementada pela U5** (pacote `com.memetrade.bots.api`, `long markFor(Principal principal)`): `bot.change_seq` recebe o próximo valor da sequência global `bot_change_seq` na mesma gravação de toda mudança de estado, motivo de pausa ou limites (BR8.1); a marca é o máximo de `change_seq` dos bots da pessoa, por índice (tenant, pessoa, `change_seq` decrescente), sem travar linha nenhuma. Ressalva registrada: duas transações da mesma pessoa que confirmam fora da ordem da sequência podem fazer o leitor ver primeiro o valor maior; o efeito é só atraso de tela, corrigido pela próxima mudança ou pela leitura completa que o canal C7 refaz a cada 60 s, junto do `heartbeat`.
+
+**Registrado pela geração de código da U8.** A ressalva da ordem das marcas, vinda da U5, continua valendo. A pausa e a retirada da pausa de sistema pelo kill switch mudam o motivo de cada bot na própria transação dele, e por isso também renovam a marca da pessoa, com a mesma ressalva: o painel de um convidado pode mostrar a pausa SYSTEM com atraso de até 60 s. A U8 não lê marcas: o estado do sistema e o kill switch leem as interfaces de C16 e o próprio `kill_switch_state`.
 
 ### C19 — Porta de adaptador de mercado (U4)
 

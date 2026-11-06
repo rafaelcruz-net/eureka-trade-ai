@@ -54,6 +54,12 @@ public class AdminRouteFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         boolean administrator = authorization.isAdministrator(auth.optional());
+        if (AuthenticationFilter.ADMIN_PUBLIC_ROUTES.contains(RequestPaths.normalized(request))) {
+            // U8 (R-02): challenge, verify and refresh of the administrator entry run without a session; the controller
+            // applies its own rules (limits, list of wallets, generic refusals). Logout is NOT here: it needs ADMIN.
+            chain.doFilter(request, response);
+            return;
+        }
         if (RequestPaths.isAdministrative(request)) {
             if (administrator) {
                 chain.doFilter(request, response);

@@ -39,4 +39,16 @@ public interface IdentityAdministration {
 
     /** The ACTIVE tenants, for the invitation form of U8 (Q1). */
     List<TenantOption> activeTenants(Principal admin);
+
+    /**
+     * U8 addition (C8 feedback list, BR6.6): the names of the given tenants, ACTIVE or not, keyed by id; an unknown id is
+     * absent from the map. Never a person, a wallet or a count.
+     */
+    java.util.Map<UUID, String> tenantNames(java.util.Collection<UUID> tenantIds, Principal admin);
+
+    /**
+     * U8 addition (BR2.7): the MASKED wallet (4 + 4 characters) of an administrator account, for "who changed the kill
+     * switch"; empty when the account has no wallet. The full address never leaves the identity module here.
+     */
+    Optional<String> maskedAdministratorWallet(UUID adminUserId, Principal admin);
 }

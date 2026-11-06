@@ -37,6 +37,14 @@ public class JdbcIdentityDirectory implements IdentityDirectory {
     }
 
     @Override
+    public Optional<String> walletOf(UUID userId) {
+        return jdbc.sql("select address from wallet where user_id = :id")
+                .param("id", userId)
+                .query(String.class)
+                .optional();
+    }
+
+    @Override
     public long countActiveGuests() {
         Long count = jdbc.sql("select count(*) from app_user where role = 'BETA_USER' and status = 'ACTIVE'")
                 .query(Long.class)

@@ -1,0 +1,32 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-11-05T20:20:00Z
+**Iteration:** 1
+**Verdict Dictated:** no
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u8-admin-feedback/nfr-requirements/tech-stack-decisions.md > linha "Trava de aplicação do kill switch"; reliability-requirements.md > NFR10.2 | A trava única que serializa applySystemPause/liftSystemPause (BR2.8) é descrita como "ShedLock ou trava consultiva", sem escolher uma. As duas têm comportamentos opostos: ShedLock expira por tempo (lockAtMostFor) e a trava consultiva do PostgreSQL só é solta quando a sessão acaba. Não há requisito de tempo máximo de retenção, de o que acontece se a trava expirar no meio de uma chamada lenta à U5, nem de impedir que um aplicador atrasado grave depois de um mais novo. Sem isso, a garantia "um OFF nunca é desfeito por um apply atrasado" do NFR10.2 só vale se a trava nunca expirar durante a chamada, o que o artefato não assegura. | Escolher o tipo de trava e fixar o tempo máximo de retenção, maior que a espera de 10 s do NFR2.3 mais a duração da aplicação em lotes. Definir o comportamento na perda ou expiração da trava, por exemplo conferir `version` antes de cada lote ou usar sessão do banco. Acrescentar um teste da perda da trava no meio da chamada ao NFR10.2. | New |
+| R-02 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u8-admin-feedback/nfr-requirements/performance-requirements.md > NFR2.2 e NFR2.3 | A meta de 35 s (resposta de 5 s mais um ciclo de 30 s do trabalho) não considera a espera de até 10 s pela trava (NFR2.3) nem a retenção da trava pelo pedido em andamento. No caso de queda do processo, também não conta o tempo de reinício. Com esses atrasos o limite real fica acima de 35 s. | Declarar o que o limite de 35 s cobre (reconciliação a partir do próximo ciclo, com a trava livre) ou ajustar para a soma real. Dizer se o reinício do processo entra na medição do NFR10.1. | New |
+| R-03 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u8-admin-feedback/nfr-requirements/security-requirements.md > NFR4.2 | O NFR4 pede 100% das operações com chave de idempotência, mas só o envio de feedback tem requisito e teste. O PUT do kill switch (BR2.4: mesma `Idempotency-Key` devolve a mesma resposta; mesmo estado não grava histórico nem evento) e a emissão de convite não têm verificação nesta Unit. | Acrescentar uma linha de teste para o PUT do kill switch: repetição com a mesma chave e repetição do mesmo estado não criam `kill_switch_change` nem evento. Citar a emissão de convite como coberta pela U3. | New |
+| R-04 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u8-admin-feedback/nfr-requirements/security-requirements.md > NFR6.6 | "A mesma política de limite da entrada do convidado" não traz número nem teste. A meta não é mensurável nesta Unit. | Citar os limites concretos (tentativas por endereço e por IP e janela) ou a referência exata ao requisito da U1. Acrescentar um teste de que a 11ª tentativa, por exemplo, recebe 429. | New |
+| R-05 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u8-admin-feedback/nfr-requirements/reliability-requirements.md > NFR11.1 | O NFR11 de `requirements.md` exige contraste de texto ≥ 4,5:1 no tema escuro, e a cor nunca como único indicador. O NFR11.1 cobre teclado, foco, rótulos e texto além da cor, mas omite o contraste. | Acrescentar a meta de contraste ≥ 4,5:1 e dizer como será verificada. Pode ser revisão manual dos tokens do tema, já que não há portão automático de acessibilidade. | New |
+| R-06 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u8-admin-feedback/nfr-requirements/performance-requirements.md > NFR3.1 e seção "Como medir" | O NFR3.1 (p95 ≤ 2 s com 20 usuários simultâneos nas telas do administrador) não aparece entre os testes listados em "Como medir", e a Q6 descartou cenário de carga. A verificação não existe. | Dizer qual teste mede o NFR3.1, por exemplo os mesmos testes de integração de rota com 20 requisições paralelas, ou registrar que ele só é medido no smoke. | New |
+| R-07 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u8-admin-feedback/nfr-requirements/security-requirements.md > NFR6.4 | A política `default-src 'self'` sem `unsafe-inline` normalmente quebra a hidratação do Next.js, que injeta scripts inline. O requisito pode ser impossível como escrito, ou levar a um `unsafe-inline` que enfraquece a proteção. Além disso, `Secure` e `SameSite=Strict` do cookie aparecem nas regras, mas não no NFR6.2. | Exigir política com nonce ou hash por requisição (middleware do Next.js) mantendo a proibição de `unsafe-eval`. Incluir `Secure` e `SameSite=Strict` no NFR6.2 e no teste do cabeçalho. | New |
+
+### Validation Tool Results
+
+| Tool | Result | Interpretation |
+|---|---|---|
+| Conferência de cobertura NFR1 a NFR14 em traceability.json (leitura direta de requirements.md linhas 164-177) | PASS | Todos os 14 têm linha. NFR1 e NFR8 são N/A com justificativa plausível. Os IDs NFRx.y citados existem nos documentos (NFR2.1-2.7, 3.1-3.3, 4.1-4.3, 5.1-5.2, 6.1-6.7, 7.1-7.2, 9.1-9.6, 10.1-10.7, 11.1, 12.1, 13.1, 14.1). |
+| Consistência com regras BR2.3/2.5/2.8, BR3.3, BR6.3, BR6.7 | PASS com ressalva | Cobertas por NFR10.1-10.4, NFR4.3, NFR7.1 e NFR2.6. A ressalva é a lacuna de duração da trava (R-01). |
+| Regras rígidas (sem segredo em log, carteira mascarada, sem SDK Solana, tenant do token, admin sem dado de pessoa, UTC) | PASS | Cobertas por NFR6.1, NFR6.7, NFR7.2, NFR5.1 e NFR5.2. O tratamento de UTC não tem linha própria, mas vem das regras herdadas. |
+| Existência de C16 (applySystemPause, systemPaused) e ADR-009 | PASS | Confirmados em contract-summary.md e decisions.md. |
+
+### Summary
+
+Os NFRs da U8 estão completos e rastreados, com metas numéricas e verificações na CI, coerentes com as regras BR2, BR3, BR6 e com as regras rígidas do projeto. A principal lacuna (Major) é a ausência de definição da duração e da perda da trava de aplicação do kill switch, da qual depende a garantia de convergência. Os outros seis achados são Minor e podem ser corrigidos sem refazer o desenho. Contagem: 0 Critical, 1 Major, 6 Minor.

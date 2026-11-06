@@ -47,6 +47,17 @@ public class AdminSessions extends SessionService {
         return new AdminSession(adminId, token);
     }
 
+    /**
+     * U8: a session for an administrator that EXISTS in {@code app_user} (role ADMIN), so the rows that reference the
+     * administrator (kill switch history, state) satisfy their foreign keys.
+     */
+    public AdminSession openAdminSessionFor(UUID tenantId, UUID adminId) {
+        String token = TOKEN_PREFIX + UUID.randomUUID();
+        adminTokens.put(
+                token, new AuthenticatedSession(new Principal(tenantId, adminId, Role.ADMIN), UUID.randomUUID()));
+        return new AdminSession(adminId, token);
+    }
+
     @Override
     public Optional<AuthenticatedSession> authenticate(String accessToken) {
         AuthenticatedSession admin = accessToken == null ? null : adminTokens.get(accessToken);

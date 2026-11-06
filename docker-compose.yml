@@ -118,9 +118,11 @@ services:
       GUEST_APP_ORIGIN: ${GUEST_APP_ORIGIN:-http://localhost:3000}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       ADMIN_WALLET_ADDRESSES: ${ADMIN_WALLET_ADDRESSES:-}
+      # U8: the only origin of the administrative CORS policy; the api refuses a wildcard.
+      ADMIN_APP_ORIGIN: ${ADMIN_APP_ORIGIN:-http://localhost:3001}
       # U4 (infrastructure-specification.md): none is a secret; the api checks each range at start-up.
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-20}
-      SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-14}
+      SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-16}
       MARKET_SOURCES: ${MARKET_SOURCES:-sim-a,sim-b}
       MARKET_COLLECTION_INTERVAL: ${MARKET_COLLECTION_INTERVAL:-30s}
       MARKET_SIMULATED_TOKENS_PER_SOURCE: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}
@@ -154,7 +156,8 @@ services:
     # (8081 answers only the actuator, inside the network). It receives only what it uses: never the signing key, the
     # app origin, the trusted proxies, the administrator wallets nor the retention login.
     # Connections of PostgreSQL (max_connections 100 of postgres:17): api 20 + trail retention (U2) 1 + U6 retention 1
-    # + worker 14 + db-bootstrap and db-migrate at start-up 2 + 3 reserved for the superuser = 41 (ComposeFilesTest).
+    # + U8 apply lock 1 + U8 feedback retention 1 + worker 14 + db-bootstrap and db-migrate at start-up 2 + 3 reserved
+    # for the superuser = 43 (ComposeFilesTest).
     image: memetrade-api:${IMAGE_TAG:-local}
     environment:
       SPRING_PROFILES_ACTIVE: worker
@@ -215,6 +218,35 @@ services:
       interval: 10s
       timeout: 3s
       retries: 6
+      start_period: 20s
+    mem_limit: 512m
+    logging: *logging
+
+  admin:
+    # U8 (infrastructure-specification.md Q1): the administrator app, same pattern as web. Published only on loopback
+    # 3001, on the same site as the API (localhost) because of the SameSite=Strict refresh cookie; the browser calls the
+    # API on localhost:8080 under the administrative CORS policy (ADMIN_APP_ORIGIN of the api). No secret, no database
+    # credential, no NEXT_PUBLIC_* variable: API_ORIGIN and GUEST_APP_ORIGIN are read by the server at run time.
+    build:
+      context: ./apps/admin
+    image: memetrade-admin:${IMAGE_TAG:-local}
+    environment:
+      API_ORIGIN: ${API_ORIGIN:-http://localhost:8080}
+      GUEST_APP_ORIGIN: ${GUEST_APP_ORIGIN:-http://localhost:3000}
+    ports:
+      - '127.0.0.1:3001:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 3s
+      retries: 3
       start_period: 20s
     mem_limit: 512m
     logging: *logging

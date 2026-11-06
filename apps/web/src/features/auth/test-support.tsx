@@ -128,6 +128,11 @@ export function fakeApi(overrides: Partial<GuestApi> = {}): jest.Mocked<GuestApi
       throw new Error('no bot configured');
     }),
     listBotDecisions: jest.fn(async () => ({ items: [], nextCursor: null })),
+    // U8 (C6): a comment is accepted unless a test says otherwise.
+    sendFeedback: jest.fn(async () => ({
+      feedbackId: '00000000-0000-4000-8000-00000000f00d',
+      createdAt: '2026-10-28T12:00:00Z',
+    })),
     ...overrides,
   } as jest.Mocked<GuestApi>;
 }

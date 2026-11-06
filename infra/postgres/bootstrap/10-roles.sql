@@ -7,9 +7,11 @@
 -- Logins (names and passwords from the environment, read with \getenv; never written to the repository):
 --   DB_OWNER_USER      schema owner; used only by db-migrate (Liquibase)
 --   DB_USER            application; data only, no DDL; on audit_event only SELECT and INSERT
---   DB_RETENTION_USER  member of the fixed group roles audit_retention (SELECT and DELETE on audit_event only) and,
---                      since U6, risk_retention (SELECT and DELETE on order_evaluation, the purge run log)
--- The group roles audit_retention and risk_retention have fixed names: the migrations and the triggers use them.
+--   DB_RETENTION_USER  member of the fixed group roles audit_retention (SELECT and DELETE on audit_event only),
+--                      since U6, risk_retention (SELECT and DELETE on order_evaluation, the purge run log) and, since
+--                      U8, feedback_retention (SELECT and DELETE on feedback_entry, the 180-day purge)
+-- The group roles audit_retention, risk_retention and feedback_retention have fixed names: the migrations and the
+-- triggers use them.
 --
 -- Usage: psql -v ON_ERROR_STOP=1 -f 10-roles.sql   (with the six DB_* variables in the environment)
 
@@ -65,6 +67,22 @@ JOIN pg_roles g ON g.oid = am.roleid AND g.rolname = 'risk_retention'
 JOIN pg_roles m ON m.oid = am.member
 WHERE m.rolname IN (:'owner_user', :'app_user') \gexec
 
+-- U8 (infrastructure-specification.md, R-01): the group role feedback_retention, created and granted like
+-- risk_retention. Only the retention login is a member; the owner and the application never are (the application can
+-- never delete a comment of a guest; the trigger of migration 0011 refuses it).
+SELECT 'CREATE ROLE feedback_retention NOLOGIN'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'feedback_retention') \gexec
+ALTER ROLE feedback_retention WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+
+SELECT format('GRANT feedback_retention TO %I', :'retention_user')
+WHERE NOT pg_has_role(:'retention_user', 'feedback_retention', 'MEMBER') \gexec
+
+SELECT format('REVOKE feedback_retention FROM %I', m.rolname)
+FROM pg_auth_members am
+JOIN pg_roles g ON g.oid = am.roleid AND g.rolname = 'feedback_retention'
+JOIN pg_roles m ON m.oid = am.member
+WHERE m.rolname IN (:'owner_user', :'app_user') \gexec
+
 -- Connections: nobody by default; the three logins explicitly.
 SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database()) \gexec
 SELECT format('GRANT CONNECT, TEMPORARY ON DATABASE %I TO %I', current_database(), :'app_user') \gexec
@@ -83,7 +101,8 @@ SELECT format('ALTER SCHEMA public OWNER TO %I', :'owner_user') \gexec
 -- 4. No DDL for anybody but the owner; usage for the application and the retention group.
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 SELECT format('REVOKE CREATE ON SCHEMA public FROM %I, %I', :'app_user', :'retention_user') \gexec
-SELECT format('GRANT USAGE ON SCHEMA public TO %I, audit_retention, risk_retention', :'app_user') \gexec
+SELECT format('GRANT USAGE ON SCHEMA public TO %I, audit_retention, risk_retention, feedback_retention', :'app_user')
+\gexec
 
 -- 5. Tables and sequences created later by the owner (every future Unit) are usable by the application.
 --    A Unit that must restrict one of its tables revokes in its own migration (as U2 does for audit_event).

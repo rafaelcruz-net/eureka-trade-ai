@@ -49,7 +49,9 @@ class ComposeFilesTest {
         Map<String, Object> services =
                 (Map<String, Object>) yaml("docker-compose.yml").get("services");
 
-        assertThat(services).containsOnlyKeys("postgres", "db-bootstrap", "db-migrate", "api", "worker", "web");
+        // U8: the administrator app is the seventh service.
+        assertThat(services)
+                .containsOnlyKeys("postgres", "db-bootstrap", "db-migrate", "api", "worker", "web", "admin");
         // U5 (NFR10.9): the worker publishes no port in the base file.
         assertThat((Map<String, Object>) services.get("worker")).doesNotContainKey("ports");
         for (String oneShot : List.of("db-bootstrap", "db-migrate")) {
@@ -101,7 +103,8 @@ class ComposeFilesTest {
 
     @Test
     void everyBaseImageIsPinnedByDigest() throws IOException {
-        for (String file : List.of("docker-compose.yml", "apps/api/Dockerfile", "apps/web/Dockerfile")) {
+        for (String file :
+                List.of("docker-compose.yml", "apps/api/Dockerfile", "apps/web/Dockerfile", "apps/admin/Dockerfile")) {
             Matcher images =
                     Pattern.compile("(?m)^\\s*(?:image:|FROM)\\s+(\\S+)").matcher(read(file));
             while (images.find()) {
@@ -119,6 +122,42 @@ class ComposeFilesTest {
     void imagesRunAsANonRootUser() throws IOException {
         assertThat(read("apps/api/Dockerfile")).containsPattern("(?m)^USER memetrade$");
         assertThat(read("apps/web/Dockerfile")).containsPattern("(?m)^USER memetrade$");
+        assertThat(read("apps/admin/Dockerfile")).containsPattern("(?m)^USER memetrade$");
+    }
+
+    /**
+     * U8 (infrastructure-specification.md Q1, R-04, R-07): the administrator app on loopback 3001, after a healthy api,
+     * with its health route, 512 MB and only API_ORIGIN and GUEST_APP_ORIGIN; no secret, no credential, no
+     * NEXT_PUBLIC_* variable. The test overlay passes the administrator wallet of the smoke to the api only.
+     */
+    @Test
+    @Tag("u8")
+    @SuppressWarnings("unchecked")
+    void theAdministratorAppIsAServiceOfItsOwnWithoutSecrets() throws IOException {
+        for (Map<String, Map<String, Object>> services : List.of(services(false), services(true))) {
+            Map<String, Object> admin = services.get("admin");
+            assertThat((List<String>) admin.get("ports")).containsExactly("127.0.0.1:3001:3000");
+            assertThat(dependsOn(services, "admin")).containsExactly(Map.entry("api", "service_healthy"));
+            assertThat(String.valueOf(admin.get("healthcheck"))).contains("http://127.0.0.1:3000/api/health");
+            assertThat(String.valueOf(admin.get("mem_limit"))).isEqualTo("512m");
+            assertThat(environment(services, "admin"))
+                    .containsOnlyKeys("API_ORIGIN", "GUEST_APP_ORIGIN")
+                    .containsEntry("API_ORIGIN", "${API_ORIGIN:-http://localhost:8080}");
+            assertThat(String.valueOf(admin))
+                    .doesNotContain("PASSWORD")
+                    .doesNotContain("SIGNING_KEY")
+                    .doesNotContain("NEXT_PUBLIC");
+            assertThat(String.valueOf(environment(services, "api").get("ADMIN_APP_ORIGIN")))
+                    .isEqualTo("${ADMIN_APP_ORIGIN:-http://localhost:3001}");
+            assertThat(String.valueOf(environment(services, "api").get("SCHEDULER_POOL_SIZE")))
+                    .isEqualTo("${SCHEDULER_POOL_SIZE:-16}");
+        }
+        assertThat(String.valueOf(environment(services(true), "api").get("ADMIN_WALLET_ADDRESSES")))
+                .isEqualTo("${ADMIN_WALLET_ADDRESSES:-}");
+        assertThat(read("apps/admin/Dockerfile"))
+                .contains("pnpm install --frozen-lockfile")
+                .contains("NEXT_TELEMETRY_DISABLED=1")
+                .contains("/api/health");
     }
 
     @Test
@@ -280,8 +319,9 @@ class ComposeFilesTest {
     void everyU4VariableReachesTheApiWithItsDefaultAndIsListedInTheEnvExample() throws IOException {
         Map<String, String> defaults = new java.util.LinkedHashMap<>();
         defaults.put("DB_POOL_MAX_SIZE", "20");
-        // U7 (Passo 1): 11 since the four U7 jobs; U6 (Passo 1): 13, one per scheduled job plus the purge; U5: 14.
-        defaults.put("SCHEDULER_POOL_SIZE", "14");
+        // U7 (Passo 1): 11 since the four U7 jobs; U6 (Passo 1): 13, one per scheduled job plus the purge; U5: 14;
+        // U8 (Passo 1): 16, the kill switch reconciliation and the feedback purge.
+        defaults.put("SCHEDULER_POOL_SIZE", "16");
         defaults.put("MARKET_SOURCES", "sim-a,sim-b");
         defaults.put("MARKET_COLLECTION_INTERVAL", "30s");
         defaults.put("MARKET_SIMULATED_TOKENS_PER_SOURCE", "200");
@@ -440,16 +480,28 @@ class ComposeFilesTest {
         int api = 20;
         int trailRetention = 1;
         int riskRetention = 1;
+        // U8 (infrastructure-specification.md, review R-08): the dedicated pool of the apply lock and the pool of the
+        // feedback retention, 1 connection each.
+        int applyLock = 1;
+        int feedbackRetention = 1;
         int worker = 14;
         int startUp = 2;
         int superuserReserved = 3;
-        int total = api + trailRetention + riskRetention + worker + startUp + superuserReserved;
+        int total = api
+                + trailRetention
+                + riskRetention
+                + applyLock
+                + feedbackRetention
+                + worker
+                + startUp
+                + superuserReserved;
 
-        assertThat(total).isEqualTo(41).isLessThanOrEqualTo(100);
+        assertThat(total).isEqualTo(43).isLessThanOrEqualTo(100);
         assertThat(read("docker-compose.yml"))
                 .contains("api 20 + trail retention (U2) 1 + U6 retention 1")
-                .contains(
-                        "+ worker 14 + db-bootstrap and db-migrate at start-up 2 + 3 reserved for the superuser = 41");
+                .contains("+ U8 apply lock 1 + U8 feedback retention 1 + worker 14")
+                .contains("+ db-bootstrap and db-migrate at start-up 2 + 3 reserved")
+                .contains("for the superuser = 43");
     }
 
     /** Merged view of the services: the base file, and with {@code overlay} the test overlay merged on top. */

@@ -24,10 +24,11 @@ spring:
       # One thread per @Scheduled method (counted by U6): U1 to U3 relay, idempotency cleanup, the two daily audit jobs
       # and the login limiter eviction (5); U4 collection dispatcher, history cleanup and scanner limiter eviction (3);
       # U7 marking, pending close, reconciliation and the "check now" limiter eviction (4); U6 purge of the old approved
-      # evaluations (1); U5 the live channel mark poller of the api (1). RuntimeSettingsGuard refuses less than 14 in the
-      # api (SCHEDULER_POOL_SIZE); the worker (application-worker.yml) has its own 4.
+      # evaluations (1); U5 the live channel mark poller of the api (1); U8 the kill switch reconciliation and the
+      # feedback purge (2). RuntimeSettingsGuard refuses less than 16 in the api (SCHEDULER_POOL_SIZE); the worker
+      # (application-worker.yml) has its own 4.
       pool:
-        size: ${SCHEDULER_POOL_SIZE:14}
+        size: ${SCHEDULER_POOL_SIZE:16}
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -188,6 +189,38 @@ memetrade:
   scanner:
     # Per person and route, sliding window of 60 s (NFR6.3).
     rate-limit-per-minute: ${SCANNER_RATE_LIMIT_PER_MINUTE:60}
+  admin:
+    # U8 (infrastructure-specification.md): origin of the administrator app, the only origin of the administrative CORS
+    # policy (RuntimeSettingsGuard refuses a wildcard). Everything else is fixed here, never read from the environment.
+    app-origin: ${ADMIN_APP_ORIGIN:http://localhost:3001}
+    kill-switch:
+      # NFR10.1 / reliability-design.md: the reconciliation runs every 30 s and once when the api is ready; the apply
+      # lock waits at most 10 s in total (JVM lock, connection of the lock pool and pg_try_advisory_lock every 200 ms);
+      # 3 attempts per call of U5 (BR2.3) and 3 re-reads while the version keeps changing.
+      reconcile-interval: 30s
+      apply-lock-wait: 10s
+      apply-lock-poll: 200ms
+      apply-attempts: 3
+      reconcile-stale-after: 60s
+      pending-stale-after: 2m
+      lock-at-most-for: 5m
+    login:
+      # Q4 of the NFR Design: 5 challenge and verify requests per minute per IP, and 5 per (address, IP) pair.
+      per-ip-per-minute: 5
+      per-address-per-minute: 5
+      # Q1 of the functional design: access token of 15 minutes, session of 8 hours without extension.
+      access-token-ttl: 15m
+      session-max-age: 8h
+    feedback:
+      # BR6.3, BR6.7, NFR2.5, NFR2.6: 10 per person and hour, kept 180 days, purged daily at 03:00 UTC in batches of
+      # 1000; the health indicator is DOWN when the last success is older than 48 hours.
+      max-per-hour: 10
+      retention: 180d
+      purge-cron: '0 0 3 * * *'
+      purge-batch-size: 1000
+      purge-lock-at-most-for: 30m
+      purge-stale-after: 48h
+      page-max: 100
   audit:
     relay-interval: 1s
     relay-batch-size: 100

@@ -14,6 +14,14 @@ public class RateLimitConfig {
         return new LoginRateLimiter(properties.loginRateLimitPerMinute(), clock);
     }
 
+    /** U8 (Q4 of the NFR Design): the administrator entry has its own counters, per IP and per (address, IP). */
+    @Bean
+    public com.memetrade.identity.domain.ratelimit.AdminLoginLimiter adminLoginLimiter(
+            AdminLoginProperties properties, Clock clock) {
+        return new com.memetrade.identity.domain.ratelimit.AdminLoginLimiter(
+                properties.perIpPerMinute(), properties.perAddressPerMinute(), clock);
+    }
+
     /** U3 (BR2.2): its own counters, never shared with the login limiter. */
     @Bean
     public InviteLookupRateLimiter inviteLookupRateLimiter(IdentityProperties properties, Clock clock) {

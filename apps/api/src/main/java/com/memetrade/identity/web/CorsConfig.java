@@ -12,10 +12,14 @@ import org.springframework.web.filter.CorsFilter;
 @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class CorsConfig {
 
+    /** U8: one filter with the administrative policy first ({@code /api/v1/admin/**}) and the guest policy after it. */
     @Bean
-    public FilterRegistrationBean<CorsFilter> guestCorsFilter(IdentityProperties properties) {
-        FilterRegistrationBean<CorsFilter> registration =
-                new FilterRegistrationBean<>(new CorsFilter(GuestCorsPolicy.source(properties.guestAppOrigin())));
+    public FilterRegistrationBean<CorsFilter> guestCorsFilter(
+            IdentityProperties properties,
+            @org.springframework.beans.factory.annotation.Value("${memetrade.admin.app-origin}")
+                    java.net.URI adminAppOrigin) {
+        FilterRegistrationBean<CorsFilter> registration = new FilterRegistrationBean<>(
+                new CorsFilter(AdminCorsPolicy.combined(adminAppOrigin, properties.guestAppOrigin())));
         registration.setOrder(FilterOrder.CORS);
         registration.addUrlPatterns("/api/*");
         return registration;

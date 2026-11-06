@@ -32,11 +32,17 @@ public class IdentityAdministrationImpl implements IdentityAdministration {
     private final InviteService invites;
     private final AdminAccess admins;
     private final LoginSettings settings;
+    private final com.memetrade.identity.domain.invite.IdentityDirectory directory;
 
-    public IdentityAdministrationImpl(InviteService invites, AdminAccess admins, LoginSettings settings) {
+    public IdentityAdministrationImpl(
+            InviteService invites,
+            AdminAccess admins,
+            LoginSettings settings,
+            com.memetrade.identity.domain.invite.IdentityDirectory directory) {
         this.invites = invites;
         this.admins = admins;
         this.settings = settings;
+        this.directory = directory;
     }
 
     @Override
@@ -65,6 +71,22 @@ public class IdentityAdministrationImpl implements IdentityAdministration {
     public List<TenantOption> activeTenants(Principal admin) {
         requireAdministrator(admin);
         return invites.activeTenants();
+    }
+
+    @Override
+    public java.util.Map<UUID, String> tenantNames(java.util.Collection<UUID> tenantIds, Principal admin) {
+        requireAdministrator(admin);
+        java.util.Map<UUID, String> names = new java.util.LinkedHashMap<>();
+        tenantIds.stream()
+                .distinct()
+                .forEach(id -> directory.tenant(id).ifPresent(tenant -> names.put(id, tenant.name())));
+        return names;
+    }
+
+    @Override
+    public Optional<String> maskedAdministratorWallet(UUID adminUserId, Principal admin) {
+        requireAdministrator(admin);
+        return directory.walletOf(adminUserId).map(WalletAddress::mask);
     }
 
     private AdminActor actor(Principal admin) {

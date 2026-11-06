@@ -84,10 +84,15 @@ class AuditArchitectureTest {
             .doNotHaveFullyQualifiedName(AdminAuthorization.class.getName())
             .and()
             .doNotHaveFullyQualifiedName(Role.class.getName())
+            // U8 (BR1.2, BR1.4): the administrator entry is the second and last place that decides on the role: it
+            // refuses a guest wallet and renews only ADMIN sessions. Nothing else may name ADMIN.
+            .and()
+            .doNotHaveFullyQualifiedName("com.memetrade.identity.domain.login.AdminLoginService")
             .should()
             .accessField(Role.class, "ADMIN")
             .because("only the administrative authorisation component, used by the route rule and by each "
-                    + "administrative operation, decides on the ADMIN role (BR2.1, NFR6.1)");
+                    + "administrative operation, and the administrator entry of U8 decide on the ADMIN role (BR2.1,"
+                    + " NFR6.1)");
 
     /** The route rule and the administrative operations decide through that single component. */
     static final ArchRule ADMIN_OPERATIONS_CHECK_THE_ROLE =

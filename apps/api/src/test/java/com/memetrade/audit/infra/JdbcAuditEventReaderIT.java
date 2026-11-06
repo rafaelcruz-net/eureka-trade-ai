@@ -139,6 +139,13 @@ class JdbcAuditEventReaderIT extends AbstractPostgresIT {
     @Test
     void bothPreparedFormsReadFromTheIndexWithoutASeparateSort() {
         insert(base, null, "PLAN_ACTION", Map.of());
+        // With only a handful of rows in the window the planner may scan the time index and filter the action, which
+        // depends on what other tests left in the shared database. Enough rows of another action in the same window,
+        // with fresh statistics, make the action index the cheaper path every time.
+        for (int i = 0; i < 300; i++) {
+            insert(base.plusMillis(i + 1), null, "PLAN_NOISE", Map.of());
+        }
+        jdbc.sql("analyze audit_event").update();
         for (boolean withAction : new boolean[] {false, true}) {
             for (boolean withCursor : new boolean[] {false, true}) {
                 String plan = explain(JdbcAuditEventReader.sql(withAction, withCursor));

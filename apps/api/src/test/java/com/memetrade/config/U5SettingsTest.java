@@ -24,15 +24,16 @@ import org.springframework.mock.env.MockEnvironment;
 class U5SettingsTest {
 
     @Test
-    void theApiGuardAcceptsFourteenToThirtyTwoSchedulerThreads() {
-        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(14);
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "14")))
+    void theApiGuardAcceptsSixteenToThirtyTwoSchedulerThreads() {
+        // U8 (Passo 1): two more jobs in the api, the kill switch reconciliation and the feedback purge.
+        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(16);
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "16")))
                 .doesNotThrowAnyException();
         assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "32")))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "13")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "15")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 14 and 32");
+                .hasMessageContaining("between 16 and 32");
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "4")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }

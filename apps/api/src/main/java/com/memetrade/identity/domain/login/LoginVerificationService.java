@@ -92,6 +92,10 @@ public class LoginVerificationService {
 
     /** From here on the nonce is CONSUMED: any refusal keeps it consumed (BR1.4, BR1.5). */
     private VerificationOutcome verifyConsumed(VerifyCommand command, LoginChallenge challenge, Instant now) {
+        if (!settings.domain().equals(challenge.domain())) {
+            // U8: a challenge of the administrator entry (another domain) never opens a guest session.
+            return reject(command, RejectionReason.UNKNOWN_CHALLENGE, now);
+        }
         if (!challenge.message().equals(command.message())
                 || !challenge.walletAddress().equals(command.walletAddress())) {
             return reject(command, RejectionReason.MESSAGE_MISMATCH, now);

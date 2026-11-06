@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { messages } from '@/lib/i18n/messages';
 import { SignOutButton } from '@/features/auth/SignOutButton';
+import { FeedbackButton } from '@/features/feedback/FeedbackButton';
 
 /**
  * Account menu of the guest app header (BR4.4): the P&L screen (U7), the Account screen and "Sair". There is no
@@ -20,7 +21,7 @@ export function AccountMenu() {
       <Link href="/conta" data-testid="app-account-link">
         {messages.app.account}
       </Link>{' '}
-      <SignOutButton />
+      <FeedbackButton /> <SignOutButton />
     </nav>
   );
 }

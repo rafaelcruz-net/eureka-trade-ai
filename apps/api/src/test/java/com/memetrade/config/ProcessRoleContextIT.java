@@ -32,7 +32,11 @@ class ProcessRoleContextIT extends AbstractU5IT {
             "ReconciliationJob",
             "ReconciliationRunLimiterEvictionJob",
             "RiskEvaluationPurgeJob",
-            "DashboardMarkPoller");
+            "DashboardMarkPoller",
+            // U8: the kill switch reconciliation, its start-up round and the feedback purge (api only).
+            "KillSwitchReconciler",
+            "KillSwitchStartup",
+            "FeedbackPurgeJob");
 
     @Autowired
     private ApplicationContext context;
@@ -47,6 +51,7 @@ class ProcessRoleContextIT extends AbstractU5IT {
         // AuditStartup exists only with memetrade.scheduling.enabled (off in the tests, which drive jobs directly).
         java.util.Set<String> expected = new java.util.TreeSet<>(API_JOBS);
         expected.remove("AuditStartup");
+        expected.remove("KillSwitchStartup");
         assertThat(ProcessJobs.jobs(context)).containsExactlyInAnyOrderElementsOf(expected);
         assertThat(ProcessJobs.jobsWithoutRole(context)).isEmpty();
     }

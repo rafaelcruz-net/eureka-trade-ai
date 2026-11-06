@@ -12,10 +12,18 @@ updates:
       interval: weekly
     cooldown:
       default-days: 5
+  # U8: the administrator app, with the same wait for new versions as apps/web.
+  - package-ecosystem: npm
+    directory: /apps/admin
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 5
   - package-ecosystem: docker
     directories:
       - /apps/api
       - /apps/web
+      - /apps/admin
     schedule:
       interval: weekly
   - package-ecosystem: docker-compose

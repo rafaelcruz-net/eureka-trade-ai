@@ -18,7 +18,8 @@
     "test:coverage": "jest --coverage",
     "e2e": "playwright test",
     "gen:api": "openapi-typescript ../api/openapi/openapi-guest.yaml -o src/lib/api/schema.d.ts && prettier --write src/lib/api/schema.d.ts",
-    "check:api": "node scripts/check-api-types.mjs"
+    "check:api": "node scripts/check-api-types.mjs",
+    "check:bundle": "node scripts/guest-bundle-test.mjs"
   },
   "dependencies": {
     "@solana/wallet-standard-features": "1.3.0",

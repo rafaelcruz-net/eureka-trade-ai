@@ -40,7 +40,17 @@ public enum IdempotentOperation {
     /** U5 (BR2.7): stop with the closing of the positions. */
     BOT_STOP("bots.stop", Retention.DEFAULT),
     /** U5 (BR5.1): a new version of the limits. */
-    BOT_LIMITS("bots.limits", Retention.DEFAULT);
+    BOT_LIMITS("bots.limits", Retention.DEFAULT),
+    /** U8 (BR1.1): administrator challenge, kept only until it expires, like the guest one. */
+    ADMIN_AUTH_CHALLENGE("admin.auth.challenge", Retention.UNTIL_RESULT_EXPIRES),
+    /** U8 (BR1.2): administrator verification, never stored; the single-use nonce guarantees one session. */
+    ADMIN_AUTH_VERIFY("admin.auth.verify", Retention.NOT_STORED),
+    /** U8 (BR1.6): administrator logout. */
+    ADMIN_AUTH_LOGOUT("admin.auth.logout", Retention.DEFAULT),
+    /** U8 (BR2.4, R-03 of the NFR Design): change of the kill switch; the same key gives the same answer. */
+    ADMIN_KILL_SWITCH("admin.kill-switch", Retention.DEFAULT),
+    /** U8 (BR6.4): a comment of a guest; only a 201 is stored, 400 and 429 never are. */
+    FEEDBACK_SUBMIT("feedback.submit", Retention.DEFAULT);
 
     public enum Retention {
         DEFAULT,

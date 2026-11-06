@@ -64,7 +64,9 @@ class RouteRegistryTest {
                         "PUT /api/v1/bots/{botId}/draft",
                         "POST /api/v1/bots/{botId}/commands/{command}",
                         "POST /api/v1/bots/{botId}/limits",
-                        "GET /api/v1/bots/{botId}/decisions");
+                        "GET /api/v1/bots/{botId}/decisions",
+                        // U8 (C6): the comment of the caller.
+                        "POST /api/v1/feedback");
         assertThat(registry.routes())
                 .extracting(RouteRegistry.Entry::scope)
                 .allMatch(s -> Set.of("GLOBAL", "SESSION", "ADMIN", "CLIENT").contains(s));

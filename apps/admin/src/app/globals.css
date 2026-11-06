@@ -1,0 +1,219 @@
+/* Dark theme tokens; values mirror src/lib/theme/tokens.ts (contrast enforced by tokens.test.ts). */
+:root {
+  color-scheme: dark;
+  --background: #0f1115;
+  --surface: #171a21;
+  --surface-raised: #1f232c;
+  --text: #e8eaed;
+  --text-muted: #b3b9c4;
+  --accent: #8ab4ff;
+  --focus: #ffd166;
+  --danger: #ff8a80;
+  --warning: #ffcc66;
+  --unknown: #c9b8ff;
+  --border: #3a404c;
+  --banner-background: #3d1414;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+}
+
+/* Visible focus on every interactive element (NFR11.1). */
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+}
+
+.skip-link:focus {
+  left: 16px;
+  top: 8px;
+  background: var(--surface-raised);
+  padding: 8px;
+}
+
+header.app-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+header.app-header nav {
+  flex: 1;
+}
+
+main {
+  padding: 24px;
+}
+
+button {
+  background: var(--accent);
+  color: var(--background);
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+button.danger {
+  background: var(--danger);
+  color: var(--background);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  margin: 4px 0 8px;
+  padding: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+}
+
+.field-error {
+  color: var(--danger);
+}
+
+.unknown {
+  color: var(--unknown);
+}
+
+.note {
+  color: var(--text-muted);
+  margin-top: 32px;
+}
+
+.notice {
+  color: var(--warning);
+}
+
+.kill-switch-banner {
+  background: var(--banner-background);
+  color: var(--text);
+  border-bottom: 2px solid var(--danger);
+  padding: 8px 24px;
+  font-weight: 600;
+}
+
+.kill-switch-banner p {
+  margin: 4px 0;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.status-grid > div {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.status-grid dt {
+  color: var(--text-muted);
+}
+
+.status-grid dd {
+  margin: 4px 0 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 16px 0;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.feedback-list li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.feedback-list .meta {
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+/* BR6.6: the comment is plain text; line breaks are kept, nothing is interpreted. */
+.plain-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog {
+  background: var(--surface-raised);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  width: min(560px, 90vw);
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}

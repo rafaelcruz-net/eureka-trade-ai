@@ -32,6 +32,11 @@ export interface RequestOptions {
   body?: unknown;
   /** Adds a fresh Idempotency-Key (UUID); such requests may be retried. */
   idempotent?: boolean;
+  /**
+   * U8 (BR6.4, NFR10.5): a FIXED Idempotency-Key chosen by the screen (the feedback dialog generates it when it opens
+   * and reuses it on every new attempt). Such requests may be retried like the idempotent ones.
+   */
+  idempotencyKey?: string;
   /** Sends the HttpOnly refresh cookie (only verify, refresh and logout need it). */
   credentials?: boolean;
   /** Adds the in-memory Bearer token. */
@@ -81,7 +86,9 @@ export function createApiClient(settings: ClientSettings) {
     if (options.body !== undefined) {
       headers['Content-Type'] = 'application/json';
     }
-    if (options.idempotent) {
+    if (options.idempotencyKey) {
+      headers['Idempotency-Key'] = options.idempotencyKey;
+    } else if (options.idempotent) {
       headers['Idempotency-Key'] = newId();
     }
     const token = tokenStore.get();
@@ -94,7 +101,8 @@ export function createApiClient(settings: ClientSettings) {
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       credentials: options.credentials ? 'include' : 'omit',
     };
-    const retryable = method === 'GET' || Boolean(options.idempotent);
+    const retryable =
+      method === 'GET' || Boolean(options.idempotent) || Boolean(options.idempotencyKey);
 
     for (let tries = 0; ; tries++) {
       let response: Response;

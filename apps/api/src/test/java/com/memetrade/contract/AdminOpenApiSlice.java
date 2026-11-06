@@ -34,7 +34,16 @@ import org.springframework.transaction.support.TransactionTemplate;
  * mocks: only the shapes matter here.
  */
 @Tag("u2")
-@WebMvcTest(controllers = {AdminAuditController.class, com.memetrade.identity.web.AdminInviteController.class})
+@WebMvcTest(
+        controllers = {
+            AdminAuditController.class,
+            com.memetrade.identity.web.AdminInviteController.class,
+            // U8 (C8): the administrator entry, the kill switch, the system status, the tenants and the feedback.
+            com.memetrade.identity.web.AdminAuthController.class,
+            com.memetrade.administration.web.AdminKillSwitchController.class,
+            com.memetrade.administration.web.AdminSystemController.class,
+            com.memetrade.feedback.web.AdminFeedbackController.class
+        })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
     SpringDocConfiguration.class,
@@ -90,6 +99,43 @@ public abstract class AdminOpenApiSlice {
     /** U3 (C8): invitation routes of the administrator. */
     @MockitoBean
     com.memetrade.identity.api.IdentityAdministration identityAdministration;
+
+    /** U8 (C8): the collaborators of the administrator entry, the kill switch, the status and the feedback list. */
+    @MockitoBean
+    com.memetrade.identity.domain.login.ChallengeService challengeService;
+
+    @MockitoBean
+    com.memetrade.identity.domain.login.AdminLoginService adminLoginService;
+
+    @MockitoBean
+    com.memetrade.identity.domain.login.AdminLoginSettings adminLoginSettings;
+
+    @MockitoBean
+    com.memetrade.identity.domain.ratelimit.AdminLoginLimiter adminLoginLimiter;
+
+    @MockitoBean
+    com.memetrade.identity.web.ClientIpResolver clientIpResolver;
+
+    @MockitoBean
+    com.memetrade.administration.domain.KillSwitchService killSwitchService;
+
+    @MockitoBean
+    com.memetrade.administration.infra.KillSwitchApplier killSwitchApplier;
+
+    @MockitoBean
+    com.memetrade.administration.domain.KillSwitchStore killSwitchStore;
+
+    @MockitoBean
+    com.memetrade.administration.domain.ActiveBots activeBots;
+
+    @MockitoBean
+    com.memetrade.administration.domain.SystemStatusAssembler systemStatusAssembler;
+
+    @MockitoBean
+    com.memetrade.feedback.domain.FeedbackStore feedbackStore;
+
+    @MockitoBean
+    com.memetrade.feedback.infra.FeedbackProperties feedbackProperties;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/admin"))

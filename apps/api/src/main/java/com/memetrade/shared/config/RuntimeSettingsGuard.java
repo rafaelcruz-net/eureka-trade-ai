@@ -13,7 +13,9 @@ import org.springframework.stereotype.Component;
  *       audit relay, idempotency cleanup, audit retention purge, audit outbox cleanup, login limiter eviction; U4 (3)
  *       collection dispatcher, history cleanup, scanner limiter eviction; U7 (4) marking, pending close,
  *       reconciliation, "check now" limiter eviction; U6 (1) purge of the old approved evaluations; U5 (1) the live
- *       channel mark poller ({@code DashboardMarkPoller}).
+ *       channel mark poller ({@code DashboardMarkPoller}); U8 (2) the kill switch reconciliation
+ *       ({@code KillSwitchReconciler}) and the feedback purge ({@code FeedbackPurgeJob}). U8 also checks the origin of
+ *       the administrator app ({@code ADMIN_APP_ORIGIN}): an http or https origin, never a wildcard.
  *   <li><b>worker</b>: pool 14 to 30 (4 cycles, 4 reserve, 6 jobs, scalability-design.md), scheduler 4 to 8 (slot
  *       dispatch, midnight, closing check, decision purge).
  * </ul>
@@ -26,8 +28,14 @@ public class RuntimeSettingsGuard {
     static final String POOL_PROPERTY = "spring.datasource.hikari.maximum-pool-size";
     static final String SCHEDULER_PROPERTY = "spring.task.scheduling.pool.size";
 
-    /** The smallest scheduler pool of the api: its 14 scheduled jobs (13 of U1 to U7 plus the U5 mark poller). */
-    public static final int MIN_SCHEDULER_POOL = 14;
+    /** U8: origin of the administrator app accepted by the administrative CORS policy. */
+    static final String ADMIN_ORIGIN_PROPERTY = "memetrade.admin.app-origin";
+
+    /**
+     * The smallest scheduler pool of the api: its 16 scheduled jobs (13 of U1 to U7, the U5 mark poller and the two
+     * jobs of U8).
+     */
+    public static final int MIN_SCHEDULER_POOL = 16;
 
     /** The smallest scheduler pool of the worker: its 4 scheduled jobs (U5). */
     public static final int MIN_WORKER_SCHEDULER_POOL = 4;
@@ -43,7 +51,38 @@ public class RuntimeSettingsGuard {
         } else {
             check(environment, POOL_PROPERTY, "DB_POOL_MAX_SIZE", 10, 50);
             check(environment, SCHEDULER_PROPERTY, "SCHEDULER_POOL_SIZE", MIN_SCHEDULER_POOL, 32);
+            checkAdminOrigin(environment.getProperty(ADMIN_ORIGIN_PROPERTY));
         }
+    }
+
+    /**
+     * U8 (security-design.md, CORS): one explicit origin, {@code http} or {@code https} with a host, no path and never
+     * a wildcard. An absent value keeps the shipped default of {@code application.yml}.
+     */
+    static void checkAdminOrigin(String raw) {
+        if (raw == null) {
+            return;
+        }
+        String value = raw.trim();
+        java.net.URI origin;
+        try {
+            origin = java.net.URI.create(value);
+        } catch (IllegalArgumentException malformed) {
+            throw invalidAdminOrigin();
+        }
+        boolean web = "http".equals(origin.getScheme()) || "https".equals(origin.getScheme());
+        boolean bare = origin.getHost() != null
+                && (origin.getPath() == null || origin.getPath().isEmpty() || "/".equals(origin.getPath()))
+                && origin.getQuery() == null
+                && origin.getUserInfo() == null;
+        if (value.contains("*") || value.contains(",") || !web || !bare) {
+            throw invalidAdminOrigin();
+        }
+    }
+
+    private static IllegalArgumentException invalidAdminOrigin() {
+        return new IllegalArgumentException(
+                "ADMIN_APP_ORIGIN must be one http(s) origin such as http://localhost:3001, never a wildcard");
     }
 
     static void check(Environment environment, String property, String variable, int min, int max) {

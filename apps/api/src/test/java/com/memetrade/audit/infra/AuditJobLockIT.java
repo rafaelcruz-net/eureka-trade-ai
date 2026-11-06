@@ -86,7 +86,10 @@ class AuditJobLockIT extends AbstractAuditJobIT {
         assertThat(runner.runLocked(AuditJob.AUDIT_RETENTION_PURGE)).isPresent();
 
         assertThat(runner.runLocked(AuditJob.AUDIT_OUTBOX_CLEANUP)).isPresent();
-        assertThat(jdbc.sql("select name from shedlock").query(String.class).list())
+        // Only the audit locks: other modules (U8 kill switch reconciliation) keep their own rows in the same table.
+        assertThat(jdbc.sql("select name from shedlock where name like 'AUDIT_%'")
+                        .query(String.class)
+                        .list())
                 .containsExactlyInAnyOrder("AUDIT_RETENTION_PURGE", "AUDIT_OUTBOX_CLEANUP");
     }
 

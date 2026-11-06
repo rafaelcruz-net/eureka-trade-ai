@@ -79,6 +79,200 @@ paths:
         \ NFR7)"
       tags:
       - admin-audit-controller
+  /api/v1/admin/auth/challenge:
+    post:
+      operationId: issueAdminChallenge
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminChallengeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChallengeResponse"
+          description: Desafio com o domínio do app do administrador
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: endereço que não é Base58 ou Idempotency-Key\
+            \ ausente"
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED: mais de 5 pedidos por minuto do IP ou do par\
+            \ (endereço, IP)"
+      summary: "Emite o desafio de entrada do administrador para qualquer endereç\
+        o válido, sem revelar a lista"
+      tags:
+      - admin-auth-controller
+  /api/v1/admin/auth/logout:
+    post:
+      operationId: adminLogout
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: Sessão encerrada
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: FORBIDDEN_ROLE para token de convidado
+      security:
+      - accessToken: []
+      summary: Encerra a sessão do administrador e apaga o cookie; repetir não tem
+        efeito
+      tags:
+      - admin-auth-controller
+  /api/v1/admin/auth/refresh:
+    post:
+      operationId: refreshAdminSession
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+          description: Novo token de acesso; o cookie é trocado; a sessão não é prorrogada
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "UNAUTHENTICATED: cookie ausente, reutilizado, sessão vencida\
+            \ ou carteira retirada da lista"
+      summary: Troca o cookie de renovação do administrador por um novo token; sem
+        Idempotency-Key
+      tags:
+      - admin-auth-controller
+  /api/v1/admin/auth/verify:
+    post:
+      operationId: verifyAdminLogin
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminVerifyRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+          description: Sessão de administrador aberta
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VALIDATION_FAILED
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "UNAUTHENTICATED: nonce reutilizado, vencido ou de outro escopo,\
+            \ ou assinatura inválida"
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE genérico: carteira fora da lista ou de convidado\
+            \ (motivo só na auditoria)"
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: RATE_LIMITED
+      summary: Verifica a assinatura e abre a sessão do administrador (15 min / 8
+        h); cookie em Set-Cookie
+      tags:
+      - admin-auth-controller
+  /api/v1/admin/feedback:
+    get:
+      operationId: listFeedback
+      parameters:
+      - description: Cursor opaco devolvido em nextCursor
+        in: query
+        name: cursor
+        schema:
+          type: string
+      - description: Itens por página
+        in: query
+        name: limit
+        schema:
+          type: integer
+          default: 20
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackPage"
+          description: Uma página
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VALIDATION_FAILED em limit ou cursor
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+      security:
+      - accessToken: []
+      summary: "Comentários do mais novo para o mais antigo, como texto puro (AC6.1.4);\
+        \ sem pessoa nem carteira"
+      tags:
+      - admin-feedback-controller
   /api/v1/admin/invites:
     get:
       operationId: listInvites
@@ -247,8 +441,206 @@ paths:
         (BR1.4)
       tags:
       - admin-invite-controller
+  /api/v1/admin/kill-switch:
+    get:
+      operationId: getKillSwitch
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KillSwitch"
+          description: Estado atual
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+      security:
+      - accessToken: []
+      summary: "Estado do kill switch, quem, quando, motivo, pendências e bots ativos\
+        \ a pausar (AC7.2.1)"
+      tags:
+      - admin-kill-switch-controller
+    put:
+      operationId: changeKillSwitch
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KillSwitchRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KillSwitch"
+          description: "Estado confirmado, com pendingBots e reconcileNeeded depois\
+            \ da aplicação"
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: Idempotency-Key ausente, state fora de\
+            \ ON/OFF ou reason vazio ou com mais de 500 caracteres"
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "IDEMPOTENCY_CONFLICT: mesma chave com outro corpo"
+      security:
+      - accessToken: []
+      summary: Aciona ou desliga o kill switch (FR3.2); a mesma Idempotency-Key devolve
+        a mesma resposta
+      tags:
+      - admin-kill-switch-controller
+  /api/v1/admin/system-status:
+    get:
+      operationId: getSystemStatus
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatus"
+          description: Estado do sistema; uma parte que falha não derruba as outras
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+      security:
+      - accessToken: []
+      summary: Só contagens e estado das fontes (AC7.4.1); cada parte é OK com value
+        ou UNKNOWN com reason
+      tags:
+      - admin-system-controller
+  /api/v1/admin/tenants:
+    get:
+      operationId: listActiveTenants
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantOption"
+          description: "Tenants ativos, por nome"
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+      security:
+      - accessToken: []
+      summary: "Tenants ativos para o formulário de convite (acréscimo da U8, BR5.1)"
+      tags:
+      - admin-system-controller
 components:
   schemas:
+    AdminChallengeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        walletAddress:
+          type: string
+          description: Endereço público Solana
+          minLength: 1
+      required:
+      - walletAddress
+    AdminSession:
+      type: object
+      additionalProperties: false
+      properties:
+        accessToken:
+          type: string
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+        role:
+          type: string
+          enum:
+          - ADMIN
+        sessionExpiresAt:
+          type: string
+          format: date-time
+        walletMasked:
+          type: string
+          description: "Carteira mascarada (4 + 4) do administrador, para o cabeç\
+            alho do app"
+      required:
+      - accessToken
+      - accessTokenExpiresAt
+      - role
+      - sessionExpiresAt
+    AdminVerifyRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          minLength: 1
+        provider:
+          type: string
+          enum:
+          - PHANTOM
+          - SOLFLARE
+        signature:
+          type: string
+          description: Assinatura em base58
+          minLength: 1
+        walletAddress:
+          type: string
+          minLength: 1
+      required:
+      - message
+      - provider
+      - signature
+      - walletAddress
     AuditEventPage:
       type: object
       additionalProperties: false
@@ -325,6 +717,127 @@ components:
       - recordedAt
       - targetRef
       - tenantId
+    ChallengeResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        chain:
+          type: string
+        domain:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        issuedAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          description: Texto exato a assinar
+        nonce:
+          type: string
+      required:
+      - chain
+      - domain
+      - expiresAt
+      - issuedAt
+      - message
+      - nonce
+    CountMapPart:
+      type: object
+      additionalProperties: false
+      description: "OK com value, ou UNKNOWN com reason (nunca zero no lugar de um\
+        \ valor ausente)"
+      properties:
+        reason:
+          type: string
+          enum:
+          - TIMEOUT
+          - UNAVAILABLE
+        status:
+          type: string
+          enum:
+          - OK
+          - UNKNOWN
+        value:
+          type: object
+          additionalProperties:
+            type: integer
+            format: int64
+      required:
+      - status
+    CountPart:
+      type: object
+      additionalProperties: false
+      description: "OK com value, ou UNKNOWN com reason (nunca zero no lugar de um\
+        \ valor ausente)"
+      properties:
+        reason:
+          type: string
+          enum:
+          - TIMEOUT
+          - UNAVAILABLE
+        status:
+          type: string
+          enum:
+          - OK
+          - UNKNOWN
+        value:
+          type: integer
+          format: int64
+      required:
+      - status
+    FeedbackItem:
+      type: object
+      additionalProperties: false
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        feedbackId:
+          type: string
+          format: uuid
+        screen:
+          type: string
+          enum:
+          - S1
+          - S2
+          - S3
+          - S4
+          - S5
+          - S6
+          - S7
+          - S8
+          - S9
+        tenantId:
+          type: string
+          format: uuid
+        tenantName:
+          type: string
+          description: Nome do tenant (acréscimo da U8)
+        text:
+          type: string
+          description: "Texto puro, como foi enviado"
+      required:
+      - createdAt
+      - feedbackId
+      - screen
+      - tenantId
+      - tenantName
+      - text
+    FeedbackPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedbackItem"
+        nextCursor:
+          type: string
+          description: Cursor da próxima página; ausente na última
+      required:
+      - items
     FieldViolation:
       type: object
       additionalProperties: false
@@ -417,6 +930,98 @@ components:
       required:
       - expiresAt
       - tenantId
+    KillSwitch:
+      type: object
+      additionalProperties: false
+      properties:
+        activeBotsToPause:
+          type: integer
+          format: int64
+          description: Bots ACTIVE que o acionamento vai pausar; só no GET (AC7.2.1)
+        changedAt:
+          type: string
+          format: date-time
+        changedBy:
+          type: string
+          description: Carteira mascarada (4 + 4) do administrador da última mudança
+        pendingBots:
+          type: integer
+          format: int32
+          description: Bots cuja pausa (ou retirada) ainda falhou
+        reason:
+          type: string
+          description: Motivo da última mudança
+        reconcileNeeded:
+          type: boolean
+          description: A última aplicação ainda está sendo confirmada pela reconciliação
+        state:
+          type: string
+          enum:
+          - "ON"
+          - "OFF"
+        version:
+          type: integer
+          format: int64
+      required:
+      - pendingBots
+      - reconcileNeeded
+      - state
+      - version
+    KillSwitchPart:
+      type: object
+      additionalProperties: false
+      description: "OK com value, ou UNKNOWN com reason (nunca zero no lugar de um\
+        \ valor ausente)"
+      properties:
+        reason:
+          type: string
+          enum:
+          - TIMEOUT
+          - UNAVAILABLE
+        status:
+          type: string
+          enum:
+          - OK
+          - UNKNOWN
+        value:
+          $ref: "#/components/schemas/KillSwitchSummary"
+      required:
+      - status
+    KillSwitchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          description: "Motivo, de 1 a 500 caracteres depois de tirar os espaços (BR2.6)"
+          maxLength: 500
+          minLength: 1
+        state:
+          type: string
+          enum:
+          - "ON"
+          - "OFF"
+      required:
+      - reason
+      - state
+    KillSwitchSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        pendingBots:
+          type: integer
+          format: int32
+        reconcileNeeded:
+          type: boolean
+        state:
+          type: string
+          enum:
+          - "ON"
+          - "OFF"
+      required:
+      - pendingBots
+      - reconcileNeeded
+      - state
     Problem:
       type: object
       additionalProperties: false
@@ -447,6 +1052,101 @@ components:
       - status
       - title
       - type
+    SourceState:
+      type: object
+      additionalProperties: false
+      properties:
+        lastUpdatedAt:
+          type: string
+          format: date-time
+          description: Última coleta bem-sucedida; ausente antes da primeira
+        name:
+          type: string
+        simulated:
+          type: boolean
+        sourceId:
+          type: string
+        status:
+          type: string
+          enum:
+          - PENDING
+          - OK
+          - DEGRADED
+          - FAILED
+      required:
+      - name
+      - simulated
+      - sourceId
+      - status
+    SourcesPart:
+      type: object
+      additionalProperties: false
+      description: "OK com value, ou UNKNOWN com reason (nunca zero no lugar de um\
+        \ valor ausente)"
+      properties:
+        reason:
+          type: string
+          enum:
+          - TIMEOUT
+          - UNAVAILABLE
+        status:
+          type: string
+          enum:
+          - OK
+          - UNKNOWN
+        value:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceState"
+      required:
+      - status
+    SystemStatus:
+      type: object
+      additionalProperties: false
+      properties:
+        auditOutboxPending:
+          $ref: "#/components/schemas/CountPart"
+          description: Eventos de auditoria ainda na tabela de saída
+        botCountsByState:
+          $ref: "#/components/schemas/CountMapPart"
+          description: "Chaves de BotState, com CLOSING_PENDING"
+        generatedAt:
+          type: string
+          format: date-time
+        guestCount:
+          $ref: "#/components/schemas/CountPart"
+        inviteCounts:
+          $ref: "#/components/schemas/CountMapPart"
+          description: "Chaves PENDING, USED, EXPIRED, REVOKED"
+        killSwitch:
+          $ref: "#/components/schemas/KillSwitchPart"
+        rejectedOrdersToday:
+          $ref: "#/components/schemas/CountPart"
+          description: Ordens recusadas de todos os tenants desde 00:00 UTC de hoje
+            (acréscimo da U8)
+        sources:
+          $ref: "#/components/schemas/SourcesPart"
+      required:
+      - auditOutboxPending
+      - botCountsByState
+      - generatedAt
+      - guestCount
+      - inviteCounts
+      - killSwitch
+      - rejectedOrdersToday
+      - sources
+    TenantOption:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+      required:
+      - name
+      - tenantId
   securitySchemes:
     accessToken:
       scheme: bearer

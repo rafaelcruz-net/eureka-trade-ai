@@ -50,7 +50,9 @@ import org.springframework.transaction.support.TransactionTemplate;
             com.memetrade.riskcontrol.web.RejectionController.class,
             // U5 (C4 and C7): the bots, the wizard, the commands, the decisions and the live channel.
             com.memetrade.bots.web.BotController.class,
-            com.memetrade.bots.web.DashboardStreamController.class
+            com.memetrade.bots.web.DashboardStreamController.class,
+            // U8 (C6): the comment of a guest.
+            com.memetrade.feedback.web.FeedbackController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -154,6 +156,10 @@ public abstract class GuestOpenApiSlice {
 
     @MockitoBean
     com.memetrade.bots.web.DashboardMarkPoller dashboardMarkPoller;
+
+    /** U8 (C6): the submission of feedback. */
+    @MockitoBean
+    com.memetrade.feedback.domain.FeedbackService feedbackService;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/guest"))

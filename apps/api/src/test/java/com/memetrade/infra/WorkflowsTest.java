@@ -263,6 +263,34 @@ class WorkflowsTest {
         return unpinned;
     }
 
+    /**
+     * U8 (R-03 of the Infrastructure Design): the administrator app has its own lockfile, so the dependency audit and
+     * the automatic update PRs cover it next to apps/web, with the same wait for new npm versions.
+     */
+    @Test
+    @Tag("u8")
+    @SuppressWarnings("unchecked")
+    void theAdministratorAppIsAuditedAndUpdatedLikeTheGuestApp() throws IOException {
+        assertThat(Files.readString(WORKFLOWS.resolve("security.yml"), StandardCharsets.UTF_8))
+                .contains("pnpm --dir apps/web audit --audit-level high")
+                .contains("pnpm --dir apps/admin audit --audit-level high");
+
+        Map<String, Object> dependabot = new Yaml()
+                .load(Files.readString(WORKFLOWS.getParent().resolve("dependabot.yml"), StandardCharsets.UTF_8));
+        List<Map<String, Object>> updates = (List<Map<String, Object>>) dependabot.get("updates");
+        Map<String, Object> adminNpm = updates.stream()
+                .filter(u -> "npm".equals(u.get("package-ecosystem")) && "/apps/admin".equals(u.get("directory")))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("dependabot.yml has no npm entry for /apps/admin"));
+        assertThat(((Map<String, Object>) adminNpm.get("cooldown")).get("default-days"))
+                .isEqualTo(5);
+        Map<String, Object> docker = updates.stream()
+                .filter(u -> "docker".equals(u.get("package-ecosystem")))
+                .findFirst()
+                .orElseThrow();
+        assertThat((List<String>) docker.get("directories")).contains("/apps/admin");
+    }
+
     private static List<Path> workflows() throws IOException {
         try (Stream<Path> files = Files.list(WORKFLOWS)) {
             List<Path> found = files.filter(p -> p.toString().endsWith(".yml")).toList();

@@ -28,12 +28,12 @@ class U6SettingsTest {
 
     @Test
     void theGuardRefusesThirteenSchedulerThreadsAndAcceptsFourteen() {
-        // U5 (Passo 1): the api has one more scheduled job, the live channel poller.
-        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(14);
+        // U5 (Passo 1): the api has one more scheduled job, the live channel poller; U8 two more.
+        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(16);
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("13")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 14 and 32");
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("14"))).doesNotThrowAnyException();
+                .hasMessageContaining("between 16 and 32");
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("16"))).doesNotThrowAnyException();
         assertThatCode(() -> new RuntimeSettingsGuard(environment("32"))).doesNotThrowAnyException();
     }
 
@@ -44,7 +44,7 @@ class U6SettingsTest {
                 .getFirst();
 
         assertThat(String.valueOf(yml.getProperty("spring.task.scheduling.pool.size")))
-                .isEqualTo("${SCHEDULER_POOL_SIZE:14}");
+                .isEqualTo("${SCHEDULER_POOL_SIZE:16}");
         assertThat(String.valueOf(yml.getProperty("memetrade.riskcontrol.freshness-max-age")))
                 .isEqualTo("60s");
         assertThat(String.valueOf(yml.getProperty("memetrade.riskcontrol.purge.cron")))
@@ -74,9 +74,9 @@ class U6SettingsTest {
         String compose = Files.readString(Path.of("..", "..", "docker-compose.yml"), StandardCharsets.UTF_8);
         String example = Files.readString(Path.of("..", "..", ".env.example"), StandardCharsets.UTF_8);
 
-        // U5: 14 in the api since the live channel poller.
-        assertThat(compose).contains("SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-14}");
-        assertThat(example).contains("Scheduler threads of the api, 14 to 32 [14]");
+        // U5: 14 in the api since the live channel poller; U8: 16.
+        assertThat(compose).contains("SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-16}");
+        assertThat(example).contains("Scheduler threads of the api, 16 to 32 [16]");
         assertThat(compose).doesNotContain("RISKCONTROL").doesNotContain("RISK_PURGE");
     }
 

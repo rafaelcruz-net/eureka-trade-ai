@@ -18,15 +18,20 @@ class LoginLimiterEvictionJobTest {
         MutableClock clock = new MutableClock();
         LoginRateLimiter login = new LoginRateLimiter(10, clock);
         InviteLookupRateLimiter lookups = new InviteLookupRateLimiter(10, clock);
+        com.memetrade.identity.domain.ratelimit.AdminLoginLimiter admins =
+                new com.memetrade.identity.domain.ratelimit.AdminLoginLimiter(5, 5, clock);
         login.acquireForIp("10.0.0.1");
         lookups.acquire("10.0.0.1");
         lookups.acquire("10.0.0.2");
+        admins.acquire("10.0.0.3", "11111111111111111111111111111111");
         clock.advance(Duration.ofMinutes(1).plusSeconds(1));
 
-        new LoginLimiterEvictionJob(login, lookups).evict();
+        new LoginLimiterEvictionJob(login, lookups, admins).evict();
 
         assertThat(login.trackedKeys()).isZero();
         assertThat(lookups.trackedKeys()).isZero();
+        // U8: the administrator entry limiter is cleaned by the same schedule.
+        assertThat(admins.trackedKeys()).isZero();
     }
 
     @Test
@@ -37,7 +42,9 @@ class LoginLimiterEvictionJobTest {
         lookups.acquire("10.0.0.1");
         clock.advance(Duration.ofSeconds(30));
 
-        new LoginLimiterEvictionJob(login, lookups).evict();
+        new LoginLimiterEvictionJob(
+                        login, lookups, new com.memetrade.identity.domain.ratelimit.AdminLoginLimiter(5, 5, clock))
+                .evict();
 
         assertThat(lookups.trackedKeys()).isEqualTo(1);
     }

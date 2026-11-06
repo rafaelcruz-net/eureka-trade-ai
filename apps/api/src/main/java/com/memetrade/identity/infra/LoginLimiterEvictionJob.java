@@ -16,15 +16,22 @@ public class LoginLimiterEvictionJob {
 
     private final LoginRateLimiter limiter;
     private final InviteLookupRateLimiter inviteLookups;
+    private final com.memetrade.identity.domain.ratelimit.AdminLoginLimiter adminLogins;
 
-    public LoginLimiterEvictionJob(LoginRateLimiter limiter, InviteLookupRateLimiter inviteLookups) {
+    public LoginLimiterEvictionJob(
+            LoginRateLimiter limiter,
+            InviteLookupRateLimiter inviteLookups,
+            com.memetrade.identity.domain.ratelimit.AdminLoginLimiter adminLogins) {
         this.limiter = limiter;
         this.inviteLookups = inviteLookups;
+        this.adminLogins = adminLogins;
     }
 
+    /** Since U8 the administrator entry limiter is cleaned too, in the same schedule (no new thread). */
     @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
     public void evict() {
         limiter.evictExpired();
         inviteLookups.evictExpired();
+        adminLogins.evictExpired();
     }
 }

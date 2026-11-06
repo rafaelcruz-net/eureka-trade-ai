@@ -17,14 +17,19 @@ public final class GuestCorsPolicy {
     private GuestCorsPolicy() {}
 
     public static UrlBasedCorsConfigurationSource source(URI guestAppOrigin) {
-        String origin = guestAppOrigin.toString().replaceAll("/+$", "");
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        register(source, guestAppOrigin);
+        return source;
+    }
+
+    /** U8: the guest patterns appended to a shared source, after the administrative ones (AdminCorsPolicy). */
+    static void register(UrlBasedCorsConfigurationSource source, URI guestAppOrigin) {
+        String origin = guestAppOrigin.toString().replaceAll("/+$", "");
         // Registration order matters: the first matching pattern wins.
         for (String route : CREDENTIAL_ROUTES) {
             source.registerCorsConfiguration(route, configuration(origin, true));
         }
         source.registerCorsConfiguration("/api/v1/**", configuration(origin, false));
-        return source;
     }
 
     private static CorsConfiguration configuration(String origin, boolean credentials) {

@@ -314,13 +314,16 @@ describe('S3 scanner list', () => {
     );
     await screen.findByTestId('scanner-table');
 
-    // U3: the account menu comes first in the header; U5 puts the Bots link and U7 the P&L link before Conta and Sair.
+    // U3: the account menu comes first in the header; U5 puts the Bots link and U7 the P&L link before Conta and Sair;
+    // U8 puts the feedback button between Conta and Sair.
     await userEvent.tab();
     expect(screen.getByTestId('app-bots-link')).toHaveFocus();
     await userEvent.tab();
     expect(screen.getByTestId('app-pnl-link')).toHaveFocus();
     await userEvent.tab();
     expect(screen.getByTestId('app-account-link')).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByTestId('app-feedback-button')).toHaveFocus();
     await userEvent.tab();
     expect(screen.getByTestId('app-sign-out-button')).toHaveFocus();
     await userEvent.tab();

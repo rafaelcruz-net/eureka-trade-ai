@@ -304,6 +304,20 @@ export function guestApi(client: ApiClient) {
         }),
       );
     },
+    /**
+     * U8 (C6, US6.1): a comment with the screen of origin. The Idempotency-Key is the one of the dialog, generated when
+     * it opened, so a new attempt after an error never creates a second comment (BR6.4).
+     */
+    sendFeedback(body: FeedbackRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<FeedbackReceipt>('/api/v1/feedback', {
+          method: 'POST',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
     /** U5 (C4, US4.5): the explained decisions of a bot, newest first. */
     listBotDecisions(botId: string, request: { cursor?: string | null; limit?: number } = {}) {
       return withRenewal(() =>
@@ -336,5 +350,10 @@ export type DecisionPage = components['schemas']['DecisionPage'];
 export type BotState = BotSummary['state'];
 export type PauseReason = BotSummary['pauseReasons'][number];
 export type BotCommand = 'start' | 'pause' | 'resume' | 'stop';
+
+// U8 (C6): the comment of a guest.
+export type FeedbackRequest = components['schemas']['FeedbackRequest'];
+export type FeedbackReceipt = components['schemas']['FeedbackReceipt'];
+export type FeedbackScreen = FeedbackRequest['screen'];
 
 export type GuestApi = ReturnType<typeof guestApi>;

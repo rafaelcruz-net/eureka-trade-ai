@@ -82,8 +82,8 @@ public class IdentityConfig {
     /** C17: the administration of invitations used by the administrative routes and by U8. */
     @Bean
     public IdentityAdministration identityAdministration(
-            InviteService invites, AdminAccess admins, LoginSettings settings) {
-        return new IdentityAdministrationImpl(invites, admins, settings);
+            InviteService invites, AdminAccess admins, LoginSettings settings, IdentityDirectory directory) {
+        return new IdentityAdministrationImpl(invites, admins, settings, directory);
     }
 
     @Bean
@@ -161,6 +161,43 @@ public class IdentityConfig {
             AuditEventPublisher audit,
             LoginSettings settings) {
         return new InviteAccountCreation(invites, directory, accounts, guests, terms, sessions, audit, settings);
+    }
+
+    /** U8: the administrator wallets of the configuration (BR1.1, BR1.4). */
+    @Bean
+    public com.memetrade.identity.domain.login.AdminWallets adminWallets(LoginSettings settings) {
+        return com.memetrade.identity.domain.login.AdminWallets.of(settings.adminWalletAddresses());
+    }
+
+    /** U8: origin of the administrator app (its domain is the scope of the administrator challenge) and lifetimes. */
+    @Bean
+    public com.memetrade.identity.domain.login.AdminLoginSettings adminLoginSettings(
+            @org.springframework.beans.factory.annotation.Value("${memetrade.admin.app-origin}")
+                    java.net.URI adminAppOrigin,
+            AdminLoginProperties properties) {
+        return new com.memetrade.identity.domain.login.AdminLoginSettings(
+                adminAppOrigin,
+                properties.accessTokenTtl(),
+                properties.sessionMaxAge(),
+                com.memetrade.identity.domain.login.AdminLoginSettings.SYSTEM_TENANT);
+    }
+
+    /** U8 (BR1.1 to BR1.6): the administrator entry, only in the api process. */
+    @Bean
+    @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
+    public com.memetrade.identity.domain.login.AdminLoginService adminLoginService(
+            LoginChallengeRepository challenges,
+            AccountRepository accounts,
+            com.memetrade.identity.domain.login.AdminAccounts adminAccounts,
+            IdentityDirectory directory,
+            SessionService sessions,
+            Ed25519SignatureVerifier signatures,
+            AuditEventPublisher audit,
+            com.memetrade.identity.domain.login.AdminWallets wallets,
+            com.memetrade.identity.domain.login.AdminLoginSettings settings,
+            Clock clock) {
+        return new com.memetrade.identity.domain.login.AdminLoginService(
+                challenges, accounts, adminAccounts, directory, sessions, signatures, audit, wallets, settings, clock);
     }
 
     @Bean

@@ -60,7 +60,44 @@ class MigrationsIT extends AbstractPostgresIT {
             "bot_cycle",
             "bot_holding",
             "system_pause_state",
-            "decision");
+            "decision",
+            // U8 (migration 0011).
+            "kill_switch_state",
+            "kill_switch_change",
+            "feedback_entry");
+
+    /**
+     * U8 rollback test (cicd-pipeline.md "Implantação e rollback"): the queries of U1 to U7, U6 and U5 keep running on
+     * the schema migrated by 0011, which only adds tables, indexes, triggers and a grant and widens the role check of
+     * user_session; the kill switch row exists OFF and the guest session of the previous image is still written.
+     */
+    @Test
+    @org.junit.jupiter.api.Tag("u8")
+    void thePreviousQueriesStillRunOnTheU8SchemaAndTheKillSwitchStartsOff() {
+        List<String> all = new java.util.ArrayList<>(PREVIOUS_ENTRY_AND_SESSION_QUERIES);
+        all.addAll(PREVIOUS_LISTING_QUERIES);
+        all.add("select * from bot order by bot_id limit 1");
+        all.add("select * from system_pause_state");
+        all.add("select * from order_rejection order by evaluated_at desc limit 1");
+        all.add("select * from shedlock");
+        for (String query : all) {
+            assertThatCode(() -> jdbc.sql(query).query().listOfRows()).as(query).doesNotThrowAnyException();
+        }
+        assertThat(jdbc.sql("select count(*) from kill_switch_state")
+                        .query(Long.class)
+                        .single())
+                .isEqualTo(1);
+        assertThat(jdbc.sql("select count(*) from databasechangelog where id like '0011-%'")
+                        .query(Long.class)
+                        .single())
+                .isEqualTo(6);
+        assertThat(jdbc.sql("""
+                                select pg_get_constraintdef(oid) from pg_constraint
+                                where conname = 'user_session_role_ck'
+                                """).query(String.class).single())
+                .contains("BETA_USER")
+                .contains("ADMIN");
+    }
 
     /**
      * U5 rollback test (cicd-pipeline.md "Implantação e rollback"): the queries of U1 to U7 and U6 keep running on the

@@ -16,6 +16,9 @@ public interface IdentityDirectory {
     /** People with role BETA_USER and status ACTIVE (BR1.6). */
     long countActiveGuests();
 
+    /** U8 (BR2.7): the wallet address of a person, for the masked "changed by" of the kill switch. */
+    Optional<String> walletOf(UUID userId);
+
     /** A tenant and whether it is ACTIVE. */
     record TenantState(UUID tenantId, String name, boolean active) {}
 }

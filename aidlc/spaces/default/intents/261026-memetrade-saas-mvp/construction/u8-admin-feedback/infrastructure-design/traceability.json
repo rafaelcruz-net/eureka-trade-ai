@@ -1,0 +1,37 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u8-admin-feedback",
+  "upstream_ids": [
+    "NFR2.1", "NFR2.2", "NFR2.3", "NFR2.6", "NFR2.7",
+    "NFR3.1", "NFR3.2",
+    "NFR4.1",
+    "NFR6.4", "NFR6.5",
+    "NFR7.1",
+    "NFR9.1", "NFR9.3", "NFR9.4", "NFR9.5",
+    "NFR10.1", "NFR10.2", "NFR10.6", "NFR10.7",
+    "NFR12.1", "NFR13.1"
+  ],
+  "coverage": [
+    { "id": "NFR2.1", "status": "OK", "target": "job backend: KillSwitchPerformanceIT; métrica admin.killswitch.apply_seconds" },
+    { "id": "NFR2.2", "status": "OK", "target": "ShedLock adminKillSwitchReconcile a cada 30 s e ao subir; KillSwitchCrashIT" },
+    { "id": "NFR2.3", "status": "OK", "target": "DataSource Hikari dedicado (1 conexão) e trava consultiva; ApplyLockIT" },
+    { "id": "NFR2.6", "status": "OK", "target": "ShedLock feedbackPurge às 03:00 UTC; privilégio DELETE só em feedback_entry" },
+    { "id": "NFR2.7", "status": "OK", "target": "ShedLock e @ProcessRole(API); threads do agendador da api +2" },
+    { "id": "NFR3.1", "status": "OK", "target": "AdminReadLatencyIT e smoke e2e/u8-admin-feedback" },
+    { "id": "NFR3.2", "status": "OK", "target": "SystemStatusIT; SLO p95 ≤ 1 s em monitoring-design.md" },
+    { "id": "NFR4.1", "status": "OK", "target": "gatilho em kill_switch_change e privilégios SELECT, INSERT" },
+    { "id": "NFR6.4", "status": "OK", "target": "serviço admin próprio em 127.0.0.1:3001 sem segredos; teste de cabeçalhos no job admin" },
+    { "id": "NFR6.5", "status": "OK", "target": "GuestBundleTest no job frontend" },
+    { "id": "NFR7.1", "status": "OK", "target": "varredura de logs do verify.sh e dos testes; expurgo feedbackPurge" },
+    { "id": "NFR9.1", "status": "OK", "target": "actuator da api: métricas admin.killswitch.*" },
+    { "id": "NFR9.3", "status": "OK", "target": "monitoring-design.md: alertas por log ERROR com código estável" },
+    { "id": "NFR9.4", "status": "OK", "target": "indicadores adminKillSwitch e feedbackPurge; healthcheck do contêiner admin" },
+    { "id": "NFR9.5", "status": "OK", "target": "http.server.requests das rotas administrativas e de feedback" },
+    { "id": "NFR10.1", "status": "OK", "target": "reconciliação agendada e ao subir o processo; KillSwitchCrashIT" },
+    { "id": "NFR10.2", "status": "OK", "target": "KillSwitchRaceIT com 50 repetições" },
+    { "id": "NFR10.6", "status": "OK", "target": "healthcheck do admin; sem SLO de disponibilidade no beta local" },
+    { "id": "NFR10.7", "status": "OK", "target": "migração 0011 só de acréscimo; MigrationsIT; rollback em três passos" },
+    { "id": "NFR12.1", "status": "OK", "target": "jobs backend, frontend e admin com piso de 80%" },
+    { "id": "NFR13.1", "status": "OK", "target": "serviço admin no Docker Compose; jobs na CI em Linux" }
+  ]
+}

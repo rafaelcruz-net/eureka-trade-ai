@@ -28,8 +28,19 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class AuthenticationFilter extends OncePerRequestFilter {
 
-    static final Set<String> PUBLIC_ROUTES =
-            Set.of("/api/v1/auth/challenge", "/api/v1/auth/verify", "/api/v1/auth/refresh");
+    static final Set<String> PUBLIC_ROUTES = Set.of(
+            "/api/v1/auth/challenge",
+            "/api/v1/auth/verify",
+            "/api/v1/auth/refresh",
+            // U8 (security-design.md R-02): the administrator entry, by the whole normalised path; logout needs a
+            // token.
+            "/api/v1/admin/auth/challenge",
+            "/api/v1/admin/auth/verify",
+            "/api/v1/admin/auth/refresh");
+
+    /** U8: the public routes of the administrator entry, also the exception of {@link AdminRouteFilter}. */
+    static final Set<String> ADMIN_PUBLIC_ROUTES =
+            Set.of("/api/v1/admin/auth/challenge", "/api/v1/admin/auth/verify", "/api/v1/admin/auth/refresh");
 
     /**
      * U3 (security-design.md, NFR6.6): the invitation lookup is public ONLY for GET with the whole normalised path

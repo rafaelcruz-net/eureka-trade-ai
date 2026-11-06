@@ -85,7 +85,10 @@ public abstract class AbstractPostgresIT {
             .withUsername(SUPERUSER.user())
             .withPassword(SUPERUSER.password())
             .withCommand(Stream.concat(
-                            Stream.of("postgres", "-c", "fsync=off"),
+                            // max_connections is test-only (not in SERVER_PARAMETERS, which docker-compose.yml shares):
+                            // since U8 the full suite caches more Spring contexts, each with its own pools, than the
+                            // default 100 slots hold.
+                            Stream.of("postgres", "-c", "fsync=off", "-c", "max_connections=300"),
                             SERVER_PARAMETERS.stream().flatMap(p -> Stream.of("-c", p)))
                     .toArray(String[]::new))
             .withEnv("POSTGRES_HOST", "127.0.0.1")

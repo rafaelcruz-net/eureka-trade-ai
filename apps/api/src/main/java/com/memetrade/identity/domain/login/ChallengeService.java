@@ -60,23 +60,48 @@ public class ChallengeService {
     }
 
     IssuedChallenge issueNew(WalletAddress wallet) {
+        return issueNew(wallet, settings.domain(), settings.uri());
+    }
+
+    /**
+     * U8 (security-design.md "Entrada do administrador"): a challenge for ANY valid address (the answer never reveals
+     * the list of administrators), with the domain and URI of the administrator app: its scope. The administrator
+     * verification accepts only that domain and the guest verification refuses it, so one challenge never serves the
+     * other entry.
+     */
+    @Transactional
+    public IssuedChallenge issueAdmin(
+            WalletAddress wallet, IdempotencyKey key, String requestDigest, AdminLoginSettings admin) {
+        IdempotencyRequest request = new IdempotencyRequest(
+                IdempotentOperation.ADMIN_AUTH_CHALLENGE,
+                IdempotencyScope.preLogin(wallet, IdempotentOperation.ADMIN_AUTH_CHALLENGE),
+                key,
+                requestDigest);
+        IdempotentResponse response = idempotency.execute(request, () -> {
+            IssuedChallenge issued = issueNew(wallet, admin.domain(), admin.uri());
+            return new IdempotentOutcome(IdempotentResponse.fresh(200, write(issued)), issued.expiresAt());
+        });
+        return read(response.body());
+    }
+
+    private IssuedChallenge issueNew(WalletAddress wallet, String domain, String uri) {
         Instant issuedAt = clock.instant().truncatedTo(ChronoUnit.SECONDS);
         Instant expiresAt = issuedAt.plus(settings.challengeTtl());
         String nonce = nonces.next();
-        LoginMessage message = new LoginMessage(
-                settings.domain(), wallet.full(), settings.uri(), settings.chain(), nonce, issuedAt, expiresAt);
+        LoginMessage message =
+                new LoginMessage(domain, wallet.full(), uri, settings.chain(), nonce, issuedAt, expiresAt);
         String text = message.render();
         repository.insert(new LoginChallenge(
                 nonce,
                 wallet.full(),
-                settings.domain(),
+                domain,
                 settings.chain(),
                 text,
                 issuedAt,
                 expiresAt,
                 ChallengeState.ISSUED,
                 null));
-        return new IssuedChallenge(text, nonce, settings.domain(), settings.chain(), issuedAt, expiresAt);
+        return new IssuedChallenge(text, nonce, domain, settings.chain(), issuedAt, expiresAt);
     }
 
     private String write(IssuedChallenge issued) {

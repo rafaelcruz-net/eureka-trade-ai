@@ -243,6 +243,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/feedback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Registra um comentário com a tela de origem (FR13.1); tenant e pessoa vêm do token */
+    post: operations['sendFeedback'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/invites/{code}': {
     parameters: {
       query?: never;
@@ -656,6 +673,21 @@ export interface components {
       /** @enum {string} */
       status: 'KNOWN' | 'UNKNOWN';
       value?: string;
+    };
+    FeedbackReceipt: {
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      feedbackId: string;
+    };
+    FeedbackRequest: {
+      /**
+       * @description Tela de origem do comentário
+       * @enum {string}
+       */
+      screen: 'S1' | 'S2' | 'S3' | 'S4' | 'S5' | 'S6' | 'S7' | 'S8' | 'S9';
+      /** @description Comentário de 1 a 2.000 caracteres (pontos de código), guardado como enviado */
+      text: string;
     };
     FieldViolation: {
       field?: string;
@@ -1618,6 +1650,77 @@ export interface operations {
       };
       /** @description NOT_FOUND: bot de outra pessoa */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  sendFeedback: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FeedbackRequest'];
+      };
+    };
+    responses: {
+      /** @description Registrado; a mesma chave com o mesmo corpo devolve o mesmo 201 */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['FeedbackReceipt'];
+        };
+      };
+      /** @description VALIDATION_FAILED em text (vazio ou mais de 2.000 caracteres), screen (fora de S1 a S9) ou campo desconhecido; o app preserva o texto (AC6.1.3) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description UNAUTHENTICATED */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description FORBIDDEN_ROLE para token de administrador */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description IDEMPOTENCY_CONFLICT: mesma chave com outro corpo */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description RATE_LIMITED: 10 comentários na última hora; Retry-After diz quando tentar de novo (U8) */
+      429: {
         headers: {
           [name: string]: unknown;
         };
