@@ -65,7 +65,7 @@
     { "id": "NFR2.3", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/riskcontrol/EvaluationDuplicateIT.java" },
     { "id": "NFR2.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/riskcontrol/infra/JdbcRejectionRepository.java" },
     { "id": "NFR2.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/riskcontrol/infra/RiskEvaluationPurgeJob.java" },
-    { "id": "NFR2.6", "status": "OK", "target": "apps/api/src/main/resources/db/changelog/changes/0009-risk-control.sql" },
+    { "id": "NFR2.6", "status": "Deferred", "target": "scripts/load/load-test-u6-plans.test.mjs (regressão da conferência de plano, volta 1; índices em apps/api/src/main/resources/db/changelog/changes/0009-risk-control.sql); aguarda nova execução do cenário u6 no Build and Test" },
     { "id": "NFR3.1", "status": "OK", "target": "scripts/load/load-test.mjs" },
     { "id": "NFR3.2", "status": "Deferred", "target": "tela do bot da u5-bots-decision, medida com Playwright no estágio da U5" },
     { "id": "NFR4.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/riskcontrol/domain/RiskGatePropertyTest.java" },

@@ -1,0 +1,30 @@
+{
+  "stage": "functional-design",
+  "unit": "u9-dashboard",
+  "upstream_ids": [
+    "AC5.3.1", "AC5.3.2", "AC5.3.3",
+    "AC5.4.1", "AC5.4.2", "AC5.4.3"
+  ],
+  "coverage": [
+    { "id": "AC5.3.1", "status": "OK", "target": "BR1.1, BR1.3" },
+    { "id": "AC5.3.2", "status": "OK", "target": "BR1.5, BR2.1, BR2.2, BR2.3, BR2.4" },
+    { "id": "AC5.3.3", "status": "OK", "target": "BR1.2" },
+    { "id": "AC5.4.1", "status": "OK", "target": "BR1.4, BR3.1, BR3.2, BR3.3, BR3.5, BR5.1, BR5.2" },
+    { "id": "AC5.4.2", "status": "OK", "target": "BR4.1" },
+    { "id": "AC5.4.3", "status": "OK", "target": "BR4.2, BR5.3, BR5.4, BR5.5, BR5.6" }
+  ],
+  "reverse": [
+    { "id": "BR3.4", "status": "N/A", "target": "resumo da reconciliação do wireframe S2 (Q5), sem critério de aceite próprio" },
+    { "id": "BR6.1", "status": "N/A", "target": "menu geral do app do convidado, responsabilidade da U9 em unit-of-work.md (navegação principal dos mockups)" },
+    { "id": "BR6.2", "status": "N/A", "target": "critério transversal CT-UX-9" },
+    { "id": "BR6.3", "status": "N/A", "target": "critérios transversais CT-UX-8 e CT-UX-9" },
+    { "id": "BR6.4", "status": "N/A", "target": "mascaramento de carteira (NFR7)" },
+    { "id": "BR6.5", "status": "N/A", "target": "critério transversal CT-UX-4 (foco inicial do wireframe S2)" },
+    { "id": "BR6.6", "status": "N/A", "target": "definição de pronto DP-4" },
+    { "id": "BR7.1", "status": "N/A", "target": "critério transversal CT-UX-8" },
+    { "id": "BR7.2", "status": "N/A", "target": "critério transversal CT-UX-8" },
+    { "id": "BR7.3", "status": "N/A", "target": "critérios transversais CT-UX-4 e CT-UX-8" },
+    { "id": "BR8.1", "status": "N/A", "target": "definição de pronto DP-1" },
+    { "id": "BR8.2", "status": "N/A", "target": "restrição C-16 (sem promessa de lucro)" }
+  ]
+}

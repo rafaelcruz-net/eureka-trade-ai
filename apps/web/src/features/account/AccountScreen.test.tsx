@@ -123,13 +123,16 @@ describe('Account screen /conta', () => {
   });
 
   it('a technical error is a distinct state with a retry', async () => {
+    // U9: the wallet of the shell reads the account too; both first reads fail.
     const getAccount = jest
       .fn()
       .mockRejectedValueOnce(new ApiError(503, 'SERVICE_UNAVAILABLE'))
-      .mockResolvedValueOnce(ACCOUNT);
+      .mockRejectedValueOnce(new ApiError(503, 'SERVICE_UNAVAILABLE'))
+      .mockResolvedValue(ACCOUNT);
     renderAccount(fakeApi({ getAccount }));
 
     expect(await screen.findByTestId('account-error')).toHaveTextContent(text.errorTitle);
+    expect(screen.getByTestId('app-wallet-badge')).toHaveTextContent(/^Carteira$/);
     await userEvent.click(screen.getByTestId('account-retry'));
     expect(await screen.findByTestId('account-wallet')).toBeInTheDocument();
   });
@@ -166,7 +169,7 @@ describe('Account screen /conta', () => {
     expect(tokenStore.get()).toBeNull();
   });
 
-  it('the account menu links to /conta and offers "Sair"; the page renders the screen', async () => {
+  it('the main navigation links to /conta, marks it current and offers "Sair"; the page renders the screen', async () => {
     tokenStore.set('access-token-value');
     render(
       <Providers api={fakeApi()}>
@@ -174,9 +177,16 @@ describe('Account screen /conta', () => {
       </Providers>,
     );
 
-    const menu = screen.getByTestId('app-account-menu');
-    expect(within(menu).getByTestId('app-account-link')).toHaveAttribute('href', '/conta');
-    expect(within(menu).getByTestId('app-sign-out-button')).toHaveTextContent(messages.app.signOut);
+    const menu = screen.getByTestId('app-primary-nav');
+    expect(within(menu).getByTestId('app-nav-account-link')).toHaveAttribute('href', '/conta');
+    expect(within(menu).getByTestId('app-nav-account-link')).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByTestId('app-shell')).toContainElement(
+      screen.getByTestId('app-sign-out-button'),
+    );
+    expect(screen.getByTestId('app-sign-out-button')).toHaveTextContent(messages.app.signOut);
     expect(screen.getByRole('heading', { level: 1, name: text.title })).toHaveFocus();
     expect(await screen.findByTestId('account-details')).toBeInTheDocument();
   });

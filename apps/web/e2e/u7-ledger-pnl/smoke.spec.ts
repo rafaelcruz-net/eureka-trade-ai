@@ -14,7 +14,7 @@ test('U7: P&L, ledger and reconciliation of an account without operations', asyn
 
   await page.goto('/entrar?origem=/scanner');
   await connectAndReachScanner(page);
-  await page.getByTestId('app-pnl-link').click();
+  await page.getByTestId('app-nav-pnl-link').click();
   await page.waitForURL((url) => url.pathname === '/pnl');
 
   await expect(page.getByTestId('pnl-title')).toContainText('MODO PAPER (simulado)');

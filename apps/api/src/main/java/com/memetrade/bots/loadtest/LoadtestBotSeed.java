@@ -13,13 +13,16 @@ import com.memetrade.decision.infra.DecisionJson;
 import com.memetrade.decision.infra.JdbcDecisionRepository;
 import com.memetrade.decision.infra.JdbcDecisionRepository.NewDecision;
 import com.memetrade.shared.config.ProcessRole;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,6 +34,7 @@ import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -40,7 +44,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * (cicd-pipeline.md). The bots themselves are made by {@code scripts/load/load-test.mjs} through the REAL C4 routes
  * (create, the wizard steps and start, so every PAPER account is funded by the real U7); this seed waits until
  * {@code people x bots-per-person} bots are ACTIVE and then writes {@code decisions-per-bot} recorded decisions
- * (NO_TRADE / NO_SIGNAL, one cycle per past minute, so no slot repeats) on the first bot of each person, in batches of
+ * (NO_TRADE / NO_SIGNAL, one cycle per past minute before the oldest cycle of the bot, so no slot repeats and no slot
+ * the worker already ran is touched) on the first bot of each person, in batches of
  * {@value #BATCH} per transaction, through the repositories of U5. Health component {@code loadtestBots}: UP when the
  * preparation is over. Synthetic values only; never measured.
  */
@@ -67,6 +72,7 @@ public class LoadtestBotSeed implements HealthIndicator {
     private final JdbcBotRepository bots;
     private final JdbcCycleRepository cycles;
     private final JdbcDecisionRepository decisions;
+    private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
     private final Clock clock;
     private final boolean enabled;
@@ -82,6 +88,7 @@ public class LoadtestBotSeed implements HealthIndicator {
             JdbcBotRepository bots,
             JdbcCycleRepository cycles,
             JdbcDecisionRepository decisions,
+            JdbcClient jdbc,
             PlatformTransactionManager transactionManager,
             Clock clock,
             @Value("${memetrade.loadtest.bots.enabled:false}") boolean enabled,
@@ -95,6 +102,7 @@ public class LoadtestBotSeed implements HealthIndicator {
         this.bots = bots;
         this.cycles = cycles;
         this.decisions = decisions;
+        this.jdbc = jdbc;
         this.transactions = new TransactionTemplate(transactionManager);
         this.clock = clock;
         this.enabled = enabled;
@@ -157,15 +165,25 @@ public class LoadtestBotSeed implements HealthIndicator {
         return first;
     }
 
+    /**
+     * Writes the recorded decisions of the bot, one completed cycle per minute, only in minutes BEFORE the oldest cycle
+     * the bot already has (the worker may already have run a cycle in a recent minute; Build and Test, round 1, F3);
+     * a bot without a cycle starts at {@code now - 1 min}. A minute whose slot cannot be claimed stops the seed with
+     * the bot and the minute, and its batch is rolled back: no decision ever points to a cycle that does not exist.
+     */
     void seedDecisions(BotRef ref) {
         Bot bot = bots.find(ref.botId(), ref.scope()).orElseThrow();
-        Instant now = clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MINUTES);
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MINUTES);
+        Instant before = oldestCycle(ref)
+                .map(oldest -> oldest.truncatedTo(ChronoUnit.MINUTES))
+                .filter(oldest -> oldest.isBefore(now))
+                .orElse(now);
         DecisionJson.Recorded recorded = new DecisionJson.Recorded("{}", "[]", "{}", "[]");
         for (long done = 0; done < decisionsPerBot; done += BATCH) {
             long size = Math.min(BATCH, decisionsPerBot - done);
             List<NewDecision> batch = new ArrayList<>();
             for (long i = 0; i < size; i++) {
-                Instant at = now.minus(Duration.ofMinutes(done + i + 1));
+                Instant at = before.minus(Duration.ofMinutes(done + i + 1));
                 DecisionOutcome outcome = new DecisionOutcome(
                         DecisionAction.NO_TRADE,
                         Optional.of(BotCommandService.NEUTRAL_TOKEN),
@@ -189,7 +207,10 @@ public class LoadtestBotSeed implements HealthIndicator {
                         at));
             }
             transactions.executeWithoutResult(status -> batch.forEach(decision -> {
-                cycles.tryStart(decision.cycleId(), ref, decision.createdAt(), decision.createdAt());
+                if (!cycles.tryStart(decision.cycleId(), ref, decision.createdAt(), decision.createdAt())) {
+                    throw new IllegalStateException("load bot seed: the minute " + decision.createdAt() + " of bot "
+                            + ref.botId() + " already has a cycle; the batch was rolled back");
+                }
                 cycles.finish(
                         decision.cycleId(),
                         JdbcCycleRepository.Status.COMPLETED,
@@ -201,6 +222,24 @@ public class LoadtestBotSeed implements HealthIndicator {
             }));
             seeded.addAndGet(size);
         }
+    }
+
+    /** The start of the oldest cycle of the bot, read within its tenant and owner. */
+    private Optional<Instant> oldestCycle(BotRef ref) {
+        return jdbc
+                .sql("""
+                        select min(slot_start) from bot_cycle
+                        where bot_id = :bot and tenant_id = :tenant and owner_user_id = :owner
+                        """)
+                .param("bot", ref.botId())
+                .param("tenant", ref.scope().tenantId())
+                .param("owner", ref.scope().ownerUserId())
+                .query(Timestamp.class)
+                .list()
+                .stream()
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(Timestamp::toInstant);
     }
 
     private void fail(String reason) {

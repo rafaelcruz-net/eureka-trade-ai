@@ -100,10 +100,11 @@ describe('login flow', () => {
   });
 
   it('accepts only same-app relative origins', () => {
+    // U9: anything refused becomes the home page, the dashboard.
     expect(safeOrigin('/scanner')).toBe('/scanner');
-    expect(safeOrigin('//evil.example')).toBe('/scanner');
-    expect(safeOrigin('https://evil.example')).toBe('/scanner');
-    expect(safeOrigin('/\\evil')).toBe('/scanner');
-    expect(safeOrigin(null)).toBe('/scanner');
+    expect(safeOrigin('//evil.example')).toBe('/');
+    expect(safeOrigin('https://evil.example')).toBe('/');
+    expect(safeOrigin('/\\evil')).toBe('/');
+    expect(safeOrigin(null)).toBe('/');
   });
 });

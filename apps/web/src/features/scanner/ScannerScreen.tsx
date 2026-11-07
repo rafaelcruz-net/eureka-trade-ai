@@ -7,7 +7,7 @@ import { useApi } from '@/lib/api/ApiProvider';
 import type { ScannerFilters, ScannerPage, ScannerRow, SourceStatus } from '@/lib/api/guest-api';
 import { formatClock, formatInstant } from '@/lib/format/format';
 import { messages } from '@/lib/i18n/messages';
-import { AccountMenu } from '@/features/auth/AccountMenu';
+import { AppShell } from '@/components/shell/AppShell';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useRequireSession } from '@/features/auth/useRequireSession';
 import { AssessmentPanel } from '@/features/scanner/AssessmentPanel';
@@ -206,192 +206,176 @@ export function ScannerScreen({
     source.lastUpdatedAt ? formatInstant(source.lastUpdatedAt, timeZone) : text.neverUpdated;
 
   return (
-    <>
-      <header className="app-header">
-        <span>{messages.app.name}</span>
-        <span className="muted">{messages.app.paperOnly}</span>
-        <AccountMenu />
-      </header>
-      <main id="conteudo" aria-labelledby="scanner-title" className="scanner-layout">
-        <div className="scanner-main">
-          <h1 id="scanner-title">{text.title}</h1>
+    <AppShell current="scanner" titleId="scanner-title" className="scanner-layout">
+      <div className="scanner-main">
+        <h1 id="scanner-title">{text.title}</h1>
 
-          {sources.length > 0 && (
-            <p data-testid="scanner-source">
-              {text.sources(sourceNames)}
-              {sources.some((s) => s.source.simulated) && <strong> — {text.simulated}</strong>}
+        {sources.length > 0 && (
+          <p data-testid="scanner-source">
+            {text.sources(sourceNames)}
+            {sources.some((s) => s.source.simulated) && <strong> — {text.simulated}</strong>}
+          </p>
+        )}
+        {load.kind !== 'allFailed' && failedSources.length > 0 && (
+          <div role="status" className="notice notice-warning" data-testid="scanner-source-failed">
+            <p>⚠ {text.sourcesFailed}</p>
+            <ul>
+              {failedSources.map((source) => (
+                <li key={source.source.sourceId}>
+                  {text.sourceLine(
+                    source.source.name,
+                    text.sourceStatus.FAILED as string,
+                    lastUpdate(source),
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div aria-live="polite" className="muted" data-testid="scanner-updated">
+          {updatedAt ? text.updatedAt(formatClock(updatedAt, timeZone)) : ''}
+          {pending > 0 ? ` · ${text.pendingNew(pending)}` : ''}
+        </div>
+
+        <ScannerFiltersForm
+          key={formKey}
+          state={query}
+          sources={knownSources}
+          serverErrors={serverErrors}
+          onApply={apply}
+        />
+
+        {pending > 0 && (
+          <p data-testid="scanner-pending-new">
+            {text.pendingNew(pending)} —{' '}
+            <button type="button" data-testid="scanner-refresh-list" onClick={refreshList}>
+              {text.refreshList}
+            </button>
+          </p>
+        )}
+
+        <section
+          aria-label={text.regionLabel}
+          aria-busy={load.kind === 'loading'}
+          data-testid="scanner-region"
+        >
+          {load.kind === 'loading' && (
+            <p role="status" data-testid="scanner-loading">
+              {text.loading}
             </p>
           )}
-          {load.kind !== 'allFailed' && failedSources.length > 0 && (
-            <div
-              role="status"
-              className="notice notice-warning"
-              data-testid="scanner-source-failed"
-            >
-              <p>⚠ {text.sourcesFailed}</p>
+          {(load.kind === 'error' || load.kind === 'invalid') && (
+            <div role="alert" className="notice notice-error" data-testid="scanner-error">
+              <h2>{text.errorTitle}</h2>
+              <p>{load.kind === 'invalid' ? text.filters.rejected : text.errorBody}</p>
+              <button
+                type="button"
+                data-testid="scanner-retry-button"
+                onClick={() => void fetchPage(current, false)}
+              >
+                {text.retry}
+              </button>
+            </div>
+          )}
+          {load.kind === 'allFailed' && (
+            <div role="alert" className="notice notice-error" data-testid="scanner-all-failed">
+              <h2>{text.allSourcesFailedTitle}</h2>
+              <p>{text.allSourcesFailedBody}</p>
               <ul>
-                {failedSources.map((source) => (
+                {load.sources.map((source) => (
                   <li key={source.source.sourceId}>
                     {text.sourceLine(
                       source.source.name,
-                      text.sourceStatus.FAILED as string,
+                      text.sourceStatus[source.status] ?? source.status,
                       lastUpdate(source),
                     )}
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-          <div aria-live="polite" className="muted" data-testid="scanner-updated">
-            {updatedAt ? text.updatedAt(formatClock(updatedAt, timeZone)) : ''}
-            {pending > 0 ? ` · ${text.pendingNew(pending)}` : ''}
-          </div>
-
-          <ScannerFiltersForm
-            key={formKey}
-            state={query}
-            sources={knownSources}
-            serverErrors={serverErrors}
-            onApply={apply}
-          />
-
-          {pending > 0 && (
-            <p data-testid="scanner-pending-new">
-              {text.pendingNew(pending)} —{' '}
-              <button type="button" data-testid="scanner-refresh-list" onClick={refreshList}>
-                {text.refreshList}
-              </button>
-            </p>
-          )}
-
-          <section
-            aria-label={text.regionLabel}
-            aria-busy={load.kind === 'loading'}
-            data-testid="scanner-region"
-          >
-            {load.kind === 'loading' && (
-              <p role="status" data-testid="scanner-loading">
-                {text.loading}
-              </p>
-            )}
-            {(load.kind === 'error' || load.kind === 'invalid') && (
-              <div role="alert" className="notice notice-error" data-testid="scanner-error">
-                <h2>{text.errorTitle}</h2>
-                <p>{load.kind === 'invalid' ? text.filters.rejected : text.errorBody}</p>
-                <button
-                  type="button"
-                  data-testid="scanner-retry-button"
-                  onClick={() => void fetchPage(current, false)}
-                >
-                  {text.retry}
-                </button>
-              </div>
-            )}
-            {load.kind === 'allFailed' && (
-              <div role="alert" className="notice notice-error" data-testid="scanner-all-failed">
-                <h2>{text.allSourcesFailedTitle}</h2>
-                <p>{text.allSourcesFailedBody}</p>
-                <ul>
-                  {load.sources.map((source) => (
-                    <li key={source.source.sourceId}>
-                      {text.sourceLine(
-                        source.source.name,
-                        text.sourceStatus[source.status] ?? source.status,
-                        lastUpdate(source),
-                      )}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  type="button"
-                  data-testid="scanner-retry-button"
-                  onClick={() => void fetchPage(current, false)}
-                >
-                  {text.retry}
-                </button>
-              </div>
-            )}
-            {filtering && page && page.excludedByUnknown > 0 && (
-              <p className="notice" data-testid="scanner-excluded">
-                ? {text.excludedByUnknown(page.excludedByUnknown)}
-              </p>
-            )}
-            {waiting && <p data-testid="scanner-waiting">{text.waitingFirstCollection}</p>}
-            {page && !waiting && rows.length === 0 && !filtering && (
-              <p data-testid="scanner-empty">{text.empty}</p>
-            )}
-            {page && !waiting && rows.length === 0 && filtering && (
-              <div data-testid="scanner-empty-filtered">
-                <p>{text.emptyFiltered}</p>
-                <button type="button" data-testid="scanner-clear-filters" onClick={clearFilters}>
-                  {text.clearFilters}
-                </button>
-              </div>
-            )}
-            {page && rows.length > 0 && (
-              <>
-                {partial > 0 && (
-                  <p className="notice" data-testid="scanner-partial">
-                    ? {text.partial(partial)}
-                  </p>
-                )}
-                <p data-testid="scanner-showing">
-                  {text.showing(from, from + rows.length - 1, page.total)}
-                </p>
-                <ScannerTable
-                  rows={rows}
-                  selected={selected}
-                  onSelect={select}
-                  timeZone={timeZone}
-                />
-              </>
-            )}
-          </section>
-
-          <nav aria-label="Paginação" className="pagination">
-            {pageIndex > 0 && (
-              <>
-                <button
-                  type="button"
-                  className="secondary"
-                  data-testid="scanner-first-page"
-                  onClick={() => setCursors([null])}
-                >
-                  {text.firstPage}
-                </button>{' '}
-                <button
-                  type="button"
-                  className="secondary"
-                  data-testid="scanner-previous-page"
-                  onClick={() => setCursors((stack) => stack.slice(0, -1))}
-                >
-                  {text.previousPage}
-                </button>{' '}
-              </>
-            )}
-            {page?.nextCursor && (
               <button
                 type="button"
-                data-testid="scanner-next-page"
-                onClick={() => setCursors((stack) => [...stack, page.nextCursor ?? null])}
+                data-testid="scanner-retry-button"
+                onClick={() => void fetchPage(current, false)}
               >
-                {text.nextPage}
+                {text.retry}
               </button>
-            )}
-          </nav>
-        </div>
-        {panel && (
-          <AssessmentPanel
-            key={rowKey(panel)}
-            chain={panel.chain}
-            mint={panel.mint}
-            symbol={panel.symbol}
-            timeZone={timeZone}
-            onClose={closePanel}
-            onUnauthenticated={expire}
-          />
-        )}
-      </main>
-    </>
+            </div>
+          )}
+          {filtering && page && page.excludedByUnknown > 0 && (
+            <p className="notice" data-testid="scanner-excluded">
+              ? {text.excludedByUnknown(page.excludedByUnknown)}
+            </p>
+          )}
+          {waiting && <p data-testid="scanner-waiting">{text.waitingFirstCollection}</p>}
+          {page && !waiting && rows.length === 0 && !filtering && (
+            <p data-testid="scanner-empty">{text.empty}</p>
+          )}
+          {page && !waiting && rows.length === 0 && filtering && (
+            <div data-testid="scanner-empty-filtered">
+              <p>{text.emptyFiltered}</p>
+              <button type="button" data-testid="scanner-clear-filters" onClick={clearFilters}>
+                {text.clearFilters}
+              </button>
+            </div>
+          )}
+          {page && rows.length > 0 && (
+            <>
+              {partial > 0 && (
+                <p className="notice" data-testid="scanner-partial">
+                  ? {text.partial(partial)}
+                </p>
+              )}
+              <p data-testid="scanner-showing">
+                {text.showing(from, from + rows.length - 1, page.total)}
+              </p>
+              <ScannerTable rows={rows} selected={selected} onSelect={select} timeZone={timeZone} />
+            </>
+          )}
+        </section>
+
+        <nav aria-label="Paginação" className="pagination">
+          {pageIndex > 0 && (
+            <>
+              <button
+                type="button"
+                className="secondary"
+                data-testid="scanner-first-page"
+                onClick={() => setCursors([null])}
+              >
+                {text.firstPage}
+              </button>{' '}
+              <button
+                type="button"
+                className="secondary"
+                data-testid="scanner-previous-page"
+                onClick={() => setCursors((stack) => stack.slice(0, -1))}
+              >
+                {text.previousPage}
+              </button>{' '}
+            </>
+          )}
+          {page?.nextCursor && (
+            <button
+              type="button"
+              data-testid="scanner-next-page"
+              onClick={() => setCursors((stack) => [...stack, page.nextCursor ?? null])}
+            >
+              {text.nextPage}
+            </button>
+          )}
+        </nav>
+      </div>
+      {panel && (
+        <AssessmentPanel
+          key={rowKey(panel)}
+          chain={panel.chain}
+          mint={panel.mint}
+          symbol={panel.symbol}
+          timeZone={timeZone}
+          onClose={closePanel}
+          onUnauthenticated={expire}
+        />
+      )}
+    </AppShell>
   );
 }

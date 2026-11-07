@@ -1,0 +1,238 @@
+{
+  "stage": "code-generation",
+  "unit": "u9-dashboard",
+  "version": 1,
+  "writes": [
+    {
+      "path": "apps/api/openapi/openapi-guest.yaml"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/infra/BotProperties.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/web/ChannelSlots.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/web/DashboardEvents.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/web/DashboardMarkPoller.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/web/DashboardStreamController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/web/GuestCorsPolicy.java"
+    },
+    {
+      "path": "apps/api/src/main/resources/application.yml"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/web/ChannelSlotsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/web/DashboardChannelLimitIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/web/DashboardOpenLatencyIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/web/DashboardStreamDelayIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/web/ResumeMarksTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U9SettingsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/contract/U9OpenApiContractTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/web/GuestCorsPolicyTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/AbstractU9IT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/AbstractU9MeasurementIT.java"
+    },
+    {
+      "path": "apps/web/e2e/u1-walking-skeleton/keyboard.spec.ts"
+    },
+    {
+      "path": "apps/web/e2e/u3-identity-access/smoke.spec.ts"
+    },
+    {
+      "path": "apps/web/e2e/u5-bots-decision/smoke.spec.ts"
+    },
+    {
+      "path": "apps/web/e2e/u7-ledger-pnl/smoke.spec.ts"
+    },
+    {
+      "path": "apps/web/e2e/u9-dashboard/smoke.spec.ts"
+    },
+    {
+      "path": "apps/web/eslint.config.mjs"
+    },
+    {
+      "path": "apps/web/src/app/globals.css"
+    },
+    {
+      "path": "apps/web/src/app/page.tsx"
+    },
+    {
+      "path": "apps/web/src/components/shell/AppShell.test.tsx"
+    },
+    {
+      "path": "apps/web/src/components/shell/AppShell.tsx"
+    },
+    {
+      "path": "apps/web/src/components/shell/NoticesRegion.tsx"
+    },
+    {
+      "path": "apps/web/src/components/shell/PrimaryNav.tsx"
+    },
+    {
+      "path": "apps/web/src/components/shell/WalletBadge.tsx"
+    },
+    {
+      "path": "apps/web/src/features/account/AccountScreen.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/account/AccountScreen.tsx"
+    },
+    {
+      "path": "apps/web/src/features/auth/AccountMenu.tsx"
+    },
+    {
+      "path": "apps/web/src/features/auth/InviteScreen.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/auth/LoginScreen.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/auth/origin.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/auth/origin.ts"
+    },
+    {
+      "path": "apps/web/src/features/auth/wallets.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/bots/BotsShell.tsx"
+    },
+    {
+      "path": "apps/web/src/features/bots/messages.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/BotRow.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/BotsCard.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/CardError.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/channel-renewal.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/concurrency.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DashboardHeader.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/dashboard-loader.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DashboardProvider.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/dashboard-reducer.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DashboardScreen.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DashboardScreen.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/dashboard-state.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DataNoticesBanner.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/envelopes.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/envelopes.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/LastTradeLine.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/lint-rules.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/messages.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/PauseButton.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/period.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/PnlCard.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/sse-reader.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/sse-reader.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/storage.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/stream-client.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/stream-client.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/test-support.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/warn.ts"
+    },
+    {
+      "path": "apps/web/src/features/pnl/PnlScreen.tsx"
+    },
+    {
+      "path": "apps/web/src/features/scanner/ScannerScreen.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/scanner/ScannerScreen.tsx"
+    },
+    {
+      "path": "apps/web/src/lib/api/ApiProvider.tsx"
+    },
+    {
+      "path": "apps/web/src/lib/api/guest-api.ts"
+    },
+    {
+      "path": "apps/web/src/lib/api/renewal.test.ts"
+    },
+    {
+      "path": "apps/web/src/lib/api/schema.d.ts"
+    },
+    {
+      "path": "apps/web/src/lib/i18n/messages.ts"
+    }
+  ]
+}

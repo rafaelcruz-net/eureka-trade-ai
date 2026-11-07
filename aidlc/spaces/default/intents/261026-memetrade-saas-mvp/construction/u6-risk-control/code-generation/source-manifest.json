@@ -10,6 +10,8 @@
     { "path": "infra/postgres/bootstrap/10-roles.sql" },
     { "path": "scripts/load-test.sh" },
     { "path": "scripts/load/load-test.mjs" },
+    { "path": "scripts/load/u6-plans.mjs" },
+    { "path": "scripts/load/load-test-u6-plans.test.mjs" },
     { "path": "docs/api/u6-risk-control.md" },
     { "path": "apps/web/src/lib/api/schema.d.ts" },
     { "path": "apps/api/openapi/openapi-guest.yaml" },

@@ -11,6 +11,8 @@
 ## Tradeoffs
 <!-- example: 2026-05-29T10:14:32Z — picked TDD over BDD this run; the team is unit-first and the domain is well-understood -->
 - 2026-10-27T15:40:00Z — [unit u1-walking-skeleton] limite de tentativas configurável com padrão 10 e elevado só no perfil de carga (Q2): mede login sob carga real, ao custo de um teste que guarda o valor padrão.
+- 2026-11-06T13:55:00Z — [unit u9-dashboard] o teto de 5 canais por pessoa (Q1) fica no canal da U5, mexendo em código de outra Unit numa Unit só de interface; foi preferido a deixar a ameaça de negação de serviço só como risco aceito.
+- 2026-11-06T13:57:00Z — [unit u9-dashboard] pendências da revisão para a geração de código: as regras de lint de `EventSource` e de decimal precisam entrar em todos os blocos de `files` do `eslint.config.mjs` que já definem `no-restricted-globals` e `no-restricted-syntax` (o bloco mais específico substitui o geral); a contagem do teto de canais tem de ser atômica com o registro, com teste de aberturas concorrentes; e um canal fantasma depois de queda abrupta pode gerar `429` na reabertura até o servidor perceber a queda.
 
 ## Open questions
 <!-- example: 2026-05-29T10:14:32Z — confirm the retention window with compliance before the next stage hardens the schema -->

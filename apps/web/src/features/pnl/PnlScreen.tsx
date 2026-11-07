@@ -6,7 +6,7 @@ import { useApi } from '@/lib/api/ApiProvider';
 import type { PnlReport } from '@/lib/api/guest-api';
 import { abbreviateMint, formatClock, formatDecimal } from '@/lib/format/format';
 import { messages } from '@/lib/i18n/messages';
-import { AccountMenu } from '@/features/auth/AccountMenu';
+import { AppShell } from '@/components/shell/AppShell';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useRequireSession } from '@/features/auth/useRequireSession';
 import { LedgerList } from '@/features/pnl/LedgerList';
@@ -75,70 +75,63 @@ export function PnlScreen({ timeZone, now }: { timeZone?: string; now?: Date } =
   }
 
   return (
-    <>
-      <header className="app-header">
-        <span>{messages.app.name}</span>
-        <span className="muted">{messages.app.paperOnly}</span>
-        <AccountMenu />
-      </header>
-      <main id="conteudo" aria-labelledby="pnl-title">
-        <h1 id="pnl-title" ref={heading} tabIndex={-1} data-testid="pnl-title">
-          {text.title} <span className="tag">{text.paperLabel}</span>
-        </h1>
-        <p className="muted">{text.intro}</p>
-        <form onSubmit={apply} data-testid="pnl-period">
-          <fieldset>
-            <legend>{text.periodLegend}</legend>
-            <label htmlFor="pnl-from">{text.from}</label>
-            <input
-              id="pnl-from"
-              type="date"
-              value={fromDay}
-              data-testid="pnl-from"
-              onChange={(event) => setFromDay(event.target.value)}
-            />
-            <label htmlFor="pnl-to">{text.to}</label>
-            <input
-              id="pnl-to"
-              type="date"
-              value={toDay}
-              data-testid="pnl-to"
-              onChange={(event) => setToDay(event.target.value)}
-            />
-            <p className="muted">{text.periodHelp(zone)}</p>
-            <button type="submit" data-testid="pnl-apply">
-              {text.apply}
-            </button>
-          </fieldset>
-        </form>
-        {load.kind === 'invalid' && (
-          <p role="alert" className="notice notice-error" data-testid="pnl-invalid">
-            {text.invalidPeriod}
-          </p>
-        )}
-        {load.kind === 'loading' && (
-          <p role="status" data-testid="pnl-loading">
-            {text.loading}
-          </p>
-        )}
-        {load.kind === 'error' && (
-          <div role="alert" className="notice notice-error" data-testid="pnl-error">
-            <p>{text.error}</p>
-            <button
-              type="button"
-              className="secondary"
-              data-testid="pnl-retry"
-              onClick={() => void fetchReport()}
-            >
-              {text.retry}
-            </button>
-          </div>
-        )}
-        {load.kind === 'ready' && <Report report={load.report} timeZone={zone} />}
-        <ReconciliationPanel timeZone={zone} />
-        <LedgerList timeZone={zone} />
-      </main>
-    </>
+    <AppShell current="pnl" titleId="pnl-title">
+      <h1 id="pnl-title" ref={heading} tabIndex={-1} data-testid="pnl-title">
+        {text.title} <span className="tag">{text.paperLabel}</span>
+      </h1>
+      <p className="muted">{text.intro}</p>
+      <form onSubmit={apply} data-testid="pnl-period">
+        <fieldset>
+          <legend>{text.periodLegend}</legend>
+          <label htmlFor="pnl-from">{text.from}</label>
+          <input
+            id="pnl-from"
+            type="date"
+            value={fromDay}
+            data-testid="pnl-from"
+            onChange={(event) => setFromDay(event.target.value)}
+          />
+          <label htmlFor="pnl-to">{text.to}</label>
+          <input
+            id="pnl-to"
+            type="date"
+            value={toDay}
+            data-testid="pnl-to"
+            onChange={(event) => setToDay(event.target.value)}
+          />
+          <p className="muted">{text.periodHelp(zone)}</p>
+          <button type="submit" data-testid="pnl-apply">
+            {text.apply}
+          </button>
+        </fieldset>
+      </form>
+      {load.kind === 'invalid' && (
+        <p role="alert" className="notice notice-error" data-testid="pnl-invalid">
+          {text.invalidPeriod}
+        </p>
+      )}
+      {load.kind === 'loading' && (
+        <p role="status" data-testid="pnl-loading">
+          {text.loading}
+        </p>
+      )}
+      {load.kind === 'error' && (
+        <div role="alert" className="notice notice-error" data-testid="pnl-error">
+          <p>{text.error}</p>
+          <button
+            type="button"
+            className="secondary"
+            data-testid="pnl-retry"
+            onClick={() => void fetchReport()}
+          >
+            {text.retry}
+          </button>
+        </div>
+      )}
+      {load.kind === 'ready' && <Report report={load.report} timeZone={zone} />}
+      <ReconciliationPanel timeZone={zone} />
+      <LedgerList timeZone={zone} />
+    </AppShell>
   );
 }
 

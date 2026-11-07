@@ -314,14 +314,12 @@ describe('S3 scanner list', () => {
     );
     await screen.findByTestId('scanner-table');
 
-    // U3: the account menu comes first in the header; U5 puts the Bots link and U7 the P&L link before Conta and Sair;
-    // U8 puts the feedback button between Conta and Sair.
-    await userEvent.tab();
-    expect(screen.getByTestId('app-bots-link')).toHaveFocus();
-    await userEvent.tab();
-    expect(screen.getByTestId('app-pnl-link')).toHaveFocus();
-    await userEvent.tab();
-    expect(screen.getByTestId('app-account-link')).toHaveFocus();
+    // U9: the single shell comes first: the main navigation (Painel, Scanner, Bots PAPER, P&L PAPER, Conta), then
+    // "Feedback" (U8) and "Sair" (U3); the abbreviated wallet is text, not a stop of the tab order.
+    for (const item of ['dashboard', 'scanner', 'bots', 'pnl', 'account']) {
+      await userEvent.tab();
+      expect(screen.getByTestId(`app-nav-${item}-link`)).toHaveFocus();
+    }
     await userEvent.tab();
     expect(screen.getByTestId('app-feedback-button')).toHaveFocus();
     await userEvent.tab();

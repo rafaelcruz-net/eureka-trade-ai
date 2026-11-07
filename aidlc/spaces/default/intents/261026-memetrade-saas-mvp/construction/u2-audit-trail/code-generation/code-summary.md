@@ -2,6 +2,49 @@
 
 Código gerado para a Unit `u2-audit-trail` a partir do [plano aprovado](code-generation-plan.md), com os testes descritos em [unit-test-instructions.md](unit-test-instructions.md). Os 18 passos foram executados e marcados. Rastreabilidade em [traceability.json](traceability.json) e caminhos em `source-manifest.json`.
 
+## Volta 1 de Build and Test (2026-11-06)
+
+Só os Passos 19 e 20 do plano. Nenhum código de produção mudou.
+
+**Passo 19 — plano do índice num banco próprio (falha F1).**
+
+- `AuditEventReaderPlanIT` (novo) roda o `EXPLAIN` das quatro formas preparadas num banco só dele (`u2_plan_*`), no mesmo contêiner. O banco é criado, preparado pelo `bootstrap.sh` e migrado pelo dono pelo caminho do db-migrate. A classe não sobe contexto Spring.
+- A semente é fixa: os mesmos `event_id`, gerados por `md5`. No mesmo dia ficam 20 000 eventos de uma ação dominante, 50 da ação consultada e 500 de cada uma de outras quatro ações, mais 30 000 eventos nos 30 dias anteriores. Depois roda `ANALYZE audit_event`. Isso reproduz, dentro do banco próprio, a condição que levou o planner ao índice errado.
+- A asserção não mudou: com `action` aparece `audit_event_action_time_id_idx`, sem `action` aparece `audit_event_time_id_idx`, e nenhuma forma tem `Sort`.
+- O teste saiu de `JdbcAuditEventReaderIT`. Os outros cinco testes dessa classe continuam no banco compartilhado.
+- **Base comum:** `testsupport/OwnTestDatabase` (novo) cria um banco por prefixo e por JVM. `AbstractU9MeasurementIT` e `U7VolumeDatabase` passaram a usá-lo, com o mesmo nome de banco e o mesmo caminho de antes.
+  - **Desvio do plano:** é uma classe de apoio, e não a superclasse `AbstractOwnDatabaseIT` sugerida. `AbstractU9MeasurementIT` precisa continuar estendendo `AbstractU9IT`, e o teste do plano não precisa de contexto Spring.
+- **Defeito achado e corrigido (código de teste):** na primeira execução de `-Dgroups=u2`, `AuditObservabilityIT` perdeu dois testes (`no log line contains: Audit job started: ...` e `no log line contains: Audit trail query answered`).
+  - Causa: migrar um banco próprio no meio da execução reinicia o Logback da JVM com `root=WARN`, por causa do `--logging.level.root=WARN` do `MigrationRunner`. Os contextos Spring que já estavam em cache param de escrever as linhas `INFO`.
+  - Reprodução: `AdminAuditQueryIT`, depois `AuditEventReaderPlanIT`, depois `AuditObservabilityIT`.
+  - Correção: `OwnTestDatabase` migra com `org.springframework.boot.logging.LoggingSystem=none`, e a propriedade volta ao valor anterior em seguida.
+  - Regressão: `OwnTestDatabaseIT` (novo). Sem a correção, ele falha com `expected: INFO but was: WARN`.
+  - Efeito: o mesmo defeito existia, latente, nas medições da U9 e no volume da U7. Agora as migrações desses bancos escrevem os logs `INFO` do Liquibase.
+
+**Passo 20 — rastreabilidade.**
+
+- `traceability.json` ganhou as linhas NFR2.3, NFR3.2, NFR6.8 (`OK`) e NFR10.1 (`N/A`, sem meta de disponibilidade no beta local), também em `upstream_ids`.
+- Notas e caminhos extras foram para o campo `note`.
+- **Desvio do plano:** cada `target` `OK` tem um único caminho. O sensor `sensor-traceability` exige um único arquivo existente e não divide o texto por `; `. Os demais caminhos ficam em `note`, como "Outros alvos".
+- NFR3.1 aponta para `AuditEventReaderPlanIT`. BR2.3 e BR2.4 citam a classe nova na nota.
+- `aidlc engine sensor-traceability --stage build-and-test` não lista mais nenhum item da U2. Os itens que restam são de `u8-admin-feedback` e `u9-dashboard` (`upstream_ids must be an array of non-empty strings`).
+- NFR2.3 está coberto pela capacidade do relay e pela entrega única. Não há teste de carga isolado do pico de 60 eventos por segundo, o que está registrado na nota.
+
+**Resultados da volta:**
+
+| Comando | Resultado |
+|---|---|
+| `AuditEventReaderPlanIT` sozinho | BUILD SUCCESS: 2/2 |
+| `-Dgroups=u2`, primeira execução | BUILD FAILURE: unitários 145/145; integração 101/103, antes de `OwnTestDatabaseIT` existir (as 2 falhas de `AuditObservabilityIT` descritas acima) |
+| `-Dgroups=u2`, depois da correção | BUILD SUCCESS: unitários 145/145; integração 106/106 (com os 3 de `OwnTestDatabaseIT`) |
+| `-Dgroups=u9`, primeira execução | BUILD FAILURE: unitários 16/16; `DashboardOpenLatencyIT.everyGroupOfTheDashboardOpeningAnswersWithinTwoSecondsAtP95` falhou na meta de 2 s (correção própria da U9 nesta mesma volta) |
+| `-Dgroups=u9`, segunda execução (só integração) | BUILD SUCCESS: integração 10/10 |
+| `spotless:check` | BUILD SUCCESS |
+| `apps/api/mvnw -f apps/api/pom.xml verify`, rodada 1 | BUILD SUCCESS: unitários 890/890; integração 752/752; JaCoCo `All coverage checks have been met` |
+| `apps/api/mvnw -f apps/api/pom.xml verify`, rodada 2 | BUILD SUCCESS: unitários 890/890; integração 752/752; **93,85%** de linhas (JaCoCo consolidado) |
+
+`scripts/perf-audit.sh` não foi executado nesta volta. Ele fica com a pessoa.
+
 ## Correção após a revisão de 30/10/2026
 
 A primeira revisão do código veio NOT-READY. O responsável do projeto pediu a correção de três achados. Cada um ganhou um teste de regressão, executado antes da correção para confirmar a falha.

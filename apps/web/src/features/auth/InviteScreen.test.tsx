@@ -93,7 +93,8 @@ describe('invitation entry /convite/[codigo]', () => {
 
     await userEvent.click(screen.getByTestId('invite-connect-phantom'));
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/scanner'));
+    // U9 (BR1.1): the home page is the dashboard.
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
     expect(api.verifyLogin).toHaveBeenCalledWith(
       expect.objectContaining({
         inviteCode: CODE,

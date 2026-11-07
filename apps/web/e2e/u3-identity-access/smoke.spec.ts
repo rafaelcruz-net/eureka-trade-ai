@@ -14,7 +14,8 @@ test.use({ trace: 'off', screenshot: 'off', video: 'off' });
 /** Clicks "Conectar Phantom"; on the real login limit (429) waits one window and asks for a new challenge once. */
 async function connectAndCreateTheAccount(page: Page): Promise<void> {
   await page.getByTestId('invite-connect-phantom').click();
-  const home = page.waitForURL((url) => url.pathname === '/scanner').then(() => 'home' as const);
+  // U9: the home page after the entry is the dashboard.
+  const home = page.waitForURL((url) => url.pathname === '/').then(() => 'home' as const);
   const limited = page
     .getByTestId('invite-rejected-reason')
     .filter({ hasText: 'Muitas tentativas' })
@@ -30,7 +31,7 @@ async function connectAndCreateTheAccount(page: Page): Promise<void> {
   await page.waitForTimeout(LOGIN_LIMIT_WINDOW_MS);
   await page.getByTestId('invite-try-again').click();
   await page.getByTestId('invite-connect-phantom').click();
-  await page.waitForURL((url) => url.pathname === '/scanner');
+  await page.waitForURL((url) => url.pathname === '/');
 }
 
 /**
@@ -59,7 +60,7 @@ test('U3: convite → conta criada → tela Conta → Sair', async ({ page }) =>
   await connectAndCreateTheAccount(page);
 
   const accountStarted = Date.now();
-  await page.getByTestId('app-account-link').click();
+  await page.getByTestId('app-nav-account-link').click();
   await expect(page.getByTestId('account-wallet')).toBeVisible();
   const accountMs = Date.now() - accountStarted;
   await expect(page.getByTestId('account-wallet')).toHaveText(

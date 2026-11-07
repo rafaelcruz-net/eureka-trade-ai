@@ -24,6 +24,10 @@ Todo teste da U2 leva a tag JUnit `u2`. Os comandos abaixo rodam só os testes d
 | Cobertura da suíte inteira (piso de 80%) | `apps/api/mvnw -f apps/api/pom.xml verify` |
 | Smoke da fatia com a trilha (sobe, testa, derruba) | `bash scripts/verify.sh` |
 | Desempenho da trilha (só local) | `bash scripts/perf-audit.sh` |
+| Volta 1: plano do índice num banco próprio | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u2 -Dit.test=AuditEventReaderPlanIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false test-compile surefire:test failsafe:integration-test failsafe:verify` |
+| Volta 1: medições da U9 sobre a base extraída | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u9 test-compile surefire:test failsafe:integration-test failsafe:verify` |
+
+Na volta 1 de Build and Test (Passo 19), a suíte inteira (`verify`) roda duas vezes. `AuditEventReaderPlanIT` precisa ficar verde nas duas.
 
 O comando do backend da U2 fica pronto no Passo 2, antes do primeiro teste da Unit (Passo 3).
 
@@ -58,7 +62,7 @@ O comando do backend da U2 fica pronto no Passo 2, antes do primeiro teste da Un
 
 - **Relógio:** `MutableClock` injetado em todo teste de prazo: corte de 12 meses, 7 dias da limpeza, 24 h e 26 h da saúde, 30 minutos de limite, virada do dia UTC. Nenhum teste usa `Thread.sleep` para esperar prazo de domínio. O limite de tempo é testado com um valor reduzido na configuração do teste, nunca no código de produção.
 - **Gatilho do banco:** usa o relógio do banco; os testes usam eventos de 13 e de 11 meses, longe da fronteira.
-- **Banco:** PostgreSQL real em contêiner com as migrações da aplicação e os três logins; cada teste cria os próprios dados e não depende de ordem nem de estado de outro teste.
+- **Banco:** PostgreSQL real em contêiner com as migrações da aplicação e os três logins; cada teste cria os próprios dados e não depende de ordem nem de estado de outro teste. Teste que lê o plano do planner (`EXPLAIN`) roda num banco só dele (`AuditEventReaderPlanIT`, banco `u2_plan_*`), com `ANALYZE` depois de semear, porque as estatísticas do banco compartilhado dependem das outras classes.
 - **Administrador:** sessão de administrador criada só no código de teste; nenhuma classe de produção cria esse contexto.
 - **Falhas:** a falha de um lote do expurgo e a falha ao gravar `AUDIT_QUERIED` são provocadas por um dublê do repositório ou por revogação temporária de privilégio no teste, nunca por código de produção condicional.
 

@@ -713,6 +713,8 @@ Comportamento: comandos repetidos com a mesma `Idempotency-Key` produzem uma ún
 | `GET /api/v1/bots/{botId}` | Leitura do bot da pessoa (resumo, rascunho e limites vigentes) usada pelo assistente para retomar o rascunho (AC4.4.1) e pela tela S5; outro dono: `404` |
 | Erros | `409 DAILY_LOSS_LIMIT_REACHED` na retomada depois da perda diária, com a perda do dia no `detail` (BR2.4); estouro do `lock_timeout` de 2 s responde `503 SERVICE_UNAVAILABLE` com "tentar de novo" (NFR10.7) |
 
+**Registro da U9 (geração de código).** `GET /api/v1/bots` (com ou sem `state`) devolve os bots da pessoa pela última alteração, mais recente primeiro (`updated_at` decrescente e, no empate, `botId` decrescente), e o cursor segue essa mesma ordem. O painel (U9) usa essa ordem para "Continuar rascunho": o primeiro item de `state=DRAFT`, senão de `state=VALIDATED` (BR1.3 da U9). É o comportamento que a U5 já tinha; só fica registrado aqui.
+
 **Usos novos de interfaces públicas pela U5** (consumidora registrada, só leitura):
 
 | Interface | Dono | Uso pela U5 |
@@ -970,6 +972,13 @@ paths:
 ```
 
 **Como implementado pela U5.** O canal fica no processo de API (`DashboardStreamController`), aberto com `GET` e `Authorization: Bearer`. Um único `DashboardMarkPoller` lê a cada 2 s as marcas (U5 `BotChangeMarks`, U7 `LedgerChangeMarks`, U4 `SourceStatusMarks`) só das pessoas com canal aberto e envia, para cada canal cuja marca mudou: `bot.state` (lista de `BotSummary` da pessoa), `trade.recorded` (as operações novas da pessoa, `PaperTrade` de C5) e `pnl.updated` (aviso com a marca do ledger, para a tela buscar o P&L de C5; o corpo completo do `PnlReport` fica com a U9) e `data.status` (estado das fontes). `heartbeat` sai a cada 15 s; a cada 60 s, junto do `heartbeat`, o canal refaz a leitura completa e reenvia `bot.state` (corrige a marca de ordem trocada descrita em C18). Cada evento tem `id` crescente por canal; `Last-Event-ID` retoma sem repetir os já entregues. O token vencido gera `auth.expired` e o canal fecha.
+
+**Acréscimos da U9 (geração de código).** Aditivos; a fonte da verdade é o `apps/api/openapi/openapi-guest.yaml` gerado do código (anotações do `DashboardStreamController` e os registros de `DashboardEvents`).
+
+| Acréscimo | Detalhe |
+|---|---|
+| Envelopes dos eventos | O `data` de cada evento é o JSON de um envelope com esquema próprio no OpenAPI, para o app gerar os tipos (`team.md`): `bot.state` `DashboardBotStateEvent` (`items`: até 100 `BotSummary` de qualquer estado, mais recentes primeiro; `activeCount`; sem `activeLimit` nem contagens por estado), `trade.recorded` `DashboardTradeRecordedEvent` (`items` de `DashboardTradeNotice`: `orderId`, `botId`, `side`, `chain`, `tokenMint`, `status`, `createdAt`; sem preços nem `notFilledReason`, que o app busca em `GET /bots/{botId}/trades?limit=1`), `pnl.updated` `DashboardPnlUpdatedEvent` (`ledgerMark`), `data.status` `DashboardDataStatusEvent` (`items` de `SourceStatus` de C2), `heartbeat` `DashboardHeartbeatEvent` (`at`) e `auth.expired` `DashboardAuthExpiredEvent` (`expiredAt`). O `id` do evento (`b<marca>.l<marca>.s<marca>`) só volta em `Last-Event-ID` e nunca é interpretado pelo app. O formato é o que a U5 já enviava; nada muda no canal |
+| `429 RATE_LIMITED` | Teto de canais abertos por pessoa (NFR2.1 da U9): com 5 canais da mesma pessoa abertos (`memetrade.bots.stream.max-channels-per-person`, de 1 a 20), a próxima abertura recebe `429` em `ProblemDetail` com `Retry-After: 30` e `correlationId`, antes de abrir o fluxo, sem dado da pessoa no corpo. Fechar um canal (fim, tempo esgotado, erro, escrita que falha ou `auth.expired`) libera a vaga na hora. O app trata o `429` como queda: espera ao menos o `Retry-After` e segue a espera crescente (2, 4, 8, 16 e 30 s) |
 
 ### C8 — API administrativa (U8)
 

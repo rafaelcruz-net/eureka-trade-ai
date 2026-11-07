@@ -54,12 +54,23 @@ public record BotProperties(
         }
     }
 
-    /** BR8.2, NFR3.3: the live channel. */
-    public record Stream(Duration pollInterval, Duration heartbeatInterval, Duration timeout) {
+    /**
+     * BR8.2, NFR3.3: the live channel. U9 (NFR2.1, security-design.md "Teto de canais por pessoa"): at most
+     * {@code maxChannelsPerPerson} open channels per person (default 5, between 1 and 20); the next one is refused
+     * with {@code 429 RATE_LIMITED} before the stream opens.
+     */
+    public record Stream(
+            Duration pollInterval, Duration heartbeatInterval, Duration timeout, int maxChannelsPerPerson) {
+        public static final int MIN_CHANNELS_PER_PERSON = 1;
+        public static final int MAX_CHANNELS_PER_PERSON = 20;
+
         public Stream {
             if (!positive(pollInterval) || !positive(heartbeatInterval) || !positive(timeout)) {
                 throw new IllegalArgumentException("memetrade.bots.stream durations must be positive");
             }
+            require(
+                    maxChannelsPerPerson >= MIN_CHANNELS_PER_PERSON && maxChannelsPerPerson <= MAX_CHANNELS_PER_PERSON,
+                    "memetrade.bots.stream.max-channels-per-person");
         }
     }
 

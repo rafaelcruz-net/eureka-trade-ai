@@ -1,0 +1,35 @@
+{
+  "stage": "nfr-design",
+  "unit": "u9-dashboard",
+  "upstream_ids": [
+    "NFR1.1", "NFR1.2", "NFR1.3",
+    "NFR2.1", "NFR2.2",
+    "NFR3.1", "NFR3.2", "NFR3.3", "NFR3.4",
+    "NFR4.1", "NFR4.2",
+    "NFR5.1", "NFR5.2",
+    "NFR6.1", "NFR6.2", "NFR6.3", "NFR6.4", "NFR6.5", "NFR6.6",
+    "NFR7.1"
+  ],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "performance-design.md: eventos aplicados no redutor sem nova chamada; medição em teste de integração Java com o perfil loadtest" },
+    { "id": "NFR1.2", "status": "OK", "target": "performance-design.md: temporizador de 30 s com relógio injetável" },
+    { "id": "NFR1.3", "status": "OK", "target": "performance-design.md: temporizador de 60 s reiniciado a cada evento e na resposta 200" },
+    { "id": "NFR2.1", "status": "OK", "target": "security-design.md: teto de 5 canais por pessoa com 429 e Retry-After no canal da U5" },
+    { "id": "NFR2.2", "status": "OK", "target": "performance-design.md: nenhuma reação a visibilitychange" },
+    { "id": "NFR3.1", "status": "OK", "target": "performance-design.md: grupos independentes por quadro; medição por grupo" },
+    { "id": "NFR3.2", "status": "OK", "target": "performance-design.md: primeira renderização com os quadros em LOADING" },
+    { "id": "NFR3.3", "status": "OK", "target": "performance-design.md: limitador de 3 buscas e carga completa única com reloadPending" },
+    { "id": "NFR3.4", "status": "OK", "target": "performance-design.md: uma busca em andamento e no máximo uma pendente" },
+    { "id": "NFR4.1", "status": "OK", "target": "security-design.md: chave guardada em pendingPauses e botão desabilitado" },
+    { "id": "NFR4.2", "status": "OK", "target": "security-design.md: funções decimais da U7 e regra de lint contra Number e parseFloat" },
+    { "id": "NFR5.1", "status": "OK", "target": "security-design.md: teste que inspeciona todas as requisições" },
+    { "id": "NFR5.2", "status": "OK", "target": "security-design.md: 404 remove o bot da tela" },
+    { "id": "NFR6.1", "status": "OK", "target": "security-design.md: tokenStore em memória e teste que procura o token nos armazenamentos" },
+    { "id": "NFR6.2", "status": "OK", "target": "security-design.md: regras no-restricted-globals e no-restricted-syntax no eslint.config.mjs" },
+    { "id": "NFR6.3", "status": "OK", "target": "security-design.md: dashboardWarn com lista fechada de motivos" },
+    { "id": "NFR6.4", "status": "OK", "target": "security-design.md: connect-src existente sem mudança" },
+    { "id": "NFR6.5", "status": "OK", "target": "security-design.md: validador de envelope e teto de 1 MiB" },
+    { "id": "NFR6.6", "status": "OK", "target": "security-design.md: uma renovação por tentativa, com quatro testes" },
+    { "id": "NFR7.1", "status": "OK", "target": "security-design.md: só walletAddressMasked" }
+  ]
+}

@@ -354,3 +354,54 @@ fieldset label {
   list-style: none;
   padding: 0;
 }
+
+/* U9: the single shell of the logged screens (main navigation, wallet, notices) and the dashboard S2. */
+.app-nav ul {
+  display: flex;
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.app-nav a[aria-current='page'] {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.app-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The live region always stays in the accessibility tree (never display: none), so announcements are read. */
+.app-notices {
+  max-width: 1440px;
+  margin: 8px auto 0;
+  padding: 8px 24px;
+}
+
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.dashboard-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+.dashboard-bot-rows {
+  list-style: none;
+  padding: 0;
+}
+
+.dashboard-bot-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}

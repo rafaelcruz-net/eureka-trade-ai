@@ -15,6 +15,7 @@ import { execFile } from 'node:child_process';
 import { createPrivateKey, generateKeyPairSync, randomBytes, randomUUID, sign } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { promisify } from 'node:util';
+import { parseU6Sample, U6_SAMPLE_SQL, u6PlanQueries } from './u6-plans.mjs';
 
 const run = promisify(execFile);
 const API = process.env.API_BASE_URL ?? 'http://127.0.0.1:8080';
@@ -901,23 +902,16 @@ async function psql(sql) {
   return stdout;
 }
 
-/** The plans of the page of C21, the lookup of the decision and the selection of the purge; no Seq Scan allowed. */
+/**
+ * The plans of the page of C21, the lookup of the decision and the selection of the purge; no Seq Scan allowed. The
+ * sample (tenant, person, bot) is read first in a query of its own and enters the EXPLAIN as literals
+ * (scripts/load/u6-plans.mjs), so a sample subquery never puts its own Seq Scan in the checked plan (loop 1, F4).
+ */
 async function u6Plans() {
-  if (!process.env.POSTGRES_CONTAINER) return { checked: false, seqScan: [] };
-  const sample = "(select r.tenant_id, r.owner_user_id, r.bot_id from order_rejection r limit 1)";
-  const queries = {
-    page:
-      `select * from order_rejection where (tenant_id, owner_user_id, bot_id) = ${sample} and mode = 'PAPER' ` +
-      'order by evaluated_at desc, rejection_id desc limit 51',
-    decision:
-      "select * from order_evaluation where (tenant_id, bot_id) = (select r.tenant_id, r.bot_id from order_rejection r limit 1) " +
-      "and mode = 'PAPER' and decision_id = '00000000-0000-0000-0000-000000000000'",
-    purge:
-      "select e.evaluation_id from order_evaluation e where e.outcome = 'APPROVED' " +
-      "and e.evaluated_at < now() - interval '31 days' " +
-      'and not exists (select 1 from order_rejection r where r.evaluation_id = e.evaluation_id) ' +
-      'order by e.evaluated_at limit 1000',
-  };
+  if (!process.env.POSTGRES_CONTAINER) return { checked: false, seqScan: [], reason: 'POSTGRES_CONTAINER not set' };
+  const sample = parseU6Sample(await psql(U6_SAMPLE_SQL));
+  if (sample === null) return { checked: false, seqScan: [], reason: 'no rejection in order_rejection to sample' };
+  const queries = u6PlanQueries(sample);
   const seqScan = [];
   const plans = {};
   for (const [name, sql] of Object.entries(queries)) {
@@ -985,7 +979,7 @@ Gerado por \`scripts/load-test.sh\` (\`LOAD_SCENARIO=u6\`).
 |---|---|---|
 ${tables}
 
-- Planos sem \`Seq Scan\` em \`order_evaluation\` ou \`order_rejection\` (página da C21, procura da decisão, seleção do expurgo): ${report.plans.checked ? (report.plans.seqScan.length === 0 ? 'sim' : `não (${report.plans.seqScan.join(', ')})`) : 'não conferido'}
+- Planos sem \`Seq Scan\` em \`order_evaluation\` ou \`order_rejection\` (página da C21, procura da decisão, seleção do expurgo): ${report.plans.checked ? (report.plans.seqScan.length === 0 ? 'sim' : `não (${report.plans.seqScan.join(', ')})`) : `não conferido (${report.plans.reason})`}
 - Espera do pool: máximo de ${report.pool.maxPending} conexões pendentes; maior sequência ${report.pool.longestPendingSeconds} s (limite 10 s)
 - Memória máxima: api ${Math.round(report.maxMemoryMb.api ?? 0)} MB, postgres ${Math.round(report.maxMemoryMb.postgres ?? 0)} MB (limite ${MEMORY_LIMIT_MB} MB)
 - Leituras da C21: ${report.reads} com 200, ${report.notYetEvaluated} com 404 (bot ainda não avaliado), erros de cliente ${report.errors}, novos logins ${report.reauthenticated}

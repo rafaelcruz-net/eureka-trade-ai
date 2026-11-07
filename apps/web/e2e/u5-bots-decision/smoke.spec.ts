@@ -17,7 +17,7 @@ test('U5: wizard, start, pause, resume and stop of a PAPER bot', async ({ page }
 
   await page.goto('/entrar?origem=/scanner');
   await connectAndReachScanner(page);
-  await page.getByTestId('app-bots-link').click();
+  await page.getByTestId('app-nav-bots-link').click();
   await page.waitForURL((url) => url.pathname === '/bots');
   await expect(page.getByTestId('bots-title')).toContainText('MODO PAPER (simulado)');
   await expect(page.getByTestId('bots-counter')).toContainText('de 3 bots ativos');

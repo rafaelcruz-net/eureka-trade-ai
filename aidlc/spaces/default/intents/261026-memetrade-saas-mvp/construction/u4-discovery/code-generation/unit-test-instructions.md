@@ -24,6 +24,10 @@ Pré-requisitos: Docker Desktop em execução, JDK 21, Node LTS do `.nvmrc` com 
 | Smoke da U4 (ambiente de pé) | `pnpm --dir apps/web exec playwright test e2e/u4-discovery` |
 | Cobertura da suíte inteira (piso de 80%) | `apps/api/mvnw -f apps/api/pom.xml verify` e `pnpm --dir apps/web exec jest --coverage src/features/auth src/features/scanner src/lib src/middleware.test.ts` |
 | Carga (só local) | `SPRING_PROFILES_ACTIVE=test,loadtest bash scripts/load-test.sh` |
+| Volta 1: confirmação do backend da U4 | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u4 test-compile surefire:test failsafe:integration-test failsafe:verify` |
+| Volta 1: confirmação do frontend da U4 | `pnpm --dir apps/web exec jest src/features/scanner src/content` |
+
+Na volta 1 de Build and Test (Passos 22 e 23), nenhum teste novo é escrito. Só muda o registro de rastreabilidade, e os dois comandos acima confirmam que a U4 segue verde.
 
 O comando do backend da U4 fica pronto no Passo 2, antes do primeiro teste da Unit (Passo 3).
 

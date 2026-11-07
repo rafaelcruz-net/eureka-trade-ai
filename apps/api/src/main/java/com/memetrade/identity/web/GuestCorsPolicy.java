@@ -38,7 +38,16 @@ public final class GuestCorsPolicy {
         // The cookie routes take only POST; the bearer routes also take the PUT of the bot draft (U5, F2).
         config.setAllowedMethods(
                 credentials ? List.of("GET", "POST", "OPTIONS") : List.of("GET", "POST", "PUT", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-Id"));
+        // U9 (BR5.3): the live channel C7 reopens with Last-Event-ID, a header the bearer routes must accept.
+        config.setAllowedHeaders(
+                credentials
+                        ? List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-Id")
+                        : List.of(
+                                "Authorization",
+                                "Content-Type",
+                                "Idempotency-Key",
+                                "X-Correlation-Id",
+                                "Last-Event-ID"));
         config.setExposedHeaders(List.of("X-Correlation-Id", "Retry-After"));
         config.setAllowCredentials(credentials);
         config.setMaxAge(600L);

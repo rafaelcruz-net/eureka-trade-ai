@@ -1,11 +1,12 @@
-/** Screen the guest app opens when there is no valid origin (the home page opens the scanner). */
-export const HOME = '/scanner';
+/** Screen the guest app opens when there is no valid origin: the dashboard S2 since U9 (BR1.1, FR12.1). */
+export const HOME = '/';
 
 /**
  * Routes of the guest app a person may return to after signing in again (BR4.2). Neither the entry, the invitation
- * page (its path carries the code) nor anything administrative is a valid origin.
+ * page (its path carries the code) nor anything administrative is a valid origin. U9: the dashboard itself, so an
+ * expired session on the dashboard comes back to it (BR5.5 of U9).
  */
-export const GUEST_ROUTES: readonly string[] = ['/scanner', '/conta'];
+export const GUEST_ROUTES: readonly string[] = ['/', '/scanner', '/conta'];
 
 // Control characters (tab, CR, LF included) and DEL.
 const CONTROL = /[\u0000-\u001f\u007f]/;

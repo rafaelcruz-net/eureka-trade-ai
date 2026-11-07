@@ -74,6 +74,25 @@ class GuestCorsPolicyTest {
         assertThat(response.getHeader("Access-Control-Allow-Headers")).containsIgnoringCase("idempotency-key");
     }
 
+    /**
+     * U9 regression (BR5.3): the dashboard reopens the live channel with Last-Event-ID and X-Correlation-Id besides the
+     * token; without them in the list the browser refuses every reopening after the first event.
+     */
+    @Test
+    void theLiveChannelMayBeReopenedWithLastEventId() throws Exception {
+        MockHttpServletRequest request = preflightRequest(GUEST, "/api/v1/stream/dashboard", "GET");
+        request.addHeader("Access-Control-Request-Headers", "authorization, last-event-id, x-correlation-id");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getHeader("Access-Control-Allow-Headers")).containsIgnoringCase("last-event-id");
+        assertThat(response.getHeader("Access-Control-Expose-Headers")).contains("Retry-After");
+        assertThat(preflight(GUEST, "/api/v1/stream/dashboard", "GET").getHeader("Access-Control-Allow-Credentials"))
+                .isNull();
+    }
+
     private MockHttpServletResponse preflight(String origin, String path, String method) throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
         filter.doFilter(preflightRequest(origin, path, method), response, new MockFilterChain());

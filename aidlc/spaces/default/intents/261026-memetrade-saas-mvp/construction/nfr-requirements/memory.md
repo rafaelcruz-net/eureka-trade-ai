@@ -7,6 +7,7 @@
 
 ## Deviations
 <!-- example: 2026-05-29T10:14:32Z — skipped the optional caching layer the stage prose suggested; the dataset is small enough that it adds risk -->
+- 2026-11-06T13:41:41Z — [unit u9-dashboard] o desenho funcional citava um smoke em que a ordem nova aparece sem recarregar, mas não há rota de teste que grave ordem e o ciclo pode dar NO_TRADE; a Q5 trocou a prova ponta a ponta por uma pausa feita em outra aba, que é determinística.
 
 ## Tradeoffs
 <!-- example: 2026-05-29T10:14:32Z — picked TDD over BDD this run; the team is unit-first and the domain is well-understood -->
@@ -14,3 +15,5 @@
 
 ## Open questions
 <!-- example: 2026-05-29T10:14:32Z — confirm the retention window with compliance before the next stage hardens the schema -->
+- 2026-11-06T13:41:41Z — [unit u9-dashboard] a segunda revisão do desenho funcional apontou que a busca da última ordem percorre todos os bots que não são rascunho, inclusive encerrados; com muitos encerrados isso pesa na abertura. A meta de p95 ≤ 2 s por quadro (Q1) vai mostrar na medição se é preciso limitar essa busca aos bots em uso.
+- 2026-11-06T13:46:00Z — [unit u9-dashboard] a revisão aprovou com pendências para o NFR Design: o teto de 5 canais por pessoa (NFR2.1) não existe no canal da U5 e precisa de dono, recusa definida e teste, ou sair da tabela de ameaças; o teste de `EventSource` deve ignorar comentários e testes (ou virar regra de lint); o critério de armazenamento deve procurar só o token, porque a U3 usa `sessionStorage`; NFR6.6 deve cobrir `auth.expired` e `401` repetido; a abertura do canal deve mandar `X-Correlation-Id`; e a medição de atraso de ordem deve usar os acionadores do perfil `loadtest`.

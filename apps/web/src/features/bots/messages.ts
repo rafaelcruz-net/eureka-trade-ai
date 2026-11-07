@@ -5,8 +5,9 @@
  */
 export const botMessages = {
   paperLabel: 'MODO PAPER (simulado)',
-  menu: 'Bots',
-  listTitle: 'Bots',
+  menu: 'Bots PAPER',
+  // U9 (BR6.2): the h1 of the list equals the menu item "Bots PAPER".
+  listTitle: 'Bots PAPER',
   listIntro:
     'Seus bots PAPER operam só com saldo virtual. Nenhuma operação usa dinheiro real nem assina transações.',
   activeCounter: (active: number, limit: number) => `${active} de ${limit} bots ativos`,

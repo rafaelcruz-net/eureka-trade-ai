@@ -5,6 +5,7 @@
 - Builds: trilha de auditoria completa — validação no publicador, consulta administrativa, retenção de 12 meses com papel de banco próprio, limpeza da tabela de saída, papéis e migrações fora da API, medidas e varredura
 - Touches: `apps/api/` (módulo `audit`, `shared`, `identity/web`, migrações, testes), `infra/postgres/`, `docker-compose.yml`, `infra/docker-compose.test.yml`, `.env.example`, `scripts/`, `.github/workflows/ci.yml`, `docs/`
 - Tests: cerca de 150 testes de backend (unitários e de integração com JUnit 5, Testcontainers e ArchUnit), smoke ampliado e um script de desempenho local, com o piso de 80% de linhas do backend mantido
+- Volta 1 (Build and Test, 2026-11-06): só os Passos 19 e 20. `JdbcAuditEventReaderIT` passa a ler o plano num banco próprio, e `traceability.json` é corrigido. Nenhum código de produção muda, e os Passos 1 a 18 ficam como estão.
 
 ## Entradas
 
@@ -299,6 +300,33 @@ Cada passo indica a história (US7.3), as regras (BR) e os requisitos detalhados
   - `docs/` com a operação nova de C8.
   - Javadoc das interfaces públicas do módulo `audit`.
   - Fundação; NFR6.9, NFR7.6.
+
+### Volta 1 de Build and Test (2026-11-06)
+
+Origem: `construction/build-and-test/test-results.md`, Loop-back 1 (falha F1 e achado T3 de `cross-unit-traceability.md`).
+
+- [x] **Passo 19 — Plano do índice sem depender do banco compartilhado.**
+  - **Falha:** na suíte completa, `JdbcAuditEventReaderIT.bothPreparedFormsReadFromTheIndexWithoutASeparateSort` recebeu `audit_event_time_id_idx` com `Filter` em vez de `audit_event_action_time_id_idx`. Sozinho, o teste passa.
+  - **Causa:** o `EXPLAIN` roda no banco do Failsafe, compartilhado. As estatísticas do planner sobre `audit_event` dependem do que as outras classes gravaram, e a auditoria só aceita remoção pela retenção. Isso viola a regra "não dependem de estado compartilhado nem da ordem de execução".
+  - **Correção:**
+    - O teste do plano sai para uma classe própria, `AuditEventReaderPlanIT`.
+    - Ela roda num banco só dela (`u2_plan_*`) no mesmo contêiner, criado e migrado pelo mesmo caminho do `AbstractU9MeasurementIT`/`U7VolumeDatabase`.
+    - A base comum desse padrão passa a ficar em `testsupport` (por exemplo, `AbstractOwnDatabaseIT` com o prefixo do banco como parâmetro), e `AbstractU9MeasurementIT` passa a estendê-la, sem mudar o comportamento.
+    - A classe semeia um volume fixo (seed fixa) com ações variadas e roda `ANALYZE audit_event` antes do `EXPLAIN`.
+    - **A asserção não muda:** as duas formas preparadas, com e sem `action`, usam o índice esperado e não têm `Sort` à parte.
+    - Os demais testes de `JdbcAuditEventReaderIT` ficam no banco compartilhado, como hoje.
+  - **Testes:**
+    - `AuditEventReaderPlanIT` verde sozinho e na suíte completa (`mvnw verify`), rodada duas vezes;
+    - `-Dgroups=u9` e `-Dgroups=u2` verdes, para confirmar que a base extraída não muda as medições da U9.
+  - **Regressão:** a semente da classe nova inclui um grande volume de uma ação dominante, ao lado das ações consultadas. Esse é o cenário que, no banco compartilhado, levou o planner ao índice errado. Assim o teste reproduz a condição da falha dentro do próprio banco.
+  - BR2.3, BR2.4; NFR3.1.
+- [x] **Passo 20 — Rastreabilidade legível.**
+  - Em `code-generation/traceability.json`, `target` passa a ter só caminhos separados por `; `. As notas, por exemplo "p95 com a trilha cheia em `scripts/perf-audit.sh`, ainda não executado", vão para um campo `note`.
+  - Entram as linhas que faltam: NFR2.3, NFR3.2, NFR6.8 e NFR10.1, com os alvos que já existem no código e nos testes, ou `N/A` com o motivo do desenho.
+  - Conferência: `aidlc engine sensor-traceability --stage build-and-test` não lista mais a U2.
+  - Nenhum código muda.
+
+A medição de `scripts/perf-audit.sh` (NFR3.1, 3.3, 4.2 e 9.5) não faz parte desta volta. A proteção do ambiente recusa o script quando o agente tenta rodá-lo, então a execução fica com a pessoa.
 
 ## Rastreabilidade com a história
 

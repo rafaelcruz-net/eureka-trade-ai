@@ -1,0 +1,38 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-11-06T13:18:41Z
+**Iteration:** 2
+**Verdict Dictated:** no
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u9-dashboard/functional-design/functional-spec.md > F2 passo 1 e rules.md > BR1.3; frontend-components.md > BotsEmptyState (`latestDraftId`) | "Continuar rascunho" aponta para "o mais recente" rascunho, mas `BotSummary` (C4) só tem `botId`, `name`, `mode`, `state`, `pauseReasons`, `resumesAt`, `draftStep` e `limitsVersion`: não há `createdAt` nem `updatedAt`, e a ordem de `GET /api/v1/bots` não é fixada no contrato. O desenvolvedor não tem como calcular `latestDraftId` sem adivinhar. | Definir uma regra implementável para escolher o rascunho a continuar, por exemplo a ordem documentada da rota ou o maior `draftStep`, ou registrar que a Unit U5 precisa expor um campo de data em `BotSummary`. Atualizar BR1.3 e `BotsEmptyState` com essa regra. | Resolved (reviewer) |
+| R-02 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u9-dashboard/functional-design/functional-spec.md > F1 passo 3 (`GET /api/v1/bots?limit=50`), F5 (`bot.state` substitui a lista) e rules.md > BR1.3, BR2.1 | O painel busca só a primeira página (limite 50) e ignora `nextCursor` e `total`, mas as contagens de rascunhos e encerrados e a lista de bots em uso são derivadas de `items`. O canal (`DashboardMarkPoller.botState`) envia até 100 itens. Com mais de 50 bots (rascunhos e encerrados se acumulam), um bot em uso pode ficar fora da página, e as contagens mudam sem causa quando um `bot.state` substitui a lista. O envelope de `bot.state` traz `activeCount`, mas não `activeLimit`. Nada disso está especificado. | Especificar a carga completa, por exemplo busca por `state` (`ACTIVE`, `PAUSED`, `CLOSING_PENDING`) separada das contagens de rascunho e encerrado, ou paginação até esgotar. Dizer de onde vêm `activeLimit`, `draftCount` e `stoppedCount` depois de um `bot.state`, e igualar o tamanho da lista do REST e do evento. | Resolved (reviewer) |
+| R-03 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u9-dashboard/functional-design/functional-spec.md > F6 e máquina de estados do canal; rules.md > BR5.3, BR5.5; frontend-components.md > Integração com a API | O fluxo de renovação só trata o evento `auth.expired`. A abertura e a reabertura do canal usam `fetch` próprio com o token em memória, e não o cliente REST com tratamento de `401`. C7 declara `401 UNAUTHENTICATED` na abertura. Se o token vencer durante `WAITING` ou entre tentativas, cada reabertura devolve `401`, e a máquina de estados repete a cada 30 s para sempre, com o aviso de desatualizado fixo e sem renovar o token nem levar à sessão expirada. | Acrescentar à máquina de estados e a BR5.3/BR5.5 a transição para a resposta `401` na abertura (renovar por C1 e reabrir; se a renovação falhar, fluxo de sessão expirada da U3), e um teste para esse caso. | Resolved (reviewer) |
+| R-04 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u9-dashboard/functional-design/functional-spec.md > F6 passos 3 e 4; máquina de estados (`CONNECTING --> OPEN: primeiro evento`) | O canal só vira `OPEN` no primeiro evento. Na reabertura com `Last-Event-ID` e marcas inalteradas, o servidor só envia algo no `heartbeat` (a cada 15 s) ou na leitura completa (60 s). Assim, a renovação por `auth.expired` raramente fica dentro dos 10 s sem aviso, e o aviso de "valores desatualizados" aparece em toda renovação de token. | Definir a abertura bem-sucedida pela resposta `200` (cabeçalhos), e não pelo primeiro evento, ou ajustar o limite de 10 s para ao menos o intervalo do `heartbeat` mais folga. | Resolved (reviewer) |
+| R-05 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u9-dashboard/functional-design/frontend-components.md > Integração com a API; functional-spec.md > F2 passo 4 e F5 | O spec trata `trade.recorded` como `PaperTrade` de C5 e mostra "não preenchida com o motivo". O canal real envia `{items:[{orderId, botId, side, chain, tokenMint, status, createdAt}]}`, sem `notFilledReason`, e `data.status`, `pnl.updated` e `bot.state` têm envelopes (`items`, `ledgerMark`, `activeCount`) que não existem no OpenAPI, onde o corpo é `string`. O contrato de tipos gerados não cobre esses envelopes. | Fixar no design os envelopes dos eventos e dizer como a última operação mostra o motivo quando o evento não o traz (por exemplo, buscar `trades?limit=1` do bot depois de `trade.recorded`, ou omitir o motivo). Registrar com a U5 a necessidade de tipar os envelopes. | Resolved (reviewer) |
+| R-06 | Minor | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u9-dashboard/functional-design/functional-spec.md > F1 passo 3 (Bots) e rules.md > BR2.3 | "Última operação" busca `trades?limit=1` de todo bot que não é rascunho, o que inclui `STOPPED` e `VALIDATED`. Com 120 bots encerrados (cenário de borda da própria spec) isso são mais de 120 chamadas, limitadas a 3 ao mesmo tempo, e não está dito se a nova carga completa disparada por `bot.state` (a cada 60 s) repete essas chamadas. | Restringir a busca aos bots em uso (`ACTIVE`, `PAUSED`, `CLOSING_PENDING`) mais um teto, ou dizer que encerrados só entram na carga inicial. Dizer também que a carga disparada por `bot.state` reaproveita a última operação já conhecida. | New |
+
+> R-01 Reviewer note: BR1.3 e `BotsEmptyState` agora escolhem o primeiro item de `state=DRAFT` (senão `VALIDATED`) pela ordem da rota. Confirmado em `JdbcBotRepository.list`: `order by b.updated_at desc, b.bot_id desc`. A ordem ainda não está no contrato escrito; o artefato manda registrá-la em C4 na geração de código, o que é aceitável.
+
+> R-02 Reviewer note: BR1.5 e F1 passo 3 definem a carga completa por estado (`limit=100`, seguindo `nextCursor`). `MAX_LIMIT` é 100 em `BotController`. `activeLimit` e `activeCount` vêm da resposta da lista (`BotDtos` linhas 230-233). `bot.state` só atualiza os bots já mostrados e dispara nova carga. Há cenário de borda e teste.
+
+> R-03 Reviewer note: F6 passo 4, BR5.5, o diagrama de estados (`CONNECTING --> RENEWING: resposta 401`, `RENEWING --> CLOSED`) e a lista de testes cobrem `401` na abertura e na reabertura, com renovação única e fechamento sem novas tentativas.
+
+> R-04 Reviewer note: O canal passa a `OPEN` na resposta `200` (F6 passo 3, BR5.3, diagrama). O primeiro evento pode levar até 15 s e isso está dito no texto.
+
+> R-05 Reviewer note: A seção "Formato dos eventos do canal" fixa os seis envelopes conforme `DashboardMarkPoller` (`trade.recorded` sem `notFilledReason`). BR2.3 manda completar a linha com `trades?limit=1` do bot. O acréscimo dos esquemas ao OpenAPI fica registrado para a geração de código.
+
+### Validation Tool Results
+
+| Tool | Result | Interpretation |
+|---|---|---|
+| aidlc engine sensor-traceability (functional-design, u9-dashboard) | `{"pass":true,"gaps":[],"orphans":[],"missing_from_table":[],"missing_from_upstream_ids":[],"invalid_entries":[],"invalid_targets":[],"findings_count":0}` | A rastreabilidade está íntegra: sem lacunas, órfãos nem alvos inválidos. |
+
+### Summary
+
+As três pendências Major (rascunho a continuar, carga completa dos bots e `401` na abertura do canal) e as duas Minor foram resolvidas e batem com o código existente da U5 (`BotController`, `JdbcBotRepository`, `DashboardMarkPoller`). Resta uma observação Minor sobre o número de chamadas de última operação com muitos bots encerrados. A especificação é implementável sem orientação adicional de arquitetura.

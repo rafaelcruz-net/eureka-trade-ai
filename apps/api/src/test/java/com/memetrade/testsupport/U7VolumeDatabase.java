@@ -4,7 +4,6 @@ import com.memetrade.identity.api.Principal;
 import com.memetrade.identity.api.Role;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
@@ -27,23 +26,16 @@ public final class U7VolumeDatabase {
     public static final int TOKENS_PER_BOT = 5;
     public static final int FILLS_PER_PERSON = 10_000;
 
-    private static String url;
+    private static final String PREFIX = "u7_volume_";
 
     private U7VolumeDatabase() {}
 
-    /** The JDBC URL of the volume database, created and migrated on first use (once per JVM). */
-    public static synchronized String url() {
-        if (url == null) {
-            String name = "u7_volume_" + UUID.randomUUID().toString().replace("-", "");
-            AbstractPostgresIT.connect(AbstractPostgresIT.SUPERUSER)
-                    .sql("create database " + name)
-                    .update();
-            String created = AbstractPostgresIT.POSTGRES.getJdbcUrl().replace("/memetrade", "/" + name);
-            AbstractPostgresIT.bootstrap(name);
-            AbstractPostgresIT.migrate(created);
-            url = created;
-        }
-        return url;
+    /**
+     * The JDBC URL of the volume database, created and migrated on first use (once per JVM) by
+     * {@link OwnTestDatabase}.
+     */
+    public static String url() {
+        return OwnTestDatabase.url(PREFIX);
     }
 
     /** The OWNER login on the volume database (one dedicated connection, auto-commit). */

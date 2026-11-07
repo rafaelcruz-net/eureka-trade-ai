@@ -36,9 +36,10 @@ describe('safeOrigin', () => {
     expect(safeOrigin(value)).toBe(value);
   });
 
-  it('the home page is the scanner and both guest routes are listed', () => {
-    expect(HOME).toBe('/scanner');
-    expect(GUEST_ROUTES).toEqual(['/scanner', '/conta']);
+  it('the home page is the dashboard and the guest routes are listed (U9)', () => {
+    expect(HOME).toBe('/');
+    expect(GUEST_ROUTES).toEqual(['/', '/scanner', '/conta']);
     expect(reExported('/conta')).toBe('/conta');
+    expect(safeOrigin('/')).toBe('/');
   });
 });

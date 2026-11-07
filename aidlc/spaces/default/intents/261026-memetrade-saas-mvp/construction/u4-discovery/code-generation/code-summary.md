@@ -57,3 +57,58 @@ Código gerado para a Unit `u4-discovery` a partir do [plano aprovado](code-gene
 - Na execução completa de integração, os logs capturados podem vir vazios porque outro contexto de teste fecha o Logback. A conferência positiva de log fica em `MarketCollectorJobTest`, e o `LogScanIT` da U4 faz só conferências negativas.
 - **Rollback:** uma imagem anterior à U4 não lê uma fonte ainda `PENDING`. O procedimento está documentado na seção de rollback do README.
 - O custo da consulta da lista cresce com o total de tokens; o NFR3.1 precisa ser confirmado pelo cenário de carga.
+
+## Volta 1 (Build and Test, 2026-11-06)
+
+O Build and Test reprovou a rastreabilidade entre Units (achado T2): o registro da geração de código da U4 só tinha os critérios de aceite. Esta volta acrescentou ao [traceability.json](traceability.json) os 57 IDs de NFR do `nfr-design/traceability.json`, cada um com uma linha em `coverage` cujo `target` é um único caminho que existe no repositório, de preferência o teste que confere a meta. Explicações e alvos secundários ficam no campo `note`, como no registro da U2. Os 17 critérios de aceite não mudaram. Nenhum código de produção nem teste mudou.
+
+### Contagem por status (NFR)
+
+| Status | Quantidade |
+|---|---|
+| `OK` | 41 |
+| `Deferred` | 15 |
+| `N/A` | 1 (NFR10.1: sem meta numérica de disponibilidade enquanto o beta roda só localmente) |
+| **Total** | 57 |
+
+Com os 17 critérios de aceite (`OK`), o registro tem 74 linhas.
+
+### Lista dos `Deferred`
+
+| NFR | Motivo |
+|---|---|
+| NFR1.3 | Medição de 1 hora com fonte real, prevista para depois do G0 (SP-1). As fontes da U4 são simuladas. |
+| NFR2.1 | Lacuna: a coleta numa transação está implementada e a métrica de duração existe, mas nenhum teste nem o script de carga confere a meta de 10 s para 2 000 tokens. |
+| NFR2.3 | Lacuna: a limpeza em lotes de 10 000 está implementada e a fronteira de 24 h é testada, mas nada mede a meta de 60 s para uma hora de amostras. |
+| NFR2.5 | Lacuna: nada confere o teto de 4,7 milhões de linhas nem os 2 GB em disco do histórico. |
+| NFR3.3 | Lacuna parcial: o teste confere que o painel não recarrega a lista, mas nada mede o p95 de 2 s da tela com 20 usuários (o script de carga mede só o servidor). |
+| NFR1.2 | Lacuna (revisão da volta 1): o requisito pede um teste com relógio injetável que confira a idade de até 60 s depois de duas coletas seguidas; o teste atual confere só o intervalo de 30 s. |
+| NFR5.1 | Lacuna (revisão da volta 1): o teste de registro de rotas globais pedido no requisito não existe; a evidência é a migração `0006` sem tenant, `ScannerIT` e `U4ArchitectureTest`. |
+| NFR9.2 | Lacuna parcial (revisão da volta 1): `market_collection_retries_total`, descartes e último sucesso não são conferidos por teste. |
+| NFR9.3 | Lacuna parcial (revisão da volta 1): as durações do recálculo e da limpeza, `risk_assessments` e `market_history_samples` não são conferidas por teste. |
+| NFR9.4 | Lacuna parcial (revisão da volta 1): `scanner_rate_limited_total` não é conferido por teste. |
+| NFR10.5 | Lacuna parcial (revisão da volta 1): a volta de `FAILED` a `OK` e a volta das avaliações a `AVAILABLE` não têm teste próprio. |
+| NFR3.5 | **Reprovado, não apenas adiado.** O cenário de crescimento com 10 000 tokens rodou e não cumpriu as metas (p95 da lista em 10,02 s, postgres com 990 MB; `docs/perf/u4-discovery-2026-11-06-growth.md`). A decisão de escala antes do G1 é do responsável do projeto. |
+| NFR6.8 | Lacuna: o teste de termos proibidos passa localmente, mas o passo de Jest da CI (`.github/workflows/ci.yml`) não inclui `src/content`, então ele não roda na CI nem bloqueia o merge. |
+| NFR9.8 | Lacuna: o evento `RISK_WEIGHTS_ACTIVATED` é testado, mas o log `INFO` da ativação leva o ator como `userId` sem máscara (o desenho pede ator mascarado) e nenhum teste confere esse log. |
+| NFR14.1 | Lacuna parcial: as explicações dos termos ficam só no atributo `title` dos cabeçalhos (aparecem com o mouse, não com o foco); a explicação de `stale` existe no catálogo, mas não é usada na tela; nenhum teste confere as dicas. |
+
+### Ressalvas nas linhas `OK`
+
+- NFR1.2, NFR5.1, NFR9.2, NFR9.3, NFR9.4 e NFR10.5 passaram de `OK` para `Deferred` depois da revisão da volta 1, porque as próprias notas admitiam a falta do teste pedido.
+- NFR2.8 e NFR13.1: o alvo implementa a regra, mas não a verifica por teste.
+- NFR4.1, NFR5.1, NFR6.9, NFR9.7 e NFR11.2 se apoiam em testes fora do marcador `u4` (`ScannerIT`, `CorrelationIdFilterTest`, `U4ArchitectureTest`, `shell.test.tsx`), que rodam só na suíte inteira e não foram reexecutados nesta volta.
+- NFR9.1 segue a decisão Q1 da NFR Design (`DEGRADED` com HTTP 200, nunca `DOWN`), e não o texto original do requisito.
+
+As lacunas ficam registradas para decisão do responsável do projeto; esta volta não corrige código.
+
+### Conferência (Passo 23)
+
+| Verificação | Resultado |
+|---|---|
+| `traceability.json` é JSON válido; 74 IDs em `upstream_ids` e 74 linhas em `coverage`, sem repetição | Conferido |
+| Cada `target` existe no repositório e é um único caminho | Conferido (0 ausentes) |
+| `pnpm --dir apps/web exec jest src/features/scanner src/content` | 4 suítes, 45 testes verdes |
+| `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u4 test-compile surefire:test failsafe:integration-test failsafe:verify` | BUILD SUCCESS: 139 unitários e 84 de integração, 0 falhas |
+
+O marcador `u4` não seleciona todos os alvos citados. `ScannerIT`, `CorrelationIdFilterTest`, `U4ArchitectureTest` e `apps/web/src/lib/shell.test.tsx` ficam de fora desses dois comandos e rodam na suíte inteira (`verify` e Jest com cobertura), que estava verde na geração e não foi repetida nesta volta.

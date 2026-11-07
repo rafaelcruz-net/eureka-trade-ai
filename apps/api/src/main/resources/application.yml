@@ -129,6 +129,8 @@ memetrade:
       poll-interval: 2s
       heartbeat-interval: 15s
       timeout: 30m
+      # U9 (NFR2.1): open live channels per person; the next one gets 429 RATE_LIMITED with Retry-After: 30.
+      max-channels-per-person: 5
   auth:
     access-token-signing-key: ${ACCESS_TOKEN_SIGNING_KEY:}
     guest-app-origin: ${GUEST_APP_ORIGIN:http://localhost:3000}

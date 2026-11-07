@@ -27,6 +27,11 @@ Pré-requisitos: Docker Desktop em execução, JDK 21 e Git Bash no Windows.
 | Catálogo E1 a E21 | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u6 -Dtest=RiskGateCatalogTest -Dsurefire.failIfNoSpecifiedTests=false test-compile surefire:test` |
 | Cobertura da suíte inteira (piso de 80%) | `apps/api/mvnw -f apps/api/pom.xml verify` |
 | Carga da U6 (só local) | `LOAD_SCENARIO=u6 SPRING_PROFILES_ACTIVE=test,loadtest bash scripts/load-test.sh` |
+| Volta 1: regressão da conferência de plano | `node --test scripts/load/load-test-u6-plans.test.mjs` |
+| Volta 1: sintaxe do script de carga | `node --check scripts/load/load-test.mjs` |
+| Volta 1: testes que leem o script e o Compose | `apps/api/mvnw -f apps/api/pom.xml -Dtest='WorkflowsTest,ComposeFilesTest' -Dsurefire.failIfNoSpecifiedTests=false test-compile surefire:test` |
+
+Na volta 1 de Build and Test (Passos 19 a 21), o teste `node --test` é escrito antes da correção e falha porque a consulta do `EXPLAIN` ainda tem a subconsulta de amostra. Depois da correção, ele passa. O cenário de carga `u6` roda de novo no Build and Test, não nesta etapa.
 
 O comando do backend da U6 fica pronto no Passo 2, antes do primeiro teste vermelho (Passo 4). Nos passos com testes antes do código, a saída vermelha de cada passo é registrada no resumo do código antes da implementação.
 

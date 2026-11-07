@@ -6,7 +6,7 @@ import { useApi } from '@/lib/api/ApiProvider';
 import type { Account } from '@/lib/api/guest-api';
 import { formatClock, formatInstant } from '@/lib/format/format';
 import { messages } from '@/lib/i18n/messages';
-import { AccountMenu } from '@/features/auth/AccountMenu';
+import { AppShell } from '@/components/shell/AppShell';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useRequireSession } from '@/features/auth/useRequireSession';
 
@@ -62,104 +62,97 @@ export function AccountScreen({ timeZone }: { timeZone?: string }) {
   useEffect(() => heading.current?.focus(), []);
 
   return (
-    <>
-      <header className="app-header">
-        <span>{messages.app.name}</span>
-        <span className="muted">{messages.app.paperOnly}</span>
-        <AccountMenu />
-      </header>
-      <main id="conteudo" aria-labelledby="account-title">
-        <h1 id="account-title" ref={heading} tabIndex={-1}>
-          {text.title}
-        </h1>
-        {load.kind === 'loading' && (
-          <p role="status" data-testid="account-loading">
-            {text.loading}
-          </p>
-        )}
-        {load.kind === 'error' && (
-          <div role="alert" className="notice notice-error" data-testid="account-error">
-            <h2>{text.errorTitle}</h2>
-            <p>{text.errorBody}</p>
-            <button
-              type="button"
-              className="secondary"
-              data-testid="account-retry"
-              onClick={() => void fetchAccount()}
-            >
-              {text.retry}
-            </button>
-          </div>
-        )}
-        {load.kind === 'ready' && (
-          <dl data-testid="account-details">
-            <dt>{text.wallet}</dt>
-            <dd>
-              <span data-testid="account-wallet">{load.account.walletAddressMasked}</span>
-              <p className="muted">{text.walletHelp}</p>
-            </dd>
-            <dt>{text.provider}</dt>
-            <dd data-testid="account-provider">
-              {text.providers[load.account.provider] ?? load.account.provider}
-            </dd>
-            <dt>{text.session}</dt>
-            <dd data-testid="account-session">
-              {text.sessionEnds(formatClock(new Date(load.account.sessionExpiresAt), timeZone))}
-            </dd>
-            <dt>{text.terms}</dt>
-            <dd>
-              {load.account.acceptedTerms ? (
-                <>
-                  <span data-testid="account-terms-version">
-                    {text.termsVersion(load.account.acceptedTerms.version)}
-                  </span>{' '}
-                  <button
-                    type="button"
-                    className="secondary"
-                    aria-expanded={showTerms}
-                    aria-controls="account-terms-detail"
-                    data-testid="account-terms-toggle"
-                    onClick={() => setShowTerms((shown) => !shown)}
-                  >
-                    {showTerms ? text.hideTerms : text.viewTerms}
-                  </button>
-                  {showTerms && (
-                    <div id="account-terms-detail" data-testid="account-terms-detail">
-                      <p data-testid="account-terms-accepted-at">
-                        {text.acceptedAt(
-                          formatInstant(load.account.acceptedTerms.acceptedAt, timeZone),
-                        )}
-                      </p>
-                      <h2>{text.termsTextHeading}</h2>
-                      {load.account.acceptedTerms.termsText ? (
-                        <Paragraphs
-                          value={load.account.acceptedTerms.termsText}
-                          testId="account-terms-text"
-                        />
-                      ) : (
-                        <p>{text.textUnavailable}</p>
+    <AppShell current="account" titleId="account-title">
+      <h1 id="account-title" ref={heading} tabIndex={-1}>
+        {text.title}
+      </h1>
+      {load.kind === 'loading' && (
+        <p role="status" data-testid="account-loading">
+          {text.loading}
+        </p>
+      )}
+      {load.kind === 'error' && (
+        <div role="alert" className="notice notice-error" data-testid="account-error">
+          <h2>{text.errorTitle}</h2>
+          <p>{text.errorBody}</p>
+          <button
+            type="button"
+            className="secondary"
+            data-testid="account-retry"
+            onClick={() => void fetchAccount()}
+          >
+            {text.retry}
+          </button>
+        </div>
+      )}
+      {load.kind === 'ready' && (
+        <dl data-testid="account-details">
+          <dt>{text.wallet}</dt>
+          <dd>
+            <span data-testid="account-wallet">{load.account.walletAddressMasked}</span>
+            <p className="muted">{text.walletHelp}</p>
+          </dd>
+          <dt>{text.provider}</dt>
+          <dd data-testid="account-provider">
+            {text.providers[load.account.provider] ?? load.account.provider}
+          </dd>
+          <dt>{text.session}</dt>
+          <dd data-testid="account-session">
+            {text.sessionEnds(formatClock(new Date(load.account.sessionExpiresAt), timeZone))}
+          </dd>
+          <dt>{text.terms}</dt>
+          <dd>
+            {load.account.acceptedTerms ? (
+              <>
+                <span data-testid="account-terms-version">
+                  {text.termsVersion(load.account.acceptedTerms.version)}
+                </span>{' '}
+                <button
+                  type="button"
+                  className="secondary"
+                  aria-expanded={showTerms}
+                  aria-controls="account-terms-detail"
+                  data-testid="account-terms-toggle"
+                  onClick={() => setShowTerms((shown) => !shown)}
+                >
+                  {showTerms ? text.hideTerms : text.viewTerms}
+                </button>
+                {showTerms && (
+                  <div id="account-terms-detail" data-testid="account-terms-detail">
+                    <p data-testid="account-terms-accepted-at">
+                      {text.acceptedAt(
+                        formatInstant(load.account.acceptedTerms.acceptedAt, timeZone),
                       )}
-                      <h2>{text.riskTextHeading}</h2>
-                      {load.account.acceptedTerms.riskNoticeText ? (
-                        <Paragraphs
-                          value={load.account.acceptedTerms.riskNoticeText}
-                          testId="account-risk-text"
-                        />
-                      ) : (
-                        <p>{text.textUnavailable}</p>
-                      )}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <span data-testid="account-no-terms">{text.noTerms}</span>
-              )}
-            </dd>
-            <dt className="visually-hidden">{text.realMode}</dt>
-            <dd data-testid="account-real-mode">{text.realMode}</dd>
-          </dl>
-        )}
-      </main>
-    </>
+                    </p>
+                    <h2>{text.termsTextHeading}</h2>
+                    {load.account.acceptedTerms.termsText ? (
+                      <Paragraphs
+                        value={load.account.acceptedTerms.termsText}
+                        testId="account-terms-text"
+                      />
+                    ) : (
+                      <p>{text.textUnavailable}</p>
+                    )}
+                    <h2>{text.riskTextHeading}</h2>
+                    {load.account.acceptedTerms.riskNoticeText ? (
+                      <Paragraphs
+                        value={load.account.acceptedTerms.riskNoticeText}
+                        testId="account-risk-text"
+                      />
+                    ) : (
+                      <p>{text.textUnavailable}</p>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <span data-testid="account-no-terms">{text.noTerms}</span>
+            )}
+          </dd>
+          <dt className="visually-hidden">{text.realMode}</dt>
+          <dd data-testid="account-real-mode">{text.realMode}</dd>
+        </dl>
+      )}
+    </AppShell>
   );
 }

@@ -1,0 +1,21 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "u9-dashboard",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9", "NFR10", "NFR11", "NFR12", "NFR13", "NFR14"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "NFR1.1, NFR1.2, NFR1.3" },
+    { "id": "NFR2", "status": "OK", "target": "NFR2.1, NFR2.2" },
+    { "id": "NFR3", "status": "OK", "target": "NFR3.1, NFR3.2, NFR3.3, NFR3.4" },
+    { "id": "NFR4", "status": "OK", "target": "NFR4.1, NFR4.2" },
+    { "id": "NFR5", "status": "OK", "target": "NFR5.1, NFR5.2" },
+    { "id": "NFR6", "status": "OK", "target": "NFR6.1, NFR6.2, NFR6.3, NFR6.4, NFR6.5, NFR6.6" },
+    { "id": "NFR7", "status": "OK", "target": "NFR7.1" },
+    { "id": "NFR8", "status": "N/A", "target": "a U9 não toma decisões de bot; a reprodução é da u5-bots-decision" },
+    { "id": "NFR9", "status": "N/A", "target": "a U9 não cria componente de servidor; as métricas de saúde e erro do canal e das rotas usadas são da u5-bots-decision e da u7-ledger-pnl, e o cliente REST existente já manda X-Correlation-Id em toda requisição" },
+    { "id": "NFR10", "status": "N/A", "target": "sem meta de disponibilidade enquanto o beta roda só localmente (NFR10); o comportamento em queda do canal está em NFR1.3 e nas regras BR4.2 e BR5.3" },
+    { "id": "NFR11", "status": "N/A", "target": "acessibilidade básica coberta pelas regras BR2.4, BR6.2, BR6.3, BR6.5, BR7.1 a BR7.3 do desenho funcional; sem portão automático na CI por decisão do team.md" },
+    { "id": "NFR12", "status": "N/A", "target": "piso de 80% de cobertura do frontend e testes por risco já valem pelo team.md e são verificados no Build and Test; a lista de testes da Unit está na functional-spec.md" },
+    { "id": "NFR13", "status": "N/A", "target": "a U9 não muda o ambiente local nem a CI; o fim de linha e o Docker Compose são da u1-walking-skeleton" },
+    { "id": "NFR14", "status": "N/A", "target": "textos em pt-BR, tema escuro e explicação de termos em inglês cobertos pelas regras do desenho funcional (CT-UX-1)" }
+  ]
+}

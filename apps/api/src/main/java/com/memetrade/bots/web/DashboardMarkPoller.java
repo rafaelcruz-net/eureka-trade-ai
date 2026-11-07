@@ -17,12 +17,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -41,7 +41,9 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * {@code bot.state} again (corrects the out-of-order mark caveat of C18); {@code auth.expired} when the token expires,
  * then the channel closes. The id of each event carries the marks seen ({@code b<bot>.l<ledger>.s<source>}), so a
  * reconnection with {@code Last-Event-ID} resumes without repeating. The cost does not grow with the number of
- * channels (NFR2.6). Only the api process has channels.
+ * channels (NFR2.6). Only the api process has channels. U9 adds the cap of open channels per person (NFR2.1,
+ * {@link ChannelSlots}) and sends the {@code data} of each event as the documented envelopes of {@link DashboardEvents}
+ * (same JSON as before).
  */
 @Component
 @ProcessRole(ProcessRole.Kind.API)
@@ -62,6 +64,8 @@ public class DashboardMarkPoller {
     private final Duration heartbeat;
     private final Duration timeout;
     private final Map<UUID, Channel> channels = new ConcurrentHashMap<>();
+    /** U9 (NFR2.1): at most {@code max-channels-per-person} open channels per person. */
+    private final ChannelSlots slots;
 
     /**
      * @param ledgerMarks the C18 mark of U7; U7 declared the interface without a bean, so until it provides one the mark
@@ -86,29 +90,98 @@ public class DashboardMarkPoller {
         this.clock = clock;
         this.heartbeat = properties.stream().heartbeatInterval();
         this.timeout = properties.stream().timeout();
+        this.slots = new ChannelSlots(properties.stream().maxChannelsPerPerson());
     }
 
     public int openChannels() {
         return channels.size();
     }
 
-    /** Opens a channel of {@code person} until {@code expiresAt}; sends what changed since {@code lastEventId}. */
-    public SseEmitter open(Principal person, Instant expiresAt, Optional<String> lastEventId) {
-        SseEmitter emitter = new SseEmitter(timeout.toMillis());
-        Instant now = clock.instant();
-        Channel channel = new Channel(UUID.randomUUID(), person, emitter, expiresAt, now);
-        lastEventId.map(EVENT_ID::matcher).filter(Matcher::matches).ifPresent(matched -> {
-            channel.botMark = Long.parseLong(matched.group(1));
-            channel.ledgerMark = Long.parseLong(matched.group(2));
-            channel.sourceMark = Long.parseLong(matched.group(3));
-        });
-        emitter.onCompletion(() -> channels.remove(channel.id));
-        emitter.onTimeout(() -> channels.remove(channel.id));
-        emitter.onError(failure -> channels.remove(channel.id));
-        channels.put(channel.id, channel);
+    /** U9 (NFR2.1): the channels {@code person} holds open now. */
+    public int openChannelsOf(Principal person) {
+        return slots.openOf(TenantScope.of(person));
+    }
+
+    /** U9 (NFR2.1): the most channels one person may hold open. */
+    public int maxChannelsPerPerson() {
+        return slots.limit();
+    }
+
+    /**
+     * Opens a channel of {@code person} until {@code expiresAt}; sends what changed since {@code lastEventId}. U9
+     * (NFR2.1): empty, without opening anything, when the person already holds {@link #maxChannelsPerPerson()} open
+     * channels; the slot is taken atomically here and given back on EVERY end of the channel (completion, timeout,
+     * error, {@code auth.expired}, a failed write, or a failure while the channel is being opened).
+     */
+    public Optional<SseEmitter> open(Principal person, Instant expiresAt, Optional<String> lastEventId) {
         TenantScope scope = TenantScope.of(person);
-        refresh(channel, bots.marksFor(List.of(scope)).getOrDefault(scope, 0L), sourceMarks.globalMark(), now, false);
-        return emitter;
+        // Review R-03: the client's Last-Event-ID is read BEFORE a slot is taken, so a mark that cannot be read
+        // (for example a number above Long.MAX_VALUE) can never leak a slot; it is treated as absent.
+        Optional<ResumeMarks> resume = lastEventId.flatMap(DashboardMarkPoller::resumeMarks);
+        if (!slots.tryAcquire(scope)) {
+            return Optional.empty();
+        }
+        Instant now = clock.instant();
+        Channel channel;
+        try {
+            SseEmitter emitter = new SseEmitter(timeout.toMillis());
+            channel = new Channel(UUID.randomUUID(), person, emitter, expiresAt, now);
+        } catch (RuntimeException failure) {
+            slots.release(scope);
+            throw failure;
+        }
+        resume.ifPresent(marks -> {
+            channel.botMark = marks.bot();
+            channel.ledgerMark = marks.ledger();
+            channel.sourceMark = marks.source();
+        });
+        try {
+            channel.emitter.onCompletion(() -> close(channel));
+            channel.emitter.onTimeout(() -> close(channel));
+            channel.emitter.onError(failure -> close(channel));
+            channels.put(channel.id, channel);
+            refresh(
+                    channel,
+                    bots.marksFor(List.of(scope)).getOrDefault(scope, 0L),
+                    sourceMarks.globalMark(),
+                    now,
+                    false);
+        } catch (RuntimeException failure) {
+            close(channel);
+            throw failure;
+        }
+        return Optional.of(channel.emitter);
+    }
+
+    /** The marks of a {@code Last-Event-ID} the app sent back; empty when it is not one of ours or does not fit. */
+    static Optional<ResumeMarks> resumeMarks(String lastEventId) {
+        Matcher matched = EVENT_ID.matcher(lastEventId);
+        if (!matched.matches()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(new ResumeMarks(
+                    Long.parseLong(matched.group(1)),
+                    Long.parseLong(matched.group(2)),
+                    Long.parseLong(matched.group(3))));
+        } catch (NumberFormatException tooLarge) {
+            // A digit run above Long.MAX_VALUE: the channel opens without resumption, like an absent header.
+            log.debug(
+                    "Ignoring unreadable Last-Event-ID marks: error={}",
+                    tooLarge.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    /** The three marks the channel resumes from (bots, ledger, sources). */
+    record ResumeMarks(long bot, long ledger, long source) {}
+
+    /** Forgets {@code channel} and gives its slot back, once, whichever end path calls first. */
+    private void close(Channel channel) {
+        if (channel.closed.compareAndSet(false, true)) {
+            channels.remove(channel.id);
+            slots.release(TenantScope.of(channel.person));
+        }
     }
 
     @Scheduled(fixedDelayString = "${memetrade.bots.stream.poll-interval}", initialDelayString = "PT2S")
@@ -140,9 +213,9 @@ public class DashboardMarkPoller {
         synchronized (channel) {
             try {
                 if (!now.isBefore(channel.expiresAt)) {
-                    send(channel, "auth.expired", Map.of("expiredAt", now.toString()));
+                    send(channel, "auth.expired", new DashboardEvents.AuthExpired(now.toString()));
+                    close(channel);
                     channel.emitter.complete();
-                    channels.remove(channel.id);
                     return;
                 }
                 long ledgerMark = ledgerMark(channel.person);
@@ -159,21 +232,25 @@ public class DashboardMarkPoller {
                     channel.lastFull = now;
                 }
                 if (ledgerChanged) {
-                    List<Map<String, Object>> trades = newTrades(channel);
+                    // U9 (NFR3.1): at the opening no order can be newer than the opening instant, where lastTradeAt
+                    // starts, and the dashboard reads the last orders through REST; reading every bot again there
+                    // only slowed the opening of the channel. The polls send every order recorded after it.
+                    List<DashboardEvents.TradeNotice> trades = polling ? newTrades(channel) : List.of();
                     if (!trades.isEmpty()) {
-                        send(channel, "trade.recorded", Map.of("items", trades));
+                        send(channel, "trade.recorded", new DashboardEvents.TradeRecorded(trades));
                     }
-                    send(channel, "pnl.updated", Map.of("ledgerMark", ledgerMark));
+                    send(channel, "pnl.updated", new DashboardEvents.PnlUpdated(ledgerMark));
                 }
                 if (sourceChanged) {
-                    send(channel, "data.status", Map.of("items", market.sourceStatuses()));
+                    send(channel, "data.status", new DashboardEvents.DataStatus(market.sourceStatuses()));
                 }
                 if (polling && Duration.between(channel.lastHeartbeat, now).compareTo(heartbeat) >= 0) {
-                    send(channel, "heartbeat", Map.of("at", now.toString()));
+                    send(channel, "heartbeat", new DashboardEvents.Heartbeat(now.toString()));
                     channel.lastHeartbeat = now;
                 }
             } catch (IOException | IllegalStateException gone) {
-                channels.remove(channel.id);
+                // U9 (NFR2.1): a failed write (the browser went away) gives the slot back at once.
+                close(channel);
             }
         }
     }
@@ -195,21 +272,18 @@ public class DashboardMarkPoller {
     }
 
     /** The state of the bots of THIS person only (TenantScope of the channel). */
-    private Map<String, Object> botState(Principal person, Instant now) {
+    private DashboardEvents.BotState botState(Principal person, Instant now) {
         TenantScope scope = TenantScope.of(person);
         List<BotSummaryView> items = bots.list(scope, Optional.empty(), Optional.empty(), 100).items().stream()
                 .map(bot -> BotSummaryView.of(bot, now))
                 .toList();
-        Map<String, Object> state = new LinkedHashMap<>();
-        state.put("items", items);
-        state.put("activeCount", bots.countActive(scope));
-        return state;
+        return new DashboardEvents.BotState(items, bots.countActive(scope));
     }
 
     /** The orders of the person's bots recorded after the last one this channel sent (U7 public read model). */
-    private List<Map<String, Object>> newTrades(Channel channel) {
+    private List<DashboardEvents.TradeNotice> newTrades(Channel channel) {
         TenantScope scope = TenantScope.of(channel.person);
-        List<Map<String, Object>> trades = new ArrayList<>();
+        List<DashboardEvents.TradeNotice> trades = new ArrayList<>();
         Instant latest = channel.lastTradeAt;
         for (Bot bot : bots.list(scope, Optional.empty(), Optional.empty(), 100).items()) {
             for (var trade : ledger.trades(
@@ -218,15 +292,14 @@ public class DashboardMarkPoller {
                 if (channel.lastTradeAt != null && !trade.createdAt().isAfter(channel.lastTradeAt)) {
                     continue;
                 }
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("orderId", trade.orderId());
-                item.put("botId", trade.botId());
-                item.put("side", trade.side().name());
-                item.put("chain", trade.chain());
-                item.put("tokenMint", trade.tokenMint());
-                item.put("status", trade.status().name());
-                item.put("createdAt", trade.createdAt().toString());
-                trades.add(item);
+                trades.add(new DashboardEvents.TradeNotice(
+                        trade.orderId(),
+                        trade.botId(),
+                        trade.side().name(),
+                        trade.chain(),
+                        trade.tokenMint(),
+                        trade.status().name(),
+                        trade.createdAt().toString()));
                 latest = latest == null || trade.createdAt().isAfter(latest) ? trade.createdAt() : latest;
             }
         }
@@ -250,6 +323,7 @@ public class DashboardMarkPoller {
         private Instant lastFull;
         private Instant lastHeartbeat;
         private Instant lastTradeAt;
+        private final AtomicBoolean closed = new AtomicBoolean();
 
         private Channel(UUID id, Principal person, SseEmitter emitter, Instant expiresAt, Instant openedAt) {
             this.id = id;

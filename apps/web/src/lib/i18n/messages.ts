@@ -1,4 +1,5 @@
 import { botMessages } from '@/features/bots/messages';
+import { dashboardMessages, navMessages } from '@/features/dashboard/messages';
 
 /**
  * Single pt-BR text catalog of the guest app (NFR14.1). Market terms stay in English with an explanation shown on
@@ -12,10 +13,6 @@ export const messages = {
     paperOnly: 'Ambiente de testes PAPER: nenhuma operação usa dinheiro real.',
     signOut: 'Sair',
     skipToContent: 'Pular para o conteúdo',
-    accountMenu: 'Menu da conta',
-    account: 'Conta',
-    pnl: 'Resultado (P&L)',
-    bots: 'Bots',
   },
   invite: {
     title: 'Entrar com convite',
@@ -285,7 +282,8 @@ export const messages = {
   // U7 (S6 P&L, ledger, operações do bot e reconciliação; BR6.1 a BR6.6, BR8.4, BR10.1, BR10.2).
   pnl: {
     paperLabel: 'MODO PAPER (simulado)',
-    title: 'Resultado (P&L)',
+    // U9 (BR6.2): the h1 of a screen that is a menu item equals the text of the item.
+    title: 'P&L PAPER',
     intro:
       'Resultado simulado das operações PAPER. Nenhum valor aqui é dinheiro real e resultados passados não indicam resultados futuros.',
     periodLegend: 'Período',
@@ -425,6 +423,9 @@ export const messages = {
   },
   // U5: the bot screens (wizard, list, bot screen), kept in the feature and part of this single catalog.
   bots: botMessages,
+  // U9: the dashboard S2 and the single shell (main navigation) of the logged screens S2 to S8.
+  dashboard: dashboardMessages,
+  nav: navMessages,
   // U8 (S9, US6.1): the feedback dialog of the header.
   feedback: {
     open: 'Enviar feedback',

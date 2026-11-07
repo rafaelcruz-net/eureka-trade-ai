@@ -586,6 +586,50 @@ export interface components {
       name: string;
       templateId: string;
     };
+    /** @description data do evento auth.expired */
+    DashboardAuthExpiredEvent: {
+      /** Format: date-time */
+      expiredAt: string;
+    };
+    /** @description data do evento bot.state: até 100 bots da pessoa, de qualquer estado, mais recentes primeiro; sem activeLimit nem contagens por estado */
+    DashboardBotStateEvent: {
+      /** Format: int64 */
+      activeCount: number;
+      items: components['schemas']['BotSummary'][];
+    };
+    /** @description data do evento data.status */
+    DashboardDataStatusEvent: {
+      items: components['schemas']['SourceStatus'][];
+    };
+    /** @description data do evento heartbeat */
+    DashboardHeartbeatEvent: {
+      /** Format: date-time */
+      at: string;
+    };
+    /** @description data do evento pnl.updated */
+    DashboardPnlUpdatedEvent: {
+      /** Format: int64 */
+      ledgerMark: number;
+    };
+    /** @description Ordem simulada nova, sem preços nem notFilledReason */
+    DashboardTradeNotice: {
+      /** Format: uuid */
+      botId: string;
+      chain: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      orderId: string;
+      /** @enum {string} */
+      side: 'BUY' | 'SELL';
+      /** @enum {string} */
+      status: 'FILLED' | 'PARTIALLY_FILLED' | 'NOT_FILLED' | 'CLOSE_PENDING';
+      tokenMint: string;
+    };
+    /** @description data do evento trade.recorded */
+    DashboardTradeRecordedEvent: {
+      items: components['schemas']['DashboardTradeNotice'][];
+    };
     /** @description Uso do dia UTC; os limites vêm da U5 na tela (BR7.5) */
     DayUsage: {
       dayLoss: string;
@@ -2026,13 +2070,19 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Fluxo de eventos do painel */
+      /** @description Fluxo de eventos do painel. Cada evento tem id (b<marca>.l<marca>.s<marca>, só para Last-Event-ID), event (o nome) e data: o JSON de um destes envelopes, conforme o nome: bot.state DashboardBotStateEvent, trade.recorded DashboardTradeRecordedEvent, pnl.updated DashboardPnlUpdatedEvent, data.status DashboardDataStatusEvent, heartbeat DashboardHeartbeatEvent, auth.expired DashboardAuthExpiredEvent (U9) */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          'text/event-stream': string;
+          'text/event-stream':
+            | components['schemas']['DashboardBotStateEvent']
+            | components['schemas']['DashboardTradeRecordedEvent']
+            | components['schemas']['DashboardPnlUpdatedEvent']
+            | components['schemas']['DashboardDataStatusEvent']
+            | components['schemas']['DashboardHeartbeatEvent']
+            | components['schemas']['DashboardAuthExpiredEvent'];
         };
       };
       /** @description UNAUTHENTICATED */
@@ -2042,6 +2092,16 @@ export interface operations {
         };
         content: {
           'text/event-stream': string;
+        };
+      };
+      /** @description RATE_LIMITED: a pessoa já tem 5 canais abertos; Retry-After diz quando tentar de novo (U9, NFR2.1) */
+      429: {
+        headers: {
+          'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
         };
       };
     };

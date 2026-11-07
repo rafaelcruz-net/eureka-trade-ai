@@ -2,6 +2,8 @@
   "version": 1,
   "exclude": [
     "apps/web/playwright-report",
-    "apps/web/test-results"
+    "apps/web/test-results",
+    "docs/perf",
+    "load-test-report.json"
   ]
 }

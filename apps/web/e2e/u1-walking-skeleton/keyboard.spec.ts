@@ -20,7 +20,8 @@ test('S1 and S3 work with the keyboard only', async ({ page }) => {
   const firstValue = page.locator('[data-testid^="scanner-price-"][data-status]').first();
   for (
     let i = 0;
-    i < 20 && !(await firstValue.evaluate((el) => el === document.activeElement));
+    // U9: the shell adds the main navigation (5 links) before the content of S3.
+    i < 30 && !(await firstValue.evaluate((el) => el === document.activeElement));
     i++
   ) {
     await page.keyboard.press('Tab');

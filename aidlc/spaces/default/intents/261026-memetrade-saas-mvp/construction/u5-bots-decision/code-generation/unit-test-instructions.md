@@ -29,6 +29,11 @@ Pré-requisitos: Docker Desktop, JDK 21, Node LTS com `corepack pnpm@10.18.3` e 
 | Smoke da U5 (ambiente de pé) | `corepack pnpm@10.18.3 --dir apps/web exec playwright test e2e/u5-bots-decision` |
 | Cobertura completa | `apps/api/mvnw -f apps/api/pom.xml verify` e `corepack pnpm@10.18.3 --dir apps/web exec jest --coverage` |
 | Carga da U5 (só local) | `LOAD_SCENARIO=u5 SPRING_PROFILES_ACTIVE=test,loadtest bash scripts/load-test.sh` |
+| Volta 1: regressão da semente | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u5 -Dit.test=LoadtestBotSeedIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false test-compile surefire:test failsafe:integration-test failsafe:verify` |
+| Volta 1: backend da U5 | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u5 test-compile surefire:test failsafe:integration-test failsafe:verify` |
+| Volta 1: suíte inteira com cobertura | `apps/api/mvnw -f apps/api/pom.xml verify` |
+
+Na volta 1 de Build and Test (Passos 23 a 25), os testes de regressão de `LoadtestBotSeedIT` são escritos antes da correção e falham com a violação da chave estrangeira `decision.cycle_id`. Depois da correção, eles passam. O cenário de carga `u5` roda de novo no Build and Test, não nesta etapa.
 
 O comando do backend fica pronto no Passo 2, antes do primeiro teste vermelho (Passo 4). A saída vermelha de cada passo com testes antes do código é registrada no resumo.
 

@@ -271,3 +271,51 @@ Nenhum contêiner ficou rodando: os testes usam Testcontainers, que encerra o co
   - Usar só a C16 (`BotAdministration`): pausa do sistema, liberação com `ADMIN_RELEASED` e resumo do painel.
   - AC7.2.1 e AC7.2.5 (confirmação, indicador, rota do kill switch, 403 e auditoria do administrador) são da U8.
 - **U9:** usar só a C18 (`BotChangeMarks`) e o canal C7, sem tratar a marca como ordem total (ver a ressalva acima).
+
+## Volta 1 de Build and Test (2026-11-06)
+
+### Causa
+
+No Build and Test, o cenário de carga `u5` parou na semente (falha F3 em [test-results.md](../../build-and-test/test-results.md)). `LoadtestBotSeed.seedDecisions` gravava um ciclo por minuto passado a partir de `now - 1 min`. Quando o worker real já tinha rodado um ciclo do bot num desses minutos, `JdbcCycleRepository.tryStart` não inseria a linha (`on conflict (bot_id, slot_start) do nothing`) e devolvia `false`. A semente ignorava esse retorno, `finish` não atualizava nada, e a decisão era gravada com um `cycle_id` inexistente. A chave estrangeira `decision_cycle_id_fkey` recusava a gravação, e a preparação terminava em `FAILED`.
+
+### Correção
+
+Só `apps/api/src/main/java/com/memetrade/bots/loadtest/LoadtestBotSeed.java` mudou no código de produção. Ele continua só no perfil `loadtest` (`@Profile("loadtest")`) e só no processo `api`.
+
+- Antes de semear, a semente lê o `slot_start` mais antigo do bot em `bot_cycle`, filtrando por `bot_id`, `tenant_id` e `owner_user_id`. Ela semeia só os minutos anteriores a esse ciclo. Um bot sem ciclo usa o limite de antes (`now - 1 min`).
+- Quando `tryStart` devolve `false`, a semente lança `IllegalStateException` com o minuto e o id do bot ("the batch was rolled back"). A exceção sai de dentro do `TransactionTemplate`, então o lote inteiro (ciclos e decisões) é desfeito. Nenhuma decisão fica apontando para ciclo inexistente. O erro já existente em `prepare()` registra a falha e deixa a saúde `loadtestBots` em `FAILED`.
+- Para essa leitura, o construtor recebe um `JdbcClient`, que o Spring injeta. As regras do ciclo, da decisão e do ledger não mudaram, e `JdbcCycleRepository` também não.
+- Não há valor monetário novo. A mensagem de erro só leva o id do bot e o instante, nada sensível.
+- O formatador do projeto (`mvnw spotless:apply`) ajustou os dois arquivos desta volta. O primeiro `verify` tinha falhado só no `spotless:check`.
+
+### Testes novos (`LoadtestBotSeedIT`)
+
+| Teste | O que confere |
+|---|---|
+| `aCycleTheWorkerAlreadyRanInASeededMinuteIsKeptAndNoDecisionPointsToAMissingCycle` | Um ciclo `COMPLETED` do worker em `now - 3 min`. A semente de 10 decisões termina, grava 10 decisões e 10 ciclos novos. Nenhuma decisão fica sem o seu ciclo (`cycle_id` e `decision_id` casados). Todas as decisões são anteriores ao ciclo do worker, que continua intacto (status, `decision_id` nulo, `slot_start`, `finished_at`). |
+| `aSlotTheSeedCannotClaimStopsTheSeedWithTheBotAndTheMinuteAndKeepsNothingOfThatBatch` | Um `JdbcCycleRepository` de teste recusa o minuto `now - 2 min`. A semente lança `IllegalStateException` com o id do bot e o minuto, e o bot fica sem decisão e sem ciclo, porque o lote foi desfeito. |
+
+### Vermelho registrado (antes da correção)
+
+Comando: o de "Volta 1: regressão da semente" em [unit-test-instructions.md](unit-test-instructions.md).
+
+- `Tests run: 6, Failures: 1, Errors: 1`, com `BUILD FAILURE`. Os 4 testes que já existiam passaram.
+- Primeiro teste novo: `DataIntegrityViolationException` em `insert into decision (...)`, com `violates foreign key constraint "decision_cycle_id_fkey"` e "Key (cycle_id)=(…) is not present in table "bot_cycle"". É a mesma falha do Build and Test.
+- Segundo teste novo: esperava `IllegalStateException` e veio a mesma `DataIntegrityViolationException`.
+
+### Resultados (depois da correção)
+
+| Comando | Resultado |
+|---|---|
+| Volta 1: regressão da semente | `LoadtestBotSeedIT`: 6 testes, 0 falhas, `BUILD SUCCESS` |
+| Volta 1: backend da U5 (`-Dgroups=u5`) | unitários 111 e integração 203, 0 falhas, `BUILD SUCCESS` |
+| Volta 1: suíte inteira (`mvnw verify`) | unitários 890 e integração 754, 0 falhas; `All coverage checks have been met`; `BUILD SUCCESS` |
+
+- **Cobertura de linhas (relatório unido do JaCoCo):**
+  - total: 93,86% (12.349 de 13.157);
+  - pacotes `bots` e `decision`: 92,79% (2.819 de 3.038);
+  - `LoadtestBotSeed`: 111 de 124 linhas.
+- **Nada foi reduzido.** O piso de 80% continua igual.
+- **Comparação com a geração.** Os totais de testes e de linhas são maiores que os da geração (813 e 647 testes). A árvore de trabalho já tinha arquivos de outras Units ainda não versionados (por exemplo, `AbstractU9IT`, `U9SettingsTest` e `DashboardChannelLimitIT`). Esta volta não os alterou, e eles entraram na suíte inteira.
+- **Logs de ERROR durante a suíte.** Saíram linhas `KILL_SWITCH_APPLY_FAILED` e `Audit job failed`. Elas vêm dos testes de falha injetada das Units anteriores, que passaram.
+- **Cenário de carga `u5`.** Não rodou nesta volta. A nova execução fica para o Build and Test, e NFR2.1 a NFR2.3, NFR2.5, NFR2.6, NFR3.1 e NFR3.2 continuam `Deferred` no `traceability.json`.

@@ -955,14 +955,37 @@ paths:
           content:
             text/event-stream:
               schema:
-                type: string
-          description: Fluxo de eventos do painel
+                oneOf:
+                - $ref: "#/components/schemas/DashboardBotStateEvent"
+                - $ref: "#/components/schemas/DashboardTradeRecordedEvent"
+                - $ref: "#/components/schemas/DashboardPnlUpdatedEvent"
+                - $ref: "#/components/schemas/DashboardDataStatusEvent"
+                - $ref: "#/components/schemas/DashboardHeartbeatEvent"
+                - $ref: "#/components/schemas/DashboardAuthExpiredEvent"
+          description: "Fluxo de eventos do painel. Cada evento tem id (b<marca>.l<marca>.s<marca>,\
+            \ só para Last-Event-ID), event (o nome) e data: o JSON de um destes envelopes,\
+            \ conforme o nome: bot.state DashboardBotStateEvent, trade.recorded DashboardTradeRecordedEvent,\
+            \ pnl.updated DashboardPnlUpdatedEvent, data.status DashboardDataStatusEvent,\
+            \ heartbeat DashboardHeartbeatEvent, auth.expired DashboardAuthExpiredEvent\
+            \ (U9)"
         "401":
           content:
             text/event-stream:
               schema:
                 type: string
           description: UNAUTHENTICATED
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED: a pessoa já tem 5 canais abertos; Retry-After\
+            \ diz quando tentar de novo (U9, NFR2.1)"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              style: simple
       security:
       - accessToken: []
       summary: "Server-Sent Events do painel: bot.state, trade.recorded, pnl.updated,\
@@ -1400,6 +1423,112 @@ components:
       required:
       - name
       - templateId
+    DashboardAuthExpiredEvent:
+      type: object
+      additionalProperties: false
+      description: data do evento auth.expired
+      properties:
+        expiredAt:
+          type: string
+          format: date-time
+      required:
+      - expiredAt
+    DashboardBotStateEvent:
+      type: object
+      additionalProperties: false
+      description: "data do evento bot.state: até 100 bots da pessoa, de qualquer\
+        \ estado, mais recentes primeiro; sem activeLimit nem contagens por estado"
+      properties:
+        activeCount:
+          type: integer
+          format: int64
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/BotSummary"
+      required:
+      - activeCount
+      - items
+    DashboardDataStatusEvent:
+      type: object
+      additionalProperties: false
+      description: data do evento data.status
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SourceStatus"
+      required:
+      - items
+    DashboardHeartbeatEvent:
+      type: object
+      additionalProperties: false
+      description: data do evento heartbeat
+      properties:
+        at:
+          type: string
+          format: date-time
+      required:
+      - at
+    DashboardPnlUpdatedEvent:
+      type: object
+      additionalProperties: false
+      description: data do evento pnl.updated
+      properties:
+        ledgerMark:
+          type: integer
+          format: int64
+      required:
+      - ledgerMark
+    DashboardTradeNotice:
+      type: object
+      additionalProperties: false
+      description: "Ordem simulada nova, sem preços nem notFilledReason"
+      properties:
+        botId:
+          type: string
+          format: uuid
+        chain:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        orderId:
+          type: string
+          format: uuid
+        side:
+          type: string
+          enum:
+          - BUY
+          - SELL
+        status:
+          type: string
+          enum:
+          - FILLED
+          - PARTIALLY_FILLED
+          - NOT_FILLED
+          - CLOSE_PENDING
+        tokenMint:
+          type: string
+      required:
+      - botId
+      - chain
+      - createdAt
+      - orderId
+      - side
+      - status
+      - tokenMint
+    DashboardTradeRecordedEvent:
+      type: object
+      additionalProperties: false
+      description: data do evento trade.recorded
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardTradeNotice"
+      required:
+      - items
     DayUsage:
       type: object
       additionalProperties: false

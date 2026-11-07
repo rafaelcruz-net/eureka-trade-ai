@@ -5,6 +5,7 @@
 - Builds: assistente e ciclo de vida dos bots PAPER, motor de decisão com as duas estratégias, ciclo de 5 minutos no novo processo worker (com a barreira da U6 e a execução da U7), pausa de sistema, marcas e canal ao vivo, telas S4, lista e S5
 - Touches: `apps/api/` (módulos novos `bots` e `decision`, papel do processo nas tarefas das Units anteriores, migração `0010`, OpenAPI, configuração, testes), `apps/web/src/features/bots/`, `apps/web/src/app/bots/`, `apps/web/e2e/u5-bots-decision/`, `docker-compose.yml`, `infra/docker-compose.test.yml`, `.github/workflows/load-test.yml`, `scripts/load-test.sh`, `scripts/load/`, `docs/`, `contract-summary.md`
 - Tests: cerca de 220 testes de backend (catálogos D e L escritos antes do código, propriedade, integração com U6 e U7 reais, concorrência, travas, ArchUnit, contrato), cerca de 30 de frontend, um smoke Playwright do ciclo de vida e o cenário de carga `u5`, com piso de 80% de linhas
+- Volta 1 de Build and Test: corrige a semente de carga `LoadtestBotSeed` (só no perfil `loadtest`), que gravava decisões sem ciclo, com dois testes de regressão em `LoadtestBotSeedIT`. A nova execução do cenário `u5` fica para o Build and Test
 
 ## Entradas
 
@@ -263,6 +264,29 @@ A Unit é a `u5-bots-decision` de [unit-of-work.md](../../../inception/units-gen
   - Preparar o texto da mudança do `scripts/verify.sh`: acrescentar `e2e/u5-bots-decision` à linha do Playwright.
   - O ponto de controle da U5 depende de o `verify.sh` passar com esse smoke.
   - Fundação.
+
+### Volta 1 de Build and Test (2026-11-06)
+
+No Build and Test, o cenário de carga `u5` parou na semente (falha F3 em [test-results.md](../../build-and-test/test-results.md)). `LoadtestBotSeed.seedDecisions` grava um ciclo por minuto passado a partir de `now - 1 min`. Quando o worker real já rodou um ciclo do bot nesse minuto, `JdbcCycleRepository.tryStart` não insere a linha (`on conflict (bot_id, slot_start) do nothing`) e devolve `false`. A semente ignora esse retorno e grava a decisão com um `cycle_id` que não existe, e a chave estrangeira `decision.cycle_id` recusa a gravação. Com isso, NFR2.1 a NFR2.3, NFR2.5, NFR2.6, NFR3.1 e NFR3.2 ficaram sem medição.
+
+`LoadtestBotSeed` fica em `apps/api/src/main/java/com/memetrade/bots/loadtest/` e só existe no perfil `loadtest`. Nenhum outro código de produção muda, e as regras do ciclo, da decisão e do ledger ficam como estão. Os Passos 1 a 22 ficam como estão.
+
+- [x] **Passo 23 — Teste de regressão da semente (vermelho).**
+  - Em `LoadtestBotSeedIT`, um teste reproduz o conflito: um ciclo já gravado para o bot num minuto que a semente usaria, e depois a semente roda.
+  - Hoje, o teste falha com a violação da chave estrangeira. Depois da correção, ele confere que a semente termina, que nenhuma decisão aponta para ciclo inexistente e que o ciclo que já existia continua intacto.
+  - Um segundo teste confere a falha clara: quando `tryStart` devolve `false` para um minuto que a semente escolheu, a semente para com uma mensagem que nomeia o bot e o minuto. Nenhum dado parcial é gravado como se estivesse certo.
+  - Regra da equipe: todo defeito corrigido ganha um teste de regressão que o reproduz.
+- [x] **Passo 24 — Correção da semente (verde).**
+  - `seedDecisions` passa a semear só minutos anteriores ao ciclo mais antigo de cada bot, lido do banco antes de semear. Um bot sem ciclo usa o limite atual (`now - 1 min`).
+  - Quando `tryStart` devolver `false`, a semente lança um erro com o bot e o minuto, em vez de seguir.
+  - A semente continua só no perfil `loadtest` e não altera o ciclo, a decisão nem o ledger fora dela. Valores monetários seguem em `BigDecimal`, e nenhum dado sensível vai para o log.
+  - Depois, os testes do Passo 23 ficam verdes.
+  - NFR2.1 a NFR2.6, NFR3.1, NFR3.2.
+- [x] **Passo 25 — Conferência e registro.**
+  - Rodar o comando da U5 e o `verify` inteiro do backend (comandos da volta 1 em [unit-test-instructions.md](unit-test-instructions.md)), sem reduzir o piso de 80%.
+  - `code-summary.md`: seção "Volta 1" com a causa, a correção, os testes novos e os resultados.
+  - `traceability.json`: acrescentar o teste de regressão como alvo onde couber. Os NFR de carga continuam `Deferred` até a nova execução do cenário `u5`, que acontece no Build and Test.
+  - Fundação; NFR12.1.
 
 ## Rastreio das histórias
 

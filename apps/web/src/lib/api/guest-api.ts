@@ -95,25 +95,47 @@ export function listQuery(request: ListRequest): string {
  * authenticated call that answers 401 tries ONE renewal through the HttpOnly cookie and, when it works, repeats the
  * call once without the person noticing (U3 F6 step 1); when the renewal fails too, the original 401 reaches the
  * screen, which sends the person to the entry with the screen of origin.
+ *
+ * Single-flight renewal (U9 review R-01): U3's refresh rotates the token and revokes the whole session when an
+ * already exchanged refresh token comes back (REUSED). So, per API instance (one per app), at most ONE
+ * `POST /auth/refresh` is in flight: every REST call that gets a 401, the live channel of the dashboard and the session
+ * check on load all share the same promise through `refreshSession()`. A call whose 401 arrives after another caller
+ * already renewed the token (the token in memory changed) just repeats once with the new token, without a new refresh.
  */
 export function guestApi(client: ApiClient) {
+  let renewal: Promise<GuestSession> | null = null;
+
+  function renewSession(): Promise<GuestSession> {
+    if (renewal === null) {
+      renewal = client
+        .request<GuestSession>('/api/v1/auth/refresh', { method: 'POST', credentials: true })
+        .then((session) => {
+          tokenStore.set(session.accessToken);
+          return session;
+        })
+        .finally(() => {
+          renewal = null;
+        });
+    }
+    return renewal;
+  }
+
   async function withRenewal<T>(call: () => Promise<T>): Promise<T> {
+    const sentWith = tokenStore.get();
     try {
       return await call();
     } catch (failure) {
       if (!(failure instanceof ApiError) || failure.status !== 401) {
         throw failure;
       }
-      let renewed: GuestSession;
-      try {
-        renewed = await client.request<GuestSession>('/api/v1/auth/refresh', {
-          method: 'POST',
-          credentials: true,
-        });
-      } catch {
-        throw failure;
+      const current = tokenStore.get();
+      if (current === null || current === sentWith) {
+        try {
+          await renewSession();
+        } catch {
+          throw failure;
+        }
       }
-      tokenStore.set(renewed.accessToken);
       return call();
     }
   }
@@ -134,11 +156,9 @@ export function guestApi(client: ApiClient) {
         credentials: true,
       });
     },
+    /** The shared single-flight renewal: concurrent callers get the same answer of ONE refresh request. */
     refreshSession() {
-      return client.request<GuestSession>('/api/v1/auth/refresh', {
-        method: 'POST',
-        credentials: true,
-      });
+      return renewSession();
     },
     logout() {
       return client.request<void>('/api/v1/auth/logout', {
@@ -284,12 +304,18 @@ export function guestApi(client: ApiClient) {
         }),
       );
     },
-    /** U5 (BR2.2 to BR2.7): start, pause, resume or stop; the answer is the confirmed state. */
-    runBotCommand(botId: string, command: BotCommand) {
+    /**
+     * U5 (BR2.2 to BR2.7): start, pause, resume or stop; the answer is the confirmed state. U9 (BR2.2, NFR4.1): the
+     * dashboard passes the Idempotency-Key of ONE click on "Pausar" and reuses it on "Tentar de novo", so a repeated
+     * attempt never creates a second transition; without a key every call gets a fresh one, as before.
+     */
+    runBotCommand(botId: string, command: BotCommand, idempotencyKey?: string) {
       return withRenewal(() =>
         client.request<BotSummary>(
           `/api/v1/bots/${encodeURIComponent(botId)}/commands/${command}`,
-          { method: 'POST', idempotent: true, authenticated: true },
+          idempotencyKey
+            ? { method: 'POST', idempotencyKey, authenticated: true }
+            : { method: 'POST', idempotent: true, authenticated: true },
         ),
       );
     },

@@ -5,6 +5,7 @@
 - Builds: a barreira de limites `OrderGate` (C14) com as 11 verificações, recusas gravadas com detalhes e evento, deduplicação por decisão; a rota de recusas (C21); o expurgo diário das aprovadas antigas com papel de banco próprio; saúde, arquitetura e o cenário de carga `u6`
 - Touches: `apps/api/` (módulo novo `riskcontrol`, migração `0009`, OpenAPI do convidado, configuração, testes), `infra/postgres/bootstrap/10-roles.sql`, `docker-compose.yml`, `infra/docker-compose.test.yml`, `.github/workflows/load-test.yml`, `scripts/load-test.sh`, `scripts/load/`, `docs/`, `contract-summary.md`
 - Tests: cerca de 170 testes de backend, com o núcleo escrito antes do código: catálogo E1 a E21, propriedade, integração com Testcontainers, concorrência, privilégios, expurgo, ArchUnit e contrato. Há ainda o cenário de carga `u6`. O piso de 80% de linhas é mantido. Não há tela nem smoke novo (Q1 da Infrastructure Design, opção B)
+- Volta 1 de Build and Test: corrige a conferência de plano do cenário `u6` em `scripts/load/load-test.mjs`, que reprovava o `Seq Scan` da própria subconsulta de amostra, com um teste `node --test`. Nenhum código de produção muda, e a nova execução do cenário fica para o Build and Test
 
 ## Entradas
 
@@ -299,6 +300,33 @@ Cada passo indica as histórias (US), as regras (BR) e os requisitos detalhados 
     - a transação do ciclo é `READ COMMITTED`;
     - o NFR2.2 e o NFR3.2 serão medidos no estágio da U5.
   - Fundação; NFR2.2, NFR3.2 (pendências para a U5).
+
+### Volta 1 de Build and Test (2026-11-06)
+
+No Build and Test, o cenário de carga `u6` reprovou só na conferência de plano (falha F4 em [test-results.md](../../build-and-test/test-results.md)). Todas as medidas passaram: avaliação com p95 de 22 ms, C21 com p95 de 13 ms, maior lote do expurgo com 90 ms, pool sem pendentes, api com 347 MB e postgres com 582 MB.
+
+A causa está em `scripts/load/load-test.mjs`. A função `u6Plans()` põe dentro do `EXPLAIN` a subconsulta de amostra `(select ... from order_rejection r limit 1)`. Essa subconsulta gera sozinha um `Seq Scan on order_rejection`, e a expressão regular conta isso como falha. Com isso, o plano das consultas reais nunca foi conferido, e o NFR2.6 da U6 ficou `Unverified`.
+
+A correção fica só no script de carga. Nenhum código de produção, migração ou teste Java de comportamento muda. Os Passos 1 a 18 ficam como estão.
+
+- [x] **Passo 19 — Teste de regressão da conferência de plano (vermelho).**
+  - Separar em `scripts/load/load-test.mjs` a montagem das consultas de `u6Plans()` numa função pura e exportável. Ela recebe a amostra já lida (`tenantId`, `ownerUserId`, `botId`) e devolve o texto de cada `EXPLAIN`.
+  - Teste com o executor nativo do Node (`node --test`) em `scripts/load/load-test-u6-plans.test.mjs`. Ele confere que nenhuma consulta enviada ao `EXPLAIN` contém subconsulta sobre `order_rejection` ou `order_evaluation` e que os valores da amostra entram como literais com aspas escapadas.
+  - Um segundo caso confere a classificação: um plano com `Seq Scan on order_rejection` continua reprovado, e um plano só com `Index Scan` passa.
+  - Hoje, o primeiro caso falha, porque a consulta tem a subconsulta. A falha é registrada no resumo.
+  - Regra da equipe: todo defeito corrigido ganha um teste de regressão que o reproduz.
+- [x] **Passo 20 — Correção do script (verde).**
+  - `u6Plans()` lê a amostra numa consulta separada, antes dos `EXPLAIN`, e passa os valores à função do Passo 19.
+  - Os valores são ids sintéticos do próprio banco de carga. A montagem escapa aspas simples e recusa valores fora do formato de UUID, para não abrir caminho a injeção.
+  - Sem amostra (tabela vazia), a conferência fica "não conferido" com o motivo, em vez de aprovar ou reprovar em silêncio.
+  - A expressão regular de `Seq Scan` não muda, para a conferência não ficar mais fraca.
+  - Depois, `node --test scripts/load/load-test-u6-plans.test.mjs` e `node --check scripts/load/load-test.mjs` ficam verdes.
+  - NFR2.6.
+- [x] **Passo 21 — Conferência e registro.**
+  - Rodar o `WorkflowsTest` e o `ComposeFilesTest` (comandos da volta 1 em [unit-test-instructions.md](unit-test-instructions.md)), para confirmar que o script segue com o que eles exigem.
+  - `code-summary.md`: seção "Volta 1" com a causa, a correção, o teste novo e os resultados.
+  - `traceability.json`: acrescentar o teste novo como alvo do NFR2.6. O NFR2.6 continua `Deferred` até a nova execução do cenário `u6`, que acontece no Build and Test.
+  - Fundação; NFR12.1.
 
 ## Rastreio das histórias
 

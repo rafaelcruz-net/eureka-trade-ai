@@ -159,7 +159,8 @@ describe('S1 login screen', () => {
     await userEvent.tab();
     expect(screen.getByTestId('login-connect-phantom')).toHaveFocus();
     await userEvent.keyboard('{Enter}');
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/scanner'));
+    // U9 (BR1.1): without a pending origin the entry leads to the dashboard.
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
   });
 
   it('the /entrar page renders the login screen', async () => {

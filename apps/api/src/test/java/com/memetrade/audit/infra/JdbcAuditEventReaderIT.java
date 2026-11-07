@@ -21,22 +21,21 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Keyset reading of the trail (BR2.3, BR2.4, NFR3.1). Each test method owns a fixed one-day period in 2024 (derived
  * from its name, no random seed) and starts by removing whatever an earlier run left in that period, through the
  * retention login (the period is older than 12 months, so the trigger allows it). Regression of a flaky test: a
  * random period could fall on the period of another test and read its events.
+ *
+ * <p>The EXPLAIN check of the prepared forms lives in {@link AuditEventReaderPlanIT}, on a database of its own: the
+ * planner statistics of this shared database depend on what every other class wrote (Build and Test loop-back 1).
  */
 @Tag("u2")
 class JdbcAuditEventReaderIT extends AbstractPostgresIT {
 
     @Autowired
     private JdbcAuditEventReader reader;
-
-    @Autowired
-    private TransactionTemplate tx;
 
     private Instant base;
 
@@ -134,47 +133,6 @@ class JdbcAuditEventReaderIT extends AbstractPostgresIT {
                 "action", List.of("FILTER_ONE")));
 
         assertThat(ids(reader.read(onlyOne, 10))).containsExactly(atFrom);
-    }
-
-    @Test
-    void bothPreparedFormsReadFromTheIndexWithoutASeparateSort() {
-        insert(base, null, "PLAN_ACTION", Map.of());
-        // With only a handful of rows in the window the planner may scan the time index and filter the action, which
-        // depends on what other tests left in the shared database. Enough rows of another action in the same window,
-        // with fresh statistics, make the action index the cheaper path every time.
-        for (int i = 0; i < 300; i++) {
-            insert(base.plusMillis(i + 1), null, "PLAN_NOISE", Map.of());
-        }
-        jdbc.sql("analyze audit_event").update();
-        for (boolean withAction : new boolean[] {false, true}) {
-            for (boolean withCursor : new boolean[] {false, true}) {
-                String plan = explain(JdbcAuditEventReader.sql(withAction, withCursor));
-                assertThat(plan)
-                        .as("action=%s cursor=%s", withAction, withCursor)
-                        .contains(withAction ? "audit_event_action_time_id_idx" : "audit_event_time_id_idx")
-                        .doesNotContain("Sort");
-            }
-        }
-    }
-
-    /**
-     * Plans the statement with literal values; enable_sort=off makes the planner prefer any plan that already
-     * delivers the order, so a remaining Sort node means the index cannot provide it.
-     */
-    private String explain(String sql) {
-        String literal = sql.replace(":from", "timestamptz '" + base + "'")
-                .replace(":to", "timestamptz '" + base.plus(Duration.ofDays(1)) + "'")
-                .replace(":action", "'PLAN_ACTION'")
-                .replace(":cursorAt", "timestamptz '" + base.plusSeconds(30) + "'")
-                .replace(":cursorId", "'" + UUID.randomUUID() + "'::uuid")
-                .replace(":rows", "51");
-        return tx.execute(status -> {
-            jdbc.sql("set local enable_sort = off").update();
-            jdbc.sql("set local enable_seqscan = off").update();
-            jdbc.sql("set local enable_bitmapscan = off").update();
-            return String.join(
-                    "\n", jdbc.sql("explain " + literal).query(String.class).list());
-        });
     }
 
     private AuditEventQuery query(Map<String, String> extra) {
