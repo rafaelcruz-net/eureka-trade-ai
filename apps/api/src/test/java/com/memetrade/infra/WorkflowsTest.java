@@ -202,15 +202,22 @@ class WorkflowsTest {
                 .contains("LOADTEST_U6_ENABLED=true")
                 .contains("u7 | u7-jobs | u6)")
                 .doesNotContain("LOADTEST_U6_PEOPLE");
+        // Loop 3 (F12): the evaluate limits and the p95 from the samples live in scripts/load/u6-evaluate.mjs.
+        String evaluate =
+                Files.readString(Path.of("..", "..", "scripts", "load", "u6-evaluate.mjs"), StandardCharsets.UTF_8);
         assertThat(runner)
                 .contains("loadtest_risk_evaluate_seconds")
                 .contains("components?.loadtestRisk")
                 .contains("Seq Scan on (order_evaluation|order_rejection)")
-                .contains("evaluateS: 0.25")
+                .contains("...U6_EVALUATE_LIMITS")
+                .contains("evaluateWindowFailures(evaluateSamples.beforePurge, evaluateSamples.withPurge, U6_LIMITS)")
                 .contains("rejectionsS: 1.0")
                 .contains("batchMs: 100")
-                .contains("withPurgeRatio: 1.1")
                 .contains("docs/perf/u6-risk-control-${report.date}.md");
+        assertThat(evaluate)
+                .contains("evaluateS: 0.25")
+                .contains("withPurgeRatio: 1.1")
+                .contains("Math.ceil(0.95 * sorted.length) - 1");
     }
 
     /**

@@ -217,7 +217,7 @@ O resto (entrada, estado do sistema, telas, configuração, CI e documentação)
     5. Enviar um feedback com marcador como convidado do smoke e lê-lo como administrador.
     6. Conferir o 403 com token de convidado.
   - **Execução:** depende das mudanças do responsável do projeto no `verify.sh`.
-- [ ] **Passo 20 — CI.**
+- [x] **Passo 20 — CI.**
   - **`ci.yml`:**
     - job `admin` (ações por SHA, `contents: read`, `--frozen-lockfile`, lint, formato, tipos, Jest 80%, build e teste de cabeçalhos);
     - `contract` instala o `apps/admin` e compara os tipos;

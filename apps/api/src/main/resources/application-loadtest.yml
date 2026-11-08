@@ -26,6 +26,9 @@ memetrade:
       heavy-bot-rejections: ${LOADTEST_U6_HEAVY_BOT_REJECTIONS:80000}
       old-approved: ${LOADTEST_U6_OLD_APPROVED:200000}
       purge-at: ${LOADTEST_U6_PURGE_AT:300s}
+      # Volta 2 (F10, NFR2.5): the seed waits at most this long for autovacuum to analyze the seeded tables before the
+      # cycles (and the purge) start; the application login cannot run ANALYZE itself.
+      statistics-timeout: 5m
       cycle-interval: 30s
       threads: 6
     # U5 (cicd-pipeline.md, Passo 20): the bot seed of the api (people, 3 ACTIVE bots each through the real commands,

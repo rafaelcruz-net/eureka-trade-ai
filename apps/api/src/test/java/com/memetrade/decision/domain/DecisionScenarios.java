@@ -102,6 +102,7 @@ public final class DecisionScenarios {
         private final List<PositionInput> positions = new ArrayList<>();
         private BigDecimal balance = new BigDecimal("1000.000000");
         private BigDecimal maxOrderSize = new BigDecimal("100.000000");
+        private Instant now = NOW;
 
         private Builder(StrategyTemplate template) {
             this.template = template;
@@ -120,6 +121,12 @@ public final class DecisionScenarios {
 
         public Builder maxOrderSize(String value) {
             this.maxOrderSize = new BigDecimal(value);
+            return this;
+        }
+
+        /** The instant of the cycle, when it is not the default {@code slotStart + 60 s} (a late cycle). */
+        public Builder cycleAt(Instant cycleNow) {
+            this.now = cycleNow;
             return this;
         }
 
@@ -175,7 +182,7 @@ public final class DecisionScenarios {
                     tokens,
                     positions,
                     SLOT,
-                    NOW);
+                    now);
         }
     }
 }

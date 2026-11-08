@@ -5,6 +5,8 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import net.javacrumbs.shedlock.core.LockConfiguration;
@@ -20,6 +22,9 @@ import org.springframework.stereotype.Component;
  * (the only class that receives {@link RiskRetentionDataSource}, ArchUnit rule).
  *
  * <ol>
+ *   <li>Before the first batch, the round warms the path of a batch once ({@link #warmUp()}: the DELETE of batch 1 in a
+ *       transaction that is rolled back), outside the measured time of every batch. Batch times are logged in whole
+ *       milliseconds rounded up.
  *   <li>Each batch selects at most {@code batch-size} APPROVED evaluations with {@code evaluated_at} before the
  *       DATABASE {@code now()} minus 31 days that no rejection cites (partial index plus NOT EXISTS on the index of
  *       {@code order_rejection.evaluation_id}) and deletes them in the same statement, in auto-commit: one transaction
@@ -40,6 +45,18 @@ public class RiskEvaluationPurgeJob {
     static final String LOCK_NAME = "riskcontrol-purge";
     static final String SUCCEEDED = "SUCCEEDED";
     static final String FAILED = "FAILED";
+
+    /** One batch: the selection of the purge (scripts/load/u6-plans.mjs mirrors it) and its delete in one statement. */
+    private static final String DELETE_BATCH = """
+            delete from order_evaluation
+            where evaluation_id in (
+                select e.evaluation_id from order_evaluation e
+                where e.outcome = 'APPROVED'
+                  and e.evaluated_at < now() - make_interval(secs => :age)
+                  and not exists (select 1 from order_rejection r where r.evaluation_id = e.evaluation_id)
+                order by e.evaluated_at
+                limit :limit)
+            """;
 
     private final RiskRetentionDataSource retention;
     private final LockingTaskExecutor locks;
@@ -67,6 +84,9 @@ public class RiskEvaluationPurgeJob {
      * @param result {@code SUCCEEDED} or {@code FAILED}; empty text when the round did not run
      * @param runId the row of {@code risk_purge_run} written by the round
      * @param cutoff the database now() minus the selection age, recorded with the round
+     * @param warmUp the time of the warm-up, zero when it did not finish
+     * @param batchDurations the measured time of each batch, in order (the batch log lines show it rounded up to the
+     *     millisecond)
      */
     public record Round(
             boolean ran,
@@ -75,10 +95,12 @@ public class RiskEvaluationPurgeJob {
             int batches,
             Optional<String> failureCause,
             Optional<UUID> runId,
-            Instant cutoff) {
+            Instant cutoff,
+            Duration warmUp,
+            List<Duration> batchDurations) {
 
         static Round skipped(Instant at) {
-            return new Round(false, "", 0, 0, Optional.empty(), Optional.empty(), at);
+            return new Round(false, "", 0, 0, Optional.empty(), Optional.empty(), at, Duration.ZERO, List.of());
         }
     }
 
@@ -113,19 +135,27 @@ public class RiskEvaluationPurgeJob {
         Instant cutoff = started;
         long deleted = 0;
         int batches = 0;
+        Duration warmedUp = Duration.ZERO;
+        List<Duration> durations = new ArrayList<>();
         try {
             cutoff = databaseCutoff();
+            long warmUpStarted = System.nanoTime();
+            warmUp();
+            warmedUp = Duration.ofNanos(System.nanoTime() - warmUpStarted);
+            log.info("Risk purge warm-up: durationMs={}", roundedUpMillis(warmedUp));
             log.info("Risk purge started: cutoff={}, batchSize={}", cutoff, settings.batchSize());
             while (clock.instant().isBefore(deadline)) {
                 long batchStarted = System.nanoTime();
                 int batch = deleteBatch(settings.batchSize());
+                Duration duration = Duration.ofNanos(System.nanoTime() - batchStarted);
                 batches++;
                 deleted += batch;
+                durations.add(duration);
                 log.info(
                         "Risk purge batch: batch={}, deleted={}, durationMs={}",
                         batches,
                         batch,
-                        Duration.ofNanos(System.nanoTime() - batchStarted).toMillis());
+                        roundedUpMillis(duration));
                 if (batch < settings.batchSize()) {
                     break;
                 }
@@ -140,7 +170,16 @@ public class RiskEvaluationPurgeJob {
                     deleted,
                     batches,
                     cleaned);
-            return new Round(true, SUCCEEDED, deleted, batches, Optional.empty(), Optional.of(runId), cutoff);
+            return new Round(
+                    true,
+                    SUCCEEDED,
+                    deleted,
+                    batches,
+                    Optional.empty(),
+                    Optional.of(runId),
+                    cutoff,
+                    warmedUp,
+                    List.copyOf(durations));
         } catch (RuntimeException failure) {
             String cause = failure.getClass().getSimpleName();
             metrics.purgeFailed();
@@ -151,24 +190,57 @@ public class RiskEvaluationPurgeJob {
                     batches,
                     failure);
             Optional<UUID> runId = recordFailure(started, cutoff, deleted, batches, cause);
-            return new Round(true, FAILED, deleted, batches, Optional.of(cause), runId, cutoff);
+            return new Round(
+                    true,
+                    FAILED,
+                    deleted,
+                    batches,
+                    Optional.of(cause),
+                    runId,
+                    cutoff,
+                    warmedUp,
+                    List.copyOf(durations));
         }
+    }
+
+    /**
+     * The warm-up of a round (Build and Test loops 2 and 3, F10, NFR2.5), once, before the first batch and outside the
+     * measured time of every batch.
+     *
+     * <p>What it does: through the retention connection it opens one transaction of its own, executes the very DELETE of
+     * batch 1 (same cut, same limit of {@code batch-size} rows) and rolls it back. So the connection is open, and the
+     * row triggers of {@code order_evaluation}, the foreign-key checks of the tables that reference it, the partial
+     * index {@code order_evaluation_purge_idx}, the index of {@code order_rejection.evaluation_id} and the pages of
+     * batch 1 have all run once in this session. Nothing is deleted: the transaction is never committed. Its row locks
+     * last only while it runs, inside the lock {@code riskcontrol-purge} of the round; the login gains no privilege.
+     *
+     * <p>What it does NOT guarantee: that batch 1 costs the same as the next ones. The rolled-back DELETE leaves its
+     * rows marked by an aborted transaction that batch 1 still has to check, the cache can still be evicted between the
+     * warm-up and batch 1, and the database can be busy at that moment; batch 1 is measured and checked against the same limit as every
+     * other batch. A failure here (connection, trigger, lock) fails the round like any other: FAILED in
+     * {@code risk_purge_run} with the class of the exception, nothing deleted, no batch started.
+     */
+    protected void warmUp() {
+        retention.inRolledBackTransaction(transaction -> transaction
+                .sql(DELETE_BATCH)
+                .param("age", settings.selectionAge().toSeconds())
+                .param("limit", settings.batchSize())
+                .update());
+    }
+
+    /**
+     * A duration in whole milliseconds ROUNDED UP (loop 3, F10): 100 ms and 1 microsecond is 101 ms, so the limit of
+     * 100 ms per batch is never passed by truncation.
+     */
+    static long roundedUpMillis(Duration duration) {
+        return Math.ceilDiv(duration.toNanos(), 1_000_000L);
     }
 
     /** One batch in its own transaction (auto-commit); the cut is the database now() of this very statement. */
     protected int deleteBatch(int limit) {
         return retention
                 .jdbc()
-                .sql("""
-                        delete from order_evaluation
-                        where evaluation_id in (
-                            select e.evaluation_id from order_evaluation e
-                            where e.outcome = 'APPROVED'
-                              and e.evaluated_at < now() - make_interval(secs => :age)
-                              and not exists (select 1 from order_rejection r where r.evaluation_id = e.evaluation_id)
-                            order by e.evaluated_at
-                            limit :limit)
-                        """)
+                .sql(DELETE_BATCH)
                 .param("age", settings.selectionAge().toSeconds())
                 .param("limit", limit)
                 .update();

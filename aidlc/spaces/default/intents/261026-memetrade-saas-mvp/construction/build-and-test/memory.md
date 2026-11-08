@@ -8,6 +8,10 @@
 <!-- example: 2026-05-29T10:14:32Z — skipped the optional caching layer the stage prose suggested; the dataset is small enough that it adds risk -->
 - 2026-11-06T20:30:00Z — Loop-back 1: execução reprovada (2 falhas no Failsafe, sementes ou conferências de carga da U5 e da U6, rastreabilidade entre Units). A geração de código foi reaberta para u2, u4, u5, u6, u8 e u9; o diagnóstico e o impacto estão em `test-results.md`. `scripts/perf-audit.sh` não rodou porque a proteção do ambiente recusa o script; a execução fica com a pessoa.
 
+- 2026-11-07T15:47:00Z — Loop-back 2: a segunda execução teve o backend e o frontend verdes. Os cenários de carga `u5` (fatias, decisões `STALE_DATA`, barreira sem dados) e `u6` (primeiro lote do expurgo com 106 ms) reprovaram. A geração de código foi reaberta para u5 e u6; o diagnóstico e o impacto estão em `test-results.md`. O comando de instalação do frontend em `build-instructions.md` foi corrigido no próprio estágio.
+
+- 2026-11-08T00:55:00Z — Loop-back 3 (última automática): a terceira execução teve o backend verde (906 e 760 testes, 93,92%) e a carga `u5` aprovada. O teste do assistente S4 no `apps/web` estourou o tempo de 5 s na suíte completa (3 de 3; passa sozinho), e 1 das 3 cargas `u6` reprovou pela regra de 10% sobre p95 lido do histograma, com o lote 1 do expurgo no limite. A geração de código foi reaberta para u5 e u6; o diagnóstico e o impacto estão em `test-results.md`.
+
 ## Tradeoffs
 <!-- example: 2026-05-29T10:14:32Z — picked TDD over BDD this run; the team is unit-first and the domain is well-understood -->
 

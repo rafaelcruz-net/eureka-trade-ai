@@ -12,7 +12,11 @@
     { "path": "scripts/load/load-test.mjs" },
     { "path": "scripts/load/u6-plans.mjs" },
     { "path": "scripts/load/load-test-u6-plans.test.mjs" },
+    { "path": "scripts/load/u6-evaluate.mjs" },
+    { "path": "scripts/load/load-test-u6-evaluate.test.mjs" },
+    { "path": "docs/perf/u6-risk-control-2026-11-08.md" },
     { "path": "docs/api/u6-risk-control.md" },
+    { "path": "docs/perf/u6-risk-control-2026-11-07.md" },
     { "path": "apps/web/src/lib/api/schema.d.ts" },
     { "path": "apps/api/openapi/openapi-guest.yaml" },
     { "path": "apps/api/src/main/resources/application.yml" },
@@ -63,6 +67,7 @@
     { "path": "apps/api/src/main/java/com/memetrade/riskcontrol/loadtest/LoadtestRiskHealthIndicator.java" },
     { "path": "apps/api/src/main/java/com/memetrade/riskcontrol/loadtest/LoadtestRiskPurgeTrigger.java" },
     { "path": "apps/api/src/main/java/com/memetrade/riskcontrol/loadtest/LoadtestRiskSeed.java" },
+    { "path": "apps/api/src/main/java/com/memetrade/riskcontrol/infra/LoadtestTableStatistics.java" },
     { "path": "apps/api/src/main/java/com/memetrade/riskcontrol/web/RejectionController.java" },
     { "path": "apps/api/src/main/java/com/memetrade/riskcontrol/web/RejectionDtos.java" },
     { "path": "apps/api/src/test/java/com/memetrade/architecture/LedgerArchitectureTest.java" },
@@ -84,6 +89,7 @@
     { "path": "apps/api/src/test/java/com/memetrade/testsupport/RiskRows.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/EvaluationDuplicateIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/LoadtestRiskCycleDriverIT.java" },
+    { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/LoadtestRiskSeedIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/OrderGateIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/PurgedDecisionReplayIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/RejectionRoutesIT.java" },
@@ -101,8 +107,10 @@
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/infra/RejectionReplayTest.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/infra/RiskControlHealthIndicatorTest.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/infra/RiskPurgeIT.java" },
+    { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/infra/PurgeBatchDurationTest.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/infra/RiskRepositoriesIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/infra/RiskRetentionPoolIT.java" },
-    { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/loadtest/LoadtestRiskBeansProfileTest.java" }
+    { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/loadtest/LoadtestRiskBeansProfileTest.java" },
+    { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/loadtest/LoadtestRiskSeedStatisticsTest.java" }
   ]
 }

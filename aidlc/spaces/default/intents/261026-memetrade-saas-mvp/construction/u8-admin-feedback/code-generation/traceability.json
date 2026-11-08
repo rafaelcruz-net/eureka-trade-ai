@@ -1,100 +1,635 @@
 {
-  "unit": "u8-admin-feedback",
   "stage": "code-generation",
-  "basePath": "apps/api/src",
-  "links": [
-    { "source": "AC1.2.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/identity/web/AdminAuthController.java; apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java; apps/admin/src/features/auth/AdminSignIn.tsx; apps/api/src/test/java/com/memetrade/identity/AdminAuthIT.java; apps/web/e2e/u8-admin-feedback/smoke.spec.ts" },
-    { "source": "AC6.1.1", "status": "OK", "target": "apps/web/src/features/feedback/FeedbackButton.tsx; apps/web/src/features/feedback/FeedbackDialog.tsx; apps/web/src/features/feedback/FeedbackDialog.test.tsx" },
-    { "source": "AC6.1.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java; apps/api/src/main/java/com/memetrade/feedback/web/FeedbackController.java; apps/api/src/test/java/com/memetrade/feedback/FeedbackDedupIT.java" },
-    { "source": "AC6.1.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java; apps/api/src/test/java/com/memetrade/feedback/domain/FeedbackServiceTest.java; apps/api/src/test/java/com/memetrade/feedback/FeedbackRateLimitIT.java; apps/web/src/features/feedback/FeedbackDialog.test.tsx" },
-    { "source": "AC6.1.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/web/AdminFeedbackController.java; apps/admin/src/features/feedback/FeedbackListPage.tsx; apps/api/src/test/java/com/memetrade/feedback/AdminFeedbackListIT.java; apps/admin/src/features/feedback/FeedbackListPage.test.tsx" },
-    { "source": "AC7.1.1", "status": "OK", "target": "apps/admin/src/features/invites/IssueInviteDialog.tsx; apps/api/src/main/java/com/memetrade/administration/web/AdminSystemController.java (GET /tenants); apps/admin/src/features/invites/InvitesPage.test.tsx" },
-    { "source": "AC7.1.2", "status": "OK", "target": "apps/admin/src/features/invites/InvitesPage.tsx; apps/admin/src/features/invites/InvitesPage.test.tsx" },
-    { "source": "AC7.1.3", "status": "OK", "target": "apps/admin/src/features/invites/RevokeInviteDialog.tsx; apps/admin/src/features/invites/InvitesPage.test.tsx" },
-    { "source": "AC7.1.4", "status": "OK", "target": "apps/admin/src/features/auth/RestrictedAccess.tsx; apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java; apps/admin/src/features/auth/auth.test.tsx" },
-    { "source": "AC7.2.1", "status": "OK", "target": "apps/admin/src/features/killswitch/KillSwitchPage.tsx; apps/admin/src/features/killswitch/KillSwitchDialog.tsx; apps/admin/src/features/layout/KillSwitchBanner.tsx; apps/admin/src/features/killswitch/KillSwitchPage.test.tsx" },
-    { "source": "AC7.2.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java; apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java; apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java; apps/api/src/test/java/com/memetrade/administration/KillSwitchCrashIT.java; apps/api/src/test/java/com/memetrade/administration/KillSwitchPerformanceIT.java" },
-    { "source": "AC7.2.3", "status": "N/A", "target": "Recusa de iniciar ou retomar com PAUSED_BY_SYSTEM entregue pela u5-bots-decision; a U8 só a confere em KillSwitchPerformanceIT." },
-    { "source": "AC7.2.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java (liftSystemPause, sem retomar bots); apps/api/src/test/java/com/memetrade/administration/domain/KillSwitchServiceTest.java" },
-    { "source": "AC7.2.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java (KILL_SWITCH_ON/OFF); apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java" },
-    { "source": "AC7.4.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java; apps/admin/src/features/status/SystemStatusPage.tsx; apps/api/src/test/java/com/memetrade/administration/SystemStatusIT.java" },
-    { "source": "AC7.4.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java#noAdministrativeRouteReachesTheDataOfAPerson; apps/api/src/test/java/com/memetrade/architecture/U8ArchitectureTest.java" },
-
-    { "source": "BR1.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminWallets.java; apps/api/src/main/java/com/memetrade/identity/domain/login/ChallengeService.java (issueAdmin); AdminAuthIT#aWalletOutsideTheListIsRefusedGenerically" },
-    { "source": "BR1.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java; AdminAuthIT#aListedWalletEntersWithASessionOfFifteenMinutesAndEightHours" },
-    { "source": "BR1.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/identity/web/AdminRefreshCookie.java; apps/api/src/main/java/com/memetrade/identity/domain/session/SessionService.java; AdminAuthIT#theRefreshRotatesNeverExtendsAndAReusedCookieEndsTheSession" },
-    { "source": "BR1.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java (refresh); AdminAuthIT#aWalletRemovedFromTheListLosesTheAccessAtTheNextRefresh" },
-    { "source": "BR1.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/identity/web/AdminRouteFilter.java; apps/api/src/main/resources/tenancy/route-registry.yml; apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java" },
-    { "source": "BR1.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/identity/web/AdminAuthController.java (logout); AdminAuthIT#logoutEndsTheSessionAndClearsTheCookie" },
-    { "source": "BR2.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java; apps/api/src/main/java/com/memetrade/administration/web/AdminKillSwitchController.java; KillSwitchServiceTest" },
-    { "source": "BR2.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java; apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java" },
-    { "source": "BR2.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java (até 3 chamadas, pendingBots); apps/api/src/test/java/com/memetrade/administration/infra/KillSwitchReconcilerTest.java" },
-    { "source": "BR2.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java (mesmo estado sem histórico); KillSwitchServiceTest" },
-    { "source": "BR2.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java; apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchStartup.java; KillSwitchReconcilerTest; KillSwitchCrashIT" },
-    { "source": "BR2.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java (motivo de 1 a 500); apps/admin/src/features/killswitch/KillSwitchDialog.tsx" },
-    { "source": "BR2.7", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/web/KillSwitchDtos.java (activeBots); apps/admin/src/features/killswitch/KillSwitchDialog.tsx" },
-    { "source": "BR2.8", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/infra/ApplyLock.java; apps/api/src/main/java/com/memetrade/administration/infra/JdbcKillSwitchStore.java (cerca por clock_timestamp); ApplyLockIT; KillSwitchFencingIT; KillSwitchRaceIT" },
-    { "source": "BR2.9", "status": "OK", "target": "apps/api/src/main/resources/db/changelog/changes/0011-admin-feedback.sql (gatilho de kill_switch_change); apps/api/src/test/java/com/memetrade/administration/db/U8PrivilegesIT.java" },
-    { "source": "BR3.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java; apps/api/src/main/java/com/memetrade/administration/web/SystemStatusDtos.java; SystemStatusIT#everyPartIsKnownWithCountsOnly" },
-    { "source": "BR3.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/riskcontrol/infra/JdbcRejectionCounts.java; apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java (desde 00:00 UTC pelo relógio injetado)" },
-    { "source": "BR3.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatus.java (Unknown); SystemStatusIT#aSlowPartIsUnknownByTimeoutAndTheOthersAreShown; SystemStatusIT#aFailingPartIsUnknownAndNeverZero" },
-    { "source": "BR4.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java#anAdministratorTokenOnEveryGuestRouteIsForbiddenAndAuditedOnce; U8ArchitectureTest" },
-    { "source": "BR4.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java; apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java; apps/api/src/test/java/com/memetrade/administration/U8ContractsIT.java" },
-    { "source": "BR5.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/web/AdminSystemController.java (GET /tenants); apps/admin/src/features/invites/IssueInviteDialog.tsx; SystemStatusIT#theTenantsRouteListsOnlyActiveTenants" },
-    { "source": "BR5.2", "status": "OK", "target": "apps/admin/src/features/invites/InvitesPage.tsx" },
-    { "source": "BR5.3", "status": "OK", "target": "apps/admin/src/features/invites/RevokeInviteDialog.tsx" },
-    { "source": "BR6.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java; apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackScreen.java; 0011-admin-feedback.sql (CHECK); FeedbackServiceTest" },
-    { "source": "BR6.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackController.java; FeedbackDedupIT#theTenantComesFromTheTokenNeverFromTheBody (desvio: tenant no corpo devolve 400 em vez de ser ignorado)" },
-    { "source": "BR6.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java; apps/api/src/main/java/com/memetrade/feedback/infra/JdbcFeedbackStore.java (pg_advisory_xact_lock); FeedbackRateLimitIT; FeedbackServiceTest" },
-    { "source": "BR6.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java (IdempotentOperation.FEEDBACK_SUBMIT); FeedbackDedupIT" },
-    { "source": "BR6.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/web/AdminFeedbackController.java; AdminFeedbackListIT#aGuestCannotReadTheFeedback" },
-    { "source": "BR6.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackDtos.java (sem userId); apps/admin/src/features/feedback/FeedbackListPage.tsx (texto puro); AdminFeedbackListIT#theListIsNewestFirstWithTheTenantNameAndNeverThePerson" },
-    { "source": "BR6.7", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackPurgeJob.java; apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackRetentionDataSource.java; apps/api/src/test/java/com/memetrade/feedback/FeedbackPurgeIT.java" },
-    { "source": "BR7.1", "status": "OK", "target": "apps/admin/src/features/layout/KillSwitchBanner.tsx; apps/admin/src/features/layout/KillSwitchContext.tsx; apps/admin/src/features/layout/layout.test.tsx" },
-    { "source": "BR7.2", "status": "OK", "target": "apps/admin/src/features/killswitch/KillSwitchDialog.tsx; apps/admin/src/features/killswitch/KillSwitchPage.test.tsx" },
-    { "source": "BR7.3", "status": "OK", "target": "apps/web/src/features/feedback/FeedbackDialog.tsx; apps/web/src/features/feedback/FeedbackDialog.test.tsx" },
-    { "source": "BR7.4", "status": "OK", "target": "apps/admin/src/features/auth/RestrictedAccess.tsx; apps/admin/src/features/auth/AdminSessionProvider.tsx; apps/admin/src/features/auth/auth.test.tsx" },
-
-    { "source": "NFR2.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/administration/KillSwitchPerformanceIT.java (60 bots, 20 execuções: p95 254 ms, máximo 365 ms)" },
-    { "source": "NFR2.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/administration/KillSwitchCrashIT.java#theWorstCaseFitsFortyFiveSeconds; KillSwitchPerformanceIT" },
-    { "source": "NFR2.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/infra/ApplyLock.java (espera de 10 s); apps/api/src/test/java/com/memetrade/administration/ApplyLockIT.java" },
-    { "source": "NFR2.4", "status": "OK", "target": "KillSwitchPerformanceIT (60 bots ativos)" },
-    { "source": "NFR2.5", "status": "N/A", "target": "Estimativa de volume; o limite de 10 por hora (BR6.3) e a retenção de 180 dias (BR6.7) a mantêm. Sem teste próprio." },
-    { "source": "NFR2.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackPurgeJob.java (lotes de 1.000); FeedbackPurgeIT" },
-    { "source": "NFR2.7", "status": "OK", "target": "KillSwitchReconciler e FeedbackPurgeJob com ShedLock e @ProcessRole(API); apps/api/src/test/java/com/memetrade/config/ProcessRoleContextIT.java" },
-    { "source": "NFR3.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/administration/AdminReadLatencyIT.java (p95 lado servidor); apps/web/e2e/u8-admin-feedback/smoke.spec.ts (≤ 2 s na tela, ainda não executado)" },
-    { "source": "NFR3.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java (500 ms por parte); AdminReadLatencyIT (p95 52 ms); SystemStatusIT" },
-    { "source": "NFR3.3", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/feedback/FeedbackConcurrencyIT.java (p95 76 ms, máximo 86 ms)" },
-    { "source": "NFR4.1", "status": "OK", "target": "0011-admin-feedback.sql (gatilho de kill_switch_change); apps/api/src/test/java/com/memetrade/administration/db/U8PrivilegesIT.java" },
-    { "source": "NFR4.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/feedback/FeedbackDedupIT.java" },
-    { "source": "NFR4.3", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/feedback/FeedbackRateLimitIT.java (exatamente 10 de 20 em 50 repetições)" },
-    { "source": "NFR5.1", "status": "OK", "target": "FeedbackDedupIT#theTenantComesFromTheTokenNeverFromTheBody; AdminFeedbackListIT (desvio: valores no corpo devolvem 400, não são ignorados)" },
-    { "source": "NFR5.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java#anAdministratorTokenOnEveryGuestRouteIsForbiddenAndAuditedOnce" },
-    { "source": "NFR6.1", "status": "OK", "target": "AdminAuthIT (lista, nonce reutilizado, desafio vencido, assinatura inválida, domínio); U8ArchitectureTest (sem SDK Solana)" },
-    { "source": "NFR6.2", "status": "OK", "target": "AdminAuthIT#aListedWalletEntersWithASessionOfFifteenMinutesAndEightHours; AdminAuthIT#theRefreshRotatesNeverExtendsAndAReusedCookieEndsTheSession" },
-    { "source": "NFR6.3", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java; apps/api/src/test/java/com/memetrade/tenancy/RouteRegistryTest.java" },
-    { "source": "NFR6.4", "status": "OK", "target": "apps/admin/src/middleware.ts; apps/admin/src/middleware.test.ts; apps/admin/Dockerfile; docker-compose.yml (serviço admin); apps/api/src/test/java/com/memetrade/identity/AdminCorsIT.java" },
-    { "source": "NFR6.5", "status": "OK", "target": "apps/web/scripts/guest-bundle-test.mjs (check:bundle, executado localmente: 856 arquivos, nada encontrado). Passo na CI pendente do ci.yml (ver docs/api/u8-admin-feedback.md)." },
-    { "source": "NFR6.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/identity/domain/ratelimit/AdminLoginLimiter.java; AdminAuthIT#theSixthRequestOfAnIpInAMinuteIsRateLimited" },
-    { "source": "NFR6.7", "status": "Deferred", "target": "U8ObservabilityIT cobre os logs nos testes. A varredura no smoke depende das mudanças do verify.sh (protegido), descritas em docs/api/u8-admin-feedback.md." },
-    { "source": "NFR7.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackController.java (log só de tela, tamanho e resultado); U8ObservabilityIT#theLogsNeverCarryTheFeedbackTextTheReasonTheWalletOrTheSignature; FeedbackPurgeIT" },
-    { "source": "NFR7.2", "status": "OK", "target": "IdentityAdministration.maskedAdministratorWallet; U8ObservabilityIT" },
-    { "source": "NFR9.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchMetrics.java; U8ObservabilityIT#theMetricsExistWithClosedLabelsOnly" },
-    { "source": "NFR9.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackMetrics.java; U8ObservabilityIT#theMetricsExistWithClosedLabelsOnly" },
-    { "source": "NFR9.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java (alertas); KillSwitchReconcilerTest" },
-    { "source": "NFR9.4", "status": "OK", "target": "AdminKillSwitchHealthIndicator; FeedbackPurgeHealthIndicator; U8ObservabilityIT#theKillSwitchIndicatorTurnsDownWithTheCodeAndBackUp; U8ObservabilityIT#theFeedbackPurgeIndicatorExistsOutsideLivenessAndReadiness" },
-    { "source": "NFR9.5", "status": "OK", "target": "ApiException/ProblemDetail com correlationId nas rotas da U8; apps/api/src/test/java/com/memetrade/contract/U8OpenApiContractTest.java" },
-    { "source": "NFR9.6", "status": "OK", "target": "U8ObservabilityIT#theLogsNeverCarryTheFeedbackTextTheReasonTheWalletOrTheSignature" },
-    { "source": "NFR10.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/administration/KillSwitchCrashIT.java" },
-    { "source": "NFR10.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/administration/KillSwitchRaceIT.java (50 repetições)" },
-    { "source": "NFR10.3", "status": "OK", "target": "KillSwitchReconcilerTest; KillSwitchFencingIT" },
-    { "source": "NFR10.4", "status": "OK", "target": "SystemStatusIT; apps/admin/src/features/status/SystemStatusPage.test.tsx" },
-    { "source": "NFR10.5", "status": "OK", "target": "apps/web/src/features/feedback/FeedbackDialog.test.tsx; FeedbackDedupIT" },
-    { "source": "NFR10.6", "status": "N/A", "target": "Sem meta numérica enquanto o beta roda só localmente." },
-    { "source": "NFR10.7", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/db/MigrationsIT.java; apps/api/src/test/java/com/memetrade/db/MigrationsBackwardCompatIT.java (confere colunas só de acréscimo e o SQL anterior; não sobe a imagem anterior)" },
-    { "source": "NFR11.1", "status": "OK", "target": "apps/admin/src/components/Dialog.tsx; apps/admin/src/lib/theme/tokens.ts; apps/admin/src/lib/theme/tokens.test.ts; testes de teclado em apps/admin e FeedbackDialog.test.tsx" },
-    { "source": "NFR12.1", "status": "Deferred", "target": "apps/web 95,59% e apps/admin 91,34% de linhas (medidos). Backend: jacoco:check não rodou numa execução completa (2ª execução interrompida por falta de memória); ver code-summary.md." },
-    { "source": "NFR13.1", "status": "Deferred", "target": "docker-compose.yml e ComposeFilesTest prontos; o smoke e2e/u8-admin-feedback só roda depois das mudanças do verify.sh e do ci.yml (protegidos)." },
-    { "source": "NFR14.1", "status": "OK", "target": "apps/admin/src/lib/i18n/messages.ts; apps/web/src/lib/i18n/messages.ts (seção feedback); apps/admin/src/lib/theme/tokens.ts" }
+  "unit": "u8-admin-feedback",
+  "upstream_ids": [
+    "AC1.2.6",
+    "AC6.1.1",
+    "AC6.1.2",
+    "AC6.1.3",
+    "AC6.1.4",
+    "AC7.1.1",
+    "AC7.1.2",
+    "AC7.1.3",
+    "AC7.1.4",
+    "AC7.2.1",
+    "AC7.2.2",
+    "AC7.2.3",
+    "AC7.2.4",
+    "AC7.2.5",
+    "AC7.4.1",
+    "AC7.4.2",
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR1.5",
+    "BR1.6",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR2.4",
+    "BR2.5",
+    "BR2.6",
+    "BR2.7",
+    "BR2.8",
+    "BR2.9",
+    "BR3.1",
+    "BR3.2",
+    "BR3.3",
+    "BR4.1",
+    "BR4.2",
+    "BR5.1",
+    "BR5.2",
+    "BR5.3",
+    "BR6.1",
+    "BR6.2",
+    "BR6.3",
+    "BR6.4",
+    "BR6.5",
+    "BR6.6",
+    "BR6.7",
+    "BR7.1",
+    "BR7.2",
+    "BR7.3",
+    "BR7.4",
+    "NFR2.1",
+    "NFR2.2",
+    "NFR2.3",
+    "NFR2.4",
+    "NFR2.5",
+    "NFR2.6",
+    "NFR2.7",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.3",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR4.3",
+    "NFR5.1",
+    "NFR5.2",
+    "NFR6.1",
+    "NFR6.2",
+    "NFR6.3",
+    "NFR6.4",
+    "NFR6.5",
+    "NFR6.6",
+    "NFR6.7",
+    "NFR7.1",
+    "NFR7.2",
+    "NFR9.1",
+    "NFR9.2",
+    "NFR9.3",
+    "NFR9.4",
+    "NFR9.5",
+    "NFR9.6",
+    "NFR10.1",
+    "NFR10.2",
+    "NFR10.3",
+    "NFR10.4",
+    "NFR10.5",
+    "NFR10.6",
+    "NFR10.7",
+    "NFR11.1",
+    "NFR12.1",
+    "NFR13.1",
+    "NFR14.1"
+  ],
+  "coverage": [
+    {
+      "id": "AC1.2.6",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/identity/web/AdminAuthController.java",
+      "note": "apps/api/src/main/java/com/memetrade/identity/web/AdminAuthController.java; apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java; apps/admin/src/features/auth/AdminSignIn.tsx; apps/api/src/test/java/com/memetrade/identity/AdminAuthIT.java; apps/web/e2e/u8-admin-feedback/smoke.spec.ts"
+    },
+    {
+      "id": "AC6.1.1",
+      "status": "OK",
+      "target": "apps/web/src/features/feedback/FeedbackButton.tsx",
+      "note": "apps/web/src/features/feedback/FeedbackButton.tsx; apps/web/src/features/feedback/FeedbackDialog.tsx; apps/web/src/features/feedback/FeedbackDialog.test.tsx"
+    },
+    {
+      "id": "AC6.1.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java; apps/api/src/main/java/com/memetrade/feedback/web/FeedbackController.java; apps/api/src/test/java/com/memetrade/feedback/FeedbackDedupIT.java"
+    },
+    {
+      "id": "AC6.1.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java; apps/api/src/test/java/com/memetrade/feedback/domain/FeedbackServiceTest.java; apps/api/src/test/java/com/memetrade/feedback/FeedbackRateLimitIT.java; apps/web/src/features/feedback/FeedbackDialog.test.tsx"
+    },
+    {
+      "id": "AC6.1.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/web/AdminFeedbackController.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/web/AdminFeedbackController.java; apps/admin/src/features/feedback/FeedbackListPage.tsx; apps/api/src/test/java/com/memetrade/feedback/AdminFeedbackListIT.java; apps/admin/src/features/feedback/FeedbackListPage.test.tsx"
+    },
+    {
+      "id": "AC7.1.1",
+      "status": "OK",
+      "target": "apps/admin/src/features/invites/IssueInviteDialog.tsx",
+      "note": "apps/admin/src/features/invites/IssueInviteDialog.tsx; apps/api/src/main/java/com/memetrade/administration/web/AdminSystemController.java (GET /tenants); apps/admin/src/features/invites/InvitesPage.test.tsx"
+    },
+    {
+      "id": "AC7.1.2",
+      "status": "OK",
+      "target": "apps/admin/src/features/invites/InvitesPage.tsx",
+      "note": "apps/admin/src/features/invites/InvitesPage.tsx; apps/admin/src/features/invites/InvitesPage.test.tsx"
+    },
+    {
+      "id": "AC7.1.3",
+      "status": "OK",
+      "target": "apps/admin/src/features/invites/RevokeInviteDialog.tsx",
+      "note": "apps/admin/src/features/invites/RevokeInviteDialog.tsx; apps/admin/src/features/invites/InvitesPage.test.tsx"
+    },
+    {
+      "id": "AC7.1.4",
+      "status": "OK",
+      "target": "apps/admin/src/features/auth/RestrictedAccess.tsx",
+      "note": "apps/admin/src/features/auth/RestrictedAccess.tsx; apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java; apps/admin/src/features/auth/auth.test.tsx"
+    },
+    {
+      "id": "AC7.2.1",
+      "status": "OK",
+      "target": "apps/admin/src/features/killswitch/KillSwitchPage.tsx",
+      "note": "apps/admin/src/features/killswitch/KillSwitchPage.tsx; apps/admin/src/features/killswitch/KillSwitchDialog.tsx; apps/admin/src/features/layout/KillSwitchBanner.tsx; apps/admin/src/features/killswitch/KillSwitchPage.test.tsx"
+    },
+    {
+      "id": "AC7.2.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java; apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java; apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java; apps/api/src/test/java/com/memetrade/administration/KillSwitchCrashIT.java; apps/api/src/test/java/com/memetrade/administration/KillSwitchPerformanceIT.java"
+    },
+    {
+      "id": "AC7.2.3",
+      "status": "N/A",
+      "target": "Recusa de iniciar ou retomar com PAUSED_BY_SYSTEM entregue pela u5-bots-decision; a U8 só a confere em KillSwitchPerformanceIT."
+    },
+    {
+      "id": "AC7.2.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java (liftSystemPause, sem retomar bots); apps/api/src/test/java/com/memetrade/administration/domain/KillSwitchServiceTest.java"
+    },
+    {
+      "id": "AC7.2.5",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java (KILL_SWITCH_ON/OFF); apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java"
+    },
+    {
+      "id": "AC7.4.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java; apps/admin/src/features/status/SystemStatusPage.tsx; apps/api/src/test/java/com/memetrade/administration/SystemStatusIT.java"
+    },
+    {
+      "id": "AC7.4.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java#noAdministrativeRouteReachesTheDataOfAPerson; apps/api/src/test/java/com/memetrade/architecture/U8ArchitectureTest.java"
+    },
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminWallets.java",
+      "note": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminWallets.java; apps/api/src/main/java/com/memetrade/identity/domain/login/ChallengeService.java (issueAdmin); AdminAuthIT#aWalletOutsideTheListIsRefusedGenerically"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java",
+      "note": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java; AdminAuthIT#aListedWalletEntersWithASessionOfFifteenMinutesAndEightHours"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/identity/web/AdminRefreshCookie.java",
+      "note": "apps/api/src/main/java/com/memetrade/identity/web/AdminRefreshCookie.java; apps/api/src/main/java/com/memetrade/identity/domain/session/SessionService.java; AdminAuthIT#theRefreshRotatesNeverExtendsAndAReusedCookieEndsTheSession"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java",
+      "note": "apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java (refresh); AdminAuthIT#aWalletRemovedFromTheListLosesTheAccessAtTheNextRefresh"
+    },
+    {
+      "id": "BR1.5",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/identity/web/AdminRouteFilter.java",
+      "note": "apps/api/src/main/java/com/memetrade/identity/web/AdminRouteFilter.java; apps/api/src/main/resources/tenancy/route-registry.yml; apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java"
+    },
+    {
+      "id": "BR1.6",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/identity/web/AdminAuthController.java",
+      "note": "apps/api/src/main/java/com/memetrade/identity/web/AdminAuthController.java (logout); AdminAuthIT#logoutEndsTheSessionAndClearsTheCookie"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java; apps/api/src/main/java/com/memetrade/administration/web/AdminKillSwitchController.java; KillSwitchServiceTest"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java; apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchApplier.java (até 3 chamadas, pendingBots); apps/api/src/test/java/com/memetrade/administration/infra/KillSwitchReconcilerTest.java"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java (mesmo estado sem histórico); KillSwitchServiceTest"
+    },
+    {
+      "id": "BR2.5",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java; apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchStartup.java; KillSwitchReconcilerTest; KillSwitchCrashIT"
+    },
+    {
+      "id": "BR2.6",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java (motivo de 1 a 500); apps/admin/src/features/killswitch/KillSwitchDialog.tsx"
+    },
+    {
+      "id": "BR2.7",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/web/KillSwitchDtos.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/web/KillSwitchDtos.java (activeBots); apps/admin/src/features/killswitch/KillSwitchDialog.tsx"
+    },
+    {
+      "id": "BR2.8",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/infra/ApplyLock.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/infra/ApplyLock.java; apps/api/src/main/java/com/memetrade/administration/infra/JdbcKillSwitchStore.java (cerca por clock_timestamp); ApplyLockIT; KillSwitchFencingIT; KillSwitchRaceIT"
+    },
+    {
+      "id": "BR2.9",
+      "status": "OK",
+      "target": "apps/api/src/main/resources/db/changelog/changes/0011-admin-feedback.sql",
+      "note": "apps/api/src/main/resources/db/changelog/changes/0011-admin-feedback.sql (gatilho de kill_switch_change); apps/api/src/test/java/com/memetrade/administration/db/U8PrivilegesIT.java"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java; apps/api/src/main/java/com/memetrade/administration/web/SystemStatusDtos.java; SystemStatusIT#everyPartIsKnownWithCountsOnly"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/infra/JdbcRejectionCounts.java",
+      "note": "apps/api/src/main/java/com/memetrade/riskcontrol/infra/JdbcRejectionCounts.java; apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java (desde 00:00 UTC pelo relógio injetado)"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatus.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatus.java (Unknown); SystemStatusIT#aSlowPartIsUnknownByTimeoutAndTheOthersAreShown; SystemStatusIT#aFailingPartIsUnknownAndNeverZero"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java#anAdministratorTokenOnEveryGuestRouteIsForbiddenAndAuditedOnce; U8ArchitectureTest"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/KillSwitchService.java; apps/api/src/main/java/com/memetrade/identity/domain/login/AdminLoginService.java; apps/api/src/test/java/com/memetrade/administration/U8ContractsIT.java"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/web/AdminSystemController.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/web/AdminSystemController.java (GET /tenants); apps/admin/src/features/invites/IssueInviteDialog.tsx; SystemStatusIT#theTenantsRouteListsOnlyActiveTenants"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "apps/admin/src/features/invites/InvitesPage.tsx"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "apps/admin/src/features/invites/RevokeInviteDialog.tsx"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java; apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackScreen.java; 0011-admin-feedback.sql (CHECK); FeedbackServiceTest"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackController.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackController.java; FeedbackDedupIT#theTenantComesFromTheTokenNeverFromTheBody (desvio: tenant no corpo devolve 400 em vez de ser ignorado)"
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java; apps/api/src/main/java/com/memetrade/feedback/infra/JdbcFeedbackStore.java (pg_advisory_xact_lock); FeedbackRateLimitIT; FeedbackServiceTest"
+    },
+    {
+      "id": "BR6.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/domain/FeedbackService.java (IdempotentOperation.FEEDBACK_SUBMIT); FeedbackDedupIT"
+    },
+    {
+      "id": "BR6.5",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/web/AdminFeedbackController.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/web/AdminFeedbackController.java; AdminFeedbackListIT#aGuestCannotReadTheFeedback"
+    },
+    {
+      "id": "BR6.6",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackDtos.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackDtos.java (sem userId); apps/admin/src/features/feedback/FeedbackListPage.tsx (texto puro); AdminFeedbackListIT#theListIsNewestFirstWithTheTenantNameAndNeverThePerson"
+    },
+    {
+      "id": "BR6.7",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackPurgeJob.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackPurgeJob.java; apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackRetentionDataSource.java; apps/api/src/test/java/com/memetrade/feedback/FeedbackPurgeIT.java"
+    },
+    {
+      "id": "BR7.1",
+      "status": "OK",
+      "target": "apps/admin/src/features/layout/KillSwitchBanner.tsx",
+      "note": "apps/admin/src/features/layout/KillSwitchBanner.tsx; apps/admin/src/features/layout/KillSwitchContext.tsx; apps/admin/src/features/layout/layout.test.tsx"
+    },
+    {
+      "id": "BR7.2",
+      "status": "OK",
+      "target": "apps/admin/src/features/killswitch/KillSwitchDialog.tsx",
+      "note": "apps/admin/src/features/killswitch/KillSwitchDialog.tsx; apps/admin/src/features/killswitch/KillSwitchPage.test.tsx"
+    },
+    {
+      "id": "BR7.3",
+      "status": "OK",
+      "target": "apps/web/src/features/feedback/FeedbackDialog.tsx",
+      "note": "apps/web/src/features/feedback/FeedbackDialog.tsx; apps/web/src/features/feedback/FeedbackDialog.test.tsx"
+    },
+    {
+      "id": "BR7.4",
+      "status": "OK",
+      "target": "apps/admin/src/features/auth/RestrictedAccess.tsx",
+      "note": "apps/admin/src/features/auth/RestrictedAccess.tsx; apps/admin/src/features/auth/AdminSessionProvider.tsx; apps/admin/src/features/auth/auth.test.tsx"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/administration/KillSwitchPerformanceIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/administration/KillSwitchPerformanceIT.java (60 bots, 20 execuções: p95 254 ms, máximo 365 ms)"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/administration/KillSwitchCrashIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/administration/KillSwitchCrashIT.java#theWorstCaseFitsFortyFiveSeconds; KillSwitchPerformanceIT"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/infra/ApplyLock.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/infra/ApplyLock.java (espera de 10 s); apps/api/src/test/java/com/memetrade/administration/ApplyLockIT.java"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/administration/KillSwitchPerformanceIT.java",
+      "note": "KillSwitchPerformanceIT (60 bots ativos)"
+    },
+    {
+      "id": "NFR2.5",
+      "status": "N/A",
+      "target": "Estimativa de volume; o limite de 10 por hora (BR6.3) e a retenção de 180 dias (BR6.7) a mantêm. Sem teste próprio."
+    },
+    {
+      "id": "NFR2.6",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackPurgeJob.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackPurgeJob.java (lotes de 1.000); FeedbackPurgeIT"
+    },
+    {
+      "id": "NFR2.7",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java",
+      "note": "KillSwitchReconciler e FeedbackPurgeJob com ShedLock e @ProcessRole(API); apps/api/src/test/java/com/memetrade/config/ProcessRoleContextIT.java"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/administration/AdminReadLatencyIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/administration/AdminReadLatencyIT.java (p95 lado servidor); apps/web/e2e/u8-admin-feedback/smoke.spec.ts (≤ 2 s na tela, ainda não executado)"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/domain/SystemStatusAssembler.java (500 ms por parte); AdminReadLatencyIT (p95 52 ms); SystemStatusIT"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/feedback/FeedbackConcurrencyIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/feedback/FeedbackConcurrencyIT.java (p95 76 ms, máximo 86 ms)"
+    },
+    {
+      "id": "NFR4.1",
+      "status": "OK",
+      "target": "apps/api/src/main/resources/db/changelog/changes/0011-admin-feedback.sql",
+      "note": "0011-admin-feedback.sql (gatilho de kill_switch_change); apps/api/src/test/java/com/memetrade/administration/db/U8PrivilegesIT.java"
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/feedback/FeedbackDedupIT.java"
+    },
+    {
+      "id": "NFR4.3",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/feedback/FeedbackRateLimitIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/feedback/FeedbackRateLimitIT.java (exatamente 10 de 20 em 50 repetições)"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/feedback/FeedbackDedupIT.java",
+      "note": "FeedbackDedupIT#theTenantComesFromTheTokenNeverFromTheBody; AdminFeedbackListIT (desvio: valores no corpo devolvem 400, não são ignorados)"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java#anAdministratorTokenOnEveryGuestRouteIsForbiddenAndAuditedOnce"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/identity/AdminAuthIT.java",
+      "note": "AdminAuthIT (lista, nonce reutilizado, desafio vencido, assinatura inválida, domínio); U8ArchitectureTest (sem SDK Solana)"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/identity/AdminAuthIT.java",
+      "note": "AdminAuthIT#aListedWalletEntersWithASessionOfFifteenMinutesAndEightHours; AdminAuthIT#theRefreshRotatesNeverExtendsAndAReusedCookieEndsTheSession"
+    },
+    {
+      "id": "NFR6.3",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/identity/AdminGuestRoutesIT.java; apps/api/src/test/java/com/memetrade/tenancy/RouteRegistryTest.java"
+    },
+    {
+      "id": "NFR6.4",
+      "status": "OK",
+      "target": "apps/admin/src/middleware.ts",
+      "note": "apps/admin/src/middleware.ts; apps/admin/src/middleware.test.ts; apps/admin/Dockerfile; docker-compose.yml (serviço admin); apps/api/src/test/java/com/memetrade/identity/AdminCorsIT.java"
+    },
+    {
+      "id": "NFR6.5",
+      "status": "OK",
+      "target": "apps/web/scripts/guest-bundle-test.mjs",
+      "note": "apps/web/scripts/guest-bundle-test.mjs (check:bundle, executado localmente: 856 arquivos, nada encontrado). Passo na CI pendente do ci.yml (ver docs/api/u8-admin-feedback.md)."
+    },
+    {
+      "id": "NFR6.6",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/identity/domain/ratelimit/AdminLoginLimiter.java",
+      "note": "apps/api/src/main/java/com/memetrade/identity/domain/ratelimit/AdminLoginLimiter.java; AdminAuthIT#theSixthRequestOfAnIpInAMinuteIsRateLimited"
+    },
+    {
+      "id": "NFR6.7",
+      "status": "Deferred",
+      "target": "U8ObservabilityIT cobre os logs nos testes. A varredura no smoke depende das mudanças do verify.sh (protegido), descritas em docs/api/u8-admin-feedback.md."
+    },
+    {
+      "id": "NFR7.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackController.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/web/FeedbackController.java (log só de tela, tamanho e resultado); U8ObservabilityIT#theLogsNeverCarryTheFeedbackTextTheReasonTheWalletOrTheSignature; FeedbackPurgeIT"
+    },
+    {
+      "id": "NFR7.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/identity/api/IdentityAdministration.java",
+      "note": "IdentityAdministration.maskedAdministratorWallet; U8ObservabilityIT"
+    },
+    {
+      "id": "NFR9.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchMetrics.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchMetrics.java; U8ObservabilityIT#theMetricsExistWithClosedLabelsOnly"
+    },
+    {
+      "id": "NFR9.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackMetrics.java",
+      "note": "apps/api/src/main/java/com/memetrade/feedback/infra/FeedbackMetrics.java; U8ObservabilityIT#theMetricsExistWithClosedLabelsOnly"
+    },
+    {
+      "id": "NFR9.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java",
+      "note": "apps/api/src/main/java/com/memetrade/administration/infra/KillSwitchReconciler.java (alertas); KillSwitchReconcilerTest"
+    },
+    {
+      "id": "NFR9.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/infra/AdminKillSwitchHealthIndicator.java",
+      "note": "AdminKillSwitchHealthIndicator; FeedbackPurgeHealthIndicator; U8ObservabilityIT#theKillSwitchIndicatorTurnsDownWithTheCodeAndBackUp; U8ObservabilityIT#theFeedbackPurgeIndicatorExistsOutsideLivenessAndReadiness"
+    },
+    {
+      "id": "NFR9.5",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/contract/U8OpenApiContractTest.java",
+      "note": "ApiException/ProblemDetail com correlationId nas rotas da U8; apps/api/src/test/java/com/memetrade/contract/U8OpenApiContractTest.java"
+    },
+    {
+      "id": "NFR9.6",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/ops/U8ObservabilityIT.java",
+      "note": "U8ObservabilityIT#theLogsNeverCarryTheFeedbackTextTheReasonTheWalletOrTheSignature"
+    },
+    {
+      "id": "NFR10.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/administration/KillSwitchCrashIT.java"
+    },
+    {
+      "id": "NFR10.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/administration/KillSwitchRaceIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/administration/KillSwitchRaceIT.java (50 repetições)"
+    },
+    {
+      "id": "NFR10.3",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/administration/infra/KillSwitchReconcilerTest.java",
+      "note": "KillSwitchReconcilerTest; KillSwitchFencingIT"
+    },
+    {
+      "id": "NFR10.4",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/administration/SystemStatusIT.java",
+      "note": "SystemStatusIT; apps/admin/src/features/status/SystemStatusPage.test.tsx"
+    },
+    {
+      "id": "NFR10.5",
+      "status": "OK",
+      "target": "apps/web/src/features/feedback/FeedbackDialog.test.tsx",
+      "note": "apps/web/src/features/feedback/FeedbackDialog.test.tsx; FeedbackDedupIT"
+    },
+    {
+      "id": "NFR10.6",
+      "status": "N/A",
+      "target": "Sem meta numérica enquanto o beta roda só localmente."
+    },
+    {
+      "id": "NFR10.7",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/db/MigrationsIT.java",
+      "note": "apps/api/src/test/java/com/memetrade/db/MigrationsIT.java; apps/api/src/test/java/com/memetrade/db/MigrationsBackwardCompatIT.java (confere colunas só de acréscimo e o SQL anterior; não sobe a imagem anterior)"
+    },
+    {
+      "id": "NFR11.1",
+      "status": "OK",
+      "target": "apps/admin/src/components/Dialog.tsx",
+      "note": "apps/admin/src/components/Dialog.tsx; apps/admin/src/lib/theme/tokens.ts; apps/admin/src/lib/theme/tokens.test.ts; testes de teclado em apps/admin e FeedbackDialog.test.tsx"
+    },
+    {
+      "id": "NFR12.1",
+      "status": "Deferred",
+      "target": "apps/web 95,59% e apps/admin 91,34% de linhas (medidos). Backend: jacoco:check não rodou numa execução completa (2ª execução interrompida por falta de memória); ver code-summary.md."
+    },
+    {
+      "id": "NFR13.1",
+      "status": "Deferred",
+      "target": "docker-compose.yml e ComposeFilesTest prontos; o smoke e2e/u8-admin-feedback só roda depois das mudanças do verify.sh e do ci.yml (protegidos)."
+    },
+    {
+      "id": "NFR14.1",
+      "status": "OK",
+      "target": "apps/admin/src/lib/i18n/messages.ts",
+      "note": "apps/admin/src/lib/i18n/messages.ts; apps/web/src/lib/i18n/messages.ts (seção feedback); apps/admin/src/lib/theme/tokens.ts"
+    }
   ]
 }

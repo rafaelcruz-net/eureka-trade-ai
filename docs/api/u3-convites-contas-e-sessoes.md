@@ -45,43 +45,45 @@ Antes de emitir o primeiro convite para uma pessoa real, além do G1:
 
 ## Mudança preparada para o `scripts/verify.sh`
 
-O agente não edita o `scripts/verify.sh`. O responsável do projeto aplica esta mudança para o smoke da U3 entrar no comando de verificação. Até lá, o NFR3.4 e a parte de log do NFR6.4 dependem dessa ação, e o ponto de controle da U3 só é aprovado depois de `bash scripts/verify.sh` passar com o smoke da U3.
+O agente não edita o `scripts/verify.sh`. O responsável do projeto aplica esta mudança para o smoke da U3 entrar no comando de verificação. O NFR3.4 e a parte de log do NFR6.4 dependem dessa ação, e o ponto de controle da U3 só é aprovado depois de `bash scripts/verify.sh` passar com o smoke da U3.
 
-1. Depois da geração da carteira de smoke, gere o código do convite com a ferramenta de teste e exporte-o:
+**Situação em 2026-11-08:** a mudança já foi aplicada à mão pelo responsável do projeto no `scripts/verify.sh`. Os trechos abaixo foram atualizados para bater com o script como ele ficou. A linha do Playwright inclui também `e2e/u9-dashboard` (smoke do painel da U9), e a varredura de logs procura o código do convite junto dos outros valores sensíveis, nos logs de `api`, `worker` e `admin`.
+
+1. Depois da geração das carteiras, gere o código do convite com a ferramenta de teste e exporte-o:
 
    ```bash
    log "generating the smoke invitation code (test-scope tool)"
    SMOKE_INVITE_CODE="$(sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml exec:java \
      -Dexec.classpathScope=test \
      -Dexec.mainClass=com.memetrade.tools.SmokeWalletTool \
-     -Dexec.args="--invite-code")"
+     -Dexec.args="--invite-code" | tr -d '\r\n')"
    export SMOKE_INVITE_CODE
    [ "${#SMOKE_INVITE_CODE}" -eq 43 ] || { log "invitation code generation failed"; exit 1; }
    ```
 
-   O `test-compile` da geração da carteira já roda antes, então este passo não compila de novo. O overlay `infra/docker-compose.test.yml` já passa `SMOKE_INVITE_CODE` para a `api`, e o `SmokeInviteSeeder` (perfil `test`) cria o convite na partida.
+   O `| tr -d '\r\n'` tira o fim de linha da saída: no Git Bash do Windows, o `println` da ferramenta deixa um `\r` no valor capturado, e o código ficaria com 44 caracteres e falharia na conferência de tamanho. O `test-compile` da geração da carteira já roda antes, então este passo não compila de novo. O overlay `infra/docker-compose.test.yml` já passa `SMOKE_INVITE_CODE` para a `api`, e o `SmokeInviteSeeder` (perfil `test`) cria o convite na partida.
 
-2. Na linha do Playwright, acrescente `e2e/u3-identity-access` e passe o código ao teste:
+2. Na linha do Playwright, acrescente `e2e/u9-dashboard` e `e2e/u3-identity-access` e passe o código ao teste:
 
    ```bash
    SMOKE_WALLET_FILE="$KEY_FILE" \
-     SMOKE_INVITE_CODE="$SMOKE_INVITE_CODE" \
+     SMOKE_ADMIN_WALLET_FILE="$ADMIN_KEY_FILE" \
+     SMOKE_FEEDBACK_MARKER="$SMOKE_FEEDBACK_MARKER" \
+     ADMIN_BASE_URL="http://localhost:3001" \
      WEB_BASE_URL="http://localhost:3000" \
      API_BASE_URL="http://localhost:8080" \
      MANAGEMENT_BASE_URL="http://localhost:8081" \
+     SMOKE_INVITE_CODE="$SMOKE_INVITE_CODE" \
      DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB:-memetrade}" \
-     "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u3-identity-access
+     "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl e2e/u5-bots-decision e2e/u8-admin-feedback e2e/u9-dashboard e2e/u3-identity-access
    ```
-
-3. Depois da procura do endereço da carteira, procure também o código do convite no log da `api`:
+3. Na varredura dos logs de `api`, `worker` e `admin`, acrescente o código do convite à lista de valores procurados:
 
    ```bash
-   log "scanning the API logs for the invitation code (NFR6.4)"
-   if "${COMPOSE[@]}" logs --no-color api | grep -qF "$SMOKE_INVITE_CODE"; then
-     log "the smoke invitation code appeared in the logs"
-     exit 1
-   fi
+   for needle in "$SMOKE_BETA_WALLET_ADDRESS" "$ADMIN_WALLET_ADDRESSES" "$SMOKE_FEEDBACK_MARKER" "$SMOKE_INVITE_CODE"; do
    ```
+
+   Qualquer ocorrência encerra o script com saída diferente de zero.
 
 ## Rollback
 

@@ -101,3 +101,13 @@ O `ScannerScreen.test.tsx` (U4) foi ajustado: o botão de feedback entra na orde
 - **CORS do convidado sem `PUT`:** o assistente da U5 usa `PUT /bots/{id}/draft` entre origens, mas o `GuestCorsPolicy` não permite `PUT`. Isso existia antes da U8; o `AdminCorsIT` não afirma nada sobre isso.
 - **Build local no Windows:** `EPERM` na saída `standalone` do Next.
 - **Ações do responsável do projeto:** aplicar as mudanças do `verify.sh` e do `ci.yml` e rodar o `verify.sh`.
+
+## Volta 1 de Build and Test (2026-11-07)
+
+- **Achado T1:** o `traceability.json` estava no formato `unit`/`basePath`/`links` com `target` em texto livre, e o leitor de rastreabilidade o recusava. Por isso, todos os IDs da U8 apareciam como não cobertos.
+- **Correção:**
+  - o arquivo foi reescrito no formato `stage`/`unit`/`upstream_ids`/`coverage`, com as mesmas 91 linhas e os mesmos status (85 `OK`, 3 `N/A`, 3 `Deferred`);
+  - cada `target` `OK` agora é um único arquivo existente, o primeiro da lista original;
+  - o texto original de cada linha ficou em `note`.
+- **Código:** nenhum código de produção ou de teste mudou nesta volta.
+- **Conferência:** `aidlc engine sensor-traceability --stage build-and-test` não recusa mais o arquivo da U8. Os IDs da U8 ainda não cobertos são só os `Deferred` já registrados (NFR6.7, NFR12.1, NFR13.1).

@@ -85,7 +85,8 @@ case "$LOAD_SCENARIO" in
   # U5 (cicd-pipeline.md): u5 runs api and worker with test,loadtest (the worker adds its own profile in the overlay).
   # load-test.mjs signs 20 people in and makes 3 ACTIVE bots each through the real C4 routes; the bot seed of the api
   # then writes 20000 decisions on one bot of each person and the worker cycles run with the stopwatch of the loadtest
-  # profile, over the frequent-signal scenario of the simulated source, for 30 minutes (6 slices). The ledger load of
+  # profile, over the frequent-signal scenario of the simulated source, for 30 minutes (every slice that fits whole in
+  # the run must be complete: scripts/load/u5-slices.mjs). The ledger load of
   # U7 stays at 0 (the cycles are those of the worker), so the people are counted by LOADTEST_U5_PEOPLE.
   u5)
     export MARKET_SIMULATED_TOKENS_PER_SOURCE="${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}" DURATION_S="${DURATION_S:-1800}"

@@ -13,7 +13,6 @@ import com.memetrade.riskassessment.api.AssessmentResult;
 import com.memetrade.riskassessment.api.RiskBand;
 import java.math.BigDecimal;
 import java.time.Duration;
-import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -260,25 +259,23 @@ class DecisionCatalogTest {
         assertThat(outcome.noTradeReason()).contains(NoTradeReason.INSUFFICIENT_HISTORY);
     }
 
+    /**
+     * BR4.1, read by the END of {@code b_n} (Passo 30): the cycle runs more than 5 minutes after {@code b_n} closed
+     * (at the slot start). The reference price is fresh at that instant, so only the last bucket is late.
+     */
     @Test
     void aLastBucketOlderThanFiveMinutesIsStaleData() {
+        java.time.Instant lateCycle =
+                DecisionScenarios.SLOT.plus(Duration.ofMinutes(5)).plusSeconds(1);
         PriceVolumeWindow window = DecisionScenarios.window(
                 TOKEN_A, prices("1.00", "1.01", "1.01", "1.02"), volumes("1000000", "1200000"));
-        PriceVolumeWindow.Point last = window.points().getLast();
-        PriceVolumeWindow.Point old = new PriceVolumeWindow.Point(
-                last.bucketStart(),
-                DecisionScenarios.known(
-                        "1.02",
-                        DecisionScenarios.NOW.minus(Duration.ofMinutes(5).plusSeconds(1))),
-                last.volume24h());
-        List<PriceVolumeWindow.Point> points = new java.util.ArrayList<>(window.points());
-        points.set(points.size() - 1, old);
         DecisionOutcome outcome = engine.decide(DecisionScenarios.momentum()
                 .token(
                         TOKEN_A,
-                        new PriceVolumeWindow(TOKEN_A, window.from(), window.to(), points),
-                        DecisionScenarios.known("1.02"),
+                        window,
+                        DecisionScenarios.known("1.02", lateCycle.minusSeconds(30)),
                         new AssessmentResult.Available(20, RiskBand.LOW, 1))
+                .cycleAt(lateCycle)
                 .build());
 
         assertThat(outcome.noTradeReason()).contains(NoTradeReason.STALE_DATA);

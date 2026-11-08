@@ -17,9 +17,14 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +69,7 @@ public class LoadtestRiskCycleDriver {
     private static final Logger log = LoggerFactory.getLogger(LoadtestRiskCycleDriver.class);
     private static final Duration POLL = Duration.ofSeconds(1);
     private static final Duration LEDGER_WAIT = Duration.ofMinutes(120);
+    static final int MAX_SAMPLES_PER_WINDOW = 200_000;
 
     /** Limits every order fits in: the cycle is approved unless the market or the risk view refuses it. */
     static final BotLimitsVersionRef WIDE = limits("1000000.000000", "100.0000", "0.000000", 0);
@@ -92,6 +98,7 @@ public class LoadtestRiskCycleDriver {
     private final AtomicLong rejected = new AtomicLong();
     private final AtomicLong skipped = new AtomicLong();
     private final AtomicLong failures = new AtomicLong();
+    private final Map<String, List<Long>> samples = new ConcurrentHashMap<>();
     private volatile State state = State.DISABLED;
     private volatile String failure = "";
     private volatile Instant cyclesStartedAt;
@@ -183,7 +190,10 @@ public class LoadtestRiskCycleDriver {
         long started = System.nanoTime();
         try {
             GateResult result = auth.as(bot.owner(), () -> cycles.execute(status -> gate.evaluate(order, limits)));
-            timer(window()).record(System.nanoTime() - started, TimeUnit.NANOSECONDS);
+            long elapsed = System.nanoTime() - started;
+            String window = window();
+            timer(window).record(elapsed, TimeUnit.NANOSECONDS);
+            sample(window, elapsed);
             evaluations.incrementAndGet();
             if (result instanceof GateResult.Approved) {
                 approved.incrementAndGet();
@@ -245,6 +255,31 @@ public class LoadtestRiskCycleDriver {
         Instant started = cyclesStartedAt;
         boolean beforePurge = started == null || clock.instant().isBefore(started.plus(purgeAt));
         return beforePurge ? "before-purge" : "with-purge";
+    }
+
+    /**
+     * Build and Test loop 3 (F12, NFR2.1): the time of every call, in whole microseconds rounded up, by window, so the
+     * script computes the p95 of each window from the samples instead of from a bucket of the histogram (20% to 33%
+     * wide between 10 and 60 ms). At most {@link #MAX_SAMPLES_PER_WINDOW} per window (a run of u6 makes about 2000).
+     */
+    private void sample(String window, long elapsedNanos) {
+        List<Long> list = samples.computeIfAbsent(window, name -> Collections.synchronizedList(new ArrayList<>()));
+        synchronized (list) {
+            if (list.size() < MAX_SAMPLES_PER_WINDOW) {
+                list.add(Math.ceilDiv(elapsedNanos, 1_000L));
+            }
+        }
+    }
+
+    /** The samples of each window in microseconds, in the order recorded (a copy). */
+    public Map<String, List<Long>> evaluateMicros() {
+        Map<String, List<Long>> copy = new TreeMap<>();
+        samples.forEach((window, list) -> {
+            synchronized (list) {
+                copy.put(window, List.copyOf(list));
+            }
+        });
+        return copy;
     }
 
     private Timer timer(String window) {

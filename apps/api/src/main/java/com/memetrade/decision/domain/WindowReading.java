@@ -32,6 +32,12 @@ final class WindowReading {
     /**
      * The data reason of the buckets {@code b_(n-depth)} to {@code b_n}, in the order of BR4.1: a missing bucket is
      * INSUFFICIENT_HISTORY, an UNKNOWN value is UNKNOWN_DATA, a last bucket older than 5 minutes is STALE_DATA.
+     *
+     * <p>The age of {@code b_n} is measured from the END of the bucket ({@code bucketStart + 5 min}), not from the
+     * {@code observedAt} of its sample: U4 keeps the first observation of each bucket, usually taken at its start, so
+     * the sample is always older than the bucket it represents. {@code b_n} counts when it ended at most
+     * {@link #MAX_AGE} before {@code now} (inclusive). The reference price keeps the {@code observedAt} reading of
+     * {@link #fresh}.
      */
     Optional<NoTradeReason> check(int depth, boolean needsVolume, Instant now) {
         for (int back = depth; back >= 0; back--) {
@@ -45,8 +51,8 @@ final class WindowReading {
                 return Optional.of(NoTradeReason.UNKNOWN_DATA);
             }
         }
-        MarketValue.Known last = (MarketValue.Known) points.get(bucket(0)).price();
-        if (Duration.between(last.observedAt(), now).compareTo(MAX_AGE) > 0) {
+        Instant lastBucketEnd = bucket(0).plus(BUCKET);
+        if (Duration.between(lastBucketEnd, now).compareTo(MAX_AGE) > 0) {
             return Optional.of(NoTradeReason.STALE_DATA);
         }
         return Optional.empty();

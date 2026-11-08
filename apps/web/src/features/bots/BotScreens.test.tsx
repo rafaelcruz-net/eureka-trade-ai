@@ -1,5 +1,5 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { ApiError } from '@/lib/api/client';
 import { tokenStore } from '@/lib/auth/token-store';
 import type { GuestApi } from '@/lib/api/guest-api';
@@ -33,6 +33,14 @@ jest.mock('next/navigation', () => ({
 
 const text = botMessages;
 
+// One userEvent instance per test, with no pause between keystrokes: the S4
+// flow types ~30 interactions and went past Jest's 5 s default when the whole
+// suite ran in parallel (Build and Test loop 3, F11).
+let user: UserEvent;
+
+// The 4-step flow gets its own budget; Jest's global 5 s default is unchanged.
+const WIZARD_FLOW_TIMEOUT_MS = 15_000;
+
 function renderWith(node: React.ReactNode, api: jest.Mocked<GuestApi>) {
   tokenStore.set('access-token-value');
   render(<Providers api={api}>{node}</Providers>);
@@ -44,6 +52,7 @@ beforeEach(() => {
   replace.mockReset();
   search = new URLSearchParams();
   tokenStore.clear();
+  user = userEvent.setup({ delay: null });
 });
 
 describe('bot list /bots', () => {
@@ -100,7 +109,7 @@ describe('bot list /bots', () => {
     });
     renderWith(<BotList timeZone="UTC" />, api);
 
-    await userEvent.click(await screen.findByTestId(`bots-resume-${BOT_ID}`));
+    await user.click(await screen.findByTestId(`bots-resume-${BOT_ID}`));
 
     expect(await screen.findByTestId('bots-notice')).toHaveTextContent(text.detail.resumeLimit);
     expect(api.runBotCommand).toHaveBeenCalledWith(BOT_ID, 'resume');
@@ -115,9 +124,9 @@ describe('bot list /bots', () => {
     const api = renderWith(<BotList timeZone="UTC" />, fakeApi({ listBots }));
 
     expect(await screen.findByTestId('bots-error')).toHaveTextContent(text.error);
-    await userEvent.click(screen.getByTestId('bots-retry'));
+    await user.click(screen.getByTestId('bots-retry'));
     await screen.findByTestId('bots-empty');
-    await userEvent.selectOptions(screen.getByTestId('bots-filter'), 'ACTIVE');
+    await user.selectOptions(screen.getByTestId('bots-filter'), 'ACTIVE');
     await waitFor(() => expect(api.listBots).toHaveBeenLastCalledWith({ state: 'ACTIVE' }));
   });
 
@@ -144,9 +153,9 @@ describe('new bot /bots/new', () => {
     });
     renderWith(<NewBotPage />, api);
 
-    await userEvent.click(await screen.findByTestId('bot-create-RANGE_BREAKOUT'));
-    await userEvent.type(screen.getByTestId('bot-create-name'), '  Meu bot  ');
-    await userEvent.click(screen.getByTestId('bot-create-submit'));
+    await user.click(await screen.findByTestId('bot-create-RANGE_BREAKOUT'));
+    await user.type(screen.getByTestId('bot-create-name'), '  Meu bot  ');
+    await user.click(screen.getByTestId('bot-create-submit'));
 
     expect(api.createBot).toHaveBeenCalledWith({ templateId: 'RANGE_BREAKOUT', name: 'Meu bot' });
     expect(push).toHaveBeenCalledWith(`/bots/new/${BOT_ID}?chain=solana&mint=${MINT}`);
@@ -156,12 +165,12 @@ describe('new bot /bots/new', () => {
     const api = fakeApi({ listStrategyTemplates: jest.fn(async () => [TEMPLATE]) });
     renderWith(<BotCreate />, api);
 
-    await userEvent.click(await screen.findByTestId('bot-create-submit'));
+    await user.click(await screen.findByTestId('bot-create-submit'));
     expect(screen.getByTestId('bot-create-error')).toHaveTextContent(text.create_.nameRequired);
     expect(api.createBot).not.toHaveBeenCalled();
 
-    await userEvent.type(screen.getByTestId('bot-create-name'), 'Bot');
-    await userEvent.click(screen.getByTestId('bot-create-submit'));
+    await user.type(screen.getByTestId('bot-create-name'), 'Bot');
+    await user.click(screen.getByTestId('bot-create-submit'));
     expect(await screen.findByTestId('bot-create-error')).toHaveTextContent(text.create_.error);
   });
 });
@@ -187,63 +196,67 @@ describe('S4 wizard /bots/new/{botId}', () => {
     expect(screen.getByTestId('wizard-param-takeProfitPct-term')).toHaveTextContent('Take profit');
   });
 
-  it('goes through the 4 steps, saving each accepted step, and starts the PAPER bot', async () => {
-    const api = wizardApi();
-    renderWith(<BotWizard />, api);
+  it(
+    'goes through the 4 steps, saving each accepted step, and starts the PAPER bot',
+    async () => {
+      const api = wizardApi();
+      renderWith(<BotWizard />, api);
 
-    await userEvent.type(await screen.findByTestId('wizard-mint'), MINT);
-    await userEvent.click(screen.getByTestId('wizard-add-token'));
-    await userEvent.click(screen.getByTestId('wizard-add-rule'));
-    await userEvent.selectOptions(screen.getByTestId('wizard-rule-field-0'), 'HOLDERS');
-    await userEvent.selectOptions(screen.getByTestId('wizard-rule-operator-0'), 'LTE');
-    await userEvent.clear(screen.getByTestId('wizard-rule-value-0'));
-    await userEvent.type(screen.getByTestId('wizard-rule-value-0'), '500');
-    await userEvent.click(screen.getByTestId('wizard-next-1'));
+      await user.type(await screen.findByTestId('wizard-mint'), MINT);
+      await user.click(screen.getByTestId('wizard-add-token'));
+      await user.click(screen.getByTestId('wizard-add-rule'));
+      await user.selectOptions(screen.getByTestId('wizard-rule-field-0'), 'HOLDERS');
+      await user.selectOptions(screen.getByTestId('wizard-rule-operator-0'), 'LTE');
+      await user.clear(screen.getByTestId('wizard-rule-value-0'));
+      await user.type(screen.getByTestId('wizard-rule-value-0'), '500');
+      await user.click(screen.getByTestId('wizard-next-1'));
 
-    expect(api.saveBotDraft).toHaveBeenCalledWith(BOT_ID, {
-      step: 1,
-      parameters: { takeProfitPct: '10', stopLossPct: '5' },
-      tokenSelection: {
-        tokens: [{ chain: 'solana', mint: MINT }],
-        rules: [{ field: 'HOLDERS', operator: 'LTE', value: '500' }],
-      },
-    });
-    expect(await screen.findByTestId('wizard-step-2')).toBeInTheDocument();
+      expect(api.saveBotDraft).toHaveBeenCalledWith(BOT_ID, {
+        step: 1,
+        parameters: { takeProfitPct: '10', stopLossPct: '5' },
+        tokenSelection: {
+          tokens: [{ chain: 'solana', mint: MINT }],
+          rules: [{ field: 'HOLDERS', operator: 'LTE', value: '500' }],
+        },
+      });
+      expect(await screen.findByTestId('wizard-step-2')).toBeInTheDocument();
 
-    // The limits follow the balance until edited (BR1.6).
-    await userEvent.clear(screen.getByTestId('wizard-balance'));
-    await userEvent.type(screen.getByTestId('wizard-balance'), '2000');
-    expect(screen.getByTestId('wizard-limits-maxOrderSize')).toHaveValue('200.000000');
-    await userEvent.clear(screen.getByTestId('wizard-limits-maxDailyLoss'));
-    await userEvent.type(screen.getByTestId('wizard-limits-maxDailyLoss'), '30');
-    await userEvent.clear(screen.getByTestId('wizard-balance'));
-    await userEvent.type(screen.getByTestId('wizard-balance'), '4000');
-    expect(screen.getByTestId('wizard-limits-maxOrderSize')).toHaveValue('400.000000');
-    expect(screen.getByTestId('wizard-limits-maxDailyLoss')).toHaveValue('30');
-    await userEvent.click(screen.getByTestId('wizard-next-2'));
+      // The limits follow the balance until edited (BR1.6).
+      await user.clear(screen.getByTestId('wizard-balance'));
+      await user.type(screen.getByTestId('wizard-balance'), '2000');
+      expect(screen.getByTestId('wizard-limits-maxOrderSize')).toHaveValue('200.000000');
+      await user.clear(screen.getByTestId('wizard-limits-maxDailyLoss'));
+      await user.type(screen.getByTestId('wizard-limits-maxDailyLoss'), '30');
+      await user.clear(screen.getByTestId('wizard-balance'));
+      await user.type(screen.getByTestId('wizard-balance'), '4000');
+      expect(screen.getByTestId('wizard-limits-maxOrderSize')).toHaveValue('400.000000');
+      expect(screen.getByTestId('wizard-limits-maxDailyLoss')).toHaveValue('30');
+      await user.click(screen.getByTestId('wizard-next-2'));
 
-    expect(api.saveBotDraft).toHaveBeenLastCalledWith(
-      BOT_ID,
-      expect.objectContaining({ step: 2, virtualBalance: '4000' }),
-    );
-    expect(await screen.findByTestId('wizard-step-3')).toHaveTextContent(text.wizard.hypotheses);
-    await userEvent.click(screen.getByTestId('wizard-back-3'));
-    expect(screen.getByTestId('wizard-balance')).toHaveValue('4000');
-    await userEvent.click(screen.getByTestId('wizard-next-2'));
-    await userEvent.click(await screen.findByTestId('wizard-next-3'));
-    expect(api.saveBotDraft).toHaveBeenLastCalledWith(BOT_ID, { step: 3 });
+      expect(api.saveBotDraft).toHaveBeenLastCalledWith(
+        BOT_ID,
+        expect.objectContaining({ step: 2, virtualBalance: '4000' }),
+      );
+      expect(await screen.findByTestId('wizard-step-3')).toHaveTextContent(text.wizard.hypotheses);
+      await user.click(screen.getByTestId('wizard-back-3'));
+      expect(screen.getByTestId('wizard-balance')).toHaveValue('4000');
+      await user.click(screen.getByTestId('wizard-next-2'));
+      await user.click(await screen.findByTestId('wizard-next-3'));
+      expect(api.saveBotDraft).toHaveBeenLastCalledWith(BOT_ID, { step: 3 });
 
-    let finish: (value: never) => void = () => undefined;
-    api.runBotCommand.mockImplementation(
-      () => new Promise((resolve) => (finish = resolve as never)),
-    );
-    await userEvent.click(await screen.findByTestId('wizard-start'));
-    expect(screen.getByTestId('wizard-start')).toHaveTextContent(text.wizard.starting);
-    expect(screen.getByTestId('wizard-start')).toBeDisabled();
-    finish(summary() as never);
-    await waitFor(() => expect(push).toHaveBeenCalledWith(`/bots/${BOT_ID}`));
-    expect(api.runBotCommand).toHaveBeenCalledTimes(1);
-  });
+      let finish: (value: never) => void = () => undefined;
+      api.runBotCommand.mockImplementation(
+        () => new Promise((resolve) => (finish = resolve as never)),
+      );
+      await user.click(await screen.findByTestId('wizard-start'));
+      expect(screen.getByTestId('wizard-start')).toHaveTextContent(text.wizard.starting);
+      expect(screen.getByTestId('wizard-start')).toBeDisabled();
+      finish(summary() as never);
+      await waitFor(() => expect(push).toHaveBeenCalledWith(`/bots/${BOT_ID}`));
+      expect(api.runBotCommand).toHaveBeenCalledTimes(1);
+    },
+    WIZARD_FLOW_TIMEOUT_MS,
+  );
 
   it('shows local and server field errors next to the fields', async () => {
     const api = wizardApi({
@@ -258,17 +271,17 @@ describe('S4 wizard /bots/new/{botId}', () => {
     });
     renderWith(<BotWizard />, api);
 
-    await userEvent.clear(await screen.findByTestId('wizard-balance'));
-    await userEvent.type(screen.getByTestId('wizard-balance'), '20000');
-    await userEvent.click(screen.getByTestId('wizard-next-2'));
+    await user.clear(await screen.findByTestId('wizard-balance'));
+    await user.type(screen.getByTestId('wizard-balance'), '20000');
+    await user.click(screen.getByTestId('wizard-next-2'));
     expect(screen.getByTestId('wizard-balance-error')).toHaveTextContent(
       text.validation.balanceCap,
     );
     expect(api.saveBotDraft).not.toHaveBeenCalled();
 
-    await userEvent.clear(screen.getByTestId('wizard-balance'));
-    await userEvent.type(screen.getByTestId('wizard-balance'), '1000');
-    await userEvent.click(screen.getByTestId('wizard-next-2'));
+    await user.clear(screen.getByTestId('wizard-balance'));
+    await user.type(screen.getByTestId('wizard-balance'), '1000');
+    await user.click(screen.getByTestId('wizard-next-2'));
     expect(await screen.findByTestId('wizard-limits-maxOrderSize-error')).toHaveTextContent(
       'Recusado pelo servidor.',
     );
@@ -291,13 +304,13 @@ describe('S4 wizard /bots/new/{botId}', () => {
     });
     renderWith(<BotWizard />, api);
 
-    await userEvent.click(await screen.findByTestId('wizard-start'));
+    await user.click(await screen.findByTestId('wizard-start'));
     expect(await screen.findByTestId('wizard-notice')).toHaveTextContent(text.wizard.startLimit);
-    await userEvent.click(screen.getByTestId('wizard-start'));
+    await user.click(screen.getByTestId('wizard-start'));
     await waitFor(() =>
       expect(screen.getByTestId('wizard-notice')).toHaveTextContent(text.wizard.startSystem),
     );
-    await userEvent.click(screen.getByTestId('wizard-start'));
+    await user.click(screen.getByTestId('wizard-start'));
     await waitFor(() =>
       expect(screen.getByTestId('wizard-notice')).toHaveTextContent(text.wizard.startError),
     );
@@ -312,13 +325,13 @@ describe('S4 wizard /bots/new/{botId}', () => {
       .mockResolvedValue(detail());
     renderWith(<BotWizard />, wizardApi({ getBot }));
 
-    await userEvent.click(await screen.findByTestId('wizard-retry'));
+    await user.click(await screen.findByTestId('wizard-retry'));
     expect(await screen.findByTestId('wizard-notice')).toHaveTextContent(text.wizard.fromScanner);
     expect(screen.getByTestId('wizard-token-0')).toHaveTextContent(MINT);
-    await userEvent.click(screen.getByTestId('wizard-token-remove-0'));
+    await user.click(screen.getByTestId('wizard-token-remove-0'));
     expect(screen.queryByTestId('wizard-token-0')).toBeNull();
-    await userEvent.click(screen.getByTestId('wizard-add-rule'));
-    await userEvent.click(screen.getByTestId('wizard-rule-remove-0'));
+    await user.click(screen.getByTestId('wizard-add-rule'));
+    await user.click(screen.getByTestId('wizard-rule-remove-0'));
     expect(screen.queryByTestId('wizard-rule-0')).toBeNull();
   });
 
@@ -331,9 +344,9 @@ describe('S4 wizard /bots/new/{botId}', () => {
     renderWith(<BotWizard />, api);
 
     const field = await screen.findByTestId('wizard-param-takeProfitPct');
-    await userEvent.clear(field);
-    await userEvent.type(field, '60');
-    await userEvent.click(screen.getByTestId('wizard-next-1'));
+    await user.clear(field);
+    await user.type(field, '60');
+    await user.click(screen.getByTestId('wizard-next-1'));
 
     expect(screen.getByTestId('wizard-param-takeProfitPct-error')).toHaveTextContent(
       text.validation.range('1', '50', '0.5'),

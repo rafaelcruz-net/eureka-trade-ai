@@ -30,6 +30,8 @@ Pré-requisitos: Docker Desktop em execução, JDK 21 e Git Bash no Windows.
 | Volta 1: regressão da conferência de plano | `node --test scripts/load/load-test-u6-plans.test.mjs` |
 | Volta 1: sintaxe do script de carga | `node --check scripts/load/load-test.mjs` |
 | Volta 1: testes que leem o script e o Compose | `apps/api/mvnw -f apps/api/pom.xml -Dtest='WorkflowsTest,ComposeFilesTest' -Dsurefire.failIfNoSpecifiedTests=false test-compile surefire:test` |
+| Volta 3: p95 da avaliação pelas amostras (F12) | `node --test scripts/load/load-test-u6-evaluate.test.mjs` |
+| Volta 3: aquecimento com `DELETE` desfeito e arredondamento (F10) | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u6 -Dit.test=RiskPurgeIT -Dtest=PurgeBatchDurationTest -Dsurefire.failIfNoSpecifiedTests=false test-compile surefire:test failsafe:integration-test failsafe:verify` |
 
 Na volta 1 de Build and Test (Passos 19 a 21), o teste `node --test` é escrito antes da correção e falha porque a consulta do `EXPLAIN` ainda tem a subconsulta de amostra. Depois da correção, ele passa. O cenário de carga `u6` roda de novo no Build and Test, não nesta etapa.
 

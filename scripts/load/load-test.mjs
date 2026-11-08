@@ -16,6 +16,15 @@ import { createPrivateKey, generateKeyPairSync, randomBytes, randomUUID, sign } 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 import { parseU6Sample, U6_SAMPLE_SQL, u6PlanQueries } from './u6-plans.mjs';
+import {
+  evaluateP95,
+  evaluateWindowFailures,
+  parseEvaluateSamples,
+  U6_EVALUATE_LIMITS,
+  U6_EVALUATE_METHOD,
+} from './u6-evaluate.mjs';
+import { expectedU5Slices, u5SlicesSql } from './u5-slices.mjs';
+import { u5DecisionsLine, u5Failures } from './u5-failures.mjs';
 
 const run = promisify(execFile);
 const API = process.env.API_BASE_URL ?? 'http://127.0.0.1:8080';
@@ -764,12 +773,15 @@ if (SCENARIO === 'u7' || SCENARIO === 'u7-jobs') {
 //                     200000 approved evaluations 32 to 40 days old, then evaluates one order per bot every 30 s (half
 //                     refused) while 20 users read C21 of their bots, one read every 2 s. Two windows of the same run:
 //                     before the purge (0 to LOADTEST_U6_PURGE_AT) and with the purge (from there to DURATION_S).
-//                     p95 evaluate <= 250 ms in each window (NFR2.1, timer loadtest_risk_evaluate_seconds by window),
-//                     the second at most 10% above the first, p95 of C21 <= 1 s in each window (NFR3.1), every batch of
-//                     the purge <= 100 ms (NFR2.5, from the "Risk purge batch" lines of the api log) and no Seq Scan on
+//                     p95 evaluate <= 250 ms in each window (NFR2.1), the second at most 10% above the first; since
+//                     loop 3 (F12) both p95 come from the samples of every call (microseconds, health component
+//                     loadtestRisk, scripts/load/u6-evaluate.mjs), and the bucket of the timer
+//                     loadtest_risk_evaluate_seconds is kept in the report as a reference only. p95 of C21 <= 1 s in
+//                     each window (NFR3.1), every batch of the purge <= 100 ms (NFR2.5, from the "Risk purge batch"
+//                     lines of the api log, rounded up to the millisecond since loop 3) and no Seq Scan on
 //                     order_evaluation or order_rejection in the page of C21, the lookup of the decision and the
 //                     selection of the purge. Report: docs/perf/u6-risk-control-<date>.md.
-const U6_LIMITS = { evaluateS: 0.25, rejectionsS: 1.0, batchMs: 100, withPurgeRatio: 1.1 };
+const U6_LIMITS = { ...U6_EVALUATE_LIMITS, rejectionsS: 1.0, batchMs: 100 };
 
 /** Waits for the health component loadtestRisk to be UP (seed done, cycles running), at most 120 minutes. */
 async function waitForRisk() {
@@ -870,10 +882,12 @@ async function botsOf(person) {
 
 /** NFR2.5: the batches and the totals of the purge round, from the api log. */
 async function purgeLog() {
-  if (!process.env.API_CONTAINER) return { batches: [], finished: [] };
+  if (!process.env.API_CONTAINER) return { warmUps: [], batches: [], finished: [] };
   const { stdout, stderr } = await run('docker', ['logs', process.env.API_CONTAINER], { maxBuffer: 512 * 1024 * 1024 });
   const text = `${stdout}\n${stderr}`;
   return {
+    // Volta 2, Passo 25: the warm-up of each round, outside the measured time of every batch.
+    warmUps: [...text.matchAll(/Risk purge warm-up: durationMs=(\d+)/g)].map((m) => Number(m[1])),
     batches: [...text.matchAll(/Risk purge batch: batch=(\d+), deleted=(\d+), durationMs=(\d+)/g)].map((m) => ({
       batch: Number(m[1]),
       deleted: Number(m[2]),
@@ -943,10 +957,20 @@ function ms(seconds) {
   return seconds === null ? 'sem dados' : `${Math.round(seconds * 1000)} ms`;
 }
 
+/** A p95 in milliseconds with 2 decimals (the samples are exact to 1 microsecond). */
+function msPrecise(seconds) {
+  return seconds === null ? 'sem dados' : `${(seconds * 1000).toFixed(2).replace('.', ',')} ms`;
+}
+
 function u6Markdown(report) {
   const w = report.windows;
   const tables = report.tables.map((t) => `| \`${t.table}\` | ${t.rows} | ${t.megabytes} MB |`).join('\n');
   const batches = report.purge.batches;
+  const later = batches.filter((b) => b.batch > 1).map((b) => b.durationMs);
+  const ratio =
+    w.beforePurge.evaluate && w.withPurge.evaluate !== null
+      ? `${((w.withPurge.evaluate / w.beforePurge.evaluate - 1) * 100).toFixed(1).replace('.', ',')}%`
+      : 'n/d';
   return `# Carga local — U6 Barreira de limites (${report.date})
 
 Gerado por \`scripts/load-test.sh\` (\`LOAD_SCENARIO=u6\`).
@@ -960,18 +984,21 @@ Gerado por \`scripts/load-test.sh\` (\`LOAD_SCENARIO=u6\`).
 
 | Medida | p95 | Limite |
 |---|---|---|
-| \`OrderGate.evaluate\` | ${ms(w.beforePurge.evaluate)} | 250 ms |
+| \`OrderGate.evaluate\` (${w.beforePurge.evaluateSamples} amostras) | ${msPrecise(w.beforePurge.evaluate)} | 250 ms |
 | C21 \`GET /api/v1/bots/{botId}/rejections\` | ${ms(w.beforePurge.rejections)} | 1000 ms |
 
 ## Janela com expurgo
 
 | Medida | p95 | Limite |
 |---|---|---|
-| \`OrderGate.evaluate\` | ${ms(w.withPurge.evaluate)} | 250 ms e no máximo 10% acima da primeira janela |
+| \`OrderGate.evaluate\` (${w.withPurge.evaluateSamples} amostras) | ${msPrecise(w.withPurge.evaluate)} | 250 ms e no máximo 10% acima da primeira janela |
 | C21 \`GET /api/v1/bots/{botId}/rejections\` | ${ms(w.withPurge.rejections)} | 1000 ms |
 
+- p95 de \`OrderGate.evaluate\` com expurgo em relação à janela sem expurgo: ${ratio} (limite +10%)
+- Forma de cálculo do p95 de \`OrderGate.evaluate\`: ${report.evaluateMethod}. Só como referência, a faixa do histograma \`loadtest_risk_evaluate_seconds\` (a medida até a volta 2) deu ${ms(w.beforePurge.evaluateHistogramBucket)} sem expurgo e ${ms(w.withPurge.evaluateHistogramBucket)} com expurgo
 - Rodada do expurgo: ${report.risk.purgeResult ?? 'não rodou'}; apagadas ${report.risk.purgeDeleted ?? 0} em ${report.risk.purgeBatches ?? 0} lotes; tamanho do lote ${report.batchSize}
-- Lotes no log: ${batches.length}; maior ${Math.max(0, ...batches.map((b) => b.durationMs))} ms (limite ${U6_LIMITS.batchMs} ms)
+- Lotes no log (duração arredondada para cima em ms): ${batches.length}; lote 1 ${batches.find((b) => b.batch === 1)?.durationMs ?? 'n/d'} ms; maior ${Math.max(0, ...batches.map((b) => b.durationMs))} ms; lotes 2 em diante de ${later.length === 0 ? 'n/d' : `${Math.min(...later)} a ${Math.max(...later)} ms`} (limite ${U6_LIMITS.batchMs} ms, todos os lotes, o 1 incluído)
+- Aquecimento antes do lote 1 (fora do tempo dos lotes): ${report.purge.warmUps.length === 0 ? 'não registrado' : report.purge.warmUps.map((w) => `${w} ms`).join(', ')}
 
 ## Banco
 
@@ -1022,6 +1049,9 @@ async function runU6() {
   const metrics = await prometheus();
   snapshots.end = routeBuckets(metrics, route);
   const health = await (await fetch(`${MANAGEMENT}/actuator/health`)).json().catch(() => ({}));
+  const riskDetails = health.components?.loadtestRisk?.details ?? {};
+  const evaluateSamples = parseEvaluateSamples(riskDetails);
+  delete riskDetails.evaluateMicros;
   const report = {
     scenario: 'u6',
     date: new Date().toISOString().slice(0, 10),
@@ -1032,14 +1062,19 @@ async function runU6() {
     batchSize: 1000,
     preparation,
     preparationSeconds,
-    risk: health.components?.loadtestRisk?.details ?? {},
+    risk: riskDetails,
+    evaluateMethod: U6_EVALUATE_METHOD,
     windows: {
       beforePurge: {
-        evaluate: p95Between(new Map(), windowBuckets(metrics, 'before-purge')),
+        evaluate: evaluateP95(evaluateSamples.beforePurge),
+        evaluateSamples: evaluateSamples.beforePurge.length,
+        evaluateHistogramBucket: p95Between(new Map(), windowBuckets(metrics, 'before-purge')),
         rejections: p95Between(snapshots.start, snapshots.purge ?? snapshots.end),
       },
       withPurge: {
-        evaluate: p95Between(new Map(), windowBuckets(metrics, 'with-purge')),
+        evaluate: evaluateP95(evaluateSamples.withPurge),
+        evaluateSamples: evaluateSamples.withPurge.length,
+        evaluateHistogramBucket: p95Between(new Map(), windowBuckets(metrics, 'with-purge')),
         rejections: p95Between(snapshots.purge ?? snapshots.end, snapshots.end),
       },
     },
@@ -1053,19 +1088,13 @@ async function runU6() {
   const w = report.windows;
   const slowBatches = report.purge.batches.filter((b) => b.durationMs > U6_LIMITS.batchMs).length;
   report.failures = [
+    ...evaluateWindowFailures(evaluateSamples.beforePurge, evaluateSamples.withPurge, U6_LIMITS),
     ...[
-      ['p95 evaluate before the purge', w.beforePurge.evaluate, U6_LIMITS.evaluateS],
-      ['p95 evaluate with the purge', w.withPurge.evaluate, U6_LIMITS.evaluateS],
       ['p95 C21 before the purge', w.beforePurge.rejections, U6_LIMITS.rejectionsS],
       ['p95 C21 with the purge', w.withPurge.rejections, U6_LIMITS.rejectionsS],
     ]
       .filter(([, value, limit]) => value === null || value > limit)
       .map(([name]) => name),
-    ...(w.beforePurge.evaluate !== null &&
-    w.withPurge.evaluate !== null &&
-    w.withPurge.evaluate > w.beforePurge.evaluate * U6_LIMITS.withPurgeRatio
-      ? ['evaluate with the purge more than 10% above']
-      : []),
     ...(report.risk.purgeResult === 'SUCCEEDED' ? [] : ['purge round did not succeed']),
     ...(report.purge.batches.length === 0 ? ['no purge batch in the log'] : []),
     ...(slowBatches > 0 ? [`${slowBatches} purge batches above ${U6_LIMITS.batchMs} ms`] : []),
@@ -1095,7 +1124,8 @@ if (SCENARIO === 'u6') {
 //                     one invited account each) make 3 ACTIVE bots each through the real C4 routes (create, the three
 //                     wizard steps, start), selecting by rule the tokens of the frequent-signal scenario (liquidity
 //                     >= 1.000.000 USDC). The bot seed of the api then writes 20000 decisions on one bot of each person
-//                     (health component loadtestBots). For DURATION_S (30 minutes, 6 slices) the worker cycles run with
+//                     (health component loadtestBots). For DURATION_S (30 minutes; the 5 slices that fit whole in it,
+//                     scripts/load/u5-slices.mjs) the worker cycles run with
 //                     the stopwatch of the loadtest profile while 20 users act every 2 s (list, S5 screen with its calls
 //                     in parallel, decisions, templates, pause and resume) with 20 live channels open.
 //                     Limits: p95 cycle <= 2 s (NFR2.1, timer loadtest_bots_cycle_seconds of the worker actuator), p95
@@ -1344,19 +1374,21 @@ async function stopwatchLines() {
     .map((m) => ({ totalMs: Number(m[1]), decisionMs: Number(m[2]), gateMs: Number(m[3]), kind: m[4] }));
 }
 
-/** NFR2.2 and the slices, from the database of the run. */
-async function u5Database(startedAt) {
+/** NFR2.2 and the slices that fit whole in the run (scripts/load/u5-slices.mjs), from the database of the run. */
+async function u5Database(startedAt, endedAt) {
   if (!process.env.POSTGRES_CONTAINER) return { checked: false };
   const since = new Date(startedAt).toISOString();
   const value = async (sql) => Number((await psql(sql)).trim() || 0);
+  const expected = expectedU5Slices(startedAt, endedAt);
   return {
     checked: true,
     staleDecisions: await value(
       `select count(*) from decision where no_trade_reason = 'STALE_DATA' and created_at >= '${since}'`,
     ),
-    slices: await value(
-      `select count(distinct slot_start) from bot_cycle where status = 'COMPLETED' and slot_start >= '${since}'`,
-    ),
+    slicesExpected: expected.length,
+    slices: await value(u5SlicesSql(expected)),
+    buyDecisions: await value(`select count(*) from decision where action = 'BUY' and created_at >= '${since}'`),
+    sellDecisions: await value(`select count(*) from decision where action = 'SELL' and created_at >= '${since}'`),
     failedCycles: await value(`select count(*) from bot_cycle where status = 'FAILED' and started_at >= '${since}'`),
     completedCycles: await value(
       `select count(*) from bot_cycle where status = 'COMPLETED' and started_at >= '${since}'`,
@@ -1386,8 +1418,9 @@ Gerado por \`scripts/load-test.sh\` (\`LOAD_SCENARIO=u5\`).
 | Barreira mais execução (NFR2.3) | ${ms(report.gate)} | 500 ms |
 
 - Linhas do cronômetro: ${report.stopwatch.lines}; maior ciclo ${report.stopwatch.maxTotalMs} ms; falhas ${report.stopwatch.failed}
-- Fatias completas: ${db.checked ? db.slices : 'não conferido'} (esperado ao menos ${Math.floor(report.durationSeconds / 300)}); ciclos completos ${db.completedCycles ?? 'n/d'}, com falha ${db.failedCycles ?? 'n/d'}
+- Fatias completas: ${db.checked ? `${db.slices} de ${db.slicesExpected} que cabem inteiras na janela` : 'não conferido'}; ciclos completos ${db.completedCycles ?? 'n/d'}, com falha ${db.failedCycles ?? 'n/d'}
 - Decisões por dado desatualizado durante a carga (NFR2.2): ${db.checked ? db.staleDecisions : 'não conferido'} (limite 0)
+${u5DecisionsLine(db)}
 - Pool do worker: no máximo ${report.workerPool.maxActive} conexões ativas (limite ${U5_LIMITS.maxConnections}); maior espera ${report.workerPool.maxAcquireS.toFixed(3)} s (limite 1 s)
 
 ## Rotas C4 (NFR3.1)
@@ -1463,33 +1496,12 @@ async function runU5() {
     channelErrors: state.channelErrors,
     commands: state.commands,
     errors: state.errors,
-    database: await u5Database(startedAt),
+    database: await u5Database(startedAt, deadline),
     pool,
     workerPool,
     maxMemoryMb: memory.maxMemoryMb,
   };
-  const db = report.database;
-  report.failures = [
-    ...[
-      ['p95 cycle', report.cycle, U5_LIMITS.cycleS],
-      ['p95 barrier plus execution', report.gate, U5_LIMITS.gateS],
-      ['p95 S5 screen', report.screen, U5_LIMITS.screenS],
-      ['p95 live channel', report.live, U5_LIMITS.liveS],
-      ...Object.entries(report.routes).map(([route, p95]) => [`p95 ${route}`, p95, U5_LIMITS.routesS]),
-    ]
-      .filter(([, value, limit]) => value === null || value > limit)
-      .map(([name]) => name),
-    ...(db.checked && db.staleDecisions > 0 ? ['decisions for stale data'] : []),
-    ...(db.checked && db.slices < Math.floor(DURATION_S / 300) ? ['fewer completed slices than expected'] : []),
-    ...(report.stopwatch.failed > 0 ? ['failed cycles'] : []),
-    ...(workerPool.maxActive > U5_LIMITS.maxConnections ? ['worker pool above 14 connections'] : []),
-    ...(workerPool.maxAcquireS > U5_LIMITS.acquireS ? ['worker pool wait above 1 s'] : []),
-    ...(pool.longestPendingSeconds > 10 ? ['api pool wait'] : []),
-    ...(state.errors > 0 ? ['client errors'] : []),
-    ...Object.entries(memory.maxMemoryMb)
-      .filter(([, mb]) => mb > MEMORY_LIMIT_MB)
-      .map(([name]) => `memory ${name}`),
-  ];
+  report.failures = u5Failures(report, U5_LIMITS, MEMORY_LIMIT_MB);
   report.passed = report.failures.length === 0;
   writeFileSync('load-test-report.json', JSON.stringify(report, null, 2));
   mkdirSync('docs/perf', { recursive: true });

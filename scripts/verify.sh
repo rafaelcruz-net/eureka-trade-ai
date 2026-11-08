@@ -81,6 +81,14 @@ ADMIN_WALLET_ADDRESSES="$(sed -n 's/.*"address":"\([^"]*\)".*/\1/p' "$ADMIN_KEY_
 [ -n "$ADMIN_WALLET_ADDRESSES" ] || { log "administrator wallet generation failed"; exit 1; }
 export ADMIN_WALLET_ADDRESSES
 
+log "generating the smoke invitation code (test-scope tool)"
+SMOKE_INVITE_CODE="$(sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml exec:java \
+  -Dexec.classpathScope=test \
+  -Dexec.mainClass=com.memetrade.tools.SmokeWalletTool \
+  -Dexec.args="--invite-code" | tr -d '\r\n')"
+export SMOKE_INVITE_CODE
+[ "${#SMOKE_INVITE_CODE}" -eq 43 ] || { log "invitation code generation failed"; exit 1; }
+
 
 log "starting postgres, api and web with the test profile"
 "${COMPOSE[@]}" up -d --build
@@ -126,12 +134,13 @@ SMOKE_WALLET_FILE="$KEY_FILE" \
   WEB_BASE_URL="http://localhost:3000" \
   API_BASE_URL="http://localhost:8080" \
   MANAGEMENT_BASE_URL="http://localhost:8081" \
+  SMOKE_INVITE_CODE="$SMOKE_INVITE_CODE" \
   DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB:-memetrade}" \
-  "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl e2e/u5-bots-decision e2e/u8-admin-feedback
+  "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl e2e/u5-bots-decision e2e/u8-admin-feedback e2e/u9-dashboard e2e/u3-identity-access
 
 log "scanning the api, worker and admin logs for full wallet addresses and the feedback text (NFR7.3)"
 SERVICE_LOGS="$("${COMPOSE[@]}" logs --no-color api worker admin)"
-for needle in "$SMOKE_BETA_WALLET_ADDRESS" "$ADMIN_WALLET_ADDRESSES" "$SMOKE_FEEDBACK_MARKER"; do
+for needle in "$SMOKE_BETA_WALLET_ADDRESS" "$ADMIN_WALLET_ADDRESSES" "$SMOKE_FEEDBACK_MARKER" "$SMOKE_INVITE_CODE"; do
   if printf '%s' "$SERVICE_LOGS" | grep -qF "$needle"; then
     log "a full wallet address or the feedback text appeared in the logs"
     exit 1

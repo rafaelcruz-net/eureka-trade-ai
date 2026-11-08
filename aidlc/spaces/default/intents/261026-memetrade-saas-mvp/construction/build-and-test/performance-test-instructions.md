@@ -33,7 +33,9 @@ Cada cenário devolve uma linha JSON com `passed` e `failures`, e a saída é di
 
 Um cenário que antes passava e passa a reprovar é tratado como defeito. As metas não podem ser reduzidas para fazer o cenário passar.
 
-## Resultado desta execução (2026-11-06)
+## Resultado das execuções (2026-11-06 e 2026-11-07)
+
+Em 2026-11-07, só `u5` e `u6` rodaram de novo. A volta 1 não mudou código medido pelos demais cenários.
 
 | Cenário | Resultado | Principais números |
 |---|---|---|
@@ -41,8 +43,8 @@ Um cenário que antes passava e passa a reprovar é tratado como defeito. As met
 | `u3` | aprovado na segunda execução | verificação com convite 259 ms, convite 4 ms, conta 7 ms; a primeira execução não subiu a API (ver `build-instructions.md`) |
 | `u4` | aprovado | lista 500 ms, detalhe 11 ms, postgres 825 MB |
 | `growth` | metas não mantidas | lista 10,02 s, postgres 990 MB, detalhe 39 ms: decisão de escala antes do G1 (U4 NFR3.5) |
-| `u5` | **falhou na semente** | `DataIntegrityViolationException` em `insert into decision` |
-| `u6` | **reprovado** pela conferência de plano | avaliação 22 ms, C21 13 ms, maior lote do expurgo 90 ms; o `Seq Scan` vem da subconsulta de amostra do próprio script |
+| `u5` | **falhou na semente** (2026-11-06); **reprovado** (2026-11-07) | 2026-11-06: `DataIntegrityViolationException` em `insert into decision`. 2026-11-07: semente 400 000 sem erro; ciclo 134 ms; rotas até 28 ms; tela S5 26 ms; canal 1,9 s; falhas: barreira mais execução sem dados, 200 decisões `STALE_DATA`, 5 fatias para 6 esperadas (`docs/perf/u5-bots-decision-2026-11-07.md`) |
+| `u6` | **reprovado** pela conferência de plano (2026-11-06); **reprovado** pelo primeiro lote do expurgo (2026-11-07) | 2026-11-06: o `Seq Scan` vinha da subconsulta de amostra do próprio script. 2026-11-07: planos sem `Seq Scan`; avaliação 22 ms; C21 11 ms; primeiro lote do expurgo 106 ms (limite 100 ms), os demais de 39 a 60 ms (`docs/perf/u6-risk-control-2026-11-07.md`) |
 | `u7` | aprovado | execute 34 ms, close 62 ms, ledger 201 ms, reconciliação 25,4 s |
 | `u7-jobs` | aprovado | marcação até 317 ms, fechamento até 4 ms, reconciliação até 236 ms |
 | `perf-audit.sh` | não executado | a proteção do ambiente recusa rodar o script pelo agente; a pessoa roda localmente |

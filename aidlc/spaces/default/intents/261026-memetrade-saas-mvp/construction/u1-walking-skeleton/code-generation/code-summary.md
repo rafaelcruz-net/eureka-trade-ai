@@ -31,6 +31,25 @@ A geração de código da U1 foi reaberta a pedido do responsável do projeto. A
 
 **Não executado nesta reabertura:** lint, Prettier e `tsc` do frontend e a comparação do OpenAPI (`check:api`). São portões da CI, fora dos comandos da Unit; foram verdes na entrega original.
 
+## Smokes da U3 e da U9 no comando de verificação (2026-11-08)
+
+O responsável do projeto editou à mão o `scripts/verify.sh` (Passo 27 do plano), que só ele altera. O agente não editou o script; esta seção só registra a mudança.
+
+**O que mudou no `scripts/verify.sh`:**
+- Depois da geração das carteiras de administrador, o script gera o código do convite de smoke com a ferramenta de teste `com.memetrade.tools.SmokeWalletTool --invite-code` (`exec:java` com `-Dexec.classpathScope=test`), tira o fim de linha com `tr -d '\r\n'`, exporta `SMOKE_INVITE_CODE` e para com erro se o código não tiver exatamente 43 caracteres. O `tr` é necessário porque, no Git Bash do Windows, o `println` da ferramenta deixava um `\r` no fim do valor capturado.
+- A linha do Playwright recebe `SMOKE_INVITE_CODE="$SMOKE_INVITE_CODE"` e passa a rodar também `e2e/u9-dashboard` e `e2e/u3-identity-access`, depois de `e2e/u1-walking-skeleton`, `e2e/u2-audit-trail`, `e2e/u4-discovery`, `e2e/u7-ledger-pnl`, `e2e/u5-bots-decision` e `e2e/u8-admin-feedback`.
+- A varredura dos logs de `api`, `worker` e `admin` procura também o código do convite, ao lado do endereço da carteira beta, dos endereços de administrador e do marcador do texto de feedback; qualquer ocorrência encerra o script com saída diferente de zero.
+
+**Pendências do Build and Test que a mudança fecha:**
+- TP-E2E-U3: smoke de ponta a ponta da U3 (convites, contas e sessões) no comando de verificação.
+- TP-E2E-U9: smoke de ponta a ponta da U9 (painel) no comando de verificação.
+- U3-NFR3.4: o fluxo de convite é exercitado de ponta a ponta pelo comando de verificação.
+- U3-NFR9.1: o código do convite não aparece nos logs dos serviços.
+
+**Verificação:** `bash scripts/verify.sh` roda no ponto de controle do esqueleto, executado pelo orquestrador; o agente não rodou o script nem o Docker nesta etapa. O resultado esperado é saída 0, com `e2e/u3-identity-access` e `e2e/u9-dashboard` passando junto dos smokes que já rodavam e nenhum endereço de carteira, texto de feedback ou código de convite nos logs. O orquestrador anota aqui o resultado depois da execução. Se algum smoke falhar, a saída é registrada nesta seção e a decisão fica com o responsável do projeto, sem mudar o `scripts/verify.sh`.
+
+O texto preparado em [`docs/api/u3-convites-contas-e-sessoes.md`](../../../../../../../../docs/api/u3-convites-contas-e-sessoes.md) foi atualizado para bater com o script (captura com `tr -d '\r\n'` e linha do Playwright com `e2e/u9-dashboard`).
+
 ## Arquivos criados e modificados
 
 | Área | Caminhos |

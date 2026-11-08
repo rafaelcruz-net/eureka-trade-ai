@@ -37,6 +37,10 @@ DAST, varredura de imagens e SBOM por release são candidatos antes do G1 (`team
 
 ## Resultado desta execução
 
-Todos os testes de segurança da suíte passaram; as 2 falhas do Failsafe não são de segurança. As varreduras de CI ficam com CI Pipeline (`N/A` aqui).
+Execução de 2026-11-07:
+
+- **Testes de segurança da suíte:** todos passaram (Surefire 890/890, Failsafe 754/754).
+- **Dependências do frontend:** `pnpm audit --audit-level high` roda com saída 1 em `apps/web` e `apps/admin`. Ele acusa 2 avisos High no `postcss` que vem pelo `next`: GHSA-6g55-p6wh-862q, corrigido no 8.5.12, e GHSA-r28c-9q8g-f849, corrigido no 8.5.18. Pela regra da CI, um aviso High bloqueia o merge. A correção é subir o `next` para uma versão que traga o `postcss` 8.5.18 ou superior, ou registrar uma exceção com validade.
+- **Varreduras de CI:** ficam com o CI Pipeline (`N/A` aqui).
 
 O achado R-11 da U1 (filtros `ModeGuardFilter` e `IdempotencyKeyFilter` usam o `getRequestURI()` bruto) continua em aberto. Ele foi aceito na aprovação da U1.

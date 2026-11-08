@@ -5,6 +5,7 @@
 - Builds: fundação do monorepo, API Spring Boot (login por carteira, sessão, lista do scanner com fonte simulada, auditoria por tabela de saída) e app Next.js do convidado, com Docker Compose, CI e script de verificação
 - Touches: raiz do repositório, `apps/api/`, `apps/web/`, `infra/`, `scripts/`, `.github/`, `.githooks/`, `docs/`
 - Tests: cerca de 200 testes (unitários e de integração em JUnit 5 com Testcontainers, Jest, Playwright e o smoke de ponta a ponta), com piso de 80% de linhas medido separadamente no backend e no frontend
+- Smokes da U3 e da U9 (2026-11-08): registra a mudança que o responsável do projeto fez no `scripts/verify.sh` (convite de smoke, `e2e/u3-identity-access` e `e2e/u9-dashboard`) e roda o comando de verificação com eles. O agente não edita o script
 
 ## Entradas
 
@@ -152,6 +153,21 @@ Cada passo indica as histórias (US) e as regras (BR) ou requisitos (NFR) que im
 - [x] **Passo 24 — Carteira de teste e smoke de ponta a ponta.** Ferramenta de teste em Java (escopo `test`, com o SDK Solana) que gera o par de chaves num arquivo temporário fora do repositório e imprime só o endereço público; carteira de teste em `apps/web/e2e/support/` que se registra pelo Wallet Standard antes de o app carregar e assina com a chave gerada; spec Playwright `apps/web/e2e/u1-walking-skeleton/smoke.spec.ts` que segue F7: entra pelo app, abre a lista, confere fonte simulada, horário em cada valor, um campo `unknown` distinto de zero e um 0 informado, repete a verificação com o mesmo nonce e confere a recusa, espera até 10 s pelo `LOGIN_REJECTED` na trilha; spec de navegação só por teclado em S1 e S3; spec de tempo de tela de S3. `scripts/verify.sh`: gera a carteira, sobe com `docker-compose.yml` e `infra/docker-compose.test.yml`, espera os três serviços saudáveis e a primeira coleta (até 60 s), roda o smoke, derruba o ambiente, apaga a chave e devolve código diferente de zero em qualquer falha ou tempo esgotado. — US1.2, US1.4, US2.1; NFR13.1, NFR3.2, NFR11.1.
 - [x] **Passo 25 — CI e dependências.** `.github/workflows/ci.yml` (backend com Spotless, testes e JaCoCo `check`; frontend com lint, Prettier, `tsc --noEmit`, Jest com cobertura; comparação do OpenAPI e dos tipos gerados; `scripts/verify.sh` em toda mudança), `.github/workflows/security.yml` (Gitleaks, CodeQL para Java e TypeScript, OWASP Dependency-Check com Crítico ou Alto bloqueando e Médio avisando, exceções em `security/exceptions.yml` com justificativa, validade de até 90 dias e aprovação), `.github/workflows/load-test.yml` acionado à mão com o perfil `test,loadtest`; todas as ações de terceiros fixadas por SHA de commit, `permissions: contents: read` por padrão, nenhum segredo em workflows de branch ou fork não confiável; `ACCESS_TOKEN_SIGNING_KEY` gerada por execução. `.github/dependabot.yml` para Maven, npm, Docker e Actions, com espera de alguns dias para pacotes do frontend. Depois, um teste do repositório que falha se uma ação não estiver fixada por SHA ou se um workflow não declarar `permissions`, e outro que falha se uma exceção de segurança estiver vencida. — Fundação; NFR6.7, NFR6.8, NFR12.1.
 - [x] **Passo 26 — Documentação.** `README.md` na raiz com pré-requisitos (Docker Desktop, JDK 21, Node LTS, pnpm, Gitleaks), como rodar no perfil `dev`, como rodar os testes da U1 e `scripts/verify.sh`; `docs/adr/ADR-0001-cors-credenciais-na-verificacao.md` registrando a mudança de C1 (credenciais na verificação); Javadoc nas interfaces públicas `AuditEventPublisher`, `AuthContext` e `MarketSourceAdapter`. — Fundação.
+
+### Smokes da U3 e da U9 no comando de verificação (2026-11-08)
+
+O responsável do projeto editou à mão o `scripts/verify.sh`, que só ele altera, para fechar as pendências do Build and Test (TP-E2E-U3, TP-E2E-U9, U3-NFR3.4 e U3-NFR9.1):
+- o script gera o código do convite de smoke com `SmokeWalletTool --invite-code`, tira o fim de linha com `tr -d '\r\n'` (no Git Bash do Windows o `println` deixava um `\r`) e confere os 43 caracteres;
+- passa `SMOKE_INVITE_CODE` ao Playwright e acrescenta `e2e/u9-dashboard` e `e2e/u3-identity-access` à linha do `playwright test`;
+- procura o código do convite na varredura de logs da api, worker e admin.
+
+O agente não edita o `scripts/verify.sh`.
+
+- [x] **Passo 27 — Registro e verificação com os smokes da U3 e da U9.**
+  - Registrar a mudança no `code-summary.md` da U1 (seção nova) e atualizar o texto preparado em `docs/api/u3-convites-contas-e-sessoes.md` com o `tr -d '\r\n'`, para os dois baterem com o script.
+  - Rodar `bash scripts/verify.sh` pelo ponto de controle do esqueleto: saída 0, com os smokes `e2e/u3-identity-access` e `e2e/u9-dashboard` passando junto dos 8 que já rodavam, e nenhum endereço de carteira, texto de feedback ou código de convite nos logs.
+  - Se algum smoke falhar, registrar a saída no resumo e parar para a pessoa decidir, sem mudar o `scripts/verify.sh`.
+  - Fundação; NFR12.1; pendências TP-E2E-U3, TP-E2E-U9, U3-NFR3.4, U3-NFR9.1.
 
 ## Fora deste plano
 

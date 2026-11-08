@@ -41,11 +41,12 @@ Os comandos por Unit estão em `construction/<unit>/code-generation/unit-test-in
 - Cobertura de linhas ≥ 80% no backend (JaCoCo mesclado) e em cada app do frontend (Jest).
 - Nenhuma falha e nenhum teste instável ignorado: teste instável é defeito.
 
-## Resultado desta execução
+## Resultado desta execução (2026-11-07)
 
-Failsafe 748 testes, 2 falhas:
+Failsafe com 754 testes, 0 falhas e 0 ignorados.
 
-- `JdbcAuditEventReaderIT.bothPreparedFormsReadFromTheIndexWithoutASeparateSort` (U2): depende do estado do banco compartilhado.
-- `DashboardOpenLatencyIT` (U9): p95 de 2,357 s contra 2 s.
+- `JdbcAuditEventReaderIT` (U2) agora roda em banco próprio (volta 1) e passa.
+- `DashboardOpenLatencyIT` (U9) passou na suíte completa. Rodando sozinho, já ficou acima de 2 s, e isso fica como observação em `test-results.md`.
+- `scripts/verify.sh` teve saída 0 com 8 testes Playwright.
 
-Os detalhes estão em `test-results.md`.
+Na primeira execução (2026-11-06), esses dois testes falharam. Os detalhes estão em `test-results.md`.

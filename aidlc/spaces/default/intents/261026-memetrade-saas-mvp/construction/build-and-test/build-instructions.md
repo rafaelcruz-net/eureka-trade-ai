@@ -28,7 +28,7 @@ apps/api/mvnw -f apps/api/pom.xml jacoco:report@report-merged jacoco:check@check
 ## Frontend (`apps/web` e `apps/admin`)
 
 ```bash
-corepack pnpm@10.18.3 install --frozen-lockfile
+corepack pnpm@10.18.3 --dir apps/web install --frozen-lockfile
 corepack pnpm@10.18.3 --dir apps/web exec tsc --noEmit
 corepack pnpm@10.18.3 --dir apps/web exec eslint .
 corepack pnpm@10.18.3 --dir apps/web exec prettier --check .
@@ -41,17 +41,19 @@ Os mesmos comandos valem para `apps/admin`, trocando `--dir`. O limite de cobert
 
 `bash scripts/verify.sh` é o comando de verificação autorizado. Ele sobe `docker-compose.yml` com `infra/docker-compose.test.yml`, espera os serviços ficarem saudáveis, roda os smokes Playwright e devolve código diferente de zero em qualquer falha. O arquivo é protegido, e só a pessoa responsável pelo projeto o altera.
 
-## Resultado desta execução (2026-11-06)
+## Resultado desta execução (2026-11-08, quarta)
 
 | Comando | Resultado |
 |---|---|
-| `mvnw verify` | **BUILD FAILURE**: Surefire 890/890; Failsafe 748 testes, 2 falhas (ver `test-results.md`) |
-| JaCoCo mesclado | 12331 de 13139 linhas, 93,85%, piso cumprido |
-| `apps/web` | `tsc`, `eslint` e `prettier` limpos; Jest 33 suítes, 391/391; linhas 96,03% |
-| `apps/admin` | `tsc`, `eslint` e `prettier` limpos; Jest 10 suítes, 85/85; linhas 91,34% |
-| `scripts/verify.sh` | saída 0, 8 testes Playwright (prova do ponto de controle da U9, 2026-11-06 17:07–17:10) |
+| `mvnw verify` | BUILD SUCCESS: Surefire 909/909; Failsafe 763/763 (volta 3 da U6, sobre o código final) |
+| JaCoCo mesclado | 13339 de 14204 linhas, 93,91%, piso cumprido |
+| `apps/web` | `tsc`, `eslint` e `prettier` limpos; Jest 33 suítes, 391/391 em 3 execuções seguidas (volta 3 da U5); linhas 96,03% |
+| `apps/admin` | `install --frozen-lockfile`, `tsc`, `eslint` e `prettier` limpos; Jest 10 suítes, 85/85; linhas 91,34% |
+| `scripts/verify.sh` | saída 0, 10 testes Playwright com os smokes da U3 e da U9 (pontos de controle do esqueleto e da U3, 2026-11-08) |
+
+O repositório não tem `package.json` na raiz, então cada app instala com `--dir` (igual a `.github/workflows/ci.yml`).
 
 ## Limitações
 
-- `scripts/verify.sh` ainda não roda `e2e/u3-identity-access` nem `e2e/u9-dashboard`. As duas inclusões estão pendentes com a pessoa.
+- `scripts/verify.sh` passou a rodar `e2e/u3-identity-access` e `e2e/u9-dashboard` em 2026-11-08 (mudança feita pela pessoa). O código do convite de smoke é capturado com `tr -d '\r\n'` por causa do fim de linha do Git Bash no Windows.
 - `scripts/load-test.sh` não define `MSYS2_ENV_CONV_EXCL`. A primeira execução do cenário `u3` falhou ao subir a API, e a segunda passou. É o mesmo assunto do achado R-06 da U1, ainda em aberto.

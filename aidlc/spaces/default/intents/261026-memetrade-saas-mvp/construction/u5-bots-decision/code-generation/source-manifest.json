@@ -161,6 +161,7 @@
     {"path": "apps/api/src/test/java/com/memetrade/bots/infra/LockClauseSourceTest.java"},
     {"path": "apps/api/src/test/java/com/memetrade/bots/loadtest/CycleStopwatchTest.java"},
     {"path": "apps/api/src/test/java/com/memetrade/bots/loadtest/LoadtestBotSeedIT.java"},
+    {"path": "apps/api/src/test/java/com/memetrade/bots/loadtest/LoadtestFrequentSignalsFreshnessIT.java"},
     {"path": "apps/api/src/test/java/com/memetrade/bots/U5ContractsTest.java"},
     {"path": "apps/api/src/test/java/com/memetrade/bots/web/BotRoutesIT.java"},
     {"path": "apps/api/src/test/java/com/memetrade/bots/web/DashboardStreamIT.java"},
@@ -188,6 +189,7 @@
     {"path": "apps/api/src/test/java/com/memetrade/decision/domain/DecisionReplayTest.java"},
     {"path": "apps/api/src/test/java/com/memetrade/decision/domain/DecisionScenarios.java"},
     {"path": "apps/api/src/test/java/com/memetrade/decision/domain/TokenSelectionResolverTest.java"},
+    {"path": "apps/api/src/test/java/com/memetrade/decision/domain/WindowReadingTest.java"},
     {"path": "apps/api/src/test/java/com/memetrade/infra/ComposeFilesTest.java"},
     {"path": "apps/api/src/test/java/com/memetrade/infra/WorkflowsTest.java"},
     {"path": "apps/api/src/test/java/com/memetrade/marketdata/infra/simulated/FrequentSignalsScenarioTest.java"},
@@ -238,8 +240,12 @@
     {"path": "apps/web/src/lib/i18n/messages.ts"},
     {"path": "docker-compose.yml"},
     {"path": "docs/api/u5-bots-decision.md"},
+    {"path": "docs/perf/u5-bots-decision-2026-11-07.md"},
     {"path": "infra/docker-compose.test.yml"},
+    {"path": "scripts/load/load-test-u5-slices.test.mjs"},
     {"path": "scripts/load/load-test.mjs"},
+    {"path": "scripts/load/u5-failures.mjs"},
+    {"path": "scripts/load/u5-slices.mjs"},
     {"path": "scripts/load-test.sh"}
   ]
 }

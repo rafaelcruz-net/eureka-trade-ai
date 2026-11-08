@@ -144,6 +144,7 @@ class LoadtestRiskCycleDriverIT extends AbstractPostgresIT {
     void aWideCycleIsApprovedATightOneRefusedAndBothAreTimed() throws Exception {
         Bot bot = preparedBots().getFirst();
         long timed = timed();
+        int sampled = samples().size();
         long approved = driver.approved();
         long rejected = driver.rejected();
 
@@ -151,6 +152,12 @@ class LoadtestRiskCycleDriverIT extends AbstractPostgresIT {
         driver.cycle(bot, 1);
 
         assertThat(timed()).isEqualTo(timed + 2);
+        // Loop 3 (F12): every timed call is also one sample, in whole microseconds, of the window it ran in.
+        List<Long> after = samples();
+        assertThat(after).hasSize(sampled + 2);
+        assertThat(after.subList(sampled, after.size()))
+                .allSatisfy(micros -> assertThat(micros).isPositive());
+        assertThat(driver.evaluateMicros()).doesNotContainKey("with-purge");
         assertThat(driver.approved()).isEqualTo(approved + 1);
         assertThat(driver.rejected()).isEqualTo(rejected + 1);
         assertThat(driver.failures()).isZero();
@@ -166,11 +173,13 @@ class LoadtestRiskCycleDriverIT extends AbstractPostgresIT {
         market.price(bot.tokens().getFirst(), ControllableMarketData.unknown());
         long skipped = driver.skipped();
         long timed = timed();
+        int sampled = samples().size();
 
         driver.cycle(bot, 0);
 
         assertThat(driver.skipped()).isEqualTo(skipped + 1);
         assertThat(timed()).isEqualTo(timed);
+        assertThat(samples()).hasSize(sampled);
     }
 
     @Test
@@ -187,8 +196,19 @@ class LoadtestRiskCycleDriverIT extends AbstractPostgresIT {
         assertThat(status.getDetails())
                 .containsEntry("state", "DISABLED")
                 .containsEntry("purgeResult", "SUCCEEDED")
-                .containsKeys("rejectionsSeeded", "oldApprovedSeeded", "evaluations", "cycleFailures", "purgeAtSeconds")
+                .containsKeys(
+                        "rejectionsSeeded",
+                        "oldApprovedSeeded",
+                        "evaluations",
+                        "cycleFailures",
+                        "purgeAtSeconds",
+                        "evaluateMicros")
                 .doesNotContainKey("failure");
+    }
+
+    /** The samples of the window before the purge (the automatic start stays off, so cycles are never "with-purge"). */
+    private List<Long> samples() {
+        return driver.evaluateMicros().getOrDefault("before-purge", List.of());
     }
 
     private long timed() {

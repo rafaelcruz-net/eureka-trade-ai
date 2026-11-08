@@ -6,6 +6,8 @@
 - Touches: `apps/api/` (módulos novos `bots` e `decision`, papel do processo nas tarefas das Units anteriores, migração `0010`, OpenAPI, configuração, testes), `apps/web/src/features/bots/`, `apps/web/src/app/bots/`, `apps/web/e2e/u5-bots-decision/`, `docker-compose.yml`, `infra/docker-compose.test.yml`, `.github/workflows/load-test.yml`, `scripts/load-test.sh`, `scripts/load/`, `docs/`, `contract-summary.md`
 - Tests: cerca de 220 testes de backend (catálogos D e L escritos antes do código, propriedade, integração com U6 e U7 reais, concorrência, travas, ArchUnit, contrato), cerca de 30 de frontend, um smoke Playwright do ciclo de vida e o cenário de carga `u5`, com piso de 80% de linhas
 - Volta 1 de Build and Test: corrige a semente de carga `LoadtestBotSeed` (só no perfil `loadtest`), que gravava decisões sem ciclo, com dois testes de regressão em `LoadtestBotSeedIT`. A nova execução do cenário `u5` fica para o Build and Test
+- Volta 2 de Build and Test: conserta a contagem de fatias do script de carga, investiga e corrige as decisões `STALE_DATA` do cenário de sinais frequentes (perfil `loadtest`) e faz o script reprovar com mensagem clara quando nenhuma ordem chega à barreira. Tudo com testes antes da mudança e uma nova execução do cenário `u5`. Na continuação, a idade do último balde passa a ser medida pelo fim dele (BR4.1, opção (a) da pessoa), seguida de outra carga `u5`
+- Volta 3 de Build and Test: torna estável na suíte completa do `apps/web` o teste do fluxo do assistente S4, que estoura o tempo padrão de 5 s (sem atraso de digitação e com tempo próprio, sem tirar nenhuma asserção), provado com 3 execuções seguidas da suíte verde. O backend da U5 não muda
 
 ## Entradas
 
@@ -286,6 +288,100 @@ No Build and Test, o cenário de carga `u5` parou na semente (falha F3 em [test-
   - Rodar o comando da U5 e o `verify` inteiro do backend (comandos da volta 1 em [unit-test-instructions.md](unit-test-instructions.md)), sem reduzir o piso de 80%.
   - `code-summary.md`: seção "Volta 1" com a causa, a correção, os testes novos e os resultados.
   - `traceability.json`: acrescentar o teste de regressão como alvo onde couber. Os NFR de carga continuam `Deferred` até a nova execução do cenário `u5`, que acontece no Build and Test.
+  - Fundação; NFR12.1.
+
+### Volta 2 de Build and Test (2026-11-07)
+
+Na segunda execução do Build and Test, a semente funcionou, com 400 000 decisões. O cenário `u5` ainda reprovou em três pontos: as falhas F7, F8 e F9 em [test-results.md](../../build-and-test/test-results.md).
+
+- **F7:** houve 5 fatias completas, e o limite do script é 6 (`Math.floor(DURATION_S / 300)`). As fatias têm 5 minutos alinhados ao relógio, a carga começa no meio de uma delas e os ciclos rodam a partir de `slotStart + 60 s`. Por isso, só 5 fatias cabem inteiras em 30 minutos.
+- **F8:** 200 decisões saíram com `STALE_DATA`, ou seja, o último balde ou o preço de referência tinha mais de 5 minutos.
+- **F9:** nenhuma ordem chegou à barreira. O timer `loadtest_bots_gate_seconds` ficou vazio, e o NFR2.3 (e o NFR2.2 da U6) ficou sem medida.
+
+Os Passos 1 a 25 ficam como estão. Nenhum limite muda: 0 decisões `STALE_DATA`, toda fatia da janela completa, p95 de barreira mais execução ≤ 500 ms.
+
+- [x] **Passo 26 — Contagem de fatias (vermelho → verde).**
+  - O cálculo das fatias esperadas e da consulta das fatias completas sai de `runU5` para uma função pura em `scripts/load/u5-slices.mjs`, como o `u6-plans.mjs` da U6.
+  - A função conta só as fatias que cabem inteiras na janela: começam no início da carga ou depois dele, e terminam até `fim da carga - 60 s`. O limite exige que todas elas estejam completas.
+  - Teste `scripts/load/load-test-u5-slices.test.mjs` (`node --test`), escrito antes da mudança, com os horários de borda:
+    - carga começando no início exato de uma fatia;
+    - carga começando no meio de uma fatia;
+    - fatia que termina depois do fim da carga.
+  - Hoje o teste falha, porque a regra antiga espera 6 fatias. Depois da mudança, ele passa.
+  - NFR2.2.
+- [x] **Passo 27 — Causa das decisões `STALE_DATA` (investigação, depois vermelho → verde).**
+  - Ler o caminho dos dados que o ciclo usa no cenário `FREQUENT_SIGNALS`: a coleta da fonte simulada (cadência e horário de cada balde), a leitura das janelas pela C11 e pela C12, a seleção dos tokens pelo assistente no script e a regra de frescor (`WindowReading.check`, `DecisionEngine`).
+  - Reproduzir o caso num teste de integração do perfil `loadtest` com o relógio injetável, sem rede real: bots ativos sobre os tokens do cenário, ciclos em fatias seguidas e conferência da idade do último balde e do preço de referência em cada decisão. O teste falha enquanto alguma decisão sair `STALE_DATA` com a fonte simulada operante.
+  - Corrigir a causa onde ela estiver: no cenário simulado, na seleção dos tokens do script ou na cadência da coleta sob o perfil `loadtest`. A regra de frescor de 5 minutos e o código do ciclo de produção não mudam.
+  - Se a causa estiver na fonte simulada da U4 (`apps/api/src/main/java/com/memetrade/marketdata/`), a correção para aqui e fica registrada no resumo como achado para a U4, porque ela pertence a outra Unit.
+  - NFR2.2, NFR2.3.
+- [x] **Passo 28 — Barreira sem dados com mensagem clara (vermelho → verde).**
+  - Quando o timer da barreira ficar vazio, o script reprova com "nenhuma ordem chegou à barreira", em vez de só "p95 barrier plus execution".
+  - O relatório `docs/perf/u5-bots-decision-<data>.md` passa a mostrar quantas decisões BUY e SELL saíram durante a carga.
+  - Teste `node --test` sobre a função que monta as falhas, com timer vazio e com timer preenchido.
+  - NFR2.3.
+- [x] **Passo 29 — Nova carga e registro.**
+  - Rodar os testes dos Passos 26 a 28, o comando da U5 e o `verify` inteiro do backend (comandos da volta 2 em [unit-test-instructions.md](unit-test-instructions.md)), sem reduzir o piso de 80%.
+  - Rodar o cenário `u5` (cerca de 40 min) e conferir as três falhas. Se alguma continuar, registrar no resumo com os números.
+  - `code-summary.md`: seção "Volta 2" com as causas, as correções, os testes novos e os resultados.
+  - `source-manifest.json`: listar os arquivos novos e alterados desta volta.
+  - `traceability.json`: acrescentar os testes novos como alvos.
+  - Fundação; NFR12.1.
+
+### Volta 2, continuação: frescor do último balde (2026-11-07)
+
+O Passo 27 achou a causa das decisões `STALE_DATA`, e ela é estrutural:
+- a U4 guarda a primeira observação de cada balde de 5 minutos (`JdbcMarketStore`, `on conflict ... do nothing`);
+- `WindowReading.check` mede a idade dessa amostra contra o instante do ciclo, `slotStart + 60 s`, e encontra de 5,5 a 6 minutos, acima do limite de 5 minutos.
+
+Por isso as estratégias quase nunca compram, inclusive fora do perfil `loadtest`. A pessoa escolheu a opção (a) do resumo: mudar a leitura da BR4.1 na U5, sem mexer na U4 nem no contrato C11.
+
+- [x] **Passo 30 — Idade do último balde pelo fim dele (vermelho → verde).**
+  - Regra nova da BR4.1 para a janela:
+    - a idade de `b_n` passa a ser medida pelo fim do balde (`bucketStart + 5 min`), e não pelo `observedAt` da amostra;
+    - `b_n` só conta se tiver idade de até 5 minutos no instante do ciclo; se tiver mais, o motivo é `STALE_DATA`;
+    - o limite `MAX_AGE` de 5 minutos não muda.
+  - O preço de referência atual continua tendo de estar fresco pelo `observedAt` (`WindowReading.fresh`, usado nas saídas TP, SL e MAX_HOLD e no preço da ordem). A ordem dos motivos da BR4.1 também não muda.
+  - Testes escritos antes da mudança:
+    - unitários em `WindowReadingTest` (ou no catálogo D, se o caso já estiver lá) com o relógio injetável:
+      - amostra observada no início do balde e ciclo em `slotStart + 60 s`: sem motivo (hoje sai `STALE_DATA`);
+      - ciclo mais de 5 minutos depois do fim de `b_n`: `STALE_DATA`;
+      - fronteira exata de 5 minutos: sem motivo, porque o limite é inclusivo;
+      - preço de referência velho com janela em dia: a saída e a compra continuam bloqueadas como hoje;
+    - `LoadtestFrequentSignalsFreshnessIT`, que hoje está vermelho, passa a verde sem mudar.
+  - Ajustar a descrição da BR4.1 no Javadoc de `WindowReading` e registrar a nova leitura no `code-summary.md`. O texto da BR4.1 em `functional-design/rules.md` fica como está, porque "o último balde tem mais de 5 minutos" passa a ser lido pelo fim do balde. Essa leitura fica registrada no resumo para a pessoa decidir se quer reescrever a regra no Functional Design.
+  - Rodar a suíte da U5, o catálogo D e o `mvnw verify` inteiro, sem `-Dmaven.test.failure.ignore` e sem reduzir o piso de 80%.
+  - NFR2.2, NFR2.3; BR4.1.
+- [x] **Passo 31 — Nova carga e registro.**
+  - Rodar o cenário `u5` de novo (cerca de 40 min) e conferir:
+    - 0 decisões `STALE_DATA`;
+    - todas as fatias da janela completas;
+    - ordens chegando à barreira, com p95 de barreira mais execução de até 500 ms.
+  - Se algum limite falhar, registrar no resumo com os números, sem mudar o limite.
+  - Atualizar a seção "Volta 2" do `code-summary.md`, o `source-manifest.json`, o `traceability.json` (NFR2.2 e NFR2.3 saem de `Deferred` quando medidos) e o relatório `docs/perf/u5-bots-decision-2026-11-07.md`.
+  - Fundação; NFR12.1.
+
+### Volta 3 de Build and Test (2026-11-08)
+
+A terceira execução de Build and Test aprovou a carga `u5`, mas a suíte do `apps/web` reprovou (F11 em `build-and-test/test-results.md`):
+- o teste `S4 wizard /bots/new/{botId} › goes through the 4 steps, saving each accepted step, and starts the PAPER bot`, em `apps/web/src/features/bots/BotScreens.test.tsx`, estourou o tempo padrão de 5 s do Jest nas 3 execuções da suíte completa;
+- rodando o arquivo sozinho, os 13 testes passam em 13 s;
+- o teste faz cerca de 30 interações com `userEvent`, com digitação tecla a tecla, e passa de 5 s quando as 33 suítes rodam em paralelo.
+
+Teste instável é defeito (`team.md`). O backend da U5 não muda nesta volta.
+
+- [x] **Passo 32 — Teste do assistente S4 estável na suíte completa.**
+  - Reproduzir primeiro: rodar a suíte completa do `apps/web` e registrar o estouro de tempo (vermelho).
+  - Correção no próprio teste:
+    - usar uma instância de `userEvent.setup()` sem atraso entre teclas (`delay: null`) no teste do fluxo das 4 etapas, e nos demais testes do arquivo se tiverem o mesmo padrão;
+    - dar ao teste do fluxo um tempo próprio compatível com as 4 etapas, declarado no próprio `it`, sem mudar o tempo padrão global do Jest;
+    - se o tempo medido do teste continuar perto do limite, dividir o fluxo em testes menores por etapa, mantendo todas as verificações.
+  - Nenhuma asserção é retirada ou afrouxada, e o piso de 80% de linhas do `apps/web` não muda.
+  - Prova (verde): a suíte completa do `apps/web` (`jest --coverage`) passa 3 vezes seguidas, com 391 testes ou mais e 0 falhas; `tsc`, `eslint` e `prettier --check` limpos.
+  - NFR14.1, NFR12.1.
+- [x] **Passo 33 — Registro.**
+  - `code-summary.md`: seção "Volta 3" com a causa, a correção, o vermelho e as 3 execuções verdes, com tempos.
+  - `source-manifest.json` e `traceability.json`, se algum caminho mudar.
   - Fundação; NFR12.1.
 
 ## Rastreio das histórias

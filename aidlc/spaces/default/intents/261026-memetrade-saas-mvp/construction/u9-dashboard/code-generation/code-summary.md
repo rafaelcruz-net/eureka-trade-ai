@@ -67,3 +67,10 @@ Resultados depois das correções:
 - NFR3.1 no limite: `DashboardOpenLatencyIT` falha isolada nesta máquina (grupo BOTS entre 2,02 e 2,08 s) e passa na suíte completa; é um teste instável e precisa de decisão (otimizar a abertura do quadro de bots, ou tratar a medição como informativa fora do portão).
 - Na reabertura automática, o canal não envia `trade.recorded` das ordens gravadas durante a queda; a linha "Última operação" de um bot já lido pode ficar velha até a próxima carga completa. Otimização possível: `ledgerMark` faz uma consulta por bot, e uma marca por pessoa depende da U7 oferecer `LedgerChangeMarks`.
 - Avisos `act(...)` do React em `DashboardScreen.test.tsx` (despachos de `PNL_FAILED` e `RECONCILIATION_FAILED` depois do fim de alguns testes): os testes passam, mas o console fica com ruído.
+
+## Volta 1 de Build and Test (2026-11-07)
+
+- **Achado T1:** o `traceability.json` estava no formato `unit`/`basePath`/`links`, e o leitor de rastreabilidade o recusava. Ele foi reescrito no formato `stage`/`unit`/`upstream_ids`/`coverage`, com as mesmas 59 linhas, todas `OK`. Cada `target` agora é um único arquivo existente, o primeiro da lista original, e o texto original ficou em `note`. O leitor aceita o arquivo, e nenhum ID da U9 fica sem cobertura.
+- **Achado F2 (`DashboardOpenLatencyIT`), não corrigido nesta volta:** a pessoa aprovou o plano como estava, sem o passo que tornaria a medição informativa (decisão Q1 = B do Build and Test). O teste continua reprovando com p95 acima de 2 s, e o NFR3.1 continua escrito como portão. A diferença volta a aparecer no Build and Test.
+- **Passo 12:** continua incompleto, pelo mesmo motivo de antes. A inclusão de `e2e/u9-dashboard` em `scripts/verify.sh` é uma pendência da pessoa.
+- **Código:** nenhum código de produção ou de teste mudou nesta volta.

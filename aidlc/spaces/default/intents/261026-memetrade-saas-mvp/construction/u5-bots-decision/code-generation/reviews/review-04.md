@@ -1,0 +1,45 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-11-08
+**Iteration:** 1
+**Verdict Dictated:** no
+
+### Prior findings
+| ID | Now | Severity | Note |
+| --- | --- | --- | --- |
+| R-07 | Still applies | Minor | `LoadtestBotSeed` continua não reexecutável sobre banco já semeado. Esta volta só tocou `BotScreens.test.tsx`; nada mudou. |
+| R-08 | Still applies | Minor | A premissa de `oldestCycle()` segue sem texto. Fora do escopo desta volta. |
+
+### New findings
+| Severity | Location | Finding | Required action |
+| --- | --- | --- | --- |
+| Minor | apps/web/src/features/bots/BotScreens.test.tsx > it 'goes through the 4 steps...' (WIZARD_FLOW_TIMEOUT_MS) | O tempo próprio de 15 s dá cerca de 3 vezes a folga sobre os 4,5 s medidos, e a causa da lentidão (cerca de 30 interações em jsdom, em torno de 3,7 s sozinho na minha execução) não foi investigada além de `delay: null`. Com o fluxo ainda perto do limite padrão de 5 s, a divisão do fluxo foi dispensada como desvio. É aceitável porque o teste não fica instável sob o novo orçamento, mas um teste que dura quase 5 s é sinal de custo que tende a crescer a cada passo novo do assistente. | Registrar no `code-summary.md` um gatilho para dividir o fluxo (por exemplo, se passar de 8 s na suíte completa ou ao acrescentar uma etapa), em vez de elevar o tempo de novo. |
+
+### Verificações independentes
+| Item | Resultado |
+| --- | --- |
+| `git diff -- apps/web` | Só `BotScreens.test.tsx` mudou (96 inserções, 83 remoções). |
+| Asserções | `expect(` contado em 54 antes (HEAD) e 54 depois. As linhas removidas e as reinseridas no fluxo das 4 etapas são as mesmas, só reindentadas; nenhuma foi enfraquecida ou retirada. |
+| Padrão global | `jest.config.ts` sem `testTimeout` e `jest.setup.ts` sem `setTimeout`; o padrão de 5 s ficou intacto. O tempo de 15 s está só no `it`. |
+| `userEvent.setup({ delay: null })` | Aplicado no `beforeEach`, sem mudar a semântica dos eventos. Substituições mecânicas de `userEvent.` por `user.`. |
+| Piso de cobertura | `jest.config.ts` mantém `lines: 80`; a cobertura relatada (96,03%) está acima do piso e o piso não foi alterado. |
+| Execução de `BotScreens.test.tsx` por mim | PASS, 13 de 13; o teste do assistente levou 3706 ms. |
+| Prova das 3 execuções da suíte completa e do `tsc`, `eslint` e `prettier` | Não reexecutadas por mim; aceitas como relatadas (391/391 três vezes, 4874/4485/4533 ms). O uso do script `format:check` no lugar de `exec prettier` é equivalente. |
+
+### Summary
+A correção é restrita ao arquivo de teste, mantém as 54 asserções e o padrão global de 5 s, e o tempo próprio de 15 s é razoável e não esconde falha de lógica. A prova relatada atende ao critério do plano (vermelho registrado e verde 3 vezes seguidas), e o piso de 80% ficou intocado. Fica só uma sugestão menor sobre o gatilho para dividir o fluxo no futuro.
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/u5-bots-decision/code-generation/code-summary.md > Desvios do plano, item 9; apps/web/src/features/scanner (não alterado) | O desenho (functional-spec, etapa 1 do assistente, e a regra de seleção de tokens que cita o botão "Usar em bot PAPER") prevê criar o bot a partir de um token do scanner. O botão não foi criado: o assistente aceita `?chain=&mint=`, mas nenhuma tela leva a pessoa até lá. O desvio foi registrado, mas o `traceability.json` não o marca como pendente nem como adiado. | Acrescentar o link "Usar em bot PAPER" na tela do scanner (com teste) ou registrar a entrega como adiada, com dono e Unit, no `traceability.json` e na aprovação do gate. | Accepted risk |
+| R-02 | Minor | apps/api/src/main/java/com/memetrade/bots/web/DashboardMarkPoller.java > ledgerMark e newTrades (caminho sem o bean `LedgerChangeMarks`) | Enquanto a U7 não publicar o bean, cada canal aberto faz, a cada leitura (2 s), uma listagem de até 100 bots e uma consulta de ordens por bot. O envio ao emitter acontece dentro de `synchronized(channel)` na thread do agendador compartilhado, então um cliente lento ocupa essa thread. Não há falha de correção, e a escala do beta suporta. | Registrar o limite de canais abertos no documento da Unit ou trocar a marca pelo bean da U7 quando existir. Considerar envio com prazo curto por canal. | Accepted risk |
+| R-03 | Minor | apps/api/src/main/java/com/memetrade/bots/worker/CycleRunner.java > run (bloco catch) | O Javadoc diz que `run` nunca lança, mas `failures.record` roda no `catch` e pode lançar se o banco estiver fora do ar. O `SlotDispatcher` trata o `CompletionException` e conta o ciclo como FAILED, porém nenhuma linha `bot_cycle` FAILED é gravada nesse caso. O slot expira e o próximo ciclo segue normalmente, sem dado errado. | Ajustar o Javadoc para dizer que a falha ao gravar o FAILED sobe ao despachante, ou capturá-la e registrá-la com um contador próprio. | Accepted risk |
+| R-04 | Minor | apps/api/src/main/java/com/memetrade/bots/worker/MidnightJob.java > clear | O job da meia-noite pode retomar um bot sem tomar a trava compartilhada de `system_pause_state`, que a regra de ordem de travas reserva a start e resume. O estado fica seguro: o motivo SYSTEM permanece no bot, o lote da pausa do sistema relê o bot sob trava, e o ciclo confere `systemPaused()` depois de travar o bot. A regra escrita e o código divergem. | Documentar em `LockOrder` e no desenho que a meia-noite depende da conferência do ciclo, ou tomar a trava compartilhada antes do owner. | Accepted risk |
+| R-05 | Minor | apps/api/src/main/java/com/memetrade/bots/infra/JdbcBotRepository.java > markFor e marksFor (C18); code-summary.md > Ressalva de ordem das marcas | A marca C18 vem de uma sequência tomada na gravação, não no commit. Duas transações concorrentes podem confirmar fora de ordem, e uma mudança só chega ao canal na mudança seguinte ou ao reabrir a tela. A ressalva está documentada e é rara. | Manter a ressalva no contrato da U9 (já está em code-summary.md) e propagá-la para `contract-summary.md` para que a U9 não trate a marca como ordem total. | Accepted risk |
+| R-06 | Minor | apps/web/e2e/u5-bots-decision/smoke.spec.ts; scripts/verify.sh | O smoke da U5 não foi executado, e não está na linha do Playwright do `verify.sh` (ação pendente do responsável do projeto, já informada). O roteiro cobre o ciclo de vida, o rótulo PAPER e o orçamento de tela, mas não mostra uma decisão do worker. O cenário de carga `u5` não rodou, então 9 itens de NFR estão como Deferred (NFR2.1 a 2.3, 2.5, 2.6, 3.1 e 3.2, entre outros). | Incluir `e2e/u5-bots-decision` no `verify.sh` e rodá-lo antes do ponto de controle. Rodar o cenário `u5` e guardar o relatório em `docs/perf`. Considerar uma asserção de decisão visível na S5 quando o ambiente tiver o worker. | Accepted risk |
+| R-07 | Minor | apps/api/src/main/java/com/memetrade/bots/loadtest/LoadtestBotSeed.java > prepare() / seedDecisions | Cada bot é semeado em lotes confirmados separadamente. Se um bot posterior falhar, os lotes dos bots anteriores permanecem gravados e o estado vira FAILED. Uma nova execução semeia mais `decisionsPerBot` decisões antes do mínimo atual, então a contagem total passa do alvo. Só o perfil `loadtest` é afetado, e o cenário sobe sobre banco novo. | Registrar em code-summary.md que o seed não é reexecutável sobre um banco já semeado (recomeçar com banco limpo), ou tornar a semeadura idempotente por bot. | Accepted risk |
+| R-08 | Minor | apps/api/src/main/java/com/memetrade/bots/loadtest/LoadtestBotSeed.java > oldestCycle() | A leitura de `min(slot_start)` é feita fora da transação dos lotes. Isso é seguro porque o worker só cria ciclos no minuto corrente ou posterior, e os minutos semeados ficam sempre antes do mais antigo. Se o worker um dia fizer catch-up retroativo, o `tryStart` falso interrompe o seed com erro explícito e reverte o lote. Esse comportamento é correto, mas a premissa não está escrita. | Acrescentar uma frase ao Javadoc ou ao code-summary.md com a premissa "o worker não cria ciclos retroativos". | Accepted risk |

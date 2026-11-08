@@ -1,46 +1,40 @@
 # Rastreabilidade entre Units
 
-Conversa: português (Brasil). Gerado a partir de `aidlc engine sensor-traceability --stage build-and-test` (2026-11-06).
+Conversa: português (Brasil). Este arquivo foi gerado com `aidlc engine sensor-traceability --stage build-and-test` em 2026-11-08, na quarta execução, depois da volta 3.
 
 ## Veredito
 
-**Reprovado.** De 215 elementos (FR, AC e grupos de NFR), 180 estão cobertos e 35 não.
+**Reprovado.** De 215 elementos (FR, AC e grupos de NFR), 199 estão cobertos e 16 não. Na primeira execução eram 180 cobertos e 35 não; a segunda, a terceira e esta deram o mesmo número.
 
-A maior parte das lacunas vem do formato dos registros de rastreabilidade da geração de código, não de código ausente. Mesmo assim, cada ID não coberto é um achado deste estágio e entra na volta 1 (ver `test-results.md`).
+A volta 1 resolveu os achados de formato T1, T2 e T3. Agora o leitor aceita o arquivo de todas as Units. Continuam descobertos os itens abaixo, e cada um é um achado deste estágio, levado à aprovação.
 
 ## Elementos não cobertos
 
 | ID | Unit dona | Por que aparece sem cobertura |
 |---|---|---|
-| FR12.1, AC5.3.1–AC5.3.3 | u9-dashboard | `u9-dashboard/code-generation/traceability.json` usa o formato `links` (`source`/`target`) em vez de `upstream_ids` + `coverage` (`id`/`status`/`target`); o leitor recusa o arquivo inteiro |
-| FR12.2, AC5.4.1–AC5.4.3 | u9-dashboard | mesmo motivo |
-| FR13.1, AC6.1.1–AC6.1.4 | u8-admin-feedback | `u8-admin-feedback/code-generation/traceability.json` no mesmo formato `links`, recusado |
-| FR14.1–FR14.4, FR15.1 | u8-admin-feedback | mesmo motivo; nenhum AC chega até eles |
-| FR2.2 (via AC7.4.1, AC7.4.2) | u8-admin-feedback | mesmo motivo; AC1.4.x da U1 estão cobertos |
-| NFR1 a NFR14 (grupos) | várias | cada grupo reprova se algum NFR de alguma Unit não está construído; detalhe abaixo |
+| FR14.1–FR14.4, FR15.1 | nenhuma | nenhum AC chega a esses FRs em nenhum registro de rastreabilidade. Eles vêm de `inception/requirements-analysis/requirements.md`, e nenhuma história do beta os detalha. É lacuna de rastreio entre requisitos e histórias, não de código; o dono é a Inception (User Stories e Units Generation) |
+| NFR1, NFR2, NFR3, NFR5, NFR6, NFR7, NFR9, NFR10, NFR12, NFR13, NFR14 (grupos) | várias | um grupo reprova quando algum NFR de alguma Unit está `Deferred` ou `N/A` no registro da geração de código. O detalhe está abaixo |
 
-## Detalhe dos NFR não construídos, por Unit
+## NFR não construídos, por Unit
 
-| Unit | Qtd. | Motivo |
+| Unit | IDs | Motivo |
 |---|---|---|
-| u4-discovery | 46 | `code-generation/traceability.json` não tem linhas de NFR; elas só estão em `nfr-design/traceability.json`, que o leitor deste estágio não usa |
-| u8-admin-feedback | 35 | arquivo recusado (formato `links`) |
-| u9-dashboard | 20 | arquivo recusado (formato `links`) |
-| u2-audit-trail | 9 | NFR12.1, 3.1, 3.3, 4.2 e 9.1 têm `target` com texto livre misturado aos caminhos, então o leitor não acha o arquivo (que existe); NFR2.3, 3.2, 6.8 e 10.1 estão ausentes do arquivo |
-| u5-bots-decision | 9 | `Deferred` para a carga `u5` (NFR2.1–2.6, 3.1, 3.2), que falhou na semente, para a CI no Linux (NFR13.1) e para a hospedagem (NFR10.1) |
-| u3-identity-access | 3 | `Deferred`: NFR3.1 e NFR3.2 foram medidos aqui (`Met`, cenário `u3`); NFR3.4 depende do smoke da U3 fora de `scripts/verify.sh` |
-| u6-risk-control | 3 | `Deferred`: NFR2.2 e NFR3.2 dependem da carga e do smoke da U5; NFR10.1 depende da hospedagem |
-| u7-ledger-pnl | 2 | `Deferred`: NFR3.1 foi medido aqui (`Met`, cenário `u7`); NFR3.4 depende do smoke da U5 |
+| u4-discovery | NFR1.2, 1.3, 2.1, 2.3, 2.5, 3.3, 3.5, 5.1, 6.8, 7.6, 9.2, 9.3, 9.4, 9.8, 10.5, 14.1 | `Deferred` na volta 1, com motivo registrado. NFR3.5 está reprovado: é a decisão de escala antes do G1. NFR6.8, NFR9.8 e NFR14.1 são lacunas reais anotadas no resumo da U4 |
+| u5-bots-decision | NFR2.1, 2.5, 2.6, 3.1, 3.2, 10.1, 13.1 | `Deferred` no registro da geração de código para a carga `u5`, a hospedagem e a CI. Na matriz, NFR2.1, 2.5, 2.6, 3.1 e 3.2 estão `Met` (carga `u5` da volta 2); NFR2.2 e 2.3 saíram desta lista e estão `OK` desde a volta 2 |
+| u6-risk-control | NFR2.2, 3.2, 10.1 | `Deferred` no registro. Na matriz, NFR2.2 está `Met` (mesma medida do U5-NFR2.3, carga `u5` da volta 2); NFR3.2 é a tela da U5; NFR10.1 depende da hospedagem |
+| u3-identity-access | NFR3.1, 3.2, 3.4 | `Deferred`. NFR3.1 e 3.2 estão `Met` na matriz (cenário `u3`); NFR3.4 depende do smoke da U3 fora de `scripts/verify.sh` |
+| u7-ledger-pnl | NFR3.1, 3.4 | `Deferred`. NFR3.1 está `Met` na matriz (cenário `u7`); NFR3.4 depende do smoke da U5 |
+| u8-admin-feedback | NFR6.7, 12.1, 13.1 | `Deferred` para o smoke, a cobertura do backend e a CI no Linux |
 
-## Dono, arquivo e correção
+## Dono e encaminhamento
 
-| Achado | Dono | Arquivo | Correção |
-|---|---|---|---|
-| T1. Formato `links` | u8-admin-feedback, u9-dashboard (code-generation) | `construction/u8-admin-feedback/code-generation/traceability.json`, `construction/u9-dashboard/code-generation/traceability.json` | reescrever no formato das demais Units (`stage`, `unit`, `upstream_ids`, `coverage[{id,status,target}]`), sem mudar o conteúdo |
-| T2. NFR fora do registro da geração | u4-discovery (code-generation) | `construction/u4-discovery/code-generation/traceability.json` | acrescentar as linhas de NFR com os alvos já citados no `nfr-design/traceability.json` e no código |
-| T3. Alvos com texto livre e IDs ausentes | u2-audit-trail (code-generation) | `construction/u2-audit-trail/code-generation/traceability.json` | deixar só caminhos em `target`, mover as notas para o status, e acrescentar NFR2.3, 3.2, 6.8 e 10.1 |
-| T4. Itens `Deferred` para este estágio | u3, u5, u6, u7 | matriz em `build-and-test-summary.md` | os medidos aqui ficam `Met` na matriz; os da U5 voltam com a correção da semente (volta 1); os de smoke e de hospedagem continuam pendentes |
+| Achado | Dono | Encaminhamento |
+|---|---|---|
+| FR14.x e FR15.1 sem AC | Inception (User Stories, Units Generation) | decisão da pessoa: ligar esses FRs a histórias e Units ou marcá-los fora do beta |
+| U5 NFR2.2 e 2.3, U6 NFR2.2 | u5-bots-decision, u6-risk-control (code-generation) | resolvidos na volta 2; carga `u5` aprovada |
+| Itens `Deferred` de smoke, hospedagem e CI | pessoa, CI Pipeline e estágios de infraestrutura | continuam pendentes, como na primeira execução |
+| U4 NFR3.5 | pessoa | decisão de escala antes do G1 |
 
 ## Cobertos
 
-Os demais 180 elementos estão cobertos. A lista completa, com os ACs de cada FR, está na saída do sensor, guardada no momento da execução. Ela é refeita quando o estágio roda de novo depois da volta 1.
+Os outros 199 elementos estão cobertos. A lista completa, com os ACs de cada FR, está na saída do sensor desta execução, que é refeita a cada vez que o estágio roda.

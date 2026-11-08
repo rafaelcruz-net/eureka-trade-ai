@@ -24,6 +24,7 @@ import net.javacrumbs.shedlock.core.LockingTaskExecutor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
  * Passo 11 of U6, WRITTEN BEFORE THE CODE (BR4.3 as amended by the NFR Design; NFR2.5, NFR10.6): the daily purge
@@ -32,6 +33,9 @@ import org.springframework.beans.factory.annotation.Autowired;
  * across instances (ShedLock {@code riskcontrol-purge}) and stops starting batches after max-run.
  */
 class RiskPurgeIT extends AbstractU6IT {
+
+    /** Far above a batch of two rows on the test database, so a warm-up counted in a batch cannot pass unseen. */
+    private static final Duration WARM_UP_PAUSE = Duration.ofSeconds(2);
 
     @Autowired
     private RiskEvaluationPurgeJob job;
@@ -173,6 +177,192 @@ class RiskPurgeIT extends AbstractU6IT {
         assertThat(oldest.stream().filter(this::exists).count()).isEqualTo(2);
     }
 
+    /**
+     * Passo 25 (volta 2, F10, NFR2.5), WRITTEN BEFORE THE CHANGE: the round warms the path of the batch once, before
+     * the first delete, and that time never enters the measured duration of a batch, batch 1 included.
+     */
+    @Test
+    void theWarmUpRunsOncePerRoundBeforeTheFirstDeleteAndOutsideTheDurationOfEveryBatch() {
+        for (int i = 0; i < 3; i++) {
+            // Younger than the rows of the failure and max-run tests, so their first batches stay theirs.
+            rows.evaluation(person, bot, "APPROVED", (7000 + i) + " days");
+        }
+        List<String> calls = new ArrayList<>();
+        RiskEvaluationPurgeJob observed =
+                new RiskEvaluationPurgeJob(retention, locks, metrics, properties(2, Duration.ofMinutes(30)), clock) {
+                    @Override
+                    protected void warmUp() {
+                        calls.add("warm-up");
+                        super.warmUp();
+                        pause(WARM_UP_PAUSE);
+                    }
+
+                    @Override
+                    protected int deleteBatch(int limit) {
+                        calls.add("delete");
+                        return super.deleteBatch(limit);
+                    }
+                };
+
+        Round round = observed.runOnce();
+
+        assertThat(round.result()).isEqualTo("SUCCEEDED");
+        assertThat(round.batches()).isGreaterThanOrEqualTo(2);
+        assertThat(calls.getFirst()).isEqualTo("warm-up");
+        assertThat(calls.subList(1, calls.size())).hasSize(round.batches()).containsOnly("delete");
+        assertThat(round.warmUp()).isGreaterThanOrEqualTo(WARM_UP_PAUSE);
+        assertThat(round.batchDurations()).hasSize(round.batches()).allSatisfy(duration -> assertThat(duration)
+                .isLessThan(WARM_UP_PAUSE));
+    }
+
+    @Test
+    void aFailedWarmUpFailsTheRoundBeforeAnyDeleteAndRecordsTheCause() {
+        UUID old = rows.evaluation(person, bot, "APPROVED", "7500 days");
+        double failuresBefore = meters.get("riskcontrol.purge.errors").counter().count();
+        List<String> deletes = new ArrayList<>();
+        RiskEvaluationPurgeJob failingWarmUp =
+                new RiskEvaluationPurgeJob(retention, locks, metrics, properties(2, Duration.ofMinutes(30)), clock) {
+                    @Override
+                    protected void warmUp() {
+                        throw new IllegalStateException("injected failure of the warm-up");
+                    }
+
+                    @Override
+                    protected int deleteBatch(int limit) {
+                        deletes.add("delete");
+                        return super.deleteBatch(limit);
+                    }
+                };
+
+        Round failed = failingWarmUp.runOnce();
+
+        assertThat(failed.ran()).isTrue();
+        assertThat(failed.result()).isEqualTo("FAILED");
+        assertThat(failed.deleted()).isZero();
+        assertThat(failed.batches()).isZero();
+        assertThat(failed.batchDurations()).isEmpty();
+        assertThat(failed.failureCause()).contains("IllegalStateException");
+        assertThat(deletes).isEmpty();
+        assertThat(exists(old)).isTrue();
+        Map<String, Object> run = run(failed);
+        assertThat(run.get("result")).isEqualTo("FAILED");
+        assertThat((Long) run.get("deleted_count")).isZero();
+        assertThat(run.get("failure_cause")).isEqualTo("IllegalStateException");
+        assertThat(meters.get("riskcontrol.purge.errors").counter().count()).isEqualTo(failuresBefore + 1);
+    }
+
+    /** The real warm-up, through the retention login: it reads the path of the batch and deletes nothing. */
+    @Test
+    void theWarmUpOfTheRetentionLoginDeletesNothing() {
+        UUID old = rows.evaluation(person, bot, "APPROVED", "7600 days");
+        long before = evaluations();
+
+        job.warmUp();
+
+        assertThat(exists(old)).isTrue();
+        assertThat(evaluations()).isEqualTo(before);
+    }
+
+    /**
+     * Passo 29 (volta 3, F10, choice B1), WRITTEN BEFORE THE CHANGE: the warm-up runs the very DELETE of batch 1 (the
+     * row triggers of order_evaluation fire) in a transaction of its own and rolls it back, so every eligible row is
+     * still there afterwards; only the batches delete, and the retention connection goes back to auto-commit.
+     */
+    @Test
+    void theWarmUpRunsTheDeleteOfBatch1AndRollsItBackSoOnlyTheBatchesDelete() {
+        List<UUID> old = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            old.add(rows.evaluation(person, bot, "APPROVED", (7700 + i) + " days"));
+        }
+        long eligibleBefore = eligible();
+
+        try (DeleteProbe probe = DeleteProbe.counting()) {
+            job.warmUp();
+
+            assertThat(probe.deletes())
+                    .as("rows the DELETE of the warm-up touched")
+                    .isPositive();
+            assertThat(eligible()).isEqualTo(eligibleBefore);
+            assertThat(old).allMatch(this::exists);
+        }
+
+        Round round = job.runOnce();
+
+        assertThat(round.result()).isEqualTo("SUCCEEDED");
+        assertThat(old).noneMatch(this::exists);
+    }
+
+    /** Passo 29, WRITTEN BEFORE THE CHANGE: one rolled-back DELETE per round, before batch 1 and outside its time. */
+    @Test
+    void theRolledBackDeleteOfTheWarmUpRunsOncePerRoundBeforeBatch1() {
+        for (int i = 0; i < 3; i++) {
+            rows.evaluation(person, bot, "APPROVED", (7800 + i) + " days");
+        }
+        List<String> calls = new ArrayList<>();
+        try (DeleteProbe probe = DeleteProbe.counting()) {
+            RiskEvaluationPurgeJob observed =
+                    new RiskEvaluationPurgeJob(
+                            retention, locks, metrics, properties(2, Duration.ofMinutes(30)), clock) {
+                        @Override
+                        protected void warmUp() {
+                            long eligibleBefore = eligible();
+                            long touched = probe.deletes();
+                            super.warmUp();
+                            calls.add("warm-up deleted=" + (probe.deletes() > touched) + " kept="
+                                    + (eligible() == eligibleBefore));
+                        }
+
+                        @Override
+                        protected int deleteBatch(int limit) {
+                            calls.add("delete");
+                            return super.deleteBatch(limit);
+                        }
+                    };
+
+            Round round = observed.runOnce();
+
+            assertThat(round.result()).isEqualTo("SUCCEEDED");
+            assertThat(calls.getFirst()).isEqualTo("warm-up deleted=true kept=true");
+            assertThat(calls.subList(1, calls.size())).hasSize(round.batches()).containsOnly("delete");
+        }
+    }
+
+    /**
+     * Passo 29, WRITTEN BEFORE THE CHANGE: a failure inside the rolled-back DELETE of the warm-up (here a row trigger
+     * that raises after the rows were deleted in the statement) fails the round before any batch: FAILED, the cause
+     * is the class of the exception only, no warm-up time, nothing deleted.
+     */
+    @Test
+    void aFailureInsideTheDeleteOfTheWarmUpFailsTheRoundWithNothingDeleted() {
+        UUID old = rows.evaluation(person, bot, "APPROVED", "7900 days");
+        List<String> deletes = new ArrayList<>();
+        Round failed;
+        try (DeleteProbe probe = DeleteProbe.failing()) {
+            RiskEvaluationPurgeJob observed =
+                    new RiskEvaluationPurgeJob(
+                            retention, locks, metrics, properties(2, Duration.ofMinutes(30)), clock) {
+                        @Override
+                        protected int deleteBatch(int limit) {
+                            deletes.add("delete");
+                            return super.deleteBatch(limit);
+                        }
+                    };
+
+            failed = observed.runOnce();
+        }
+
+        assertThat(failed.result()).isEqualTo("FAILED");
+        assertThat(failed.warmUp()).isZero();
+        assertThat(failed.deleted()).isZero();
+        assertThat(failed.batches()).isZero();
+        assertThat(deletes).isEmpty();
+        assertThat(failed.failureCause())
+                .hasValueSatisfying(
+                        cause -> assertThat(cause).doesNotContain("riskpurgeit").doesNotContain(" "));
+        assertThat(exists(old)).isTrue();
+        assertThat((Long) run(failed).get("deleted_count")).isZero();
+    }
+
     @Test
     void theRunLogKeepsRowsOf89DaysAndTheRoundDeletesRowsOlderThan90Days() {
         RiskRows asRetention = new RiskRows(retentionRole());
@@ -238,6 +428,84 @@ class RiskPurgeIT extends AbstractU6IT {
                         .query(Long.class)
                         .single()
                 == 1;
+    }
+
+    private long evaluations() {
+        return jdbc.sql("select count(*) from order_evaluation")
+                .query(Long.class)
+                .single();
+    }
+
+    /** Approved evaluations the selection of the purge can take: older than 31 days and cited by no rejection. */
+    private long eligible() {
+        return jdbc.sql("""
+                        select count(*) from order_evaluation e
+                        where e.outcome = 'APPROVED' and e.evaluated_at < now() - interval '31 days'
+                          and not exists (select 1 from order_rejection r where r.evaluation_id = e.evaluation_id)
+                        """).query(Long.class).single();
+    }
+
+    /**
+     * TEST ONLY: an AFTER DELETE row trigger on {@code order_evaluation}, installed by the container superuser for one
+     * test and dropped after it. {@link #counting()} counts the deleted rows in a sequence, which a rollback does not
+     * undo, so it shows that a rolled-back DELETE ran; {@link #failing()} raises after the rows were deleted in the
+     * statement. The logins of the application and of retention gain nothing (security definer, dropped at close).
+     */
+    private static final class DeleteProbe implements AutoCloseable {
+
+        private static final String NAME = "riskpurgeit_delete_probe";
+
+        static DeleteProbe counting() {
+            return install("perform nextval('" + NAME + "_seq'); return null;");
+        }
+
+        static DeleteProbe failing() {
+            return install("raise exception 'riskpurgeit probe: injected failure after the delete';");
+        }
+
+        private static DeleteProbe install(String body) {
+            JdbcClient superuser = connect(SUPERUSER);
+            drop(superuser);
+            superuser.sql("create sequence " + NAME + "_seq").update();
+            superuser
+                    .sql("create function " + NAME + "() returns trigger language plpgsql security definer"
+                            + " set search_path = public as $$ begin " + body + " end $$")
+                    .update();
+            superuser
+                    .sql("create trigger " + NAME + " after delete on order_evaluation for each row execute function "
+                            + NAME + "()")
+                    .update();
+            return new DeleteProbe();
+        }
+
+        long deletes() {
+            return connect(SUPERUSER)
+                    .sql("select coalesce(pg_sequence_last_value('" + NAME + "_seq'), 0)")
+                    .query(Long.class)
+                    .single();
+        }
+
+        @Override
+        public void close() {
+            drop(connect(SUPERUSER));
+        }
+
+        private static void drop(JdbcClient superuser) {
+            superuser
+                    .sql("drop trigger if exists " + NAME + " on order_evaluation")
+                    .update();
+            superuser.sql("drop function if exists " + NAME + "()").update();
+            superuser.sql("drop sequence if exists " + NAME + "_seq").update();
+        }
+    }
+
+    private static void pause(Duration duration) {
+        try {
+            Thread.sleep(duration.toMillis());
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted during the pause of the warm-up", interrupted);
+        }
     }
 
     private long runs() {

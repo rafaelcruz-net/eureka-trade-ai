@@ -36,7 +36,9 @@ public class LoadtestRiskHealthIndicator implements HealthIndicator {
                 .withDetail("rejected", driver.rejected())
                 .withDetail("skipped", driver.skipped())
                 .withDetail("cycleFailures", driver.failures())
-                .withDetail("purgeAtSeconds", driver.purgeAtSeconds());
+                .withDetail("purgeAtSeconds", driver.purgeAtSeconds())
+                // Loop 3 (F12): the time of every evaluate call by window, in microseconds, for the p95 of the script.
+                .withDetail("evaluateMicros", driver.evaluateMicros());
         driver.cyclesStartedAt().ifPresent(at -> builder.withDetail("cyclesStartedAt", at.toString()));
         purge.last().ifPresent(round -> builder.withDetail("purgeRan", round.ran())
                 .withDetail("purgeResult", round.result())

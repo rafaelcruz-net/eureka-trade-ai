@@ -6,6 +6,8 @@
 - Touches: `apps/api/` (módulo novo `riskcontrol`, migração `0009`, OpenAPI do convidado, configuração, testes), `infra/postgres/bootstrap/10-roles.sql`, `docker-compose.yml`, `infra/docker-compose.test.yml`, `.github/workflows/load-test.yml`, `scripts/load-test.sh`, `scripts/load/`, `docs/`, `contract-summary.md`
 - Tests: cerca de 170 testes de backend, com o núcleo escrito antes do código: catálogo E1 a E21, propriedade, integração com Testcontainers, concorrência, privilégios, expurgo, ArchUnit e contrato. Há ainda o cenário de carga `u6`. O piso de 80% de linhas é mantido. Não há tela nem smoke novo (Q1 da Infrastructure Design, opção B)
 - Volta 1 de Build and Test: corrige a conferência de plano do cenário `u6` em `scripts/load/load-test.mjs`, que reprovava o `Seq Scan` da própria subconsulta de amostra, com um teste `node --test`. Nenhum código de produção muda, e a nova execução do cenário fica para o Build and Test
+- Volta 2 de Build and Test: investiga o primeiro lote do expurgo acima de 100 ms (F10) e faz a semente `LoadtestRiskSeed` rodar `ANALYZE` depois de semear, com um teste antes da mudança e uma nova execução do cenário `u6`. O limite de 100 ms por lote não muda. Na continuação, a rodada do expurgo aquece a conexão de retenção antes do primeiro lote, o rastreio e o critério da semente são corrigidos e o cenário `u6` roda 3 vezes
+- Volta 3 de Build and Test: mede o p95 da avaliação com e sem expurgo com precisão melhor que a faixa do histograma, mantendo a regra de 10% (escolha A1 da pessoa); o aquecimento do expurgo passa a executar o `DELETE` do lote 1 e desfazê-lo com `rollback`, e a duração dos lotes é arredondada para cima (escolha B1). Testes antes da mudança, `verify` e 3 cargas `u6`. Os limites de 10%, 250 ms e 100 ms não mudam
 
 ## Entradas
 
@@ -326,6 +328,111 @@ A correção fica só no script de carga. Nenhum código de produção, migraç�
   - Rodar o `WorkflowsTest` e o `ComposeFilesTest` (comandos da volta 1 em [unit-test-instructions.md](unit-test-instructions.md)), para confirmar que o script segue com o que eles exigem.
   - `code-summary.md`: seção "Volta 1" com a causa, a correção, o teste novo e os resultados.
   - `traceability.json`: acrescentar o teste novo como alvo do NFR2.6. O NFR2.6 continua `Deferred` até a nova execução do cenário `u6`, que acontece no Build and Test.
+  - Fundação; NFR12.1.
+
+### Volta 2 de Build and Test (2026-11-07)
+
+Na segunda execução do Build and Test, a conferência de plano do cenário `u6` passou: sem `Seq Scan`, e o NFR2.6 ficou `Met`. Ficou uma falha, a F10 em [test-results.md](../../build-and-test/test-results.md):
+- o primeiro lote do expurgo levou 106 ms, acima do limite de 100 ms por lote (NFR2.5);
+- os lotes 2 a 201 ficaram entre 39 e 60 ms, e na execução de 2026-11-06 o maior lote foi 90 ms.
+
+A causa provável é cache e estatísticas frios: o primeiro lote roda logo depois de a `LoadtestRiskSeed` semear 200 000 aprovadas antigas, e a semente não roda `ANALYZE`. Os Passos 1 a 21 ficam como estão. O limite de 100 ms por lote não muda.
+
+- [x] **Passo 22 — Causa do primeiro lote lento (investigação).**
+  - Conferir a causa antes de mudar código:
+    - rodar o `EXPLAIN (ANALYZE, BUFFERS)` da seleção de um lote de `RiskEvaluationPurgeJob` sobre uma base semeada como no cenário, uma vez sem `ANALYZE` depois da semente e outra com `ANALYZE`;
+    - anotar no resumo o plano, o tempo e os buffers lidos de cada caso.
+  - Responder no resumo se o expurgo de produção também paga esse custo no primeiro lote, com base nesse plano. Em produção, o autovacuum mantém as estatísticas, e a rodada diária das 03:30 UTC encontra a tabela no estado normal.
+  - Se o plano sem estatísticas for diferente do plano com estatísticas (por exemplo, `Seq Scan` no lugar do índice), a causa está na semente. Se o plano for o mesmo e só o cache estiver frio, também está na semente, porque o cenário mede o expurgo logo depois de uma escrita em massa que a produção não tem.
+  - Se a seleção do expurgo pegar um plano ruim mesmo com estatísticas atualizadas, a correção vai para a consulta do expurgo, com o teste do Passo 23 cobrindo o plano. Essa parte só é feita nesse caso, e o resumo registra qual dos dois aconteceu.
+  - NFR2.5.
+- [x] **Passo 23 — Estatísticas depois da semente (vermelho → verde).**
+  - Teste antes da mudança, em `LoadtestRiskSeedIT` (ou no teste da semente que já existir), no perfil `test,loadtest` com Testcontainers:
+    - depois da semente, `pg_stat_user_tables.last_analyze` (ou `last_autoanalyze`) de `order_evaluation` e `order_rejection` está preenchido, e `n_mod_since_analyze` é 0 nas duas tabelas;
+    - hoje, o teste falha, porque a semente não roda `ANALYZE`. A saída vermelha fica no resumo.
+  - Mudança: a `LoadtestRiskSeed` roda `ANALYZE order_evaluation, order_rejection` depois de semear e antes de liberar o expurgo. A semente continua só no perfil `loadtest`, e nenhum código de produção muda. Se o Passo 22 tiver mandado a correção para o expurgo, a mudança e o teste de plano entram aqui também.
+  - Depois, o teste passa.
+  - NFR2.5.
+- [x] **Passo 24 — Nova carga e registro.**
+  - Rodar o comando da U6 e o `verify` inteiro do backend, sem `-Dmaven.test.failure.ignore` e sem reduzir o piso de 80%.
+  - Rodar o cenário `u6` de novo (cerca de 15 min) e conferir que nenhum lote passa de 100 ms e que as outras medidas continuam dentro dos limites. Se algum limite falhar, registrar no resumo com os números, sem mudar o limite.
+  - Atualizar:
+    - `code-summary.md`: seção "Volta 2" com a causa, a mudança, o vermelho, o verde e os números da carga;
+    - `source-manifest.json` e `traceability.json`: o NFR2.5 sai de `Deferred` só se for medido e atendido;
+    - `docs/perf/u6-risk-control-2026-11-07.md`;
+    - `unit-test-instructions.md`: só se for preciso um comando novo.
+  - Fundação; NFR12.1.
+
+### Volta 2, continuação: custo de primeiro uso do expurgo (2026-11-07)
+
+O Passo 22 mostrou que, na hora do expurgo, as estatísticas já estavam em dia. O excesso do primeiro lote vem do custo de primeiro uso:
+- o pool de retenção (`minimumIdle=0`) abre a conexão no lote 1;
+- gatilhos, índices e páginas carregam pela primeira vez.
+
+O lote 1 passou com 97 ms, contra 106 ms e 90 ms nas execuções anteriores. Com folga de 3 ms, a carga pode falhar sem mudança de código, e o `team.md` trata teste instável como defeito. A revisão também apontou o alvo do NFR2.5 e do NFR2.6 em `traceability.json` e o critério da espera da semente. A pessoa escolheu aquecer a conexão de retenção antes do primeiro lote. O limite de 100 ms por lote não muda, e o lote 1 continua medido como os outros.
+
+- [x] **Passo 25 — Aquecimento da rodada do expurgo (vermelho → verde).**
+  - Mudança no expurgo de produção (`RiskEvaluationPurgeJob`):
+    - antes do primeiro lote e fora do tempo medido de cada lote, a rodada abre a conexão de retenção e faz uma leitura leve que toca o caminho do lote (por exemplo, o mesmo `EXPLAIN` sem `ANALYZE` da seleção, ou um `select 1` com `exists` sobre o índice `order_evaluation_purge_idx`);
+    - a leitura não apaga nada, não lê dados de pessoa e não muda privilégio do login de retenção;
+    - uma falha no aquecimento faz a rodada falhar como hoje: grava `risk_purge_run` com falha, sem apagar nada, e com log do motivo, sem segredo.
+  - `RiskRetentionDataSourceConfig` continua com `minimumIdle=0` e sem conectar na subida. A senha errada ainda só aparece na rodada.
+  - Testes antes da mudança, no `RiskPurgeIT` ou num teste novo da rodada:
+    - o aquecimento acontece uma vez por rodada, antes do primeiro `delete`, e fora da duração registrada de cada lote;
+    - falha no aquecimento: a rodada sai `FAILED`, sem linha apagada e com o motivo;
+    - os casos atuais do expurgo continuam verdes, incluindo o ShedLock, os lotes em transações separadas e a aprovada citada por `DUPLICATE`.
+  - Hoje, os testes novos falham. A saída vermelha vai para o resumo.
+  - NFR2.5; BR4.3.
+- [x] **Passo 26 — Rastreio e critério da semente.**
+  - `traceability.json`: o alvo do NFR2.5 e do NFR2.6 passa a ser um único arquivo existente, `docs/perf/u6-risk-control-2026-11-07.md`. A medição fica na nota.
+  - `LoadtestRiskSeed`: além do limiar do autovacuum, exigir `last_autoanalyze` ou `last_analyze` posterior ao início da semente nas duas tabelas, como o `LoadtestRiskSeedIT` já confere. O teste unitário da espera ganha esse caso.
+  - Corrigir a nota da volta 2 no relatório de carga e no `code-summary.md`: a espera por estatísticas não foi o que fez o lote 1 passar. A causa do excesso é o custo de primeiro uso, tratado no Passo 25.
+  - NFR2.5, NFR2.6.
+- [x] **Passo 27 — Três cargas e registro.**
+  - Rodar o comando da U6 e o `verify` inteiro do backend, sem `-Dmaven.test.failure.ignore` e sem reduzir o piso de 80%.
+  - Rodar o cenário `u6` 3 vezes seguidas, uma de cada vez e sem outro ambiente de pé. Registrar em cada execução o lote 1, o maior lote e as outras medidas.
+  - A F10 só fica resolvida se as 3 execuções tiverem todos os lotes até 100 ms. Se alguma passar, registrar os números no resumo, sem mudar o limite.
+  - Atualizar `code-summary.md` (seção "Volta 2, continuação"), `source-manifest.json`, `traceability.json` e o relatório `docs/perf/u6-risk-control-2026-11-07.md`.
+  - Fundação; NFR12.1.
+
+### Volta 3 de Build and Test (2026-11-08)
+
+A terceira execução de Build and Test reprovou a U6 (F12 e F10 em `build-and-test/test-results.md`, revisão 06 da U6):
+- **F12:** na carga 2, o p95 da avaliação com expurgo foi 34 ms contra 22 ms sem expurgo, e a regra de no máximo 10% acima reprovou. Os dois valores vêm das faixas do histograma (22,4 e 33,6 ms), então a troca de uma faixa reprova a carga por ruído.
+- **F10:** o lote 1 ficou em 100, 95 e 94 ms nas 3 cargas (limite 100 ms), cerca de 40 ms acima dos demais. O aquecimento por leitura não executa o `DELETE`, então o gatilho e a verificação de chave estrangeira continuam frios no lote 1. A duração do lote é truncada em milissegundos (`toMillis()`) e a reprovação é `> 100`, então um lote de 100,9 ms passa. O Javadoc de `warmUp()` afirma que o lote 1 custa o mesmo que o lote 2, e a medição desmente isso.
+
+A pessoa escolheu A1 (medir com precisão maior que a faixa, mantendo a regra de 10%) e B1 (`DELETE` real do lote 1 desfeito com `rollback`, com a duração arredondada para cima). Os limites de 10%, 250 ms e 100 ms por lote não mudam.
+
+- [x] **Passo 28 — p95 da avaliação com precisão melhor que a faixa (A1).**
+  - Achar onde o cenário `u6` lê o p95 de `OrderGate.evaluate` com e sem expurgo (`scripts/load/load-test.mjs` e o perfil `loadtest`) e registrar a resolução atual.
+  - Trocar a medida por uma com erro bem menor que 10% na faixa de 10 a 60 ms, só no perfil `loadtest` e no script, por exemplo:
+    - faixas do histograma mais finas (SLO) só no perfil `loadtest`; ou
+    - percentil calculado das amostras de duração (por exemplo, guardadas pelo perfil `loadtest` ou lidas do registro de tempos).
+  - A regra continua: o p95 com expurgo não passa de 10% acima do p95 sem expurgo, e o p95 absoluto fica em até 250 ms. O relatório mostra os dois valores com a precisão nova e a forma de cálculo.
+  - Teste antes da mudança (`node --test` ou teste do perfil): um caso com duas amostras que caem na mesma faixa antiga mas diferem menos de 10% passa; um caso com diferença real acima de 10% reprova. Hoje o primeiro falha (vermelho registrado no resumo).
+  - Produção não muda neste passo.
+  - NFR2.1, NFR2.5.
+- [x] **Passo 29 — Aquecimento com `DELETE` desfeito e duração arredondada para cima (B1, vermelho → verde).**
+  - Mudança no expurgo de produção (`RiskEvaluationPurgeJob`):
+    - o aquecimento passa a executar, numa transação própria, o mesmo `DELETE` do lote 1 (mesmo corte e mesmo limite de 5.000 linhas) e desfaz com `rollback`, para aquecer o gatilho, as verificações de chave estrangeira e o caminho do índice;
+    - nada é apagado: a transação nunca confirma; uma falha no aquecimento faz a rodada sair `FAILED` sem apagar nada, com log só da classe da exceção;
+    - o aquecimento fica fora do tempo medido dos lotes e é registrado à parte (`Risk purge warm-up: durationMs=`), como hoje;
+    - a duração de cada lote passa a ser arredondada para cima em milissegundos (ou registrada em microssegundos), para que 100,1 ms reprove o limite de 100 ms;
+    - corrigir o Javadoc de `warmUp()` para dizer o que o aquecimento faz e o que ele não garante.
+  - Riscos a cobrir: o `DELETE` desfeito segura travas de linha por poucos milissegundos dentro do ShedLock da rodada; o login de retenção não ganha privilégio novo; `minimumIdle=0` continua.
+  - Testes escritos antes da mudança, no `RiskPurgeIT` (núcleo de risco):
+    - depois do aquecimento, a contagem de avaliações elegíveis é a mesma de antes (nada apagado), e só os lotes apagam;
+    - o aquecimento executa o `DELETE` e o desfaz uma vez por rodada, antes do lote 1;
+    - falha no aquecimento: rodada `FAILED`, 0 linhas apagadas;
+    - arredondamento: uma duração de 100 ms e 1 µs é registrada como 101 ms (teste unitário do cálculo);
+    - os casos atuais do expurgo continuam verdes (ShedLock, transações separadas, aprovada citada por `DUPLICATE`).
+  - Hoje, os testes novos falham. A saída vermelha vai para o resumo.
+  - NFR2.5; BR4.3.
+- [x] **Passo 30 — Verify, três cargas e registro.**
+  - Rodar o comando da U6 e o `verify` inteiro do backend, sem `-Dmaven.test.failure.ignore` e sem reduzir o piso de 80%.
+  - Rodar o cenário `u6` 3 vezes seguidas, uma de cada vez e sem outro ambiente de pé. Registrar em cada execução: aquecimento, lote 1, maior lote, lotes 2 em diante e o p95 da avaliação com e sem expurgo na precisão nova.
+  - F10 e F12 só ficam resolvidas se as 3 execuções aprovarem. Se alguma reprovar, registrar os números no resumo, sem mudar os limites.
+  - Atualizar `code-summary.md` (seção "Volta 3"), `source-manifest.json`, `traceability.json` (NFR2.1 volta a `OK` só se as 3 cargas aprovarem) e o relatório `docs/perf/u6-risk-control-2026-11-07.md` (ou um relatório novo com a data de 2026-11-08, citado no rastreio).
   - Fundação; NFR12.1.
 
 ## Rastreio das histórias

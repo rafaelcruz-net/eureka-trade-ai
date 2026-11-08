@@ -32,8 +32,19 @@ Pré-requisitos: Docker Desktop, JDK 21, Node LTS com `corepack pnpm@10.18.3` e 
 | Volta 1: regressão da semente | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u5 -Dit.test=LoadtestBotSeedIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false test-compile surefire:test failsafe:integration-test failsafe:verify` |
 | Volta 1: backend da U5 | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u5 test-compile surefire:test failsafe:integration-test failsafe:verify` |
 | Volta 1: suíte inteira com cobertura | `apps/api/mvnw -f apps/api/pom.xml verify` |
+| Volta 2: fatias e falhas do script de carga | `node --test scripts/load/load-test-u5-slices.test.mjs` |
+| Volta 2: frescor no cenário de sinais frequentes | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u5 -Dit.test=LoadtestFrequentSignalsFreshnessIT -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false test-compile surefire:test failsafe:integration-test failsafe:verify` |
+| Volta 2: backend da U5 | `apps/api/mvnw -f apps/api/pom.xml -Dgroups=u5 test-compile surefire:test failsafe:integration-test failsafe:verify` |
+| Volta 2: suíte inteira com cobertura | `apps/api/mvnw -f apps/api/pom.xml verify` |
+| Volta 2: carga da U5 | `LOAD_SCENARIO=u5 SPRING_PROFILES_ACTIVE=test,loadtest bash scripts/load-test.sh` |
+| Volta 3: suíte completa do frontend | `corepack pnpm@10.18.3 --dir apps/web exec jest --coverage` (3 vezes seguidas) |
 
 Na volta 1 de Build and Test (Passos 23 a 25), os testes de regressão de `LoadtestBotSeedIT` são escritos antes da correção e falham com a violação da chave estrangeira `decision.cycle_id`. Depois da correção, eles passam. O cenário de carga `u5` roda de novo no Build and Test, não nesta etapa.
+
+Na volta 2 (Passos 26 a 29), cada teste novo é escrito antes da mudança, e a saída vermelha fica registrada no resumo:
+- **Contagem de fatias:** o teste `node --test` falha porque a regra antiga espera 6 fatias.
+- **Frescor:** o teste de integração `LoadtestFrequentSignalsFreshnessIT` falha enquanto alguma decisão sair `STALE_DATA` com a fonte simulada operante. O nome da classe pode mudar conforme a causa encontrada no Passo 27, e o resumo registra o nome final.
+- **Carga:** nesta volta o cenário `u5` roda aqui mesmo, e depois de novo no Build and Test.
 
 O comando do backend fica pronto no Passo 2, antes do primeiro teste vermelho (Passo 4). A saída vermelha de cada passo com testes antes do código é registrada no resumo.
 
