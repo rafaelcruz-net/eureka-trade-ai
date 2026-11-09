@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { SiteFooter } from '@/components/SiteFooter';
 import { messages } from '@/lib/i18n/messages';
 import { useSession } from '@/features/auth/AdminSessionProvider';
 import { KillSwitchBanner } from '@/features/layout/KillSwitchBanner';
@@ -53,6 +54,8 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           {text.noPersonalData}
         </p>
       </main>
+      {/* u1-legal-documents (BR1.11): the legal links on every administrative screen. */}
+      <SiteFooter />
     </KillSwitchProvider>
   );
 }

@@ -54,6 +54,11 @@ test('U3: convite → conta criada → tela Conta → Sair', async ({ page }) =>
   expect(response?.headers()['referrer-policy']).toBe('no-referrer');
   expect(response?.headers()['cache-control']).toBe('no-store');
   await expect(page.getByTestId('invite-connect-reason')).toContainText('Marque os dois aceites');
+  // u1-legal-documents: the version comes from the effective current version of the catalog (the e2e run reads the
+  // test catalog, whose current version is v2), so the account must show the version the invitation showed.
+  const heading = await page.locator('#invite-terms-heading').innerText();
+  const termsVersion = /versão ([A-Za-z0-9._-]+)\)/.exec(heading)?.[1];
+  expect(termsVersion, 'the invitation names the version of the terms').toBeTruthy();
 
   await page.getByTestId('invite-accept-terms').check();
   await page.getByTestId('invite-accept-risk').check();
@@ -66,7 +71,7 @@ test('U3: convite → conta criada → tela Conta → Sair', async ({ page }) =>
   await expect(page.getByTestId('account-wallet')).toHaveText(
     `${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}`,
   );
-  await expect(page.getByTestId('account-terms-version')).toContainText('v1');
+  await expect(page.getByTestId('account-terms-version')).toContainText(termsVersion ?? '');
   await expect(page.getByTestId('account-real-mode')).toHaveText('Modo REAL: indisponível no beta');
   await expect(page.getByRole('button', { name: /real/i })).toHaveCount(0);
   await expect(page.getByRole('checkbox')).toHaveCount(0);

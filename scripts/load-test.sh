@@ -94,7 +94,11 @@ case "$LOAD_SCENARIO" in
     export LOADTEST_U5_DECISIONS_PER_BOT="${LOADTEST_U5_DECISIONS_PER_BOT:-20000}"
     export MARKET_SIMULATED_SCENARIO=FREQUENT_SIGNALS
     ;;
-  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs, u6 or u5" >&2; exit 1 ;;
+  # u1-legal-documents (performance-design.md "Medição"): legal runs 20 users for 5 minutes, half on the pages /termos
+  # and /privacidade of the guest app and half on /api/v1/legal/** (p95 page <= 2 s, p95 api <= 300 ms, no 5xx). The
+  # per-IP limit of the legal documents is raised by application-loadtest.yml (profile loadtest), never by a variable.
+  legal) export MARKET_SIMULATED_TOKENS_PER_SOURCE="${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}" DURATION_S="${DURATION_S:-300}" ;;
+  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs, u6, u5 or legal" >&2; exit 1 ;;
 esac
 case "$LOAD_SCENARIO" in
   u5)

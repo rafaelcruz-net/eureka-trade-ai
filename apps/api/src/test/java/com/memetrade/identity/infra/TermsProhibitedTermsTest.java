@@ -29,7 +29,11 @@ class TermsProhibitedTermsTest {
     @Test
     void neitherTheTermsNorTheRiskNoticeContainAProhibitedTerm() throws IOException {
         TermsDocument current = new TermsCatalog(
-                        new PathMatchingResourcePatternResolver(), new TermsProperties("classpath:terms/"))
+                        new PathMatchingResourcePatternResolver(),
+                        new TermsProperties("classpath:terms/"),
+                        com.memetrade.identity.domain.legal.LegalSettings.defaults(),
+                        java.time.Clock.fixed(
+                                java.time.Instant.parse("2026-10-28T12:00:00Z"), java.time.ZoneOffset.UTC))
                 .current();
         List<String> terms = prohibitedTerms();
 

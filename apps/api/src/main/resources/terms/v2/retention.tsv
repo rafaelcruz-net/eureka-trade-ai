@@ -1,0 +1,15 @@
+# Retention table of the privacy policy (FR3.4), tab-separated: dataItem, purpose, period, endAction.
+# Draft of v2: the periods follow the purges of the code; U2 replaces this source through the J5 port.
+dataItem	purpose	period	endAction
+Conta, endereço público da carteira e provedor	Identificar sua conta	Enquanto a conta existir	Anonimizar: o endereço e o provedor são apagados
+Bots e histórico de operações PAPER	Executar a simulação e mostrar resultados	Enquanto a conta existir	Manter sem vínculo com você depois da anonimização
+Aceites dos termos	Provar o aceite de cada versão	Enquanto a conta existir	Manter sem vínculo com você depois da anonimização
+Trilha de auditoria	Segurança e exercício de direitos	12 meses	Apagar
+Saída da trilha de auditoria	Entregar os eventos da trilha	7 dias após a entrega	Apagar
+Comentários de feedback	Melhorar o produto	180 dias	Apagar
+Decisões HOLD e NO_TRADE dos bots	Explicar as decisões recentes	30 dias	Apagar
+Avaliações aprovadas da barreira de risco	Conferir as ordens simuladas	30 dias	Apagar
+Chaves de idempotência	Evitar operações repetidas	24 horas	Apagar
+Desafios de login	Verificar a assinatura de entrada	24 horas após expirar	Apagar
+Sessões e renovações	Manter você conectado	30 dias após o fim ou a revogação	Apagar
+Pedidos de titular	Atender e comprovar o atendimento	12 meses após concluídos	Apagar

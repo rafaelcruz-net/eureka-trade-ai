@@ -1,0 +1,6 @@
+O beta é fechado, por convite pessoal e de uso único.
+Todas as operações são simuladas no modo PAPER, com saldo virtual; o modo REAL está indisponível.
+A assinatura de login só identifica você e não autoriza nenhuma operação.
+Nunca pedimos sua frase secreta nem sua chave privada.
+Resultados simulados não indicam resultados futuros, e nada aqui promete lucro.
+Uma versão nova destes termos exige um novo aceite.

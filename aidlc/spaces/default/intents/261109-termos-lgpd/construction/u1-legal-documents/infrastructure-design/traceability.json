@@ -1,0 +1,21 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u1-legal-documents",
+  "upstream_ids": ["NFR3.1", "NFR3.2", "NFR3.3", "NFR3.4", "NFR3.8", "NFR6.1", "NFR6.3", "NFR6.5", "NFR7.1", "NFR7.3", "NFR8.1", "NFR8.2", "NFR8.3", "NFR9.1"],
+  "coverage": [
+    { "id": "NFR3.1", "status": "OK", "target": "cenário legal no load-test.yml" },
+    { "id": "NFR3.2", "status": "OK", "target": "métrica HTTP e cenário legal" },
+    { "id": "NFR3.3", "status": "OK", "target": "cenário legal reprova com 5xx; alerta HTTP_5XX_RATE" },
+    { "id": "NFR3.4", "status": "OK", "target": "Cache-Control e ETag; cache de dados do app" },
+    { "id": "NFR3.8", "status": "OK", "target": "contêineres existentes sem estado compartilhado" },
+    { "id": "NFR6.1", "status": "OK", "target": "variáveis de configuração sem segredo, fora de NEXT_PUBLIC" },
+    { "id": "NFR6.3", "status": "OK", "target": "rede do Compose parametrizada, IPs fixos de web e admin na sub-faixa 172.28.1.0/24 (sem o gateway) e MEMETRADE_LEGAL_RATE_LIMIT_*" },
+    { "id": "NFR6.5", "status": "OK", "target": "cabeçalhos existentes dos apps e da API" },
+    { "id": "NFR7.1", "status": "OK", "target": "healthcheck do Compose mostra a API não saudável na falha de subida" },
+    { "id": "NFR7.3", "status": "OK", "target": "saúde legalDocuments e alerta LEGAL_NOT_PUBLISHABLE" },
+    { "id": "NFR8.1", "status": "OK", "target": "logs JSON e alerta LEGAL_VERSION_IGNORED" },
+    { "id": "NFR8.2", "status": "OK", "target": "actuator legalDocuments" },
+    { "id": "NFR8.3", "status": "OK", "target": "métrica HTTP existente" },
+    { "id": "NFR9.1", "status": "OK", "target": "portões de cobertura no ci.yml (pré-requisito 1) e verify.sh (pré-requisito 2)" }
+  ]
+}

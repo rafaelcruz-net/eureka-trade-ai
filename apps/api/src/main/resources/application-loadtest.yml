@@ -4,6 +4,10 @@ memetrade:
     login-rate-limit-per-minute: ${LOGIN_RATE_LIMIT_PER_MINUTE:1000}
     # U3 (performance-design.md): the invitation lookup is measured for real, so its per-IP limit is raised here only.
     invite-lookup-rate-limit-per-minute: ${INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE:1000}
+  # u1-legal-documents (infrastructure-specification.md): the scenario "legal" measures the public routes for real from
+  # the host, so their per-IP limit is raised here only (never by a variable of the test overlay).
+  legal:
+    rate-limit-per-minute: 100000
   # U7 (cicd-pipeline.md, Passo 23): the load cycle driver of com.memetrade.ledger.loadtest. With people at 0 (the
   # default, every scenario but u7 and u7-jobs) it does nothing; scripts/load-test.sh sets the values of u7 and u7-jobs.
   loadtest:

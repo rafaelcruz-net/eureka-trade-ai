@@ -22,12 +22,18 @@ import org.springframework.mock.web.MockHttpServletResponse;
  */
 class AdminGuestRoutesIT extends AbstractU8IT {
 
-    /** Routes that read no access token: the entries and the public invitation lookup. */
+    /**
+     * Routes that read no access token: the entries, the public invitation lookup and the public legal documents
+     * (u1-legal-documents, BR1.7).
+     */
     private static final Set<String> PUBLIC = Set.of(
             "POST /api/v1/auth/challenge",
             "POST /api/v1/auth/verify",
             "POST /api/v1/auth/refresh",
             "GET /api/v1/invites/{code}",
+            "GET /api/v1/legal/current",
+            "GET /api/v1/legal/versions",
+            "GET /api/v1/legal/versions/{version}",
             "POST /api/v1/admin/auth/challenge",
             "POST /api/v1/admin/auth/verify",
             "POST /api/v1/admin/auth/refresh");

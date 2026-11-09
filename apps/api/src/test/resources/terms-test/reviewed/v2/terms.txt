@@ -1,0 +1,9 @@
+## Uso do beta de teste
+
+Texto de teste dos termos v2.
+
+Segundo parágrafo de teste com <script>alert(1)</script> que deve aparecer como texto.
+
+## Contas de teste
+
+Texto de teste sobre contas.

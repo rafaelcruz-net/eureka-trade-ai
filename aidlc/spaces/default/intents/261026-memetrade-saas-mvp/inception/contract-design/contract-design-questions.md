@@ -220,7 +220,7 @@ X. Other (please specify)
 
 [Answer]: A
 
-## Consolidated Summary Confirmation
+## Confirmação do resumo da primeira rodada (registro histórico)
 
 - API REST privada, usada só pelos dois apps do monorepo; nenhum consumidor externo no beta (Q1).
 - Código primeiro: o backend gera o OpenAPI; a CI compara com o arquivo versionado, e os tipos do frontend são gerados dele (Q2).
@@ -240,6 +240,73 @@ X. Other (please specify)
 - Corrigir também os pontos da revisão sem decisão nova: `tenantId` opcional antes do login, `Idempotency-Key` fora da renovação e com escopo pela carteira antes do login, tipos completos, percentual sem ambiguidade e papel `ADMIN` só pela entrada administrativa (Q20).
 
 Does this all look correct before I generate the artifact?
+
+- Looks correct
+- Request changes
+
+[Answer]: Looks correct
+
+# Revisão de 2026-11-09
+
+Conversa: português (Brasil). O `contract-summary.md` recebeu, na geração de código da U9 (commit `26c9885`), duas notas aditivas: a ordem de `GET /api/v1/bots` e os "Acréscimos da U9" ao canal C7. Comparando com o `apps/api/openapi/openapi-guest.yaml` gerado do código, o bloco YAML de C7 ficou desatualizado:
+- não tem a resposta `429 RATE_LIMITED` com `Retry-After`;
+- descreve `trade.recorded` como `PaperTrade` e `pnl.updated` como `PnlReport`, mas o código envia avisos curtos (`DashboardTradeNotice` e `ledgerMark`) com envelopes próprios (`Dashboard*Event`).
+
+Além disso, várias linhas de "Open questions" já foram resolvidas em etapas seguintes.
+
+## Q21. [Arquitetura] Como incorporar os acréscimos da U9 ao contrato?
+
+A) Consolidar no próprio contrato:
+- reescrever o bloco YAML de C7 (versão `1.1.0`), com os envelopes `Dashboard*Event` por evento, a resposta `429 RATE_LIMITED` com `Retry-After` e as descrições de `trade.recorded` e `pnl.updated` como avisos;
+- registrar a ordem (`updated_at` decrescente, `botId` no empate) na operação `GET /api/v1/bots` de C4;
+- trocar as notas soltas por uma linha de histórico.
+
+A U9 é a única consumidora e já foi construída sobre o formato implementado, então nada quebra (recomendado)
+
+B) Manter as notas como estão, sem mexer nos blocos YAML
+X) Other (please specify)
+
+[Answer]: A
+
+## Q22. [Arquitetura] Quem é dono do teto de canais por pessoa?
+
+A) A U5 continua dona de C7, inclusive do teto (`memetrade.bots.stream.max-channels-per-person`, padrão 5, de 1 a 20). Uma mudança no teto ou nos envelopes exige o smoke da U9 verde. A U9 segue como consumidora registrada (recomendado)
+B) Passar a propriedade de C7 para a U9
+X) Other (please specify)
+
+[Answer]: A
+
+## Q23. [Arquitetura] Como evitar que o contrato fique para trás de novo?
+
+A) Acrescentar às regras de propriedade: uma mudança de contrato feita na geração de código atualiza o bloco YAML do `contract-summary.md` no mesmo commit que muda o OpenAPI gerado, e a revisão da Unit confere os dois. O OpenAPI gerado continua sendo a fonte da verdade (recomendado)
+B) Deixar o `contract-summary.md` só como desenho inicial e apontar sempre para o OpenAPI gerado
+X) Other (please specify)
+
+[Answer]: A
+
+## Q24. [Arquitetura] E as "Open questions" já resolvidas?
+
+A) Atualizar a tabela: cada linha resolvida ganha a resposta e onde foi decidida. São elas:
+- OQ-3, moeda: Functional Design da U5;
+- OQ-4, tokens de 15 min, 8 h e 12 h: Functional Design da U1 e NFR Requirements;
+- OQ-6, idempotência: Functional Design da U1;
+- OQ-8, conta `BETA_USER` do smoke: correção registrada no projeto;
+- OQ-9, relay de 1 s e marcas de 2 s: NFR Design.
+
+Fica aberta só a OQ-7 (fontes reais, depois do G0) (recomendado)
+
+B) Deixar a tabela como está
+X) Other (please specify)
+
+[Answer]: A
+
+## Consolidated Summary Confirmation
+Does this all look correct before I generate the artifact?
+
+- C7 consolidado na versão `1.1.0`: envelopes `Dashboard*Event` por evento, `429 RATE_LIMITED` com `Retry-After`, `trade.recorded` e `pnl.updated` como avisos; ordem de `GET /api/v1/bots` registrada em C4; notas soltas trocadas por uma linha de histórico.
+- U5 continua dona de C7 e do teto de canais (padrão 5, de 1 a 20); mudança no teto ou nos envelopes exige o smoke da U9 verde.
+- Nova regra de propriedade: mudança de contrato na geração de código atualiza o YAML do `contract-summary.md` no mesmo commit do OpenAPI gerado, e a revisão da Unit confere os dois.
+- Open questions: OQ-3, OQ-4, OQ-6, OQ-8 e OQ-9 marcadas como resolvidas com a origem; só a OQ-7 fica aberta.
 
 - Looks correct
 - Request changes

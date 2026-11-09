@@ -1,0 +1,27 @@
+**Verdict:** READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-11-09T17:50:23Z
+**Iteration:** 2
+**Verdict Dictated:** no
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u1-legal-documents/infrastructure-design/infrastructure-specification.md > Deployment > Rede e tabela "Configuração nova da `api`" (`MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS` = `172.28.0.0/16`) | A isenção cobre a faixa inteira da rede do Compose. O gateway da ponte (por exemplo 172.28.0.1) também está nessa faixa, e é a partir dele que o `api` costuma enxergar o tráfego que chega pelas portas publicadas em `127.0.0.1` (navegador, Playwright do `verify.sh`, k6 do `load-test.yml`). Com isso o tráfego de fora do Compose fica isento no ambiente local, e o teste "X-Forwarded-For forjado recebe 429" do design de NFR não pode passar no e2e. O limitador fica sem efeito justamente no caminho que a verificação exercita. | Atribuir IPs fixos (`ipv4_address`) a `web` e `admin` numa sub-faixa estreita (por exemplo `172.28.1.0/24`) e listar só essa sub-faixa, deixando o gateway de fora. Alternativamente, documentar e testar explicitamente que o par direto do tráfego publicado cai fora da lista. Acrescentar ao e2e ou ao teste de integração uma verificação de que uma requisição pela porta publicada recebe 429 ao exceder o limite. | Resolved (reviewer) |
+| R-02 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u1-legal-documents/infrastructure-design/infrastructure-specification.md > Deployment > Rede | A faixa fixa `172.28.0.0/16` é um valor literal no Compose, sem como trocá-la. Redes Docker existentes na máquina do desenvolvedor (Windows) ou na CI podem usar a mesma faixa e a subida falha com "Pool overlaps". Além disso, `ComposeFilesTest` valida o Compose mesclado, e o bloco novo de `networks` exige ajuste desse teste, que não é citado. | Parametrizar a sub-rede por variável com valor padrão (por exemplo `${COMPOSE_SUBNET:-172.28.0.0/16}`) e manter a lista de isenção coerente com ela. Registrar a atualização do `ComposeFilesTest` e do `infra/docker-compose.test.yml` como tarefa de geração de código. | Resolved (reviewer) |
+| R-03 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u1-legal-documents/infrastructure-design/cicd-pipeline.md > Pré-requisitos e linha "carga (manual)" | O cenário `legal` precisa entrar na lista `options` e na descrição do `load-test.yml` (hoje: u1, u4, u3, growth, u7, u7-jobs, u6, u5), e o driver de carga roda do host. Como o `load-test.yml` é um workflow, só o responsável do projeto o altera, mas o pipeline lista só `ci.yml` e `verify.sh` como pré-requisitos. | Acrescentar o `load-test.yml` (nova opção `legal`) aos pré-requisitos do responsável do projeto. Indicar também que o limite alto do perfil `loadtest` vem de `application-loadtest.yml`, pois o overlay de teste não repassa as variáveis `MEMETRADE_LEGAL_*`. | Resolved (reviewer) |
+| R-04 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u1-legal-documents/infrastructure-design/infrastructure-specification.md > "Configuração nova da `api`" | Os nomes `MEMETRADE_LEGAL_*` seguem o binding relaxado do Spring (`rate-limit.internal-networks` e `rate-limit-per-minute` casam com as variantes com sublinhado), mas a tabela não diz que o `docker-compose.yml` repassa cada variável com `${VAR:-}` nem que a lista CIDR separada por vírgula é lida como `List`. Hoje o `docker-compose.yml` não repassa nenhuma delas. | Acrescentar ao design que cada variável é repassada em `docker-compose.yml` e listada em `.env.example`, e que um teste de configuração confirma o binding de `MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS` para `memetrade.legal.rate-limit.internal-networks`. | Resolved (reviewer) |
+| R-05 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u1-legal-documents/infrastructure-design/infrastructure-design-questions.md > linhas 10 e 49 | O registro das respostas ainda cita a faixa `172.28.0.0/16` como base da lista interna, enquanto a especificação revisada usa só a sub-faixa `172.28.1.0/24`. Isso pode confundir quem for implementar. | Ao implementar, seguir a especificação (sub-faixa dos apps). Se possível, acrescentar uma nota nas respostas dizendo que a lista interna usa a sub-faixa. | New |
+
+> R-01 Reviewer note: A lista interna agora contém só a sub-faixa `172.28.1.0/24` dos apps, com IPs fixos para web e admin; o gateway `.1` da ponte fica fora, e há um teste ponta a ponta que exige `429` pela porta publicada.
+
+> R-02 Reviewer note: `COMPOSE_SUBNET` e `COMPOSE_APPS_SUBNET` são parametrizadas, o `ComposeFilesTest` está nas tarefas da geração de código e o aviso de "Pool overlaps" está no deploy local.
+
+> R-03 Reviewer note: O pré-requisito 3 cobre a opção `legal` no `load-test.yml`; o limite alto vem de `application-loadtest.yml`.
+
+> R-04 Reviewer note: A especificação descreve o repasse das variáveis no `docker-compose.yml` e no `.env.example`, e há um teste de binding da lista CIDR.
+
+### Summary
+
+A revisão resolveu a falha principal: o tráfego das portas publicadas pelo gateway da ponte deixou de ficar isento do limitador, e as pendências menores foram cobertas. Não há contradição nova entre os artefatos, só uma divergência de redação no registro de respostas. Pronto para implementar.

@@ -294,6 +294,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/legal/current': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Versão vigente dos termos, da política e do aviso de risco, sem sessão (FR1.1, FR2.1) */
+    get: operations['getCurrentLegalDocuments'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/legal/versions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Histórico das versões publicadas, mais nova primeiro (FR8.1) */
+    get: operations['listLegalVersions'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/legal/versions/{version}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Uma versão do histórico (FR8.1, BR1.10) */
+    get: operations['getLegalVersion'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/pnl': {
     parameters: {
       query?: never;
@@ -812,6 +863,49 @@ export interface components {
       /** Format: int64 */
       total: number;
     };
+    /** @description Campos de implantação; nulo = a definir */
+    LegalDeployment: {
+      dpoEmail: string | null;
+      internationalTransfer: string | null;
+      storageLocation: string | null;
+    };
+    /** @description Uma versão dos termos, da política e do aviso de risco */
+    LegalDocuments: {
+      deployment: components['schemas']['LegalDeployment'];
+      /** Format: date-time */
+      effectiveAt: string;
+      /** @description Nulo quando a versão é legacy e não tem política (BR1.15) */
+      privacy: components['schemas']['LegalText'] | null;
+      /** @description Versão anterior ao catálogo legal (legacy): mostrada como provisória */
+      provisional: boolean;
+      /** @description Falso quando falta um campo de implantação (BR1.6) */
+      publishable: boolean;
+      /** @description Tabela de retenção (porta J5); vazia quando a versão legacy não declara */
+      retention: components['schemas']['RetentionItem'][];
+      riskNotice: components['schemas']['LegalText'];
+      terms: components['schemas']['LegalText'];
+      version: string;
+    };
+    LegalSection: {
+      /** @description Âncora do índice */
+      id: string;
+      /** @description Texto simples, nunca HTML */
+      paragraphs: string[];
+      title: string;
+    };
+    LegalText: {
+      sections: components['schemas']['LegalSection'][];
+      /** @description 5 a 7 tópicos; nulo na versão legacy */
+      summary: string[] | null;
+    };
+    /** @description Uma versão do histórico (BR1.9) */
+    LegalVersionRef: {
+      /** Format: date-time */
+      effectiveAt: string;
+      /** @description Versão legacy, mostrada como provisória */
+      provisional: boolean;
+      version: string;
+    };
     MarketValue: components['schemas']['KnownValue'] | components['schemas']['UnknownValue'];
     /** @description Ordem recusada com o limite que barrou e o horário (AC4.10.4) */
     OrderRejection: {
@@ -1030,6 +1124,12 @@ export interface components {
       reason: string;
       /** @enum {string} */
       unit: 'USDC' | 'PERCENT' | 'SECONDS' | 'REFERENCE';
+    };
+    RetentionItem: {
+      dataItem: string;
+      endAction: string;
+      period: string;
+      purpose: string;
     };
     RiskSummary: components['schemas']['AvailableRisk'] | components['schemas']['UnavailableRisk'];
     ScannerPage: {
@@ -1850,6 +1950,132 @@ export interface operations {
       /** @description NOT_FOUND: bot de outra pessoa */
       404: {
         headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getCurrentLegalDocuments: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Versão vigente efetiva; Cache-Control public, max-age=300 e ETag por hash do conteúdo */
+      200: {
+        headers: {
+          ETag?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LegalDocuments'];
+        };
+      };
+      /** @description Não modificado (If-None-Match igual ao ETag), sem corpo */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description RATE_LIMITED: mais de 60 requisições por minuto deste IP */
+      429: {
+        headers: {
+          'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listLegalVersions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Vigente e anteriores; nunca versões futuras ou ignoradas na ativação */
+      200: {
+        headers: {
+          ETag?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LegalVersionRef'][];
+        };
+      };
+      /** @description Não modificado (If-None-Match igual ao ETag), sem corpo */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description RATE_LIMITED: mais de 60 requisições por minuto deste IP */
+      429: {
+        headers: {
+          'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getLegalVersion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Identificador da versão, por exemplo v2 */
+        version: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A versão pedida, se estiver no histórico */
+      200: {
+        headers: {
+          ETag?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LegalDocuments'];
+        };
+      };
+      /** @description Não modificado (If-None-Match igual ao ETag), sem corpo */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description NOT_FOUND: versão fora do histórico (futura, ignorada ou desconhecida) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description RATE_LIMITED: mais de 60 requisições por minuto deste IP */
+      429: {
+        headers: {
+          'Retry-After'?: number;
           [name: string]: unknown;
         };
         content: {

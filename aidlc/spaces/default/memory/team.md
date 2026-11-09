@@ -8,15 +8,22 @@
 ## Way of Working
 
 - **Estratégia de branches**: desenvolvimento baseado em tronco (trunk-based).
-  O tronco é `main`: base `main`, destino `main`. Cada Bolt de Construction roda
-  em uma worktree própria criada a partir de `main` e é integrado por
-  **squash-merge** em `main`, em um único commit nomeado pelo slug do Bolt. O
-  histórico de `main` fica linear e acompanha a sequência de Bolts do
-  planejamento de entrega.
+  O tronco é `main`: base `main`, destino `main`. As mudanças entram direto em
+  `main`, em um commit que o responsável do projeto pede, com a CI verde. Não
+  criamos uma worktree nem uma branch por Bolt. **Squash-merge** em `main` só
+  acontece quando existe uma branch, ou seja, quando o responsável pediu uma. O
+  histórico de `main` fica linear.
 - **Nome do tronco**: renomeamos `master` para `main` antes do primeiro commit.
   Não existe ramo `master` depois disso.
 - **Commits fora de Bolts**: um commit pedido fora de um Bolt vai para a branch
   atual. Só criamos branch quando pedimos.
+- **Lacunas da CI (intent `261109-termos-lgpd`)**: a CI ainda não roda lint,
+  verificação de tipos, Jest nem `check:api` do app administrativo (`apps/admin`),
+  e o Jest do web (`apps/web`) roda com cobertura só em parte das telas. Essas
+  lacunas são corrigidas dentro deste intent: antes do primeiro commit dele, o
+  responsável do projeto aplica no `ci.yml` as mudanças já descritas em
+  `aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/ci-pipeline/ci-config.md`.
+  Só o responsável do projeto altera o `ci.yml`.
 - **Revisão**: como trabalhamos sozinhos, não há revisão por outra pessoa no dia
   a dia. Cada mudança é revisada pelo responsável do projeto nos gates de
   aprovação do AI-DLC e pelos portões automáticos da CI. Nenhum merge acontece
@@ -62,7 +69,7 @@
 - **Postura**: construímos primeiro uma fatia fina de ponta a ponta. A primeira
   Unit é a menor fatia integrada que funciona de verdade e passa por todos os
   estágios por Unit, inclusive geração de código, antes das demais.
-- **Fatia**: navegador → tela web (Next.js) → API (Spring Boot) → banco de dados
+- **Fatia do produto**: navegador → tela web (Next.js) → API (Spring Boot) → banco de dados
   (PostgreSQL), tudo subindo localmente com Docker Compose. Um adaptador de dados
   de mercado simulado alimenta uma lista mínima do scanner que exibe fonte,
   horário e `unknown` para campos ausentes. A fatia não chama fornecedor real
@@ -72,6 +79,11 @@
   que atravessa a fatia inteira e verifica fonte, horário e `unknown`, e devolve
   código de saída diferente de zero em qualquer falha. O comando exato é
   autorizado pelo responsável do projeto na Construction (a definir).
+- **Fatia do intent `261109-termos-lgpd`**: a página `/privacidade` servida pela
+  API a partir do catálogo, com a versão vigente, e mostrada no app sem login,
+  coberta por um spec de ponta a ponta novo. A verificação continua sendo
+  `bash scripts/verify.sh`, com o spec novo que o responsável do projeto
+  acrescenta ao script.
 - **Depois do esqueleto**: com o esqueleto verificado e aprovado, o framework
   oferece seguir automaticamente ou revisar cada ponto de controle. Plan
   Approval, confirmação de resumo, escolha do comando de verificação e falhas
@@ -80,14 +92,19 @@
 ## Testing Posture
 
 - **Methodology**: custom
-- **Ordering**: No núcleo financeiro (limites de risco, ledger, P&L e deduplicação) escrevemos os testes antes do código a partir da regra de negócio, e em todas as demais camadas implementamos cada camada testável e, em seguida, escrevemos e executamos os testes dessa camada.
+- **Ordering**: No núcleo financeiro (limites de risco, ledger, P&L e deduplicação) e na lógica de dados pessoais (anonimização, exclusão, novo aceite dos termos e expurgos) escrevemos os testes antes do código a partir da regra de negócio, e em todas as demais camadas implementamos cada camada testável e, em seguida, escrevemos e executamos os testes dessa camada.
 - **Methodology evidence**: decisão do responsável do projeto na entrevista
   (Q10, opção A). TDD no núcleo financeiro porque código gerado com IA tende a
   passar em testes escritos depois sobre o próprio código; com o teste escrito
   antes, ele valida o requisito e não a implementação. Test-after no restante
-  (UI, adaptadores, configuração) mantém o ritmo de um desenvolvedor solo.
-- **Volume de testes**: a Test Strategy do workflow é `Comprehensive`; o piso de
-  cobertura abaixo é somado a ela e nunca a substitui.
+  (UI, adaptadores, configuração) mantém o ritmo de um desenvolvedor solo. No
+  intent `261109-termos-lgpd` (Q5, opção A), o responsável do projeto estendeu a
+  ordem de testes antes do código à lógica de dados pessoais (anonimização,
+  exclusão, novo aceite dos termos e expurgos), porque ela toca tabelas
+  append-only como a trilha de auditoria e as ligadas ao ledger.
+- **Volume de testes**: a Test Strategy do workflow é `Comprehensive`, também no
+  intent `261109-termos-lgpd` (Q4, opção A); o piso de cobertura abaixo é somado
+  a ela e nunca a substitui.
 - **Piso de cobertura**: 80% de cobertura de linhas, medido separadamente no
   backend e no frontend. As exclusões (por exemplo, código gerado como o cliente
   TypeScript do contrato da API, classes de configuração, ponto de entrada) ficam
@@ -113,7 +130,10 @@
     configuração padrão;
   - login sem reutilização de assinatura: nonce reutilizado ou assinatura
     expirada são rejeitados, e a assinatura de login não serve para autorizar
-    trading.
+    trading;
+  - a anonimização não deixa o endereço da carteira em nenhuma tabela nem log
+    consultável;
+  - a versão nova dos termos exige novo aceite antes de qualquer outra rota.
 - **Defeitos**: todo defeito corrigido ganha um teste de regressão que o
   reproduz.
 - **Acessibilidade**: sem portão automático de acessibilidade na CI por enquanto.
@@ -128,8 +148,11 @@
 - **Ambientes de teste**: a CI roda em Linux; o desenvolvimento local é no
   Windows. O fim de linha é padronizado em LF por `.gitattributes` e
   `.editorconfig` para que os testes deem o mesmo resultado nos dois ambientes.
-- **Frequência**: o smoke de ponta a ponta roda em toda mudança; a suíte
-  completa roda no merge para `main`.
+- **Frequência**: em toda mudança e no merge para `main` rodam os testes de
+  unidade e de integração de todas as partes (backend, `apps/web` e
+  `apps/admin`), com o piso de cobertura, e mais o `scripts/verify.sh`. O
+  `verify.sh` com todos os specs de ponta a ponta é a suíte completa; não há uma
+  suíte maior reservada ao merge.
 - **Testes instáveis**: teste instável é tratado como defeito e nunca é ignorado
   em silêncio.
 - **Ferramentas (exemplos, não escolhas)**: JUnit 5, Testcontainers e JaCoCo no

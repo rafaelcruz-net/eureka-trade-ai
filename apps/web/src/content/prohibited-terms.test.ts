@@ -49,19 +49,40 @@ describe('prohibited terms', () => {
       'terms',
     );
     const versions = fs.readdirSync(termsRoot);
+    // u1-legal-documents: every text file of every version (privacy policy, summaries and retention table too).
+    const names = [
+      'terms.txt',
+      'risk-notice.txt',
+      'privacy.txt',
+      'terms-summary.txt',
+      'privacy-summary.txt',
+      'retention.tsv',
+    ];
     const files = versions.flatMap((version) =>
-      ['terms.txt', 'risk-notice.txt'].map((name) => ({
-        path: `terms/${version}/${name}`,
-        text: fs.readFileSync(path.join(termsRoot, version, name), 'utf8'),
-      })),
+      names
+        .filter((name) => fs.existsSync(path.join(termsRoot, version, name)))
+        .map((name) => ({
+          path: `terms/${version}/${name}`,
+          text: fs.readFileSync(path.join(termsRoot, version, name), 'utf8'),
+        })),
     );
     const u3Texts = [
       ...catalogTexts(messages.invite, 'messages.invite'),
       ...catalogTexts(messages.account, 'messages.account'),
     ];
 
-    expect(versions).toContain('v1');
-    expect(files.every(({ text }) => text.startsWith('Versão provisória'))).toBe(true);
+    expect(versions).toEqual(expect.arrayContaining(['v1', 'v2']));
+    // The legacy v1 is provisional; the draft v2 opens with its "Versão em rascunho" section until the legal review.
+    expect(
+      files
+        .filter(({ path: file }) => file.startsWith('terms/v1/'))
+        .every(({ text }) => text.startsWith('Versão provisória')),
+    ).toBe(true);
+    expect(
+      files
+        .filter(({ path: file }) => /^terms\/v2\/(terms|privacy|risk-notice)\.txt$/.test(file))
+        .every(({ text }) => text.startsWith('## Versão em rascunho')),
+    ).toBe(true);
     expect(u3Texts.length).toBeGreaterThan(40);
     expect(findProhibited([...files, ...u3Texts])).toEqual([]);
   });

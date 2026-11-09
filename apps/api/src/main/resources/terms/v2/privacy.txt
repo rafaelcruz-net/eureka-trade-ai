@@ -1,0 +1,59 @@
+## Versão em rascunho
+
+Rascunho da versão v2, pendente de revisão jurídica. Esta política só passa a valer depois da revisão registrada pela assessoria jurídica.
+
+## Tudo é simulado
+
+O MemeTrade Analytics é um beta em que todas as operações são simuladas no modo PAPER, com saldo virtual. Não guardamos dados de pagamento nem movimentamos fundos seus.
+
+## Dados que tratamos e finalidade
+
+Endereço público da carteira e provedor da carteira (Phantom ou Solflare): para identificar sua conta na entrada.
+
+Versão dos termos aceita e horário do aceite: para provar o aceite e pedir um novo aceite quando os termos mudarem.
+
+Convite usado: para controlar o acesso ao beta fechado.
+
+Bots, limites e histórico de operações simuladas (PAPER): para executar a simulação e mostrar seus resultados.
+
+Comentários enviados pelo botão de feedback: para melhorar o produto.
+
+Registros de segurança e trilha de auditoria: para proteger as contas e atender a pedidos de titulares.
+
+## Base legal
+
+Tratamos os dados para executar o contrato de uso do beta que você aceita nestes termos, para cumprir obrigações legais e, no caso da trilha de auditoria e dos registros de segurança, por legítimo interesse na segurança das contas e no exercício de direitos.
+
+## Retenção
+
+Cada dado fica guardado pelo prazo da tabela de retenção desta página. Ao fim do prazo, o dado é apagado ou deixa de ter vínculo com você, conforme a tabela.
+
+## Compartilhamento
+
+Não vendemos nem alugamos seus dados. Não os compartilhamos com anunciantes.
+
+Os dados ficam com o provedor de hospedagem que opera a infraestrutura do beta, só para manter o serviço funcionando, e podem ser entregues a autoridades quando a lei exigir.
+
+## Seus direitos e como pedir
+
+Você pode pedir acesso aos seus dados, correção, exclusão e outras informações sobre o tratamento.
+
+Com login, faça o pedido na sua Conta, pelo botão "Fazer um pedido". Respondemos em até 15 dias corridos.
+
+Se você não consegue entrar (conta anonimizada ou carteira perdida), faça o pedido pelo e-mail do encarregado de dados mostrado nesta página.
+
+## Encarregado de dados
+
+O e-mail do encarregado de dados aparece nesta página, junto dos dados de implantação. Ele recebe pedidos de titulares e dúvidas sobre esta política.
+
+## Local de armazenamento e transferência internacional
+
+O local de armazenamento dos dados e a existência de transferência internacional dependem da hospedagem do ambiente e aparecem nesta página, junto dos dados de implantação.
+
+## Não usamos rastreamento
+
+Não usamos cookies de publicidade, pixels de rastreamento nem ferramentas de análise de terceiros. O único cookie é o de renovação da sessão, necessário para manter você conectado.
+
+## Mudanças nesta política
+
+Quando esta política mudar, publicaremos uma nova versão com data de vigência, e o histórico de versões continua disponível nesta página.

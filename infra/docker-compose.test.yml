@@ -15,6 +15,7 @@
 # LOADTEST_U5_DECISIONS_PER_BOT sizes the decisions seeded in one bot per person and LOADTEST_U5_PEOPLE the people
 # (the ledger load of U7 stays at 0 in u5). MARKET_SIMULATED_SCENARIO=FREQUENT_SIGNALS (u5 only) is read by the test
 # profile alone. Off and STANDARD by default.
+# u1-legal-documents: the api reads the test catalog of the legal documents mounted from apps/api/src/test/resources.
 services:
   api:
     environment:
@@ -41,6 +42,12 @@ services:
       # U8 (cicd-pipeline.md): the public address of the throw-away administrator wallet of the smoke, exported by
       # scripts/verify.sh before the `up`; empty by default, so no administrator exists outside that run.
       ADMIN_WALLET_ADDRESSES: ${ADMIN_WALLET_ADDRESSES:-}
+      # u1-legal-documents (functional-spec.md "Texto da v2"): the smoke, the e2e run and the load test read the TEST
+      # catalog "reviewed" (legacy v1 and a v2 reviewed FOR TESTS), mounted read-only from the test resources; the image
+      # keeps only the real catalog, where the draft v2 is never activated without its legal review.
+      MEMETRADE_TERMS_LOCATION: file:/app/terms-test/
+    volumes:
+      - ./apps/api/src/test/resources/terms-test/reviewed:/app/terms-test:ro
   # U5: the worker with the same test profile plus its own; the seeds of the test profile never run here
   # (@ProcessRole(API)). ONLY this overlay publishes the worker actuator, on loopback 8082, for the load scenario u5
   # (botCycles, Hikari metrics); the base file publishes no worker port (ComposeFilesTest).

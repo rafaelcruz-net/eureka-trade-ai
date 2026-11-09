@@ -27,6 +27,8 @@ public final class AdminCorsPolicy {
      */
     public static UrlBasedCorsConfigurationSource combined(URI adminAppOrigin, URI guestAppOrigin) {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // u1-legal-documents: the public legal documents first, with BOTH app origins, read only and no credentials.
+        GuestCorsPolicy.registerLegal(source, java.util.List.of(guestAppOrigin, adminAppOrigin));
         register(source, adminAppOrigin);
         GuestCorsPolicy.register(source, guestAppOrigin);
         return source;

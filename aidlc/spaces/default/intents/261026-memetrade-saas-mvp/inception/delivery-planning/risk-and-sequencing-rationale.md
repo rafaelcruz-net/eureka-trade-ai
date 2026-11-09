@@ -1,5 +1,7 @@
 # Justificativa da ordem dos Bolts — MemeTrade Analytics (beta PAPER por convite)
 
+> Revalidado em 2026-11-09, depois da revisão do Contract Design: a justificativa e os riscos não mudam.
+
 Um **Bolt** é uma passada de construção sobre uma parte do trabalho, do design ao código, que termina em algo que roda. Este documento explica por que os 9 Bolts de [bolt-plan.md](bolt-plan.md) estão na ordem B1 (U1), B2 (U2), B3 (U4), B4 (U7), B5 (U6), B6 (U5), B7 (U9), B8 (U3), B9 (U8). As Units estão em [unit-of-work.md](../units-generation/unit-of-work.md) e o grafo em [unit-of-work-dependency.md](../units-generation/unit-of-work-dependency.md); os requisitos e as histórias, em [requirements.md](../requirements-analysis/requirements.md) e [stories.md](../user-stories/stories.md); os componentes, em [components.md](../domain-design/components.md); as telas, em [mockups.md](../refined-mockups/mockups.md).
 
 ## Heurísticas usadas

@@ -52,7 +52,9 @@ import org.springframework.transaction.support.TransactionTemplate;
             com.memetrade.bots.web.BotController.class,
             com.memetrade.bots.web.DashboardStreamController.class,
             // U8 (C6): the comment of a guest.
-            com.memetrade.feedback.web.FeedbackController.class
+            com.memetrade.feedback.web.FeedbackController.class,
+            // u1-legal-documents (L1): the public legal documents.
+            com.memetrade.identity.web.LegalDocumentsController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -160,6 +162,13 @@ public abstract class GuestOpenApiSlice {
     /** U8 (C6): the submission of feedback. */
     @MockitoBean
     com.memetrade.feedback.domain.FeedbackService feedbackService;
+
+    /** u1-legal-documents (L1): the ready answers and the limiter of the public legal documents. */
+    @MockitoBean
+    com.memetrade.identity.web.LegalDocumentsView legalDocumentsView;
+
+    @MockitoBean
+    com.memetrade.identity.domain.ratelimit.LegalDocumentsRateLimiter legalDocumentsRateLimiter;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/guest"))

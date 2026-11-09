@@ -37,6 +37,10 @@ routes:
   # U3: invitation lookup without a session; returns no customer data (no tenant, no inviteId, no person), only the
   # derived state, the validity and the public terms (BR2.1).
   - { method: GET, path: '/api/v1/invites/{code}', scope: GLOBAL }
+  # u1-legal-documents (L1): the public legal documents, read only and without a session; no customer data (BR1.7).
+  - { method: GET, path: /api/v1/legal/current, scope: GLOBAL }
+  - { method: GET, path: /api/v1/legal/versions, scope: GLOBAL }
+  - { method: GET, path: '/api/v1/legal/versions/{version}', scope: GLOBAL }
   # U3: personal data of the caller's own account (wallet, acceptance); person and tenant from the token only.
   - { method: GET, path: /api/v1/account, scope: CLIENT, negativeTest: com.memetrade.identity.AccountRouteIT#anotherTenantsSessionNeverSeesThisAccount }
   # U7 (C5, BR9.1): PAPER ledger and P&L of the caller; tenant and person from the token, every query filters by

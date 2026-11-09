@@ -16,10 +16,32 @@ public final class GuestCorsPolicy {
 
     private GuestCorsPolicy() {}
 
+    /** u1-legal-documents: the public legal documents, registered BEFORE {@code /api/v1/**} (first match wins). */
+    static final String LEGAL_ROUTES = "/api/v1/legal/**";
+
     public static UrlBasedCorsConfigurationSource source(URI guestAppOrigin) {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        registerLegal(source, List.of(guestAppOrigin));
         register(source, guestAppOrigin);
         return source;
+    }
+
+    /**
+     * u1-legal-documents (BR1.7, NFR6.2): the legal documents accept the origins of the apps that read them (guest and
+     * administrator), only {@code GET} and {@code HEAD}, WITHOUT credentials, exposing only {@code ETag}. Must be
+     * registered before any wider pattern that also matches {@code /api/v1/legal/**}.
+     */
+    static void registerLegal(UrlBasedCorsConfigurationSource source, List<URI> appOrigins) {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(appOrigins.stream()
+                .map(origin -> origin.toString().replaceAll("/+$", ""))
+                .toList());
+        config.setAllowedMethods(List.of("GET", "HEAD"));
+        config.setAllowedHeaders(List.of("If-None-Match", "X-Correlation-Id"));
+        config.setExposedHeaders(List.of("ETag"));
+        config.setAllowCredentials(false);
+        config.setMaxAge(600L);
+        source.registerCorsConfiguration(LEGAL_ROUTES, config);
     }
 
     /** U8: the guest patterns appended to a shared source, after the administrative ones (AdminCorsPolicy). */

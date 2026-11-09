@@ -1,5 +1,7 @@
 # Plano de Bolts — MemeTrade Analytics (beta PAPER por convite)
 
+> Revalidado em 2026-11-09, depois da revisão do Contract Design (C7 1.1.0 e ordem de `GET /api/v1/bots`). Os nove Bolts foram construídos nesta ordem; a revisão não muda sequência, pronto nem verificação.
+
 Um **Bolt** é uma passada de construção sobre uma parte do trabalho, do design ao código, que termina em algo que roda e é verificado. Este plano ordena os Bolts que constroem as 9 Units de [unit-of-work.md](../units-generation/unit-of-work.md), respeitando o grafo de [unit-of-work-dependency.md](../units-generation/unit-of-work-dependency.md), as histórias de [unit-of-work-story-map.md](../units-generation/unit-of-work-story-map.md) e [stories.md](../user-stories/stories.md), os requisitos de [requirements.md](../requirements-analysis/requirements.md), os componentes de [components.md](../domain-design/components.md), as telas de [mockups.md](../refined-mockups/mockups.md), os contratos de [contract-summary.md](../contract-design/contract-summary.md) e as práticas de [team-practices.md](../practices-discovery/team-practices.md). As escolhas vêm de [delivery-planning-questions.md](delivery-planning-questions.md). A justificativa da ordem está em [risk-and-sequencing-rationale.md](risk-and-sequencing-rationale.md).
 
 ## Regras do plano

@@ -1,0 +1,3 @@
+## Riscos de teste
+
+Aviso de risco de teste v2. O modo REAL está indisponível no beta.

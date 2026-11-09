@@ -68,8 +68,20 @@ public class AuthenticationFilter extends OncePerRequestFilter {
         return !path.startsWith("/api/v1/")
                 || PUBLIC_ROUTES.contains(path)
                 || "OPTIONS".equals(request.getMethod())
-                || isInvitationLookup(request.getMethod(), path);
+                || isInvitationLookup(request.getMethod(), path)
+                || isLegalDocumentRead(request.getMethod(), path);
     }
+
+    /**
+     * u1-legal-documents (BR1.7, NFR6.2): the legal documents are public ONLY for reading ({@code GET} and
+     * {@code HEAD}) under {@code /api/v1/legal/}; any other method there still needs a session and gets {@code 401}
+     * without one, like every other route.
+     */
+    static boolean isLegalDocumentRead(String method, String normalizedPath) {
+        return ("GET".equals(method) || "HEAD".equals(method)) && normalizedPath.startsWith(LEGAL_PREFIX);
+    }
+
+    static final String LEGAL_PREFIX = "/api/v1/legal/";
 
     static boolean isInvitationLookup(String method, String normalizedPath) {
         return "GET".equals(method)

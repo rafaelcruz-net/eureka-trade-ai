@@ -27,4 +27,18 @@ public class RateLimitConfig {
     public InviteLookupRateLimiter inviteLookupRateLimiter(IdentityProperties properties, Clock clock) {
         return new InviteLookupRateLimiter(properties.inviteLookupRateLimitPerMinute(), clock);
     }
+
+    /**
+     * u1-legal-documents (NFR6.3): its own counters, 60 per client IP and minute by default; the CIDR list exempts only
+     * direct peers inside it. An invalid CIDR stops the api at start-up.
+     */
+    @Bean
+    public com.memetrade.identity.domain.ratelimit.LegalDocumentsRateLimiter legalDocumentsRateLimiter(
+            LegalProperties properties, Clock clock) {
+        return new com.memetrade.identity.domain.ratelimit.LegalDocumentsRateLimiter(
+                properties.rateLimitPerMinute(),
+                clock,
+                com.memetrade.identity.domain.ratelimit.InternalNetworks.parse(
+                        properties.rateLimit().internalNetworks()));
+    }
 }

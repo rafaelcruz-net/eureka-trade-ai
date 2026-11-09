@@ -1,5 +1,7 @@
 # Alocação dos Bolts — MemeTrade Analytics (beta PAPER por convite)
 
+> Revalidado em 2026-11-09, depois da revisão do Contract Design: a alocação não muda.
+
 Um **Bolt** é uma passada de construção sobre uma parte do trabalho, do design ao código, que termina em algo que roda. Este documento diz quem executa e quem aprova cada um dos 9 Bolts de [bolt-plan.md](bolt-plan.md), que constroem as Units de [unit-of-work.md](../units-generation/unit-of-work.md) na ordem permitida por [unit-of-work-dependency.md](../units-generation/unit-of-work-dependency.md). As Units agrupam os componentes de [components.md](../domain-design/components.md) e atendem os requisitos de [requirements.md](../requirements-analysis/requirements.md).
 
 ## Equipe

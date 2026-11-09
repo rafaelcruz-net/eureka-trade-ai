@@ -12,9 +12,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
-/** Passo 4 (BR3.1, NFR10.3, NFR13.1): the api starts only with exactly one current version with non-empty texts. */
+/**
+ * Passo 4 (BR3.1, NFR10.3, NFR13.1): the api starts only with exactly one current version with non-empty texts. Since
+ * u1-legal-documents the folders of these cases are legacy versions with an effective date (BR1.3: only a legacy
+ * version may lack the privacy policy, the summaries and the retention table).
+ */
 @Tag("u3")
 class TermsCatalogTest {
+
+    private static final String LEGACY = "legacy=true\neffectiveAt=2026-01-01T00:00:00Z\n";
 
     @TempDir
     Path dir;
@@ -76,7 +82,7 @@ class TermsCatalogTest {
                 .hasMessageContaining("empty terms.txt");
 
         Path other = Files.createDirectories(dir.resolve("other").resolve("v1"));
-        Files.writeString(other.resolve("version.properties"), "version=v1\ncurrent=true\n");
+        Files.writeString(other.resolve("version.properties"), "version=v1\ncurrent=true\n" + LEGACY);
         Files.writeString(other.resolve("terms.txt"), "Termos");
         Files.writeString(other.resolve("risk-notice.txt"), "");
         assertThatThrownBy(() -> catalog(dir.resolve("other").toUri().toString()))
@@ -91,7 +97,7 @@ class TermsCatalogTest {
                 .hasMessageContaining("no version folder");
 
         Path v1 = Files.createDirectories(dir.resolve("v1"));
-        Files.writeString(v1.resolve("version.properties"), "version=v1\ncurrent=true\n");
+        Files.writeString(v1.resolve("version.properties"), "version=v1\ncurrent=true\n" + LEGACY);
         Files.writeString(v1.resolve("terms.txt"), "Termos");
         assertThatThrownBy(() -> catalog(location()))
                 .isInstanceOf(IllegalStateException.class)
@@ -110,7 +116,7 @@ class TermsCatalogTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("version.properties must name a version");
 
-        Files.writeString(bad.resolve("version.properties"), "version=a\ncurrent=false\n");
+        Files.writeString(bad.resolve("version.properties"), "version=a\ncurrent=false\n" + LEGACY);
         assertThatThrownBy(() -> catalog(location()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("appears more than once");
@@ -146,12 +152,17 @@ class TermsCatalogTest {
 
     private void version(String name, boolean current, String terms, String risk) throws IOException {
         Path folder = Files.createDirectories(dir.resolve(name));
-        Files.writeString(folder.resolve("version.properties"), "version=" + name + "\ncurrent=" + current + "\n");
+        Files.writeString(
+                folder.resolve("version.properties"), "version=" + name + "\ncurrent=" + current + "\n" + LEGACY);
         Files.writeString(folder.resolve("terms.txt"), terms, StandardCharsets.UTF_8);
         Files.writeString(folder.resolve("risk-notice.txt"), risk, StandardCharsets.UTF_8);
     }
 
     private static TermsCatalog catalog(String location) {
-        return new TermsCatalog(new PathMatchingResourcePatternResolver(), new TermsProperties(location));
+        return new TermsCatalog(
+                new PathMatchingResourcePatternResolver(),
+                new TermsProperties(location),
+                com.memetrade.identity.domain.legal.LegalSettings.defaults(),
+                java.time.Clock.fixed(java.time.Instant.parse("2026-10-28T12:00:00Z"), java.time.ZoneOffset.UTC));
     }
 }

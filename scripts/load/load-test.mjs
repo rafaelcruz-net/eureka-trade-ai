@@ -25,6 +25,7 @@ import {
 } from './u6-evaluate.mjs';
 import { expectedU5Slices, u5SlicesSql } from './u5-slices.mjs';
 import { u5DecisionsLine, u5Failures } from './u5-failures.mjs';
+import { legalMarkdown, runLegal } from './legal.mjs';
 
 const run = promisify(execFile);
 const API = process.env.API_BASE_URL ?? 'http://127.0.0.1:8080';
@@ -1512,6 +1513,33 @@ async function runU5() {
 
 if (SCENARIO === 'u5') {
   await runU5();
+}
+
+// ----- u1-legal-documents scenario (performance-design.md "Medição") -----
+//   LOAD_SCENARIO=legal  20 users for DURATION_S (300 s): half on /termos and /privacidade of the guest app, half on
+//                        /api/v1/legal/**; fails with a page p95 above 2 s, an api p95 above 300 ms or any 5xx.
+//                        Report: docs/perf/u1-legal-documents-<date>.md (scripts/load/legal.mjs).
+async function runLegalScenario() {
+  const report = await runLegal({
+    users: USERS,
+    durationS: DURATION_S,
+    io: {
+      fetch: (url, init) => fetch(url, init),
+      now: () => Date.now(),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      webBase: process.env.WEB_BASE_URL ?? 'http://127.0.0.1:3000',
+      apiBase: API,
+      warn: (line) => console.warn(line),
+    },
+  });
+  mkdirSync('docs/perf', { recursive: true });
+  writeFileSync(`docs/perf/u1-legal-documents-${report.date}.md`, legalMarkdown(report));
+  console.warn(JSON.stringify(report));
+  process.exit(report.passed ? 0 : 1);
+}
+
+if (SCENARIO === 'legal') {
+  await runLegalScenario();
 }
 
 const state = { token: await login(), errors: 0, mints: new Set() };

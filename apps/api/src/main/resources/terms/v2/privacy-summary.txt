@@ -1,0 +1,6 @@
+Tudo no beta é simulado no modo PAPER; não guardamos dados de pagamento.
+Guardamos o endereço público da carteira, o aceite dos termos, seus bots PAPER e o que você envia pelo feedback.
+Cada dado tem um prazo de guarda, mostrado na tabela de retenção.
+Não vendemos seus dados e não usamos rastreamento.
+Com login, você faz pedidos de acesso, correção ou exclusão pela Conta.
+Sem login, o pedido vai pelo e-mail do encarregado de dados.

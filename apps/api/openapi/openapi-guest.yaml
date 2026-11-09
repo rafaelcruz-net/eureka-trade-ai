@@ -702,6 +702,117 @@ paths:
       summary: Lançamentos do ledger PAPER da pessoa (AC5.2.1)
       tags:
       - ledger-controller
+  /api/v1/legal/current:
+    get:
+      operationId: getCurrentLegalDocuments
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocuments"
+          description: "Versão vigente efetiva; Cache-Control public, max-age=300\
+            \ e ETag por hash do conteúdo"
+          headers:
+            ETag:
+              schema:
+                type: string
+              style: simple
+        "304":
+          description: "Não modificado (If-None-Match igual ao ETag), sem corpo"
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED: mais de 60 requisições por minuto deste IP"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              style: simple
+      summary: "Versão vigente dos termos, da política e do aviso de risco, sem sessã\
+        o (FR1.1, FR2.1)"
+      tags:
+      - legal-documents-controller
+  /api/v1/legal/versions:
+    get:
+      operationId: listLegalVersions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LegalVersionRef"
+          description: Vigente e anteriores; nunca versões futuras ou ignoradas na
+            ativação
+          headers:
+            ETag:
+              schema:
+                type: string
+              style: simple
+        "304":
+          description: "Não modificado (If-None-Match igual ao ETag), sem corpo"
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED: mais de 60 requisições por minuto deste IP"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              style: simple
+      summary: "Histórico das versões publicadas, mais nova primeiro (FR8.1)"
+      tags:
+      - legal-documents-controller
+  /api/v1/legal/versions/{version}:
+    get:
+      operationId: getLegalVersion
+      parameters:
+      - description: "Identificador da versão, por exemplo v2"
+        in: path
+        name: version
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegalDocuments"
+          description: "A versão pedida, se estiver no histórico"
+          headers:
+            ETag:
+              schema:
+                type: string
+              style: simple
+        "304":
+          description: "Não modificado (If-None-Match igual ao ETag), sem corpo"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: versão fora do histórico (futura, ignorada ou desconhecida)"
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED: mais de 60 requisições por minuto deste IP"
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              style: simple
+      summary: "Uma versão do histórico (FR8.1, BR1.10)"
+      tags:
+      - legal-documents-controller
   /api/v1/pnl:
     get:
       operationId: getPnl
@@ -1940,6 +2051,124 @@ components:
       - items
       - nextCursor
       - total
+    LegalDeployment:
+      type: object
+      additionalProperties: false
+      description: Campos de implantação; nulo = a definir
+      properties:
+        dpoEmail:
+          type:
+          - string
+          - "null"
+        internationalTransfer:
+          type:
+          - string
+          - "null"
+        storageLocation:
+          type:
+          - string
+          - "null"
+      required:
+      - dpoEmail
+      - internationalTransfer
+      - storageLocation
+    LegalDocuments:
+      type: object
+      additionalProperties: false
+      description: "Uma versão dos termos, da política e do aviso de risco"
+      properties:
+        deployment:
+          $ref: "#/components/schemas/LegalDeployment"
+        effectiveAt:
+          type: string
+          format: date-time
+        privacy:
+          description: Nulo quando a versão é legacy e não tem política (BR1.15)
+          oneOf:
+          - $ref: "#/components/schemas/LegalText"
+          - type: "null"
+        provisional:
+          type: boolean
+          description: "Versão anterior ao catálogo legal (legacy): mostrada como\
+            \ provisória"
+        publishable:
+          type: boolean
+          description: Falso quando falta um campo de implantação (BR1.6)
+        retention:
+          type: array
+          description: Tabela de retenção (porta J5); vazia quando a versão legacy
+            não declara
+          items:
+            $ref: "#/components/schemas/RetentionItem"
+        riskNotice:
+          $ref: "#/components/schemas/LegalText"
+        terms:
+          $ref: "#/components/schemas/LegalText"
+        version:
+          type: string
+      required:
+      - deployment
+      - effectiveAt
+      - privacy
+      - provisional
+      - publishable
+      - retention
+      - riskNotice
+      - terms
+      - version
+    LegalSection:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Âncora do índice
+        paragraphs:
+          type: array
+          description: "Texto simples, nunca HTML"
+          items:
+            type: string
+        title:
+          type: string
+      required:
+      - id
+      - paragraphs
+      - title
+    LegalText:
+      type: object
+      additionalProperties: false
+      properties:
+        sections:
+          type: array
+          items:
+            $ref: "#/components/schemas/LegalSection"
+        summary:
+          type:
+          - array
+          - "null"
+          description: 5 a 7 tópicos; nulo na versão legacy
+          items:
+            type: string
+      required:
+      - sections
+      - summary
+    LegalVersionRef:
+      type: object
+      additionalProperties: false
+      description: Uma versão do histórico (BR1.9)
+      properties:
+        effectiveAt:
+          type: string
+          format: date-time
+        provisional:
+          type: boolean
+          description: "Versão legacy, mostrada como provisória"
+        version:
+          type: string
+      required:
+      - effectiveAt
+      - provisional
+      - version
     MarketValue:
       discriminator:
         mapping:
@@ -2433,6 +2662,23 @@ components:
       - measured
       - reason
       - unit
+    RetentionItem:
+      type: object
+      additionalProperties: false
+      properties:
+        dataItem:
+          type: string
+        endAction:
+          type: string
+        period:
+          type: string
+        purpose:
+          type: string
+      required:
+      - dataItem
+      - endAction
+      - period
+      - purpose
     RiskSummary:
       discriminator:
         mapping:

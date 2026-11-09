@@ -48,10 +48,15 @@ public class IdentityConfig {
                 Set.copyOf(properties.adminWalletAddresses()));
     }
 
-    /** U3 (NFR10.3): read once at start-up; a missing or invalid terms folder stops the api with a clear message. */
+    /**
+     * U3 (NFR10.3) and u1-legal-documents (BR1.1): read once at start-up with the injectable clock and the legal
+     * settings; an invalid catalog or one without an activatable version stops the api with a clear message.
+     */
     @Bean
-    public TermsCatalog termsCatalog(ResourceLoader resourceLoader, TermsProperties properties) {
-        return new TermsCatalog(new PathMatchingResourcePatternResolver(resourceLoader), properties);
+    public TermsCatalog termsCatalog(
+            ResourceLoader resourceLoader, TermsProperties properties, LegalProperties legal, Clock clock) {
+        return new TermsCatalog(
+                new PathMatchingResourcePatternResolver(resourceLoader), properties, legal.settings(), clock);
     }
 
     @Bean

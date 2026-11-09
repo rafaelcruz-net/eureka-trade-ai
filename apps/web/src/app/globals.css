@@ -405,3 +405,152 @@ fieldset label {
   padding: 8px 0;
   border-bottom: 1px solid var(--border);
 }
+
+/* ----- u1-legal-documents: /termos, /privacidade and the footer (BR1.11, BR1.13; 320 px and up, no sideways scroll) */
+.legal-page main {
+  max-width: 880px;
+  padding: 24px 16px;
+  overflow-wrap: anywhere;
+}
+
+.legal-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.legal-document .notice {
+  margin: 12px 0;
+}
+
+.legal-document h2 {
+  margin-top: 32px;
+}
+
+.legal-document h2:focus {
+  outline: 3px solid var(--focus);
+  outline-offset: 4px;
+}
+
+.legal-toc {
+  margin: 24px 0;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.legal-toc-toggle {
+  display: none;
+}
+
+.legal-toc-title {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.button-link {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 6px;
+  color: var(--background);
+  background: var(--accent);
+  text-decoration: none;
+}
+
+.retention-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.retention-table caption {
+  text-align: left;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+}
+
+.retention-table th,
+.retention-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.legal-deployment dt {
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.legal-deployment dd {
+  margin: 4px 0 0;
+}
+
+.legal-skeleton span {
+  display: block;
+  height: 14px;
+  margin: 12px 0;
+  border-radius: 4px;
+  background: var(--surface-raised);
+}
+
+.site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1440px;
+  margin: 32px auto 0;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.site-footer nav {
+  display: flex;
+  gap: 16px;
+}
+
+@media (max-width: 767px) {
+  .legal-toc-toggle {
+    display: inline-block;
+  }
+
+  .legal-toc[data-open='false'] ol,
+  .legal-toc[data-open='false'] .legal-toc-title {
+    display: none;
+  }
+
+  .retention-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .retention-table tr,
+  .retention-table td {
+    display: block;
+  }
+
+  .retention-table tr {
+    border-bottom: 1px solid var(--border);
+    padding: 8px 0;
+  }
+
+  .retention-table td {
+    border: 0;
+    padding: 4px 0;
+  }
+
+  .retention-table td::before {
+    content: attr(data-label) ': ';
+    font-weight: 600;
+  }
+}

@@ -94,8 +94,11 @@ springdoc:
       paths-to-match: /api/v1/**
       paths-to-exclude: /api/v1/admin/**
     # Administrative operations provided by the modules (C8); versioned in apps/api/openapi/openapi-admin.yaml.
+    # u1-legal-documents: the public legal documents (L1) are read by the administrator app too.
     - group: admin
-      paths-to-match: /api/v1/admin/**
+      paths-to-match:
+        - /api/v1/admin/**
+        - /api/v1/legal/**
 
 memetrade:
   # U5 (C20, NFR10.9): api (default) or worker; @ProcessRole beans exist only in their process.
@@ -150,6 +153,21 @@ memetrade:
     # U3 (BR3.1, NFR10.3): versioned terms and risk notice, read once at start-up; the api does not start without
     # exactly one current version with non-empty texts.
     location: classpath:terms/
+  legal:
+    # u1-legal-documents (infrastructure-specification.md): deployment fields of the privacy policy, empty = "a definir"
+    # and the current version not publishable (BR1.6); the publishing requirement is on only in production (BR1.1).
+    storage-location: ${MEMETRADE_LEGAL_STORAGE_LOCATION:}
+    international-transfer: ${MEMETRADE_LEGAL_INTERNATIONAL_TRANSFER:}
+    dpo-email: ${MEMETRADE_LEGAL_DPO_EMAIL:}
+    require-publishable: ${MEMETRADE_LEGAL_REQUIRE_PUBLISHABLE:false}
+    # NFR6.3: requests per client IP and minute on /api/v1/legal/**; raised only by the loadtest profile. The variable
+    # MEMETRADE_LEGAL_RATE_LIMIT_PER_MINUTE binds directly (cloud); docker-compose.yml does not pass it, so the value of
+    # application-loadtest.yml is never hidden by an environment variable.
+    rate-limit-per-minute: 60
+    rate-limit:
+      # CIDR list compared ONLY with the direct peer of the connection (never X-Forwarded-For): locally the sub-range of
+      # the web and admin containers; never the bridge gateway, a load balancer or a proxy.
+      internal-networks: ${MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS:}
   idempotency:
     default-retention: 24h
     cleanup-interval: 1h

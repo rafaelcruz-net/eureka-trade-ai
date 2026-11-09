@@ -6,5 +6,13 @@
     "scope": "enterprise",
     "status": "complete",
     "request": "d7b5e1b0"
+  },
+  {
+    "uuid": "01a1be08-da40-7d56-b2f7-dfb57ce650ce",
+    "slug": "termos-lgpd",
+    "dirName": "261109-termos-lgpd",
+    "scope": "feature",
+    "status": "in-flight",
+    "request": "51d8d2f6"
   }
 ]

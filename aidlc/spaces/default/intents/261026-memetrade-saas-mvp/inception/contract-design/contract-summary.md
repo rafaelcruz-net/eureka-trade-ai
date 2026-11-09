@@ -509,6 +509,10 @@ paths:
   /api/v1/bots:
     get:
       summary: Bots da pessoa por estado, inclusive rascunhos (FR7.7)
+      description: >
+        Ordem pela última alteração, mais recente primeiro (`updated_at` decrescente; no empate, `botId`
+        decrescente), com ou sem `state`; o cursor segue a mesma ordem. O painel (U9) usa essa ordem para
+        "Continuar rascunho": o primeiro item de `state=DRAFT`, senão de `state=VALIDATED` (BR1.3 da U9).
       parameters:
         - { name: state, in: query, schema: { $ref: '#/components/schemas/BotState' } }
         - $ref: 'common#/components/parameters/Cursor'
@@ -713,7 +717,7 @@ Comportamento: comandos repetidos com a mesma `Idempotency-Key` produzem uma ún
 | `GET /api/v1/bots/{botId}` | Leitura do bot da pessoa (resumo, rascunho e limites vigentes) usada pelo assistente para retomar o rascunho (AC4.4.1) e pela tela S5; outro dono: `404` |
 | Erros | `409 DAILY_LOSS_LIMIT_REACHED` na retomada depois da perda diária, com a perda do dia no `detail` (BR2.4); estouro do `lock_timeout` de 2 s responde `503 SERVICE_UNAVAILABLE` com "tentar de novo" (NFR10.7) |
 
-**Registro da U9 (geração de código).** `GET /api/v1/bots` (com ou sem `state`) devolve os bots da pessoa pela última alteração, mais recente primeiro (`updated_at` decrescente e, no empate, `botId` decrescente), e o cursor segue essa mesma ordem. O painel (U9) usa essa ordem para "Continuar rascunho": o primeiro item de `state=DRAFT`, senão de `state=VALIDATED` (BR1.3 da U9). É o comportamento que a U5 já tinha; só fica registrado aqui.
+**Histórico.** Revisão de 2026-11-09: a ordem de `GET /api/v1/bots`, que a U5 já aplicava e a U9 usa, passou a constar no bloco acima. Nada muda no comportamento.
 
 **Usos novos de interfaces públicas pela U5** (consumidora registrada, só leitura):
 
@@ -945,40 +949,113 @@ paths:
 openapi: 3.1.0
 info:
   title: MemeTrade guest API - dashboard stream
-  version: 1.0.0
+  version: 1.1.0
 security: [ { accessToken: [] } ]
 paths:
   /api/v1/stream/dashboard:
     get:
+      operationId: openDashboardStream
       summary: Server-Sent Events do painel (FR12.2), aberto com fetch em leitura contínua e cabeçalho Authorization (Q8, Q14)
       parameters:
         - { name: Last-Event-ID, in: header, schema: { type: string } }
       responses:
         '200':
           description: >
-            Eventos `bot.state` (BotSummary de C4), `trade.recorded` (PaperTrade de C5), `pnl.updated`
-            (PnlReport de C5 do dia), `data.status` (SourceStatus de C2), `heartbeat` (a cada 15 s) e
-            `auth.expired`. O canal é hospedado pela U5 no processo de API e, a cada 2 s (proposta revista no
-            NFR Design), lê as marcas de última alteração de C18 para a pessoa do token; quando uma marca muda,
-            busca os detalhes pelas interfaces públicas e envia, sempre filtrando por tenant e pessoa. Assim,
-            mudanças feitas pelo worker aparecem sem depender de evento entre processos, dentro do limite de
-            60 s (AC5.4.1). Com `auth.expired`, o servidor fecha o canal; o app renova o token (C1) e reabre com
-            `Last-Event-ID`. Sem eventos novos em 60 s, o app mostra que os valores podem estar desatualizados
-            (AC5.4.3).
+            Cada evento tem `id` (`b<marca>.l<marca>.s<marca>`, crescente por canal, só devolvido em
+            `Last-Event-ID` e nunca interpretado pelo app), `event` (o nome) e `data` (o JSON do envelope do
+            nome): `bot.state` DashboardBotStateEvent, `trade.recorded` DashboardTradeRecordedEvent (aviso; o app
+            busca preços e motivo em `GET /api/v1/bots/{botId}/trades?limit=1` de C5), `pnl.updated`
+            DashboardPnlUpdatedEvent (aviso com a marca do ledger; o app busca o PnlReport em C5), `data.status`
+            DashboardDataStatusEvent, `heartbeat` DashboardHeartbeatEvent (a cada 15 s) e `auth.expired`
+            DashboardAuthExpiredEvent. O canal é hospedado pela U5 no processo de API e, a cada 2 s (NFR Design),
+            lê as marcas de última alteração de C18 só das pessoas com canal aberto; quando uma marca muda,
+            busca os detalhes pelas interfaces públicas e envia, sempre filtrando por tenant e pessoa. A cada
+            60 s, junto do `heartbeat`, refaz a leitura completa e reenvia `bot.state`. Mudanças feitas pelo
+            worker aparecem sem evento entre processos, dentro do limite de 60 s (AC5.4.1). Com `auth.expired`,
+            o servidor fecha o canal; o app renova o token (C1) e reabre com `Last-Event-ID`, sem repetir os já
+            entregues. Sem eventos novos em 60 s, o app mostra que os valores podem estar desatualizados (AC5.4.3).
           content:
             text/event-stream:
-              schema: { type: string }
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/DashboardBotStateEvent'
+                  - $ref: '#/components/schemas/DashboardTradeRecordedEvent'
+                  - $ref: '#/components/schemas/DashboardPnlUpdatedEvent'
+                  - $ref: '#/components/schemas/DashboardDataStatusEvent'
+                  - $ref: '#/components/schemas/DashboardHeartbeatEvent'
+                  - $ref: '#/components/schemas/DashboardAuthExpiredEvent'
         '401': { description: UNAUTHENTICATED }
+        '429':
+          description: >
+            RATE_LIMITED: a pessoa já tem o número máximo de canais abertos (`memetrade.bots.stream.max-channels-per-person`,
+            padrão 5, de 1 a 20; NFR2.1 da U9). Decidido antes de abrir o fluxo, sem dado da pessoa no corpo.
+            Fechar um canal (fim, tempo esgotado, erro, escrita que falha ou `auth.expired`) libera a vaga na hora.
+            O app trata como queda: espera ao menos o Retry-After e segue a espera crescente (2, 4, 8, 16 e 30 s).
+          headers:
+            Retry-After: { schema: { type: integer } }
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+components:
+  schemas:
+    DashboardBotStateEvent:
+      description: Até 100 bots da pessoa, de qualquer estado, mais recentes primeiro; sem activeLimit nem contagens por estado
+      type: object
+      additionalProperties: false
+      required: [activeCount, items]
+      properties:
+        activeCount: { type: integer, format: int64 }
+        items: { type: array, items: { $ref: '#/components/schemas/BotSummary' } }
+    DashboardTradeRecordedEvent:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/DashboardTradeNotice' } }
+    DashboardTradeNotice:
+      description: Ordem simulada nova, sem preços nem notFilledReason
+      type: object
+      additionalProperties: false
+      required: [orderId, botId, side, chain, tokenMint, status, createdAt]
+      properties:
+        orderId: { type: string, format: uuid }
+        botId: { type: string, format: uuid }
+        side: { type: string, enum: [BUY, SELL] }
+        chain: { type: string }
+        tokenMint: { type: string }
+        status: { type: string, enum: [FILLED, PARTIALLY_FILLED, NOT_FILLED, CLOSE_PENDING] }
+        createdAt: { type: string, format: date-time }
+    DashboardPnlUpdatedEvent:
+      type: object
+      additionalProperties: false
+      required: [ledgerMark]
+      properties:
+        ledgerMark: { type: integer, format: int64 }
+    DashboardDataStatusEvent:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/SourceStatus' } }
+    DashboardHeartbeatEvent:
+      type: object
+      additionalProperties: false
+      required: [at]
+      properties:
+        at: { type: string, format: date-time }
+    DashboardAuthExpiredEvent:
+      type: object
+      additionalProperties: false
+      required: [expiredAt]
+      properties:
+        expiredAt: { type: string, format: date-time }
 ```
 
-**Como implementado pela U5.** O canal fica no processo de API (`DashboardStreamController`), aberto com `GET` e `Authorization: Bearer`. Um único `DashboardMarkPoller` lê a cada 2 s as marcas (U5 `BotChangeMarks`, U7 `LedgerChangeMarks`, U4 `SourceStatusMarks`) só das pessoas com canal aberto e envia, para cada canal cuja marca mudou: `bot.state` (lista de `BotSummary` da pessoa), `trade.recorded` (as operações novas da pessoa, `PaperTrade` de C5) e `pnl.updated` (aviso com a marca do ledger, para a tela buscar o P&L de C5; o corpo completo do `PnlReport` fica com a U9) e `data.status` (estado das fontes). `heartbeat` sai a cada 15 s; a cada 60 s, junto do `heartbeat`, o canal refaz a leitura completa e reenvia `bot.state` (corrige a marca de ordem trocada descrita em C18). Cada evento tem `id` crescente por canal; `Last-Event-ID` retoma sem repetir os já entregues. O token vencido gera `auth.expired` e o canal fecha.
+**Implementação.** O canal fica no processo de API (`DashboardStreamController`), e um único `DashboardMarkPoller` lê as marcas (U5 `BotChangeMarks`, U7 `LedgerChangeMarks`, U4 `SourceStatusMarks`). O OpenAPI gerado (`apps/api/openapi/openapi-guest.yaml`) é a fonte da verdade e coincide com o bloco acima.
 
-**Acréscimos da U9 (geração de código).** Aditivos; a fonte da verdade é o `apps/api/openapi/openapi-guest.yaml` gerado do código (anotações do `DashboardStreamController` e os registros de `DashboardEvents`).
+**Propriedade.** A U5 é dona de C7, inclusive do teto de canais por pessoa. Mudar o teto ou os envelopes exige o smoke da U9 verde (`e2e/u9-dashboard`). A U9 é a consumidora registrada.
 
-| Acréscimo | Detalhe |
-|---|---|
-| Envelopes dos eventos | O `data` de cada evento é o JSON de um envelope com esquema próprio no OpenAPI, para o app gerar os tipos (`team.md`): `bot.state` `DashboardBotStateEvent` (`items`: até 100 `BotSummary` de qualquer estado, mais recentes primeiro; `activeCount`; sem `activeLimit` nem contagens por estado), `trade.recorded` `DashboardTradeRecordedEvent` (`items` de `DashboardTradeNotice`: `orderId`, `botId`, `side`, `chain`, `tokenMint`, `status`, `createdAt`; sem preços nem `notFilledReason`, que o app busca em `GET /bots/{botId}/trades?limit=1`), `pnl.updated` `DashboardPnlUpdatedEvent` (`ledgerMark`), `data.status` `DashboardDataStatusEvent` (`items` de `SourceStatus` de C2), `heartbeat` `DashboardHeartbeatEvent` (`at`) e `auth.expired` `DashboardAuthExpiredEvent` (`expiredAt`). O `id` do evento (`b<marca>.l<marca>.s<marca>`) só volta em `Last-Event-ID` e nunca é interpretado pelo app. O formato é o que a U5 já enviava; nada muda no canal |
-| `429 RATE_LIMITED` | Teto de canais abertos por pessoa (NFR2.1 da U9): com 5 canais da mesma pessoa abertos (`memetrade.bots.stream.max-channels-per-person`, de 1 a 20), a próxima abertura recebe `429` em `ProblemDetail` com `Retry-After: 30` e `correlationId`, antes de abrir o fluxo, sem dado da pessoa no corpo. Fechar um canal (fim, tempo esgotado, erro, escrita que falha ou `auth.expired`) libera a vaga na hora. O app trata o `429` como queda: espera ao menos o `Retry-After` e segue a espera crescente (2, 4, 8, 16 e 30 s) |
+**Histórico.** `1.0.0`: desenho inicial. `1.1.0` (revisão de 2026-11-09): o bloco passou a mostrar os envelopes que a U5 já enviava (`trade.recorded` e `pnl.updated` como avisos, não `PaperTrade` nem `PnlReport`) e o `429` do teto de canais acrescentado na U9. Isso não quebra nada: a U9, única consumidora, foi construída sobre esse formato.
 
 ### C8 — API administrativa (U8)
 
@@ -1564,14 +1641,20 @@ rules:
 - **Mudança que quebra:** permitida no mesmo commit que atualiza os dois apps e todos os módulos consumidores, com a CI verde (Q4). `/api/v1` só ganha nova versão quando houver consumidor externo.
 - **Sem leitura cruzada:** nenhum módulo lê tabela, repositório ou entidade interna de outro; só a interface pública (`team.md`).
 - **Mudança de contrato depois da Construction começar:** registrada no Functional Design da Unit provedora e avisada às consumidoras pelo mapa de arestas.
+- **Contrato e código juntos (revisão de 2026-11-09, Q23):** uma mudança de contrato feita na geração de código atualiza o bloco YAML deste `contract-summary.md` no mesmo commit que muda o OpenAPI gerado, e a revisão da Unit confere os dois. O OpenAPI gerado continua sendo a fonte da verdade; nota solta fora do bloco não substitui a atualização.
 
 ## Open questions
 
 | Contract | Question | Blocks |
 |---|---|---|
-| OQ-3 (escalas) | Moeda de referência do saldo virtual (por exemplo, USDC ou SOL) e escala exata dos valores nessa moeda. | U5, U7 (Functional Design) |
-| OQ-4 (C1, C8) | Duração do token de acesso, do token de renovação e da sessão, e revogação ao sair. | U1, U3, U8; NFR Requirements |
-| OQ-6 (regras comuns) | Retenção final das respostas de `Idempotency-Key` (provisório: 24 horas). | NFR Design; mecanismo comum da U1 |
 | OQ-7 (C19) | Mapeamento dos campos das fontes reais para `Observation`, depois da aprovação no G0 (SP-1). | Adaptadores reais de U4 |
-| OQ-8 (C1) | O smoke do esqueleto entra com uma conta `BETA_USER` semeada só no perfil de teste, porque a carteira de administrador não entra mais pela API do convidado. Confirmar essa forma no Functional Design da U1. | U1 |
-| OQ-9 (C7, C9) | Intervalos do relay da auditoria (proposto: 1 s) e da leitura das marcas do painel (proposto: 2 s), e o limite de atraso que gera alerta. | NFR Design |
+
+Resolvidas (revisão de 2026-11-09, Q24):
+
+| Contract | Resposta | Onde foi decidida |
+|---|---|---|
+| OQ-3 (escalas) | Saldo virtual em USDC; valores com 6 casas, preço unitário com 12 casas, arredondamento `HALF_EVEN` | Functional Design da U5 (Q1) |
+| OQ-4 (C1, C8) | Token de acesso de 15 min, renovação válida por 8 h, sessão absoluta de 12 h; renovação troca o token e reuso revoga a família | Functional Design da U1, mantido no NFR Requirements |
+| OQ-6 (regras comuns) | Prazo por rota: o desafio guarda a resposta só até expirar (5 min); as demais rotas, 24 h, com limpeza agendada | NFR Design da U1 (resposta B) |
+| OQ-8 (C1) | O smoke entra com uma conta `BETA_USER` semeada só no perfil de teste, com carteira de teste gerada no código de teste | correção registrada em `project.md` |
+| OQ-9 (C7, C9) | Relay da auditoria em lotes de 100 a cada 1 s; marcas do painel lidas a cada 2 s; atraso da auditoria ≥ 60 s gera alerta | NFR Design da U2 e da U5; `operation/observability-setup/alarms.md` |

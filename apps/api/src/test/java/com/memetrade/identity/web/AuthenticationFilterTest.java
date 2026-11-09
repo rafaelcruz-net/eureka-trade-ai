@@ -90,6 +90,29 @@ class AuthenticationFilterTest {
                 .isEqualTo(401);
     }
 
+    /** u1-legal-documents (BR1.7, NFR6.2): only GET and HEAD under /api/v1/legal/ need no session. */
+    @Test
+    void onlyReadingTheLegalDocumentsPassesWithoutToken() throws Exception {
+        assertThat(AuthenticationFilter.isLegalDocumentRead("GET", "/api/v1/legal/current"))
+                .isTrue();
+        assertThat(AuthenticationFilter.isLegalDocumentRead("HEAD", "/api/v1/legal/versions/v2"))
+                .isTrue();
+        assertThat(AuthenticationFilter.isLegalDocumentRead("POST", "/api/v1/legal/current"))
+                .isFalse();
+        assertThat(AuthenticationFilter.isLegalDocumentRead("DELETE", "/api/v1/legal/versions/v2"))
+                .isFalse();
+        assertThat(AuthenticationFilter.isLegalDocumentRead("GET", "/api/v1/legal"))
+                .isFalse();
+        assertThat(AuthenticationFilter.isLegalDocumentRead("GET", "/api/v1/legalx/current"))
+                .isFalse();
+        assertThat(run(new MockHttpServletRequest("POST", "/api/v1/legal/current"))
+                        .getStatus())
+                .isEqualTo(401);
+        assertThat(run(new MockHttpServletRequest("PUT", "/api/v1/legal/versions/v2"))
+                        .getStatus())
+                .isEqualTo(401);
+    }
+
     @Test
     void aProtectedRouteWithoutBearerTokenIs401() throws Exception {
         MockHttpServletResponse response = run(new MockHttpServletRequest("GET", "/api/v1/scanner/tokens"));

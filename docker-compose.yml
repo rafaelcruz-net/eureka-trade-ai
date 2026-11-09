@@ -129,6 +129,16 @@ services:
       MARKET_SIMULATED_SEED: ${MARKET_SIMULATED_SEED:-42}
       MARKET_DIVERGENCE_TOLERANCE_PERCENT: ${MARKET_DIVERGENCE_TOLERANCE_PERCENT:-5.0000}
       SCANNER_RATE_LIMIT_PER_MINUTE: ${SCANNER_RATE_LIMIT_PER_MINUTE:-60}
+      # u1-legal-documents (infrastructure-specification.md): none is a secret. Empty deployment fields read "a definir"
+      # and make the current version not publishable; the publishing requirement is on only in production. The CIDR
+      # list exempts ONLY the direct peers of the web and admin sub-range from the limit of /api/v1/legal/**, never the
+      # bridge gateway (browser, Playwright and load scripts on the published ports). The per-minute limit is NOT
+      # passed here, so the high value of application-loadtest.yml is never hidden by an environment variable.
+      MEMETRADE_LEGAL_STORAGE_LOCATION: ${MEMETRADE_LEGAL_STORAGE_LOCATION:-}
+      MEMETRADE_LEGAL_INTERNATIONAL_TRANSFER: ${MEMETRADE_LEGAL_INTERNATIONAL_TRANSFER:-}
+      MEMETRADE_LEGAL_DPO_EMAIL: ${MEMETRADE_LEGAL_DPO_EMAIL:-}
+      MEMETRADE_LEGAL_REQUIRE_PUBLISHABLE: ${MEMETRADE_LEGAL_REQUIRE_PUBLISHABLE:-false}
+      MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS: ${MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS:-${COMPOSE_APPS_SUBNET:-172.28.1.0/24}}
     ports:
       - '127.0.0.1:8080:8080'
       - '127.0.0.1:8081:8081'
@@ -204,6 +214,13 @@ services:
     image: memetrade-web:${IMAGE_TAG:-local}
     environment:
       API_ORIGIN: ${API_ORIGIN:-http://localhost:8080}
+      # u1-legal-documents: the origin the Next.js SERVER uses to read /api/v1/legal/** inside the network; never sent
+      # to the browser.
+      API_INTERNAL_ORIGIN: ${API_INTERNAL_ORIGIN:-http://api:8080}
+    networks:
+      default:
+        # Fixed address inside the apps sub-range, the only range exempt from the legal documents limit.
+        ipv4_address: ${COMPOSE_WEB_IPV4:-172.28.1.10}
     ports:
       - '127.0.0.1:3000:3000'
     depends_on:
@@ -233,6 +250,10 @@ services:
     environment:
       API_ORIGIN: ${API_ORIGIN:-http://localhost:8080}
       GUEST_APP_ORIGIN: ${GUEST_APP_ORIGIN:-http://localhost:3000}
+      API_INTERNAL_ORIGIN: ${API_INTERNAL_ORIGIN:-http://api:8080}
+    networks:
+      default:
+        ipv4_address: ${COMPOSE_ADMIN_IPV4:-172.28.1.11}
     ports:
       - '127.0.0.1:3001:3000'
     depends_on:
@@ -250,6 +271,18 @@ services:
       start_period: 20s
     mem_limit: 512m
     logging: *logging
+
+networks:
+  # u1-legal-documents (infrastructure-specification.md "Rede"): a fixed, parameterised range with an explicit gateway
+  # at .1. Containers without a fixed address get one from the dynamic range only, so the apps sub-range holds only
+  # web and admin. The first `up` with this block needs a `docker compose down` first; when the default range collides
+  # with another Docker network ("Pool overlaps"), change the COMPOSE_* values in .env together.
+  default:
+    ipam:
+      config:
+        - subnet: ${COMPOSE_SUBNET:-172.28.0.0/16}
+          gateway: ${COMPOSE_GATEWAY:-172.28.0.1}
+          ip_range: ${COMPOSE_DYNAMIC_RANGE:-172.28.0.0/24}
 
 volumes:
   pgdata:

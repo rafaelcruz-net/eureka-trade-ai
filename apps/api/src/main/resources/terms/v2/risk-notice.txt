@@ -1,0 +1,17 @@
+## Versão em rascunho
+
+Rascunho da versão v2, pendente de revisão jurídica.
+
+## Volatilidade
+
+Tokens de memes são extremamente voláteis e podem perder todo o valor em minutos. Muitos são criados para enganar compradores.
+
+## Limites das avaliações
+
+Os indicadores e as avaliações do MemeTrade Analytics são estimativas a partir de dados públicos, que podem faltar ou estar errados. Eles não são recomendação de investimento, não preveem resultados e não identificam todas as fraudes. Dados ausentes aparecem como "unknown" e nunca como zero.
+
+## Simulação
+
+Resultados obtidos no modo PAPER são simulados e não indicam resultados futuros com dinheiro real. Nada neste produto promete lucro.
+
+O modo REAL está indisponível no beta.

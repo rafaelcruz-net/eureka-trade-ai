@@ -140,8 +140,9 @@ class ComposeFilesTest {
             assertThat(dependsOn(services, "admin")).containsExactly(Map.entry("api", "service_healthy"));
             assertThat(String.valueOf(admin.get("healthcheck"))).contains("http://127.0.0.1:3000/api/health");
             assertThat(String.valueOf(admin.get("mem_limit"))).isEqualTo("512m");
+            // u1-legal-documents: plus the server-only origin used to read the legal documents inside the network.
             assertThat(environment(services, "admin"))
-                    .containsOnlyKeys("API_ORIGIN", "GUEST_APP_ORIGIN")
+                    .containsOnlyKeys("API_ORIGIN", "GUEST_APP_ORIGIN", "API_INTERNAL_ORIGIN")
                     .containsEntry("API_ORIGIN", "${API_ORIGIN:-http://localhost:8080}");
             assertThat(String.valueOf(admin))
                     .doesNotContain("PASSWORD")
@@ -502,6 +503,112 @@ class ComposeFilesTest {
                 .contains("+ U8 apply lock 1 + U8 feedback retention 1 + worker 14")
                 .contains("+ db-bootstrap and db-migrate at start-up 2 + 3 reserved")
                 .contains("for the superuser = 43");
+    }
+
+    // ----- u1-legal-documents (infrastructure-specification.md "Rede" and "Configuração nova da api", NFR6.3) -----
+
+    /** The network has a fixed, parameterised range with an explicit gateway and a dynamic range outside the apps. */
+    @Test
+    @Tag("u1-legal-documents")
+    @SuppressWarnings("unchecked")
+    void theNetworkHasAFixedRangeAGatewayAtOneAndADynamicRangeOutsideTheApps() throws IOException {
+        Map<String, Object> networks =
+                (Map<String, Object>) yaml("docker-compose.yml").get("networks");
+        Map<String, Object> ipam = (Map<String, Object>) ((Map<String, Object>) networks.get("default")).get("ipam");
+        Map<String, Object> config = ((List<Map<String, Object>>) ipam.get("config")).getFirst();
+
+        assertThat(config)
+                .containsEntry("subnet", "${COMPOSE_SUBNET:-172.28.0.0/16}")
+                .containsEntry("gateway", "${COMPOSE_GATEWAY:-172.28.0.1}")
+                .containsEntry("ip_range", "${COMPOSE_DYNAMIC_RANGE:-172.28.0.0/24}");
+        com.memetrade.identity.domain.ratelimit.InternalNetworks apps =
+                com.memetrade.identity.domain.ratelimit.InternalNetworks.parse(List.of("172.28.1.0/24"));
+        com.memetrade.identity.domain.ratelimit.InternalNetworks dynamic =
+                com.memetrade.identity.domain.ratelimit.InternalNetworks.parse(List.of("172.28.0.0/24"));
+        assertThat(apps.contains("172.28.0.1"))
+                .as("the gateway is never exempt")
+                .isFalse();
+        assertThat(dynamic.contains("172.28.1.10")).isFalse();
+        assertThat(dynamic.contains("172.28.1.11")).isFalse();
+        assertThat(com.memetrade.identity.domain.ratelimit.InternalNetworks.parse(List.of("172.28.0.0/16"))
+                        .contains("172.28.1.10"))
+                .isTrue();
+    }
+
+    /** web and admin have fixed addresses in the apps sub-range and read the API inside the network, on the server. */
+    @Test
+    @Tag("u1-legal-documents")
+    @SuppressWarnings("unchecked")
+    void webAndAdminHaveFixedAddressesInTheAppsSubRangeAndAnInternalApiOrigin() throws IOException {
+        com.memetrade.identity.domain.ratelimit.InternalNetworks apps =
+                com.memetrade.identity.domain.ratelimit.InternalNetworks.parse(List.of("172.28.1.0/24"));
+        for (Map<String, Map<String, Object>> services : List.of(services(false), services(true))) {
+            for (Map.Entry<String, String> app : Map.of(
+                            "web", "${COMPOSE_WEB_IPV4:-172.28.1.10}", "admin", "${COMPOSE_ADMIN_IPV4:-172.28.1.11}")
+                    .entrySet()) {
+                Map<String, Object> network = (Map<String, Object>)
+                        ((Map<String, Object>) services.get(app.getKey()).get("networks")).get("default");
+                String address = String.valueOf(network.get("ipv4_address"));
+                assertThat(address).as(app.getKey()).isEqualTo(app.getValue());
+                assertThat(apps.contains(address.replaceAll("^\\$\\{[A-Z0-9_]+:-|}$", "")))
+                        .as(app.getKey())
+                        .isTrue();
+                assertThat(String.valueOf(environment(services, app.getKey()).get("API_INTERNAL_ORIGIN")))
+                        .isEqualTo("${API_INTERNAL_ORIGIN:-http://api:8080}");
+                assertThat(String.valueOf(services.get(app.getKey()))).doesNotContain("NEXT_PUBLIC");
+            }
+        }
+    }
+
+    /** The api receives the legal settings with their defaults; the per-minute limit is never an env variable here. */
+    @Test
+    @Tag("u1-legal-documents")
+    void theApiReceivesTheLegalSettingsAndNeverTheLimitThatWouldHideTheLoadtestValue() throws IOException {
+        Map<String, String> defaults = new java.util.LinkedHashMap<>();
+        defaults.put("MEMETRADE_LEGAL_STORAGE_LOCATION", "${MEMETRADE_LEGAL_STORAGE_LOCATION:-}");
+        defaults.put("MEMETRADE_LEGAL_INTERNATIONAL_TRANSFER", "${MEMETRADE_LEGAL_INTERNATIONAL_TRANSFER:-}");
+        defaults.put("MEMETRADE_LEGAL_DPO_EMAIL", "${MEMETRADE_LEGAL_DPO_EMAIL:-}");
+        defaults.put("MEMETRADE_LEGAL_REQUIRE_PUBLISHABLE", "${MEMETRADE_LEGAL_REQUIRE_PUBLISHABLE:-false}");
+        defaults.put(
+                "MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS",
+                "${MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS:-${COMPOSE_APPS_SUBNET:-172.28.1.0/24}}");
+        for (Map<String, Map<String, Object>> services : List.of(services(false), services(true))) {
+            Map<String, Object> api = environment(services, "api");
+            defaults.forEach((name, value) ->
+                    assertThat(String.valueOf(api.get(name))).as(name).isEqualTo(value));
+            assertThat(api).doesNotContainKey("MEMETRADE_LEGAL_RATE_LIMIT_PER_MINUTE");
+            assertThat(environment(services, "worker"))
+                    .doesNotContainKeys(defaults.keySet().toArray(String[]::new));
+        }
+        String example = read(".env.example");
+        for (String name : List.of(
+                "MEMETRADE_LEGAL_STORAGE_LOCATION",
+                "MEMETRADE_LEGAL_INTERNATIONAL_TRANSFER",
+                "MEMETRADE_LEGAL_DPO_EMAIL",
+                "MEMETRADE_LEGAL_REQUIRE_PUBLISHABLE",
+                "MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS",
+                "COMPOSE_SUBNET",
+                "COMPOSE_APPS_SUBNET",
+                "API_INTERNAL_ORIGIN")) {
+            assertThat(example).as(name).contains("\n" + name + "=\n");
+        }
+    }
+
+    /** Only the test overlay points the api at the test catalog, mounted read-only from the test resources. */
+    @Test
+    @Tag("u1-legal-documents")
+    @SuppressWarnings("unchecked")
+    void onlyTheTestOverlayMountsTheTestCatalogReadOnly() throws IOException {
+        Map<String, Object> api = services(true).get("api");
+
+        assertThat(String.valueOf(environment(services(true), "api").get("MEMETRADE_TERMS_LOCATION")))
+                .isEqualTo("file:/app/terms-test/");
+        assertThat((List<String>) api.get("volumes"))
+                .containsExactly("./apps/api/src/test/resources/terms-test/reviewed:/app/terms-test:ro");
+        assertThat(services(false).get("api")).doesNotContainKey("volumes");
+        assertThat(read("docker-compose.yml")).doesNotContain("terms-test").doesNotContain("MEMETRADE_TERMS_LOCATION");
+        assertThat(Files.exists(ROOT.resolve("apps/api/src/test/resources/terms-test/reviewed/v2/version.properties")))
+                .isTrue();
     }
 
     /** Merged view of the services: the base file, and with {@code overlay} the test overlay merged on top. */

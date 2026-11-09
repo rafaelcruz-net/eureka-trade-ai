@@ -1,5 +1,7 @@
 # Dependências externas — MemeTrade Analytics (beta PAPER por convite)
 
+> Revalidado em 2026-11-09: OQ-3 e OQ-4 resolvidas (ver "Leitura rápida").
+
 Um **Bolt** é uma passada de construção sobre uma parte do trabalho, do design ao código, que termina em algo que roda. Este mapa lista o que está fora do controle do desenvolvimento e pode segurar os Bolts de [bolt-plan.md](bolt-plan.md), com dono, prazo, Bolt afetado e plano se atrasar. As fontes são [requirements.md](../requirements-analysis/requirements.md) (FR14, FR15, restrições e questões abertas), [stories.md](../user-stories/stories.md) (SP-1 a SP-5), [contract-summary.md](../contract-design/contract-summary.md) (questões abertas), [unit-of-work.md](../units-generation/unit-of-work.md), [unit-of-work-dependency.md](../units-generation/unit-of-work-dependency.md), [components.md](../domain-design/components.md) (dependências externas por componente) e [team-practices.md](../practices-discovery/team-practices.md).
 
 ## Mapa
@@ -23,5 +25,6 @@ Um **Bolt** é uma passada de construção sobre uma parte do trabalho, do desig
 ## Leitura rápida
 
 - **Bloqueiam a construção:** só o Docker (já resolvido) e a decisão de moeda e escala (OQ-3), que precisa sair antes do B4.
+- **Atualização de 2026-11-09 (revalidação depois da revisão do Contract Design):** a OQ-3 foi resolvida no Functional Design da U5 (saldo em USDC, 6 casas, preço com 12 casas, `HALF_EVEN`) e a OQ-4 no Functional Design da U1 (tokens de 15 min, 8 h e 12 h). As duas estão na tabela "Resolvidas" do `contract-summary.md`. Os nove Bolts foram construídos na ordem deste plano; a revisão do contrato só registrou o formato do canal C7 e a ordem de `GET /api/v1/bots`, sem efeito na sequência, na alocação nem nos riscos.
 - **Bloqueiam a abertura do beta, não a construção:** SP-2, SP-3, parecer jurídico e hospedagem.
 - **Não bloqueiam nada no beta:** SP-5 e o revisor independente, porque REAL segue bloqueado.

@@ -93,6 +93,35 @@ class GuestCorsPolicyTest {
                 .isNull();
     }
 
+    /**
+     * u1-legal-documents (BR1.7, NFR6.2): the legal documents are registered before /api/v1/** and only read; in the
+     * combined source they accept the administrator origin too, never with credentials.
+     */
+    @Test
+    void theLegalDocumentsAreOnlyReadFromBothAppOriginsWithoutCredentials() throws Exception {
+        String admin = "http://localhost:3001";
+        CorsFilter combined = new CorsFilter(AdminCorsPolicy.combined(URI.create(admin), URI.create(GUEST + "/")));
+
+        for (String origin : java.util.List.of(GUEST, admin)) {
+            MockHttpServletResponse read = new MockHttpServletResponse();
+            combined.doFilter(preflightRequest(origin, "/api/v1/legal/current", "GET"), read, new MockFilterChain());
+            assertThat(read.getStatus()).as(origin).isEqualTo(200);
+            assertThat(read.getHeader("Access-Control-Allow-Origin")).isEqualTo(origin);
+            assertThat(read.getHeader("Access-Control-Allow-Methods")).isEqualTo("GET,HEAD");
+            assertThat(read.getHeader("Access-Control-Allow-Credentials")).isNull();
+            MockHttpServletResponse write = new MockHttpServletResponse();
+            combined.doFilter(preflightRequest(origin, "/api/v1/legal/current", "POST"), write, new MockFilterChain());
+            assertThat(write.getStatus()).as(origin).isEqualTo(403);
+        }
+        assertThat(preflight(GUEST, "/api/v1/legal/versions", "GET").getStatus())
+                .isEqualTo(200);
+        assertThat(preflight(admin, "/api/v1/legal/versions", "GET").getStatus())
+                .as("the guest-only source never admits the administrator origin")
+                .isEqualTo(403);
+        assertThat(preflight(admin, "/api/v1/scanner/tokens", "GET").getStatus())
+                .isEqualTo(403);
+    }
+
     private MockHttpServletResponse preflight(String origin, String path, String method) throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
         filter.doFilter(preflightRequest(origin, path, method), response, new MockFilterChain());

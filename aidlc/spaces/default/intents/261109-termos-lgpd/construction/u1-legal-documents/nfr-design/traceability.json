@@ -1,0 +1,40 @@
+{
+  "stage": "nfr-design",
+  "unit": "u1-legal-documents",
+  "upstream_ids": [
+    "NFR1.1", "NFR1.2",
+    "NFR3.1", "NFR3.2", "NFR3.3", "NFR3.4", "NFR3.5", "NFR3.6", "NFR3.7", "NFR3.8",
+    "NFR4.1",
+    "NFR6.1", "NFR6.2", "NFR6.3", "NFR6.4", "NFR6.5", "NFR6.6",
+    "NFR7.1", "NFR7.2", "NFR7.3", "NFR7.4",
+    "NFR8.1", "NFR8.2", "NFR8.3",
+    "NFR9.1"
+  ],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "security-design: logs sem texto nem campos" },
+    { "id": "NFR1.2", "status": "OK", "target": "security-design: e-mail do encarregado como mailto" },
+    { "id": "NFR3.1", "status": "OK", "target": "performance-design: orçamento de página e cenário legal" },
+    { "id": "NFR3.2", "status": "OK", "target": "performance-design: resposta pronta em memória" },
+    { "id": "NFR3.3", "status": "OK", "target": "performance-design: cenário legal reprova com 5xx" },
+    { "id": "NFR3.4", "status": "OK", "target": "performance-design: Cache-Control e ETag em 200/304, cache de dados do app" },
+    { "id": "NFR3.5", "status": "OK", "target": "performance-design: catálogo lido uma vez na subida" },
+    { "id": "NFR3.6", "status": "OK", "target": "scalability-design: memória e limites do catálogo" },
+    { "id": "NFR3.7", "status": "OK", "target": "scalability-design: picos absorvidos pelo cache" },
+    { "id": "NFR3.8", "status": "OK", "target": "scalability-design: sem estado compartilhado" },
+    { "id": "NFR4.1", "status": "OK", "target": "logical-components: páginas e SiteFooter; teste de teclado e 320 px no spec" },
+    { "id": "NFR6.1", "status": "OK", "target": "security-design: configuração só no servidor" },
+    { "id": "NFR6.2", "status": "OK", "target": "security-design: GET público, 405, CORS" },
+    { "id": "NFR6.3", "status": "OK", "target": "security-design: LegalDocumentsRateLimiter com isenção pelo par direto" },
+    { "id": "NFR6.4", "status": "OK", "target": "security-design: texto nunca como marcação" },
+    { "id": "NFR6.5", "status": "OK", "target": "security-design: cabeçalhos e rotas públicas no middleware" },
+    { "id": "NFR6.6", "status": "OK", "target": "security-design: ativação no aceite e na busca" },
+    { "id": "NFR7.1", "status": "OK", "target": "reliability-design: falha rápida" },
+    { "id": "NFR7.2", "status": "OK", "target": "reliability-design: anterior ativável com WARN" },
+    { "id": "NFR7.3", "status": "OK", "target": "reliability-design: DEGRADED fora dos grupos" },
+    { "id": "NFR7.4", "status": "OK", "target": "reliability-design: erro com tentar de novo" },
+    { "id": "NFR8.1", "status": "OK", "target": "observability-design: INFO e WARN na subida" },
+    { "id": "NFR8.2", "status": "OK", "target": "observability-design: indicador legalDocuments" },
+    { "id": "NFR8.3", "status": "OK", "target": "observability-design: métrica HTTP existente" },
+    { "id": "NFR9.1", "status": "OK", "target": "performance-design e security-design: testes listados; piso de cobertura na CI" }
+  ]
+}

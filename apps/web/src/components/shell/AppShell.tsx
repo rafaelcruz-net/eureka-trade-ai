@@ -6,6 +6,7 @@ import { SignOutButton } from '@/features/auth/SignOutButton';
 import { FeedbackButton } from '@/features/feedback/FeedbackButton';
 import { NoticesProvider, NoticesRegion } from '@/components/shell/NoticesRegion';
 import { PrimaryNav, type ShellSection } from '@/components/shell/PrimaryNav';
+import { SessionSiteFooter } from '@/components/shell/SiteFooter';
 import { WalletBadge } from '@/components/shell/WalletBadge';
 
 /**
@@ -40,6 +41,8 @@ export function AppShell({
         <main id="conteudo" aria-labelledby={titleId} className={className}>
           {children}
         </main>
+        {/* u1-legal-documents (BR1.11): the legal links and the accepted version on every logged screen. */}
+        <SessionSiteFooter />
       </div>
     </NoticesProvider>
   );

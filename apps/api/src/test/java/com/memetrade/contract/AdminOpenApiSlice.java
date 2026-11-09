@@ -42,7 +42,9 @@ import org.springframework.transaction.support.TransactionTemplate;
             com.memetrade.identity.web.AdminAuthController.class,
             com.memetrade.administration.web.AdminKillSwitchController.class,
             com.memetrade.administration.web.AdminSystemController.class,
-            com.memetrade.feedback.web.AdminFeedbackController.class
+            com.memetrade.feedback.web.AdminFeedbackController.class,
+            // u1-legal-documents (L1): the public legal documents, also in the administrative group.
+            com.memetrade.identity.web.LegalDocumentsController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -136,6 +138,13 @@ public abstract class AdminOpenApiSlice {
 
     @MockitoBean
     com.memetrade.feedback.infra.FeedbackProperties feedbackProperties;
+
+    /** u1-legal-documents (L1): the public legal documents, read by the administrator app too. */
+    @MockitoBean
+    com.memetrade.identity.web.LegalDocumentsView legalDocumentsView;
+
+    @MockitoBean
+    com.memetrade.identity.domain.ratelimit.LegalDocumentsRateLimiter legalDocumentsRateLimiter;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/admin"))

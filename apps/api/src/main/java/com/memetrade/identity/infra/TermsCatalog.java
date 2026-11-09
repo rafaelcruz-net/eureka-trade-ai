@@ -1,141 +1,100 @@
 package com.memetrade.identity.infra;
 
+import com.memetrade.identity.domain.legal.ActiveLegalDocuments;
+import com.memetrade.identity.domain.legal.IgnoredVersion;
+import com.memetrade.identity.domain.legal.InvalidLegalCatalogException;
+import com.memetrade.identity.domain.legal.LegalActivation;
+import com.memetrade.identity.domain.legal.LegalSettings;
+import com.memetrade.identity.domain.legal.LegalVersion;
 import com.memetrade.identity.domain.terms.CurrentTerms;
 import com.memetrade.identity.domain.terms.TermsDocument;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import com.memetrade.identity.infra.LegalCatalogReader.LoadedVersion;
+import java.time.Clock;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
-import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.ResourcePatternResolver;
 
 /**
- * Reads the versioned terms and risk notice ONCE at start-up and keeps them in memory (NFR3.2, NFR10.3, NFR13.1).
- * Each version is a folder under {@code memetrade.terms.location} with {@code version.properties}
- * ({@code version}, {@code current}), {@code terms.txt} and {@code risk-notice.txt}, in UTF-8. Fails fast, with a clear
- * message, when there is no current version, more than one, a repeated version, an invalid name or an empty text:
- * the api does not start without terms.
+ * Reads the versioned legal catalog ONCE at start-up and keeps it in memory (NFR3.5, NFR10.3). The folders are read
+ * by {@link LegalCatalogReader}; {@link LegalActivation} chooses the effective current version with the injectable
+ * clock (BR1.1): only a reviewed (or legacy) version, effective now and publishable when required, is ever current.
+ * Fails fast, with a clear message, on an invalid catalog or without an activatable version: the api does not start
+ * without terms (NFR7.1). The invitation and the Account screens see only the effective current version and the
+ * versions of the history (BR1.16).
  */
 public class TermsCatalog implements CurrentTerms {
 
     private static final Logger log = LoggerFactory.getLogger(TermsCatalog.class);
 
-    /** Stable identifier stored in terms_acceptance.terms_version (varchar(32)). */
-    private static final Pattern VERSION = Pattern.compile("^[A-Za-z0-9._-]{1,32}$");
+    private final ActiveLegalDocuments active;
+    private final Map<String, TermsDocument> historyDocuments;
 
-    private final Map<String, TermsDocument> versions;
-    private final TermsDocument current;
-
-    public TermsCatalog(ResourcePatternResolver resources, TermsProperties properties) {
-        List<Loaded> loaded = load(resources, properties.location());
-        Map<String, TermsDocument> byVersion = new LinkedHashMap<>();
-        List<TermsDocument> currents = new ArrayList<>();
-        for (Loaded item : loaded) {
-            if (byVersion.putIfAbsent(item.document().version(), item.document()) != null) {
-                throw invalid("the version " + item.document().version() + " appears more than once");
-            }
-            if (item.current()) {
-                currents.add(item.document());
+    public TermsCatalog(
+            ResourcePatternResolver resources, TermsProperties properties, LegalSettings settings, Clock clock) {
+        List<LoadedVersion> loaded = read(resources, properties);
+        Map<String, TermsDocument> documents = new HashMap<>();
+        for (LoadedVersion item : loaded) {
+            if (documents.putIfAbsent(item.legal().version(), item.document()) != null) {
+                throw invalid("the version " + item.legal().version() + " appears more than once");
             }
         }
-        if (currents.size() != 1) {
-            throw invalid("exactly one version must have current=true, found " + currents.size());
+        this.active = activate(loaded, settings, clock);
+        Map<String, TermsDocument> history = new HashMap<>();
+        for (LegalVersion version : active.history()) {
+            history.put(version.version(), documents.get(version.version()));
         }
-        this.versions = Map.copyOf(byVersion);
-        this.current = currents.getFirst();
-        log.info("Terms loaded: current version {}, {} version(s) known", current.version(), versions.size());
+        this.historyDocuments = Map.copyOf(history);
+        for (IgnoredVersion ignored : active.ignored()) {
+            log.warn("Legal version {} ignored: {}", ignored.version(), ignored.reason());
+        }
+        log.info(
+                "Legal documents loaded: current version {}, {} version(s), publishable={}",
+                active.current().version(),
+                loaded.size(),
+                active.publishable());
     }
 
+    /** The effective current version (BR1.1); never an ignored one. */
     @Override
     public TermsDocument current() {
-        return current;
+        return historyDocuments.get(active.current().version());
     }
 
+    /** A version of the history only: an ignored, future or later version is never found (BR1.16). */
     @Override
     public Optional<TermsDocument> find(String version) {
-        return Optional.ofNullable(version == null ? null : versions.get(version));
+        return Optional.ofNullable(version == null ? null : historyDocuments.get(version));
     }
 
-    private static List<Loaded> load(ResourcePatternResolver resources, String location) {
-        Resource[] descriptors;
+    /** The result of the activation, served by L1. */
+    public ActiveLegalDocuments active() {
+        return active;
+    }
+
+    private static List<LoadedVersion> read(ResourcePatternResolver resources, TermsProperties properties) {
         try {
-            descriptors = resources.getResources(location + "*/version.properties");
-        } catch (IOException failure) {
-            throw new IllegalStateException("Terms could not be listed under " + location, failure);
+            return LegalCatalogReader.read(resources, properties.location());
+        } catch (InvalidLegalCatalogException problem) {
+            // The whole problem goes into the start-up message; it carries no stack worth keeping (NFR7.1).
+            throw invalid(problem.getMessage());
         }
-        if (descriptors.length == 0) {
-            throw invalid("no version folder with version.properties under " + location);
-        }
-        List<Loaded> loaded = new ArrayList<>();
-        for (Resource descriptor : descriptors) {
-            loaded.add(loadVersion(descriptor));
-        }
-        return loaded;
     }
 
-    private static Loaded loadVersion(Resource descriptor) {
-        Properties properties = new Properties();
-        try (InputStream in = descriptor.getInputStream()) {
-            properties.load(in);
-        } catch (IOException failure) {
-            throw new IllegalStateException(
-                    "Terms descriptor could not be read: " + descriptor.getDescription(), failure);
-        }
-        String version = properties.getProperty("version", "").trim();
-        if (!VERSION.matcher(version).matches()) {
-            throw invalid("version.properties must name a version of 1 to 32 letters, digits, '.', '_' or '-'");
-        }
-        String termsText = text(descriptor, "terms.txt", version);
-        String riskNoticeText = text(descriptor, "risk-notice.txt", version);
-        boolean current =
-                Boolean.parseBoolean(properties.getProperty("current", "false").trim());
-        return new Loaded(new TermsDocument(version, termsText, riskNoticeText), current);
-    }
-
-    private static String text(Resource descriptor, String name, String version) {
+    private static ActiveLegalDocuments activate(List<LoadedVersion> loaded, LegalSettings settings, Clock clock) {
         try {
-            Resource file = descriptor.createRelative(name);
-            if (!file.exists()) {
-                throw invalid("version " + version + " has no " + name);
-            }
-            byte[] bytes;
-            try (InputStream in = file.getInputStream()) {
-                bytes = in.readAllBytes();
-            }
-            String text = StandardCharsets.UTF_8
-                    .newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(bytes))
-                    .toString()
-                    .replace("\r\n", "\n")
-                    .strip();
-            if (text.isEmpty()) {
-                throw invalid("version " + version + " has an empty " + name);
-            }
-            return text;
-        } catch (CharacterCodingException notUtf8) {
-            throw invalid("version " + version + " has a " + name + " that is not UTF-8");
-        } catch (IOException failure) {
-            throw new IllegalStateException("Terms file could not be read: " + name + " of " + version, failure);
+            return LegalActivation.activate(
+                    loaded.stream().map(LoadedVersion::legal).toList(), settings, clock.instant());
+        } catch (InvalidLegalCatalogException problem) {
+            throw invalid(problem.getMessage());
         }
     }
 
     private static IllegalStateException invalid(String problem) {
         return new IllegalStateException(
-                "The api cannot start without valid terms: " + problem + " (memetrade.terms.location, BR3.1)");
+                "The api cannot start without valid terms: " + problem + " (memetrade.terms.location, BR1.1)");
     }
-
-    private record Loaded(TermsDocument document, boolean current) {}
 }

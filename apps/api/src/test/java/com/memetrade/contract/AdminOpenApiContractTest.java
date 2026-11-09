@@ -49,7 +49,12 @@ class AdminOpenApiContractTest extends AdminOpenApiSlice {
     @Test
     void theAdministrativeGroupHoldsOnlyAdministrativeRoutesAndItsOwnTitle() {
         assertThat(paths()).isNotEmpty();
-        assertThat(paths().keySet()).allMatch(path -> path.startsWith("/api/v1/admin/"));
+        // u1-legal-documents: besides the administrative routes, only the public legal documents (L1), which the
+        // administrator app reads too.
+        assertThat(paths().keySet())
+                .allMatch(path -> path.startsWith("/api/v1/admin/") || path.startsWith("/api/v1/legal/"));
+        assertThat(paths().keySet())
+                .contains("/api/v1/legal/current", "/api/v1/legal/versions", "/api/v1/legal/versions/{version}");
         @SuppressWarnings("unchecked")
         Map<String, Object> info = (Map<String, Object>) spec.get("info");
         assertThat(info.get("title")).isEqualTo("MemeTrade admin API");
@@ -142,8 +147,12 @@ class AdminOpenApiContractTest extends AdminOpenApiSlice {
     @Test
     void everyAdministrativeOperationIsInTheRouteRegistryAsAdmin() throws Exception {
         Set<String> operations = new HashSet<>();
-        paths().forEach((path, item) ->
-                keys(item).forEach(method -> operations.add(method.toUpperCase() + " " + path)));
+        // u1-legal-documents: the public legal documents of the group are GLOBAL routes, not administrative ones.
+        paths().forEach((path, item) -> {
+            if (path.startsWith("/api/v1/admin/")) {
+                keys(item).forEach(method -> operations.add(method.toUpperCase() + " " + path));
+            }
+        });
         Set<String> registered = new HashSet<>();
         RouteRegistry.load().routes().stream()
                 .filter(entry -> "ADMIN".equals(entry.scope()))
