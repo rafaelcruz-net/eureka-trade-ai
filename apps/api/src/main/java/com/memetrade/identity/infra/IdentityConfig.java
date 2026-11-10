@@ -80,8 +80,25 @@ public class IdentityConfig {
     }
 
     @Bean
-    public AccountQueryService accountQueryService(AccountDetailsRepository accounts, CurrentTerms terms) {
-        return new AccountQueryService(accounts, terms);
+    public AccountQueryService accountQueryService(
+            AccountDetailsRepository accounts,
+            CurrentTerms terms,
+            com.memetrade.identity.domain.terms.TermsAcceptanceLookup acceptances) {
+        return new AccountQueryService(accounts, terms, acceptances);
+    }
+
+    /** u3-reacceptance (L2, BR3.4 to BR3.6): the acceptance of the current terms, only in the api process. */
+    @Bean
+    @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
+    public com.memetrade.identity.domain.terms.TermsAcceptanceService termsAcceptanceService(
+            com.memetrade.identity.domain.terms.TermsAcceptanceStore store,
+            CurrentTerms terms,
+            IdempotencyGuard idempotency,
+            AuditEventPublisher audit,
+            com.memetrade.identity.domain.terms.TermsEvents events,
+            Clock clock) {
+        return new com.memetrade.identity.domain.terms.TermsAcceptanceService(
+                store, terms, idempotency, audit, events, clock);
     }
 
     /** C17: the administration of invitations used by the administrative routes and by U8. */

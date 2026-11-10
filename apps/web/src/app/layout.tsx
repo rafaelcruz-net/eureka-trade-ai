@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <a className="skip-link" href="#conteudo" data-testid="skip-to-content-link">
           {messages.app.skipToContent}
         </a>
-        <ApiProvider apiOrigin={apiOrigin}>
+        <ApiProvider apiOrigin={apiOrigin} redirectOnTermsReacceptance>
           <SessionProvider>
             <DesktopOnlyNotice />
             {children}

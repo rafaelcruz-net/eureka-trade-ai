@@ -1,4 +1,5 @@
 import { botMessages } from '@/features/bots/messages';
+import { dataRequestMessages } from '@/features/data-requests/messages';
 import { dashboardMessages, navMessages } from '@/features/dashboard/messages';
 
 /**
@@ -423,6 +424,8 @@ export const messages = {
   },
   // U5: the bot screens (wizard, list, bot screen), kept in the feature and part of this single catalog.
   bots: botMessages,
+  // u4-data-requests (T5): the section "Meus dados (LGPD)" of the Account.
+  dataRequests: dataRequestMessages,
   // U9: the dashboard S2 and the single shell (main navigation) of the logged screens S2 to S8.
   dashboard: dashboardMessages,
   nav: navMessages,

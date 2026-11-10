@@ -136,7 +136,7 @@ SMOKE_WALLET_FILE="$KEY_FILE" \
   MANAGEMENT_BASE_URL="http://localhost:8081" \
   SMOKE_INVITE_CODE="$SMOKE_INVITE_CODE" \
   DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB:-memetrade}" \
-  "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl e2e/u5-bots-decision e2e/u8-admin-feedback e2e/u9-dashboard e2e/u3-identity-access
+  "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl e2e/u5-bots-decision e2e/u8-admin-feedback e2e/u9-dashboard e2e/u3-identity-access e2e/legal-documents
 
 log "scanning the api, worker and admin logs for full wallet addresses and the feedback text (NFR7.3)"
 SERVICE_LOGS="$("${COMPOSE[@]}" logs --no-color api worker admin)"

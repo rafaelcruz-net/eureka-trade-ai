@@ -117,15 +117,22 @@ public class LoginVerificationService {
         if (account.isEmpty()) {
             return reject(command, RejectionReason.UNKNOWN_ACCOUNT, now);
         }
+        // u5-anonymization (BR5.6, NFR5.6): the account is read again under a shared lock before the session exists, so
+        // an anonymization either finished before (refused like an unknown account) or waits and revokes this session.
+        if (!accounts.lockActiveForSession(account.get().userId())) {
+            return reject(command, RejectionReason.UNKNOWN_ACCOUNT, now);
+        }
         OpenedSession opened = sessions.open(account.get(), now);
+        // u2-retention (BR2.1): the wallet goes by its own field; the trail keeps only its HMAC.
         audit.publish(AuditEventCommand.person(
-                account.get().tenantId(),
-                account.get().userId(),
-                AuditActions.LOGIN_SUCCEEDED,
-                "session:" + opened.sessionId(),
-                command.correlationId(),
-                now,
-                Map.of("provider", command.provider(), "walletAddress", challenge.walletAddress())));
+                        account.get().tenantId(),
+                        account.get().userId(),
+                        AuditActions.LOGIN_SUCCEEDED,
+                        "session:" + opened.sessionId(),
+                        command.correlationId(),
+                        now,
+                        Map.of("provider", command.provider()))
+                .withWallet(challenge.walletAddress()));
         return new VerificationOutcome.Accepted(opened);
     }
 
@@ -168,20 +175,25 @@ public class LoginVerificationService {
     }
 
     private VerificationOutcome reject(VerifyCommand command, RejectionReason reason, Instant now) {
-        boolean validAddress = WalletAddress.isValid(command.walletAddress());
-        Map<String, String> details = new HashMap<>();
-        details.put("reason", reason.name());
-        if (validAddress) {
-            details.put("walletAddress", command.walletAddress());
-        }
-        audit.publish(AuditEventCommand.anonymous(
-                AuditActions.LOGIN_REJECTED,
-                validAddress ? WalletAddress.mask(command.walletAddress()) : "anonymous",
-                null,
-                command.correlationId(),
-                now,
-                details));
+        audit.publish(
+                rejectionEvent(command.walletAddress(), command.correlationId(), now, Map.of("reason", reason.name())));
         return new VerificationOutcome.Rejected(reason);
+    }
+
+    /**
+     * u2-retention (BR2.1, BR2.15): the LOGIN_REJECTED of a guest or of an administrator. A valid wallet goes by its own
+     * field (masked actor, HMAC in the trail); any other text is never recorded: actor {@code anonymous}, no HMAC and
+     * {@code addressFormat=INVALID}.
+     */
+    static AuditEventCommand rejectionEvent(
+            String walletAddress, String correlationId, Instant now, Map<String, String> reasonDetails) {
+        Map<String, String> details = new HashMap<>(reasonDetails);
+        if (WalletAddress.isValid(walletAddress)) {
+            return AuditEventCommand.anonymousWallet(
+                    AuditActions.LOGIN_REJECTED, walletAddress, null, correlationId, now, details);
+        }
+        details.put("addressFormat", "INVALID");
+        return AuditEventCommand.anonymous(AuditActions.LOGIN_REJECTED, "anonymous", null, correlationId, now, details);
     }
 
     /**

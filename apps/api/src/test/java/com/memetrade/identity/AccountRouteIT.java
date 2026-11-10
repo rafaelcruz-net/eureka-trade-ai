@@ -12,6 +12,7 @@ import com.memetrade.testsupport.TestAccounts;
 import com.memetrade.testsupport.TestInvites;
 import com.memetrade.testsupport.TestWallet;
 import java.time.Duration;
+import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -148,21 +149,70 @@ class AccountRouteIT extends AbstractU3IT {
         assertThat(account.fieldNames())
                 .toIterable()
                 .containsExactlyInAnyOrder(
-                        "walletAddressMasked", "provider", "sessionExpiresAt", "acceptedTerms", "realMode");
+                        "walletAddressMasked", "provider", "sessionExpiresAt", "acceptedTerms", "realMode", "terms");
         assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
         assertThat(response.getHeader("Referrer-Policy")).isEqualTo("no-referrer");
     }
 
     @Test
-    void anAccountCreatedWithoutAnInvitationHasNoAcceptedTerms() throws Exception {
+    void anAccountCreatedWithoutAnyAcceptanceHasNoAcceptedTermsNorTermsStatus() throws Exception {
         TestWallet wallet = TestWallet.generate();
-        TestAccounts.betaUser(jdbc, wallet.address());
+        TestAccounts.betaUserWithoutAcceptance(jdbc, wallet.address());
 
         JsonNode account = account(auth.accessToken(auth.login(wallet)));
 
         assertThat(account.has("acceptedTerms")).isFalse();
+        assertThat(account.has("terms")).isFalse();
         assertThat(account.get("provider").asText()).isEqualTo("PHANTOM");
         assertThat(account.get("realMode").asText()).isEqualTo("UNAVAILABLE");
+    }
+
+    /** u3-reacceptance (BR3.10, L2): an account created by invitation is up to date with the current version. */
+    @Test
+    void theAccountCarriesTheTermsStatusUpToDateAfterTheInvitation() throws Exception {
+        TestWallet wallet = TestWallet.generate();
+        String token = auth.accessToken(
+                auth.createAccount(wallet, TestInvites.pending(jdbc).insert().code()));
+
+        JsonNode terms = account(token).get("terms");
+
+        assertThat(terms.get("acceptedVersion").asText()).isEqualTo("v1");
+        assertThat(terms.get("currentVersion").asText()).isEqualTo("v1");
+        assertThat(terms.get("acceptedAt").asText()).isEqualTo(clock.instant().toString());
+        assertThat(terms.get("upToDate").asBoolean()).isTrue();
+    }
+
+    /** u3-reacceptance (BR3.10): a person whose only acceptance is of another version is not up to date. */
+    @Test
+    void aPersonWhoAcceptedOnlyAnotherVersionIsNotUpToDate() throws Exception {
+        TestWallet wallet = TestWallet.generate();
+        TestAccounts.Seeded seeded = TestAccounts.betaUserWithoutAcceptance(jdbc, wallet.address());
+        TestAccounts.acceptTerms(jdbc, seeded.tenantId(), seeded.userId(), "v0");
+
+        JsonNode terms = account(auth.accessToken(auth.login(wallet))).get("terms");
+
+        assertThat(terms.get("acceptedVersion").asText()).isEqualTo("v0");
+        assertThat(terms.get("currentVersion").asText()).isEqualTo("v1");
+        assertThat(terms.get("upToDate").asBoolean()).isFalse();
+    }
+
+    /**
+     * u3-reacceptance (BR3.1, BR3.10): the latest acceptance is of another version, but the current one was accepted
+     * before; the person is up to date, like the lock decides.
+     */
+    @Test
+    void anEarlierAcceptanceOfTheCurrentVersionKeepsThePersonUpToDate() throws Exception {
+        TestWallet wallet = TestWallet.generate();
+        TestAccounts.Seeded seeded = TestAccounts.betaUserWithoutAcceptance(jdbc, wallet.address());
+        TestAccounts.acceptTerms(jdbc, seeded.tenantId(), seeded.userId(), "v1", Instant.parse("2026-01-01T00:00:00Z"));
+        TestAccounts.acceptTerms(jdbc, seeded.tenantId(), seeded.userId(), "v9", Instant.parse("2026-02-01T00:00:00Z"));
+
+        JsonNode terms = account(auth.accessToken(auth.login(wallet))).get("terms");
+
+        assertThat(terms.get("acceptedVersion").asText()).isEqualTo("v9");
+        assertThat(terms.get("currentVersion").asText()).isEqualTo("v1");
+        assertThat(terms.get("acceptedAt").asText()).isEqualTo("2026-02-01T00:00:00Z");
+        assertThat(terms.get("upToDate").asBoolean()).isTrue();
     }
 
     @Test

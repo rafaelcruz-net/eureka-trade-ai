@@ -866,6 +866,132 @@ paths:
       summary: "P&L por token, bot e período [from, to) em UTC (FR10.3)"
       tags:
       - pnl-controller
+  /api/v1/privacy/requests:
+    get:
+      operationId: listMyDataRequests
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DataRequestView"
+          description: "A lista, possivelmente vazia"
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: FORBIDDEN_ROLE para token de administrador
+      security:
+      - accessToken: []
+      summary: "Pedidos de titular da pessoa, do mais novo para o mais antigo (FR5.2);\
+        \ pessoa e tenant do token"
+      tags:
+      - data-request-controller
+    post:
+      operationId: createDataRequest
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDataRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataRequestView"
+          description: Registrado; a mesma chave com o mesmo corpo devolve o mesmo
+            pedido
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED em type, details, campo desconhecido ou\
+            \ Idempotency-Key ausente"
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: FORBIDDEN_ROLE para token de administrador
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: DATA_REQUEST_ALREADY_OPEN (já há pedido aberto do mesmo tipo)
+            ou IDEMPOTENCY_CONFLICT
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "RATE_LIMITED: 10 pedidos na última hora; Retry-After diz quando\
+            \ tentar de novo (aditivo, U4)"
+      security:
+      - accessToken: []
+      summary: Registra um pedido de titular (FR5.1); recebido com prazo de 15 dias
+      tags:
+      - data-request-controller
+  /api/v1/privacy/requests/{requestId}:
+    get:
+      operationId: getMyDataRequest
+      parameters:
+      - in: path
+        name: requestId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataRequestView"
+          description: O pedido
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND, inclusive pedido de outra pessoa ou tenant"
+      security:
+      - accessToken: []
+      summary: "Um pedido da pessoa; resposta, motivo e resumo só depois de concluí\
+        do ou recusado"
+      tags:
+      - data-request-controller
   /api/v1/reconciliation:
     get:
       operationId: getReconciliation
@@ -1103,6 +1229,62 @@ paths:
         \ data.status, heartbeat e auth.expired (FR12.2)"
       tags:
       - dashboard-stream-controller
+  /api/v1/terms/acceptances:
+    post:
+      operationId: acceptTerms
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptTermsRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TermsStatus"
+          description: "Aceite registrado, ou já existente para a versão (sem nova\
+            \ gravação); a mesma chave devolve a mesma resposta"
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: versão ausente, vazia ou com mais de 32\
+            \ caracteres, campo desconhecido ou Idempotency-Key ausente"
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNAUTHENTICATED
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: FORBIDDEN_ROLE para token de administrador
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: TERMS_VERSION_OUTDATED (o corpo traz a versão vigente em currentVersion)
+            ou IDEMPOTENCY_CONFLICT (mesma chave com outra versão)
+      security:
+      - accessToken: []
+      summary: Aceita a versão vigente dos termos (FR4.2); pessoa e tenant vêm do
+        token
+      tags:
+      - terms-acceptance-controller
   /api/v1/tokens/{chain}/{mint}/assessment:
     get:
       operationId: getTokenAssessment
@@ -1143,6 +1325,16 @@ paths:
       - assessment-controller
 components:
   schemas:
+    AcceptTermsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        version:
+          type: string
+          maxLength: 32
+          minLength: 0
+      required:
+      - version
     AcceptedTerms:
       type: object
       additionalProperties: false
@@ -1168,6 +1360,92 @@ components:
       - riskNoticeText
       - termsText
       - version
+    AcceptedVersion:
+      type: object
+      additionalProperties: false
+      properties:
+        acceptedAt:
+          type: string
+          format: date-time
+        version:
+          type: string
+      required:
+      - acceptedAt
+      - version
+    AccessSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        acceptedVersions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AcceptedVersion"
+        accountCreatedAt:
+          type: string
+          format: date-time
+        botCount:
+          type: integer
+          format: int64
+          minimum: 0
+        feedbackCount:
+          type: integer
+          format: int64
+          minimum: 0
+        lastLoginAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: Início da sessão mais recente; null antes do primeiro login
+        paperOrderCount:
+          type: integer
+          format: int64
+          minimum: 0
+        provider:
+          type: string
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccessSummaryRequest"
+        walletMasked:
+          type: string
+          description: 4 primeiros e 4 últimos caracteres
+      required:
+      - acceptedVersions
+      - accountCreatedAt
+      - botCount
+      - feedbackCount
+      - lastLoginAt
+      - paperOrderCount
+      - provider
+      - requests
+      - walletMasked
+    AccessSummaryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        receivedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - RECEIVED
+          - AWAITING_VERIFICATION
+          - IN_PROGRESS
+          - DONE
+          - REFUSED
+        type:
+          type: string
+          enum:
+          - ACCESS
+          - CORRECTION
+          - DELETION
+          - OTHER
+      required:
+      - receivedAt
+      - status
+      - type
     Account:
       type: object
       additionalProperties: false
@@ -1190,6 +1468,10 @@ components:
           format: date-time
           description: "Fim absoluto da sessão atual (UTC); pode terminar antes, depois\
             \ de 8 horas sem uso"
+        terms:
+          $ref: "#/components/schemas/TermsStatus"
+          description: "u3-reacceptance (L2, BR3.10): situação diante da versão vigente;\
+            \ ausente só para conta sem nenhum aceite (conta semeada por teste)"
         walletAddressMasked:
           type: string
           description: 4 primeiros e 4 últimos caracteres
@@ -1534,6 +1816,25 @@ components:
       required:
       - name
       - templateId
+    CreateDataRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        details:
+          type: string
+          description: "Texto do pedido, de 1 a 1.000 caracteres (pontos de código)"
+          maxLength: 1000
+          minLength: 1
+        type:
+          type: string
+          enum:
+          - ACCESS
+          - CORRECTION
+          - DELETION
+          - OTHER
+      required:
+      - details
+      - type
     DashboardAuthExpiredEvent:
       type: object
       additionalProperties: false
@@ -1640,6 +1941,60 @@ components:
             $ref: "#/components/schemas/DashboardTradeNotice"
       required:
       - items
+    DataRequestView:
+      type: object
+      additionalProperties: false
+      properties:
+        accessSummary:
+          description: Foto do resumo de Acesso liberada na conclusão; null nos demais
+            casos
+          oneOf:
+          - $ref: "#/components/schemas/AccessSummary"
+          - type: "null"
+        dueAt:
+          type: string
+          format: date-time
+          description: receivedAt mais 15 dias corridos
+        receivedAt:
+          type: string
+          format: date-time
+        refusalReason:
+          type:
+          - string
+          - "null"
+          description: Motivo da recusa; null fora de REFUSED
+        requestId:
+          type: string
+          format: uuid
+        response:
+          type:
+          - string
+          - "null"
+          description: Resposta; null até o pedido ser concluído ou recusado
+        status:
+          type: string
+          enum:
+          - RECEIVED
+          - AWAITING_VERIFICATION
+          - IN_PROGRESS
+          - DONE
+          - REFUSED
+        type:
+          type: string
+          enum:
+          - ACCESS
+          - CORRECTION
+          - DELETION
+          - OTHER
+      required:
+      - accessSummary
+      - dueAt
+      - receivedAt
+      - refusalReason
+      - requestId
+      - response
+      - status
+      - type
     DayUsage:
       type: object
       additionalProperties: false
@@ -2495,6 +2850,10 @@ components:
           type: string
         correlationId:
           type: string
+        currentVersion:
+          type: string
+          description: Versão vigente efetiva dos termos; só em TERMS_REACCEPTANCE_REQUIRED
+            e TERMS_VERSION_OUTDATED
         detail:
           type: string
         fields:
@@ -2874,6 +3233,29 @@ components:
       - parameters
       - templateId
       - version
+    TermsStatus:
+      type: object
+      additionalProperties: false
+      properties:
+        acceptedAt:
+          type: string
+          format: date-time
+          description: UTC
+        acceptedVersion:
+          type: string
+          description: Versão do aceite mais recente
+        currentVersion:
+          type: string
+          description: Versão vigente efetiva
+        upToDate:
+          type: boolean
+          description: Verdadeiro quando há um aceite da versão vigente (a trava deixa
+            passar)
+      required:
+      - acceptedAt
+      - acceptedVersion
+      - currentVersion
+      - upToDate
     TokenRef:
       type: object
       additionalProperties: false

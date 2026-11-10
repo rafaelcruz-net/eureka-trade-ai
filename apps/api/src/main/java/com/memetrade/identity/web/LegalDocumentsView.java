@@ -39,12 +39,14 @@ public class LegalDocumentsView {
         this.currentVersion = active.current().version();
         Map<String, Prepared<LegalDocumentsResponse>> prepared = new LinkedHashMap<>();
         for (LegalVersion version : active.history()) {
-            // BR1.8: the current version shows the table of the J5 port; an older one shows the table it declared.
+            // BR1.8: the current version shows the table of the J5 port (the Privacy catalog, u2-retention BR2.9); an
+            // older one shows the table it declared, and a legacy current version keeps none (BR1.15).
+            boolean fromPort = version.version().equals(currentVersion) && !version.legacy();
             LegalDocumentsResponse body = LegalDocumentsResponse.of(
                     version,
                     active.publishable(),
                     active.deployment(),
-                    version.version().equals(currentVersion) ? retention.items() : version.retention());
+                    fromPort ? retention.items() : version.retention());
             prepared.put(version.version(), new Prepared<>(body, etag(objectMapper, body)));
         }
         this.byVersion = Map.copyOf(prepared);

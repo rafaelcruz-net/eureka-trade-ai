@@ -119,13 +119,15 @@ public class AdminLoginService {
         Account admin = existing.orElseGet(() -> createAccount(challenge, command, now));
         OpenedSession opened = sessions.openWithPolicy(admin, now, settings.sessionMaxAge(), policy());
         String masked = WalletAddress.mask(challenge.walletAddress());
+        // u2-retention (BR2.1): the masked form stays in details; the wallet itself goes by its own field (HMAC only).
         audit.publish(AuditEventCommand.admin(
-                admin.userId(),
-                ADMIN_LOGIN,
-                "session:" + opened.sessionId(),
-                command.correlationId(),
-                now,
-                Map.of("provider", command.provider(), "wallet", masked)));
+                        admin.userId(),
+                        ADMIN_LOGIN,
+                        "session:" + opened.sessionId(),
+                        command.correlationId(),
+                        now,
+                        Map.of("provider", command.provider(), "wallet", masked))
+                .withWallet(challenge.walletAddress()));
         return new Outcome.Accepted(opened, masked);
     }
 
@@ -198,21 +200,13 @@ public class AdminLoginService {
         return new Account(adminId, settings.systemTenant(), Role.ADMIN, true, true);
     }
 
+    /** u2-retention (BR2.1, BR2.15): the same refusal event as the guest entry, marked {@code entry=ADMIN}. */
     private Outcome reject(LoginVerificationService.VerifyCommand command, AdminRejection reason, Instant now) {
-        boolean validAddress = WalletAddress.isValid(command.walletAddress());
         Map<String, String> details = new HashMap<>();
         details.put("reason", reason.name());
         details.put("entry", "ADMIN");
-        if (validAddress) {
-            details.put("walletAddress", command.walletAddress());
-        }
-        audit.publish(AuditEventCommand.anonymous(
-                com.memetrade.audit.api.AuditActions.LOGIN_REJECTED,
-                validAddress ? WalletAddress.mask(command.walletAddress()) : "anonymous",
-                null,
-                command.correlationId(),
-                now,
-                details));
+        audit.publish(LoginVerificationService.rejectionEvent(
+                command.walletAddress(), command.correlationId(), now, details));
         return new Outcome.Rejected(reason);
     }
 }

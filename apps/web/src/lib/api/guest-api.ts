@@ -18,6 +18,30 @@ export type AssessmentFactor = components['schemas']['AssessmentFactor'];
 export type InviteLookup = components['schemas']['InviteLookup'];
 export type Account = components['schemas']['Account'];
 export type AcceptedTerms = components['schemas']['AcceptedTerms'];
+// u3-reacceptance (L1, L2, L3): the current legal documents, the acceptance and the status of the terms.
+export type TermsStatus = components['schemas']['TermsStatus'];
+// u4-data-requests (P1): the data subject requests of the person.
+export type DataRequestView = components['schemas']['DataRequestView'];
+export type CreateDataRequest = components['schemas']['CreateDataRequest'];
+export type AccessSummary = components['schemas']['AccessSummary'];
+export type DataRequestType = CreateDataRequest['type'];
+export type DataRequestStatus = DataRequestView['status'];
+export type CurrentLegalDocuments = components['schemas']['LegalDocuments'];
+
+/** u3-reacceptance (L3): the code of the 403 of the reacceptance lock. */
+export const TERMS_REACCEPTANCE_REQUIRED = 'TERMS_REACCEPTANCE_REQUIRED';
+
+/** u3-reacceptance (L3): a failure that is the 403 of the reacceptance lock. */
+export function isTermsReacceptance(failure: unknown): failure is ApiError {
+  return (
+    failure instanceof ApiError &&
+    failure.status === 403 &&
+    failure.code === TERMS_REACCEPTANCE_REQUIRED
+  );
+}
+
+/** Called when a call meets the reacceptance lock; the handler reads the screen of origin itself. */
+export type TermsReacceptanceHandler = () => void;
 // U7 (C5): PAPER ledger, P&L and reconciliation.
 export type PnlReport = components['schemas']['PnlReport'];
 export type PnlAmount = components['schemas']['PnlAmount'];
@@ -104,6 +128,12 @@ export function listQuery(request: ListRequest): string {
  */
 export function guestApi(client: ApiClient) {
   let renewal: Promise<GuestSession> | null = null;
+  let termsHandler: TermsReacceptanceHandler | null = null;
+
+  /** u3-reacceptance (BR3.7, NFR2.4): the single handler of the 403 of the lock, registered by the ApiProvider. */
+  function notifyTermsReacceptance() {
+    termsHandler?.();
+  }
 
   function renewSession(): Promise<GuestSession> {
     if (renewal === null) {
@@ -121,6 +151,19 @@ export function guestApi(client: ApiClient) {
   }
 
   async function withRenewal<T>(call: () => Promise<T>): Promise<T> {
+    try {
+      return await renewingOnce(call);
+    } catch (failure) {
+      // u3-reacceptance (BR3.7): the lock answers before the route, whatever the screen; one handler sends the
+      // person to /novo-aceite and the screen still receives the error.
+      if (isTermsReacceptance(failure)) {
+        notifyTermsReacceptance();
+      }
+      throw failure;
+    }
+  }
+
+  async function renewingOnce<T>(call: () => Promise<T>): Promise<T> {
     const sentWith = tokenStore.get();
     try {
       return await call();
@@ -141,6 +184,72 @@ export function guestApi(client: ApiClient) {
   }
 
   return {
+    /**
+     * u3-reacceptance (NFR2.4): registers THE handler of the 403 TERMS_REACCEPTANCE_REQUIRED (one per app); the
+     * returned function unregisters it. The REST calls and the live channel of the dashboard call the same handler.
+     */
+    setTermsReacceptanceHandler(handler: TermsReacceptanceHandler | null) {
+      termsHandler = handler;
+      return () => {
+        if (termsHandler === handler) {
+          termsHandler = null;
+        }
+      };
+    },
+    /** u3-reacceptance: for callers outside the REST layer (the live channel) that met the lock. */
+    notifyTermsReacceptance() {
+      notifyTermsReacceptance();
+    },
+    /**
+     * u3-reacceptance (L1): the current legal documents, public (no token, no cookie); revalidated with the server so a
+     * new version reaches the screen right after a 409.
+     */
+    getCurrentLegalDocuments() {
+      return client.request<CurrentLegalDocuments>('/api/v1/legal/current', { revalidate: true });
+    },
+    /**
+     * u3-reacceptance (L2): accepts the current version. The Idempotency-Key is generated ONCE per submission by the
+     * screen, so a repeated attempt never records twice.
+     */
+    acceptTerms(version: string, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<TermsStatus>('/api/v1/terms/acceptances', {
+          method: 'POST',
+          body: { version },
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** u4-data-requests (P1, US5.2): the requests of the person, newest first. */
+    listDataRequests() {
+      return withRenewal(() =>
+        client.request<DataRequestView[]>('/api/v1/privacy/requests', { authenticated: true }),
+      );
+    },
+    /**
+     * u4-data-requests (P1, US5.1): a new request. The Idempotency-Key is generated ONCE per submission by the form
+     * and reused on every new attempt, so a repeated click never creates two requests.
+     */
+    createDataRequest(body: CreateDataRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<DataRequestView>('/api/v1/privacy/requests', {
+          method: 'POST',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** u4-data-requests (P1, US5.2): one request of the person; another person's is 404. */
+    getDataRequest(requestId: string) {
+      return withRenewal(() =>
+        client.request<DataRequestView>(
+          `/api/v1/privacy/requests/${encodeURIComponent(requestId)}`,
+          { authenticated: true },
+        ),
+      );
+    },
     requestChallenge(walletAddress: string) {
       return client.request<ChallengeResponse>('/api/v1/auth/challenge', {
         method: 'POST',

@@ -151,7 +151,7 @@ class ComposeFilesTest {
             assertThat(String.valueOf(environment(services, "api").get("ADMIN_APP_ORIGIN")))
                     .isEqualTo("${ADMIN_APP_ORIGIN:-http://localhost:3001}");
             assertThat(String.valueOf(environment(services, "api").get("SCHEDULER_POOL_SIZE")))
-                    .isEqualTo("${SCHEDULER_POOL_SIZE:-16}");
+                    .isEqualTo("${SCHEDULER_POOL_SIZE:-21}");
         }
         assertThat(String.valueOf(environment(services(true), "api").get("ADMIN_WALLET_ADDRESSES")))
                 .isEqualTo("${ADMIN_WALLET_ADDRESSES:-}");
@@ -275,6 +275,8 @@ class ComposeFilesTest {
                 // U3: test-profile seeds and the loadtest-only lookup limit; never production variables.
                 "SMOKE_INVITE_CODE",
                 "SMOKE_INVITE_CODES",
+                // u5-anonymization: the invitation of the throw-away account of e2e/anonymization (test profile only).
+                "SMOKE_ANONYMIZATION_INVITE_CODE",
                 "INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE",
                 // U7 (Passo 23): the size of the load cycle driver, read only by the loadtest profile.
                 "LOADTEST_LEDGER_PEOPLE",
@@ -293,6 +295,8 @@ class ComposeFilesTest {
                 "LOADTEST_U5_ENABLED",
                 "LOADTEST_U5_DECISIONS_PER_BOT",
                 "LOADTEST_U5_PEOPLE",
+                // u4-data-requests (Passo 11): the synthetic requests of the scenario data-requests (loadtest only).
+                "LOADTEST_DATA_REQUESTS_SEED",
                 // U5 (Passo 20): the frequent-signal scenario, accepted by the test profile only.
                 "MARKET_SIMULATED_SCENARIO");
         Matcher variables = Pattern.compile("\\$\\{([A-Z0-9_]+)")
@@ -321,8 +325,10 @@ class ComposeFilesTest {
         Map<String, String> defaults = new java.util.LinkedHashMap<>();
         defaults.put("DB_POOL_MAX_SIZE", "20");
         // U7 (Passo 1): 11 since the four U7 jobs; U6 (Passo 1): 13, one per scheduled job plus the purge; U5: 14;
-        // U8 (Passo 1): 16, the kill switch reconciliation and the feedback purge.
-        defaults.put("SCHEDULER_POOL_SIZE", "16");
+        // U8 (Passo 1): 16, the kill switch reconciliation and the feedback purge; u2-retention (Passo 10): 18, the
+        // login challenge and session purges; u4-data-requests (Passo 1): 21, the request timers, the request purge
+        // and the refresher of the request counts.
+        defaults.put("SCHEDULER_POOL_SIZE", "21");
         defaults.put("MARKET_SOURCES", "sim-a,sim-b");
         defaults.put("MARKET_COLLECTION_INTERVAL", "30s");
         defaults.put("MARKET_SIMULATED_TOKENS_PER_SOURCE", "200");
@@ -355,6 +361,8 @@ class ComposeFilesTest {
 
         assertThat(String.valueOf(api.get("SMOKE_INVITE_CODE"))).isEqualTo("${SMOKE_INVITE_CODE:-}");
         assertThat(String.valueOf(api.get("SMOKE_INVITE_CODES"))).isEqualTo("${SMOKE_INVITE_CODES:-}");
+        assertThat(String.valueOf(api.get("SMOKE_ANONYMIZATION_INVITE_CODE")))
+                .isEqualTo("${SMOKE_ANONYMIZATION_INVITE_CODE:-}");
         assertThat(String.valueOf(api.get("INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE")))
                 .isEqualTo("${INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE:-10}");
         assertThat(read("docker-compose.yml"))
@@ -411,6 +419,49 @@ class ComposeFilesTest {
         assertThat(read("apps/api/src/main/resources/application-loadtest.yml"))
                 .contains("${LOADTEST_U6_ENABLED:false}")
                 .contains("${LOADTEST_U6_PURGE_AT:300s}");
+    }
+
+    // ----- u2-retention (Passo 10; NFR6.2, BR2.4): the HMAC key of the audit wallet references -----
+
+    /**
+     * The key is required by the api and by the worker in both compositions (no default, so compose refuses to start
+     * without it), is listed without a value in .env.example and never reaches the web or admin services.
+     */
+    @Test
+    @Tag("u2-retention")
+    void theWalletHmacKeyIsRequiredByTheApiAndTheWorkerAndListedWithoutAValue() throws IOException {
+        for (Map<String, Map<String, Object>> services : List.of(services(false), services(true))) {
+            for (String service : List.of("api", "worker")) {
+                assertThat(String.valueOf(environment(services, service).get("MEMETRADE_AUDIT_WALLET_HMAC_KEY")))
+                        .as(service)
+                        .isEqualTo("${MEMETRADE_AUDIT_WALLET_HMAC_KEY:?}");
+            }
+            for (String service : List.of("web", "admin", "postgres", "db-bootstrap", "db-migrate")) {
+                assertThat(String.valueOf(services.get(service)))
+                        .as(service)
+                        .doesNotContain("MEMETRADE_AUDIT_WALLET_HMAC_KEY");
+            }
+        }
+        String example = read(".env.example");
+        assertThat(example).contains("\nMEMETRADE_AUDIT_WALLET_HMAC_KEY=\n").contains("21 to 32 [21]");
+        assertThat(read("apps/api/src/main/resources/application.yml"))
+                .contains("wallet-hmac-key: ${MEMETRADE_AUDIT_WALLET_HMAC_KEY:}");
+    }
+
+    /**
+     * The load script starts the stack on its own and generates an ephemeral key, never a fixed one. The same line in
+     * {@code scripts/perf-audit.sh} is a prerequisite of the project owner (the code generation could not edit that
+     * file); add it to this list together with that change.
+     */
+    @Test
+    @Tag("u2-retention")
+    void theLoadScriptGeneratesAnEphemeralKey() throws IOException {
+        for (String script : List.of("scripts/load-test.sh")) {
+            assertThat(read(script))
+                    .as(script)
+                    .contains(
+                            "export MEMETRADE_AUDIT_WALLET_HMAC_KEY=\"${MEMETRADE_AUDIT_WALLET_HMAC_KEY:-$(openssl rand -hex 32)}\"");
+        }
     }
 
     // ----- U5 (infrastructure-specification.md "Serviço worker no Compose", NFR10.9, NFR2.4) -----

@@ -95,14 +95,16 @@ class U8PrivilegesIT extends AbstractU8IT {
     }
 
     @Test
-    void theRetentionGroupRoleHasNoLoginAndOnlyTheRetentionLoginIsAMember() {
+    void theRetentionGroupRoleHasNoLoginAndTheApplicationIsNeverAMember() {
         assertThat(jdbc.sql("select rolcanlogin from pg_roles where rolname = 'feedback_retention'")
                         .query(Boolean.class)
                         .single())
                 .isFalse();
         assertThat(member(RETENTION.user())).isTrue();
         assertThat(member(APP.user())).isFalse();
-        assertThat(member(OWNER.user())).isFalse();
+        // u5-anonymization (security-design.md NFR2.3): the owner is a member, for the SECURITY DEFINER function
+        // erase_feedback_of_user of migration 0015; the application stays out and its direct DELETE stays refused.
+        assertThat(member(OWNER.user())).isTrue();
     }
 
     @Test

@@ -174,6 +174,14 @@ public abstract class AbstractPostgresIT {
         }
     }
 
+    /**
+     * JDBC URL of the shared container, started and migrated on first use; for tests that need their own data source
+     * without a Spring context (u2-retention purge tests).
+     */
+    public static String jdbcUrl() {
+        return POSTGRES.getJdbcUrl();
+    }
+
     /** A JDBC client for one login on the test database (one dedicated connection, auto-commit). */
     public static JdbcClient connect(Login login) {
         return connect(login, POSTGRES.getJdbcUrl());

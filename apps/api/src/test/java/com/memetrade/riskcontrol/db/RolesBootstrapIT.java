@@ -66,6 +66,38 @@ class RolesBootstrapIT extends AbstractU6IT {
                 .isFalse();
     }
 
+    /**
+     * u5-anonymization (security-design.md NFR2.3): after two runs, feedback_retention has the retention login and the
+     * schema owner (for the function of migration 0015) and never the application; a membership granted to the
+     * application by hand is revoked by the next run.
+     */
+    @Test
+    void theFeedbackRetentionGroupHasTheOwnerAndTheRetentionLoginButNeverTheApplication() {
+        bootstrap("memetrade");
+        bootstrap("memetrade");
+
+        assertThat(member(RETENTION.user(), "feedback_retention")).isTrue();
+        assertThat(member(OWNER.user(), "feedback_retention")).isTrue();
+        assertThat(member(APP.user(), "feedback_retention")).isFalse();
+
+        connect(SUPERUSER).sql("grant feedback_retention to " + APP.user()).update();
+        bootstrap("memetrade");
+
+        assertThat(member(APP.user(), "feedback_retention")).isFalse();
+        assertThat(member(OWNER.user(), "feedback_retention")).isTrue();
+        assertThat(member(OWNER.user(), "risk_retention")).isFalse();
+        assertThat(member(OWNER.user(), "audit_retention")).isFalse();
+    }
+
+    private static boolean member(String login, String role) {
+        return connect(SUPERUSER)
+                .sql("select pg_has_role(:r, :g, 'MEMBER')")
+                .param("r", login)
+                .param("g", role)
+                .query(Boolean.class)
+                .single();
+    }
+
     @Test
     void theApplicationGroupMembershipIsRevokedByTheBootstrap() {
         connect(SUPERUSER).sql("grant risk_retention to " + APP.user()).update();

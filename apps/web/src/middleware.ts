@@ -51,13 +51,17 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-/** /convite, /convite/<code> and /conta are never cached by the browser or an intermediary. */
+/**
+ * /convite, /convite/<code>, /conta and (u3-reacceptance) /novo-aceite, which carries the screen of origin in
+ * `?voltar=`, are never cached by the browser or an intermediary.
+ */
 export function isPrivatePage(pathname: string): boolean {
   return (
     pathname === '/convite' ||
     pathname.startsWith('/convite/') ||
     pathname === '/conta' ||
-    pathname.startsWith('/conta/')
+    pathname.startsWith('/conta/') ||
+    pathname === '/novo-aceite'
   );
 }
 

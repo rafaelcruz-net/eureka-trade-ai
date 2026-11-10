@@ -20,6 +20,11 @@ export class ApiError extends Error {
     readonly sources: SourceStatusProblem[] = [],
     /** Seconds of the Retry-After header of a 429 (U3 invitation lookup), when the server sent one. */
     readonly retryAfterSeconds?: number,
+    /**
+     * u3-reacceptance (NFR1.1): the effective current version of the terms, sent with TERMS_REACCEPTANCE_REQUIRED and
+     * TERMS_VERSION_OUTDATED.
+     */
+    readonly currentVersion?: string,
   ) {
     super(`${status} ${code}`);
     this.name = 'ApiError';
@@ -41,6 +46,11 @@ export interface RequestOptions {
   credentials?: boolean;
   /** Adds the in-memory Bearer token. */
   authenticated?: boolean;
+  /**
+   * u3-reacceptance: revalidates with the server instead of reusing a cached answer (the legal documents are cached
+   * for 300 s; after a 409 the screen needs the new version at once).
+   */
+  revalidate?: boolean;
 }
 
 export interface ClientSettings {
@@ -100,6 +110,7 @@ export function createApiClient(settings: ClientSettings) {
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
       credentials: options.credentials ? 'include' : 'omit',
+      ...(options.revalidate ? { cache: 'no-cache' as RequestCache } : {}),
     };
     const retryable =
       method === 'GET' || Boolean(options.idempotent) || Boolean(options.idempotencyKey);
@@ -148,6 +159,7 @@ async function parse<T>(response: Response): Promise<T> {
     })),
     problem.sources ?? [],
     retryAfter(response),
+    problem.currentVersion,
   );
 }
 

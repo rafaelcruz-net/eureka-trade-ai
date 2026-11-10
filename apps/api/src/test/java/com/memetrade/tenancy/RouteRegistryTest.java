@@ -66,7 +66,13 @@ class RouteRegistryTest {
                         "POST /api/v1/bots/{botId}/limits",
                         "GET /api/v1/bots/{botId}/decisions",
                         // U8 (C6): the comment of the caller.
-                        "POST /api/v1/feedback");
+                        "POST /api/v1/feedback",
+                        // u3-reacceptance (L2): the acceptance of the current terms by the caller.
+                        "POST /api/v1/terms/acceptances",
+                        // u4-data-requests (P1): the data subject requests of the caller.
+                        "GET /api/v1/privacy/requests",
+                        "POST /api/v1/privacy/requests",
+                        "GET /api/v1/privacy/requests/{requestId}");
         assertThat(registry.routes())
                 .extracting(RouteRegistry.Entry::scope)
                 .allMatch(s -> Set.of("GLOBAL", "SESSION", "ADMIN", "CLIENT").contains(s));

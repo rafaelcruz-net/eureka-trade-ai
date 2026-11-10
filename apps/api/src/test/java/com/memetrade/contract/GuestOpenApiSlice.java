@@ -54,7 +54,11 @@ import org.springframework.transaction.support.TransactionTemplate;
             // U8 (C6): the comment of a guest.
             com.memetrade.feedback.web.FeedbackController.class,
             // u1-legal-documents (L1): the public legal documents.
-            com.memetrade.identity.web.LegalDocumentsController.class
+            com.memetrade.identity.web.LegalDocumentsController.class,
+            // u3-reacceptance (L2): the acceptance of the current terms.
+            com.memetrade.identity.web.TermsAcceptanceController.class,
+            // u4-data-requests (P1): the data subject requests of the guest.
+            com.memetrade.privacy.web.DataRequestController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -169,6 +173,26 @@ public abstract class GuestOpenApiSlice {
 
     @MockitoBean
     com.memetrade.identity.domain.ratelimit.LegalDocumentsRateLimiter legalDocumentsRateLimiter;
+
+    /** u3-reacceptance (L2, L3): the acceptance and the collaborators of the reacceptance lock. */
+    @MockitoBean
+    com.memetrade.identity.domain.terms.TermsAcceptanceService termsAcceptanceService;
+
+    @MockitoBean
+    com.memetrade.identity.domain.terms.CurrentTerms currentTerms;
+
+    @MockitoBean
+    com.memetrade.identity.domain.terms.TermsAcceptanceLookup termsAcceptanceLookup;
+
+    @MockitoBean
+    com.memetrade.identity.domain.terms.TermsEvents termsEvents;
+
+    @MockitoBean
+    com.memetrade.identity.infra.ReacceptanceProperties reacceptanceProperties;
+
+    /** u4-data-requests (P1): the requests of the guest. */
+    @MockitoBean
+    com.memetrade.privacy.domain.request.DataRequestService dataRequestService;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/guest"))

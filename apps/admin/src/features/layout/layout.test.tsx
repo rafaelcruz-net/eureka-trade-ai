@@ -28,7 +28,7 @@ describe('administrator layout and kill switch banner (BR7.1, BR1.6, AC7.4.2)', 
       within(nav)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual(['Estado', 'Convites', 'Kill switch', 'Feedback']);
+    ).toEqual(['Estado', 'Convites', 'Kill switch', 'Feedback', 'Pedidos LGPD']);
     expect(screen.getByTestId('admin-no-personal-data')).toHaveTextContent(
       messages.app.noPersonalData,
     );

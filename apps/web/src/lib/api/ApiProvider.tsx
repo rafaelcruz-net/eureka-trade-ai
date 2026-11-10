@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import { createApiClient } from '@/lib/api/client';
 import { guestApi, type GuestApi } from '@/lib/api/guest-api';
+import { ReacceptanceRedirect } from '@/features/reacceptance/ReacceptanceRedirect';
 
 const ApiContext = createContext<GuestApi | null>(null);
 const ApiOriginContext = createContext<string | null>(null);
@@ -15,10 +16,16 @@ const ApiOriginContext = createContext<string | null>(null);
 export function ApiProvider({
   apiOrigin,
   api,
+  redirectOnTermsReacceptance = false,
   children,
 }: {
   apiOrigin: string;
   api?: GuestApi;
+  /**
+   * u3-reacceptance (BR3.7, NFR2.4): registers the handler of `403 TERMS_REACCEPTANCE_REQUIRED`, which sends the
+   * person to `/novo-aceite` with `router.replace`. On in the root layout of the app; off where no App Router exists.
+   */
+  redirectOnTermsReacceptance?: boolean;
   children: ReactNode;
 }) {
   const value = useMemo(
@@ -27,7 +34,10 @@ export function ApiProvider({
   );
   return (
     <ApiOriginContext.Provider value={apiOrigin}>
-      <ApiContext.Provider value={value}>{children}</ApiContext.Provider>
+      <ApiContext.Provider value={value}>
+        {redirectOnTermsReacceptance ? <ReacceptanceRedirect api={value} /> : null}
+        {children}
+      </ApiContext.Provider>
     </ApiOriginContext.Provider>
   );
 }

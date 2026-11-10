@@ -5,7 +5,8 @@
 -- created by U1 (where the application login owned the schema). Idempotent: running it twice changes nothing.
 --
 -- Logins (names and passwords from the environment, read with \getenv; never written to the repository):
---   DB_OWNER_USER      schema owner; used only by db-migrate (Liquibase)
+--   DB_OWNER_USER      schema owner; used only by db-migrate (Liquibase); since u5-anonymization also a member of
+--                      feedback_retention, for the SECURITY DEFINER function erase_feedback_of_user of migration 0015
 --   DB_USER            application; data only, no DDL; on audit_event only SELECT and INSERT
 --   DB_RETENTION_USER  member of the fixed group roles audit_retention (SELECT and DELETE on audit_event only),
 --                      since U6, risk_retention (SELECT and DELETE on order_evaluation, the purge run log) and, since
@@ -67,9 +68,16 @@ JOIN pg_roles g ON g.oid = am.roleid AND g.rolname = 'risk_retention'
 JOIN pg_roles m ON m.oid = am.member
 WHERE m.rolname IN (:'owner_user', :'app_user') \gexec
 
--- U8 (infrastructure-specification.md, R-01): the group role feedback_retention, created and granted like
--- risk_retention. Only the retention login is a member; the owner and the application never are (the application can
--- never delete a comment of a guest; the trigger of migration 0011 refuses it).
+-- U8 (infrastructure-specification.md, R-01) and u5-anonymization (security-design.md NFR2.3): the group role
+-- feedback_retention. Two members:
+--   * the retention login, for the 180-day purge of U8;
+--   * the schema OWNER, because the SECURITY DEFINER function erase_feedback_of_user of migration 0015 (owned by it)
+--     erases the feedback of ONE anonymized person and the unchanged trigger of 0011 accepts a DELETE only from a
+--     member of this role. This does not widen the owner: it already owns feedback_entry and its trigger, and it is
+--     used only by db-migrate. Accepted risk (infrastructure-specification.md): a future migration could delete
+--     feedback without the trigger stopping it; every migration is reviewed at the AI-DLC gates.
+-- The application login is NEVER a member: its direct DELETE stays refused by the trigger, and it erases feedback only
+-- through the function. The migration grants no role (the owner is NOCREATEROLE); the membership comes from here.
 SELECT 'CREATE ROLE feedback_retention NOLOGIN'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'feedback_retention') \gexec
 ALTER ROLE feedback_retention WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
@@ -77,11 +85,14 @@ ALTER ROLE feedback_retention WITH NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE N
 SELECT format('GRANT feedback_retention TO %I', :'retention_user')
 WHERE NOT pg_has_role(:'retention_user', 'feedback_retention', 'MEMBER') \gexec
 
+SELECT format('GRANT feedback_retention TO %I', :'owner_user')
+WHERE NOT pg_has_role(:'owner_user', 'feedback_retention', 'MEMBER') \gexec
+
 SELECT format('REVOKE feedback_retention FROM %I', m.rolname)
 FROM pg_auth_members am
 JOIN pg_roles g ON g.oid = am.roleid AND g.rolname = 'feedback_retention'
 JOIN pg_roles m ON m.oid = am.member
-WHERE m.rolname IN (:'owner_user', :'app_user') \gexec
+WHERE m.rolname = :'app_user' \gexec
 
 -- Connections: nobody by default; the three logins explicitly.
 SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database()) \gexec

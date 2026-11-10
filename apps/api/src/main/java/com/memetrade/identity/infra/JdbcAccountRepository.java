@@ -35,4 +35,15 @@ public class JdbcAccountRepository implements AccountRepository {
                         "ACTIVE".equals(rs.getString("tenant_status"))))
                 .optional();
     }
+
+    /** u5-anonymization (NFR5.6): shared lock on the account row; false when it is not ACTIVE or does not exist. */
+    @Override
+    public boolean lockActiveForSession(UUID userId) {
+        return jdbc.sql("select status from app_user where user_id = :user for share")
+                .param("user", userId)
+                .query(String.class)
+                .optional()
+                .map("ACTIVE"::equals)
+                .orElse(false);
+    }
 }

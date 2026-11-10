@@ -54,7 +54,14 @@ describe('Account screen /conta', () => {
     renderAccount();
 
     await screen.findByTestId('account-wallet');
-    expect(document.querySelectorAll('input, textarea, select')).toHaveLength(0);
+    // u4-data-requests: the form of the section "Meus dados (LGPD)" is the only control of the screen; the account
+    // details themselves have none.
+    expect(
+      screen.getByTestId('account-details').querySelectorAll('input, textarea, select'),
+    ).toHaveLength(0);
+    expect(
+      screen.getByTestId('data-requests-section').querySelectorAll('input, textarea, select'),
+    ).toHaveLength(2);
     expect(screen.queryByRole('button', { name: /desvincular|desconectar|trocar/i })).toBeNull();
     expect(screen.getByText(text.walletHelp)).toBeInTheDocument();
   });
@@ -91,6 +98,49 @@ describe('Account screen /conta', () => {
       ...screen.queryAllByRole('switch'),
     ];
     expect(controls.some((control) => /real/i.test(control.textContent ?? ''))).toBe(false);
+  });
+
+  /** u3-reacceptance (BR3.10, F5): the situation before the current version on the Account. */
+  it('an account up to date shows the accepted version and no way to the new acceptance', async () => {
+    renderAccount();
+
+    expect(await screen.findByTestId('terms-status-up-to-date')).toBeInTheDocument();
+    expect(screen.getByTestId('terms-status-accepted')).toHaveTextContent('versão v1');
+    expect(screen.queryByTestId('terms-status-accept-link')).toBeNull();
+  });
+
+  it('an outdated account offers "Aceitar a nova versão" to /novo-aceite and back to /conta', async () => {
+    renderAccount(
+      fakeApi({
+        getAccount: jest.fn(async () => ({
+          ...ACCOUNT,
+          terms: {
+            acceptedVersion: 'v1',
+            currentVersion: 'v2',
+            acceptedAt: '2026-10-28T12:00:00Z',
+            upToDate: false,
+          },
+        })),
+      }),
+    );
+
+    const link = await screen.findByTestId('terms-status-accept-link');
+    expect(link).toHaveAttribute('href', '/novo-aceite?voltar=%2Fconta');
+    expect(screen.getByTestId('terms-status-outdated')).toHaveTextContent('v2');
+  });
+
+  it('an account without any acceptance also offers the new acceptance', async () => {
+    renderAccount(
+      fakeApi({
+        getAccount: jest.fn(async () => ({
+          ...ACCOUNT,
+          acceptedTerms: undefined,
+          terms: undefined,
+        })),
+      }),
+    );
+
+    expect(await screen.findByTestId('terms-status-accept-link')).toBeInTheDocument();
   });
 
   it('an account without accepted terms says so', async () => {

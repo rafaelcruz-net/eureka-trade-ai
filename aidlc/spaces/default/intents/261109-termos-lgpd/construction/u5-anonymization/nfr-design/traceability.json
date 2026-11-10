@@ -1,0 +1,28 @@
+{
+  "stage": "nfr-design",
+  "unit": "u5-anonymization",
+  "upstream_ids": ["NFR1.1", "NFR1.2", "NFR2.1", "NFR2.2", "NFR2.3", "NFR3.1", "NFR3.2", "NFR3.3", "NFR4.1", "NFR4.2", "NFR5.1", "NFR5.2", "NFR5.3", "NFR5.4", "NFR5.5", "NFR5.6", "NFR8.1", "NFR8.2", "NFR8.3", "NFR8.4", "NFR9.1"],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "security-design: carteira nula, desafios apagados; AnonymizationNoWalletLeftIT" },
+    { "id": "NFR1.2", "status": "OK", "target": "security-design: AnonymizationResult só com contagens; agulha no LogScanIT" },
+    { "id": "NFR2.1", "status": "OK", "target": "security-design: ADMIN_ROUTE e validações em ordem" },
+    { "id": "NFR2.2", "status": "OK", "target": "security-design: SessionService já recusa; login e renovação reconferem ACTIVE sob trava" },
+    { "id": "NFR2.3", "status": "OK", "target": "security-design: erase_feedback_of_user, gatilho inalterado e dono membro pelo preparo de papéis" },
+    { "id": "NFR3.1", "status": "OK", "target": "performance-design: comandos fixos; AnonymizationLatencyIT" },
+    { "id": "NFR3.2", "status": "OK", "target": "performance-design: índices e login_challenge_wallet_idx; AnonymizationIndexIT" },
+    { "id": "NFR3.3", "status": "OK", "target": "scalability-design: síncrona, sem job" },
+    { "id": "NFR4.1", "status": "OK", "target": "reliability-design: diálogo acessível" },
+    { "id": "NFR4.2", "status": "OK", "target": "reliability-design: layout da U4 herdado" },
+    { "id": "NFR5.1", "status": "OK", "target": "reliability-design: AnonymizationKeepsHistoryIT e reconciliação" },
+    { "id": "NFR5.2", "status": "OK", "target": "reliability-design: transação única; AnonymizationRollbackIT em cinco pontos" },
+    { "id": "NFR5.3", "status": "OK", "target": "reliability-design: changesets com rollback; AnonymizationMigrationIT" },
+    { "id": "NFR5.4", "status": "OK", "target": "reliability-design: lock_timeout 2 s e 503" },
+    { "id": "NFR5.5", "status": "OK", "target": "reliability-design: trava do pedido e repetição" },
+    { "id": "NFR5.6", "status": "OK", "target": "reliability-design: ordem pedido, bots, sessões, conta; FOR SHARE no login e na renovação" },
+    { "id": "NFR8.1", "status": "OK", "target": "observability-design: contador depois do commit" },
+    { "id": "NFR8.2", "status": "OK", "target": "observability-design: ACCOUNT_ANONYMIZED" },
+    { "id": "NFR8.3", "status": "OK", "target": "observability-design: INFO e ERROR" },
+    { "id": "NFR8.4", "status": "OK", "target": "observability-design: contador de falhas; alerta no Infrastructure Design" },
+    { "id": "NFR9.1", "status": "OK", "target": "security-design: testes antes do código" }
+  ]
+}

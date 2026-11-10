@@ -25,10 +25,11 @@ spring:
       # and the login limiter eviction (5); U4 collection dispatcher, history cleanup and scanner limiter eviction (3);
       # U7 marking, pending close, reconciliation and the "check now" limiter eviction (4); U6 purge of the old approved
       # evaluations (1); U5 the live channel mark poller of the api (1); U8 the kill switch reconciliation and the
-      # feedback purge (2). RuntimeSettingsGuard refuses less than 16 in the api (SCHEDULER_POOL_SIZE); the worker
-      # (application-worker.yml) has its own 4.
+      # feedback purge (2); u2-retention the login challenge purge and the session purge (2); u4-data-requests the
+      # timers of the data subject requests, their purge and the refresher of their counts (3). RuntimeSettingsGuard
+      # refuses less than 21 in the api (SCHEDULER_POOL_SIZE); the worker (application-worker.yml) has its own 4.
       pool:
-        size: ${SCHEDULER_POOL_SIZE:16}
+        size: ${SCHEDULER_POOL_SIZE:21}
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -153,6 +154,43 @@ memetrade:
     # U3 (BR3.1, NFR10.3): versioned terms and risk notice, read once at start-up; the api does not start without
     # exactly one current version with non-empty texts.
     location: classpath:terms/
+    reacceptance:
+      # u3-reacceptance (BR3.2, L3): a guest without an acceptance of the effective current version still reaches only
+      # these prefixes; every other guest route answers 403 TERMS_REACCEPTANCE_REQUIRED. u4-data-requests (BR4.20) adds
+      # /api/v1/privacy/: a person may exercise the rights of a data subject without accepting the new terms. This list
+      # is configuration of the code, never an environment variable.
+      allowed-prefixes:
+        - /api/v1/legal/
+        - /api/v1/terms/acceptances
+        - /api/v1/account
+        - /api/v1/auth/logout
+        - /api/v1/auth/refresh
+        - /api/v1/privacy/
+  privacy:
+    # u4-data-requests (infrastructure-specification.md "Configuração nova"): data subject requests of the Privacy
+    # module. A request is due 15 days after its reception (BR4.1); a person creates at most requests-per-hour of them
+    # (NFR2.4, raised only by the loadtest profile); a verification message is valid 24 hours (BR4.11). Every 15 minutes
+    # the timers refuse the expired verifications and notify the overdue requests once (BR4.13, BR4.14; ShedLock
+    # dataRequestTimers 5/1 min); at 04:00 UTC the purge deletes the requests closed 12 months ago in batches of 1000
+    # (BR4.15; ShedLock dataSubjectRequestPurge 35/5 min). The gauges and the health read counts refreshed every 60 s.
+    timers-cron: '0 */15 * * * *'
+    purge-cron: '0 0 4 * * *'
+    requests-per-hour: 10
+    response-time: 15d
+    verification-ttl: 24h
+    retention-months: 12
+    batch-size: 1000
+    timers-batch-size: 500
+    timers-lock-at-most-for: 5m
+    timers-lock-at-least-for: 1m
+    purge-lock-at-most-for: 35m
+    purge-lock-at-least-for: 5m
+    recover-after: 24h
+    degraded-after: 48h
+    counts-refresh-interval: 60s
+    due-soon: 3d
+    admin-page-size: 50
+    admin-page-max: 100
   legal:
     # u1-legal-documents (infrastructure-specification.md): deployment fields of the privacy policy, empty = "a definir"
     # and the current version not publishable (BR1.6); the publishing requirement is on only in production (BR1.1).
@@ -168,6 +206,22 @@ memetrade:
       # CIDR list compared ONLY with the direct peer of the connection (never X-Forwarded-For): locally the sub-range of
       # the web and admin containers; never the bridge gateway, a load balancer or a proxy.
       internal-networks: ${MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS:}
+  identity:
+    purge:
+      # u2-retention (BR2.5 to BR2.8, BR2.16, reliability-design.md): daily purges of the api process, evaluated in UTC,
+      # once across instances (ShedLock loginChallengePurge and sessionPurge), in batches of at most 1000 rows. A
+      # challenge leaves 24 hours after it expired; a session and its used refresh digests leave 30 days after its end.
+      # A purge without a success for more than recover-after runs when the api is ready; its health is DEGRADED after
+      # degraded-after without a success (and more than that since the start).
+      challenges-cron: '0 20 3 * * *'
+      sessions-cron: '0 40 3 * * *'
+      challenge-retention: 24h
+      session-retention: 30d
+      batch-size: 1000
+      lock-at-most-for: 35m
+      lock-at-least-for: 5m
+      recover-after: 24h
+      degraded-after: 48h
   idempotency:
     default-retention: 24h
     cleanup-interval: 1h
@@ -242,6 +296,10 @@ memetrade:
       purge-stale-after: 48h
       page-max: 100
   audit:
+    # u2-retention (BR2.1, BR2.4, NFR6.1): key of the HMAC-SHA-256 of the wallet addresses in the trail, at least 32
+    # bytes in UTF-8, only from the environment (.env locally, the secrets manager in the cloud). Without it the api
+    # and the worker do not start; the value is never logged or shown by the actuator.
+    wallet-hmac-key: ${MEMETRADE_AUDIT_WALLET_HMAC_KEY:}
     relay-interval: 1s
     relay-batch-size: 100
     max-delivery-lag: 60s

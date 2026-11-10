@@ -7,7 +7,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.stereotype.Component;
 
-/** Writes an RFC 7807 problem directly from servlet filters, which run before the controller advice. */
+/**
+ * Writes an RFC 7807 problem directly from servlet filters, which run before the controller advice. The body is the
+ * same {@link ProblemResponse} the advice writes, extensions included (u3-reacceptance: {@code currentVersion}).
+ */
 @Component
 public class ProblemWriter {
 

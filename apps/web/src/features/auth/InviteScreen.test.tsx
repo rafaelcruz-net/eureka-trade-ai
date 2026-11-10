@@ -1,11 +1,18 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ApiError } from '@/lib/api/client';
 import { tokenStore } from '@/lib/auth/token-store';
 import { messages } from '@/lib/i18n/messages';
 import { ACCEPTANCE_STORAGE_KEY } from '@/features/auth/acceptance-store';
 import { InviteScreen, PHANTOM_DOWNLOAD, SOLFLARE_DOWNLOAD } from '@/features/auth/InviteScreen';
-import { fakeApi, fakeWallet, INVITE, Providers } from '@/features/auth/test-support';
+import {
+  fakeApi,
+  fakeWallet,
+  INVITE,
+  LEGAL_CURRENT,
+  Providers,
+} from '@/features/auth/test-support';
+import { reacceptanceMessages } from '@/features/reacceptance/messages';
 import type { WalletPort } from '@/features/auth/wallets';
 import InvitePage from '@/app/convite/[codigo]/page';
 import InviteWithoutCodePage from '@/app/convite/page';
@@ -306,6 +313,12 @@ describe('invitation entry /convite/[codigo]', () => {
     expect(screen.getByRole('heading', { level: 1, name: text.title })).toHaveFocus();
     expect(await screen.findByLabelText(text.acceptTerms)).toBeInTheDocument();
     expect(screen.getByLabelText(text.acceptRisk)).toBeInTheDocument();
+    // u3-reacceptance (NFR4.1): the links of the summary come before the boxes.
+    await waitFor(() => expect(screen.getByTestId('invite-accept-terms')).toBeEnabled());
+    await userEvent.tab();
+    expect(screen.getByTestId('invite-terms-link')).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByTestId('invite-privacy-link')).toHaveFocus();
     await userEvent.tab();
     expect(screen.getByTestId('invite-accept-terms')).toHaveFocus();
     await userEvent.keyboard(' ');
@@ -328,5 +341,88 @@ describe('invitation entry /convite/[codigo]', () => {
       </Providers>,
     );
     expect(screen.getAllByTestId('invite-code-form')).toHaveLength(1);
+  });
+});
+
+/** Passo 10 of u3-reacceptance (BR3.8, BR3.9; US2.3; NFR4.1, NFR4.2): the summary of L1 on the invitation. */
+describe('invitation with the summary of the current version', () => {
+  beforeEach(() => {
+    replace.mockReset();
+    push.mockReset();
+    tokenStore.clear();
+    window.sessionStorage.clear();
+  });
+
+  it('shows the summary of the terms and of the privacy policy with the links in another tab', async () => {
+    renderInvite();
+
+    const summary = await screen.findByTestId('invite-summary');
+    expect(within(summary).getAllByRole('heading', { level: 2 })).toHaveLength(2);
+    expect(screen.getByTestId('invite-terms-link')).toHaveAttribute('target', '_blank');
+    expect(screen.getByTestId('invite-privacy-link')).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('keeps the boxes disabled with the state in text while the documents load', async () => {
+    const api = fakeApi({
+      getCurrentLegalDocuments: jest.fn(() => new Promise<never>(() => undefined)),
+    });
+    renderInvite(api);
+
+    expect(await screen.findByTestId('invite-legal-loading')).toHaveTextContent(
+      reacceptanceMessages.invite.loading,
+    );
+    expect(screen.getByTestId('invite-accept-terms')).toBeDisabled();
+    expect(screen.getByTestId('invite-accept-risk')).toBeDisabled();
+    expect(screen.getByTestId('invite-connect-reason')).toHaveTextContent(
+      reacceptanceMessages.waitDocuments,
+    );
+  });
+
+  it('a failure of the documents disables the boxes, explains it and "Tentar de novo" loads again', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const api = fakeApi({
+      getCurrentLegalDocuments: jest
+        .fn()
+        .mockRejectedValueOnce(new ApiError(0, 'NETWORK'))
+        .mockResolvedValueOnce(LEGAL_CURRENT),
+    });
+    renderInvite(api);
+
+    expect(await screen.findByTestId('invite-legal-error')).toHaveTextContent(
+      reacceptanceMessages.invite.error,
+    );
+    expect(screen.getByTestId('invite-accept-terms')).toBeDisabled();
+    await userEvent.click(screen.getByTestId('invite-legal-retry'));
+
+    expect(await screen.findByTestId('invite-summary')).toBeInTheDocument();
+    expect(screen.getByTestId('invite-accept-terms')).toBeEnabled();
+  });
+
+  it('never lets a wallet connect while the documents are missing, even with the marks kept in the tab', async () => {
+    window.sessionStorage.clear();
+    const api = fakeApi({
+      getCurrentLegalDocuments: jest.fn(() => new Promise<never>(() => undefined)),
+    });
+    renderInvite(api);
+    await screen.findByTestId('invite-legal-loading');
+
+    expect(screen.getByTestId('invite-connect-disabled')).toBeDisabled();
+    expect(screen.queryByTestId('invite-connect-phantom')).toBeNull();
+  });
+
+  it('the marks survive a reload of the documents', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const api = fakeApi({
+      getCurrentLegalDocuments: jest
+        .fn()
+        .mockResolvedValueOnce(LEGAL_CURRENT)
+        .mockResolvedValueOnce(LEGAL_CURRENT),
+    });
+    renderInvite(api);
+    await screen.findByTestId('invite-summary');
+    await acceptBoth();
+
+    expect(screen.getByTestId('invite-accept-terms')).toBeChecked();
+    expect(screen.getByTestId('invite-connect-phantom')).toBeEnabled();
   });
 });

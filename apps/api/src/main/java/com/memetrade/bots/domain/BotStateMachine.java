@@ -183,6 +183,18 @@ public final class BotStateMachine {
         return new Change(status, BotStatus.of(STOPPED));
     }
 
+    /**
+     * u5-anonymization (BR5.2, BR5.3): ACTIVE, PAUSED and CLOSING_PENDING go straight to STOPPED, without any closing
+     * and without reasons; DRAFT, VALIDATED and STOPPED do not change ({@code changed() == false}).
+     */
+    public static Change anonymizeStop(BotStatus status) {
+        BotState state = status.state();
+        if (state == ACTIVE || state == PAUSED || state == CLOSING_PENDING) {
+            return new Change(status, BotStatus.of(STOPPED));
+        }
+        return new Change(status, status);
+    }
+
     /** BR5.1: a new limits version only for an ACTIVE or PAUSED bot. */
     public static void requireLimitsEditable(BotStatus status) {
         require(status, ACTIVE, PAUSED);

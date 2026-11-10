@@ -9,12 +9,15 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  *   <li><b>api</b>: main connection pool ({@code DB_POOL_MAX_SIZE}) 10 to 50, scheduler pool
- *       ({@code SCHEDULER_POOL_SIZE}) 14 to 32 - one thread per {@code @Scheduled} method of the api: U1 to U3 (5)
+ *       ({@code SCHEDULER_POOL_SIZE}) 21 to 32 - one thread per {@code @Scheduled} method of the api: U1 to U3 (5)
  *       audit relay, idempotency cleanup, audit retention purge, audit outbox cleanup, login limiter eviction; U4 (3)
  *       collection dispatcher, history cleanup, scanner limiter eviction; U7 (4) marking, pending close,
  *       reconciliation, "check now" limiter eviction; U6 (1) purge of the old approved evaluations; U5 (1) the live
  *       channel mark poller ({@code DashboardMarkPoller}); U8 (2) the kill switch reconciliation
- *       ({@code KillSwitchReconciler}) and the feedback purge ({@code FeedbackPurgeJob}). U8 also checks the origin of
+ *       ({@code KillSwitchReconciler}) and the feedback purge ({@code FeedbackPurgeJob}); u2-retention (2) the login
+ *       challenge purge and the session purge ({@code IdentityJobSchedule}); u4-data-requests (3) the timers and the
+ *       purge of the data subject requests ({@code PrivacyJobSchedule}) and the refresher of their counts
+ *       ({@code DataRequestCountsRefresher}). U8 also checks the origin of
  *       the administrator app ({@code ADMIN_APP_ORIGIN}): an http or https origin, never a wildcard.
  *   <li><b>worker</b>: pool 14 to 30 (4 cycles, 4 reserve, 6 jobs, scalability-design.md), scheduler 4 to 8 (slot
  *       dispatch, midnight, closing check, decision purge).
@@ -32,10 +35,11 @@ public class RuntimeSettingsGuard {
     static final String ADMIN_ORIGIN_PROPERTY = "memetrade.admin.app-origin";
 
     /**
-     * The smallest scheduler pool of the api: its 16 scheduled jobs (13 of U1 to U7, the U5 mark poller and the two
-     * jobs of U8).
+     * The smallest scheduler pool of the api: its 21 scheduled jobs (13 of U1 to U7, the U5 mark poller, the two jobs
+     * of U8, the login challenge and session purges of u2-retention and the timers, purge and count refresher of
+     * u4-data-requests).
      */
-    public static final int MIN_SCHEDULER_POOL = 16;
+    public static final int MIN_SCHEDULER_POOL = 21;
 
     /** The smallest scheduler pool of the worker: its 4 scheduled jobs (U5). */
     public static final int MIN_WORKER_SCHEDULER_POOL = 4;

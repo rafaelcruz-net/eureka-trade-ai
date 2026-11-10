@@ -44,7 +44,11 @@ import org.springframework.transaction.support.TransactionTemplate;
             com.memetrade.administration.web.AdminSystemController.class,
             com.memetrade.feedback.web.AdminFeedbackController.class,
             // u1-legal-documents (L1): the public legal documents, also in the administrative group.
-            com.memetrade.identity.web.LegalDocumentsController.class
+            com.memetrade.identity.web.LegalDocumentsController.class,
+            // u4-data-requests (P2): the data subject requests of the administrator.
+            com.memetrade.privacy.web.AdminDataRequestController.class,
+            // u5-anonymization (P2): the anonymization of the account of a DELETION request.
+            com.memetrade.privacy.web.AdminAnonymizationController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -124,6 +128,13 @@ public abstract class AdminOpenApiSlice {
     @MockitoBean
     com.memetrade.administration.infra.KillSwitchApplier killSwitchApplier;
 
+    /** u5-anonymization (P2, J1): the anonymization service and the anonymized flag of the list. */
+    @MockitoBean
+    com.memetrade.privacy.domain.anonymization.AnonymizationService anonymizationService;
+
+    @MockitoBean
+    com.memetrade.identity.api.AccountAnonymizationPort accountAnonymizationPort;
+
     @MockitoBean
     com.memetrade.administration.domain.KillSwitchStore killSwitchStore;
 
@@ -145,6 +156,29 @@ public abstract class AdminOpenApiSlice {
 
     @MockitoBean
     com.memetrade.identity.domain.ratelimit.LegalDocumentsRateLimiter legalDocumentsRateLimiter;
+
+    /** u3-reacceptance (L3): the collaborators of the reacceptance lock, a filter of the web slice. */
+    @MockitoBean
+    com.memetrade.identity.domain.terms.CurrentTerms currentTerms;
+
+    @MockitoBean
+    com.memetrade.identity.domain.terms.TermsAcceptanceLookup termsAcceptanceLookup;
+
+    @MockitoBean
+    com.memetrade.identity.domain.terms.TermsEvents termsEvents;
+
+    @MockitoBean
+    com.memetrade.identity.infra.ReacceptanceProperties reacceptanceProperties;
+
+    /** u4-data-requests (P2): the requests and the verification of the administrator. */
+    @MockitoBean
+    com.memetrade.privacy.domain.request.DataRequestService dataRequestService;
+
+    @MockitoBean
+    com.memetrade.privacy.domain.request.IdentityVerificationService identityVerificationService;
+
+    @MockitoBean
+    com.memetrade.privacy.infra.PrivacyProperties privacyProperties;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/admin"))

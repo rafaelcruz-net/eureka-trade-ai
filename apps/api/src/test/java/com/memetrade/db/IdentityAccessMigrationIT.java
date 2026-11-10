@@ -112,8 +112,9 @@ class IdentityAccessMigrationIT extends AbstractU3IT {
 
     @Test
     void theApplicationMayInsertAnAcceptanceButNeverUpdateOrDeleteIt() {
-        TestAccounts.Seeded account =
-                TestAccounts.betaUser(jdbc, TestWallet.generate().address());
+        // u3-reacceptance: without the acceptance of the fixtures, so this INVITE row is the only one of (person, v1).
+        TestAccounts.Seeded account = TestAccounts.betaUserWithoutAcceptance(
+                jdbc, TestWallet.generate().address());
         UUID invite = insertInvite(account.tenantId(), "USED", T, account.userId(), null);
         UUID acceptance = UUID.randomUUID();
         jdbc.sql("""

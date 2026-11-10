@@ -80,4 +80,49 @@ class AuditEventCommandTest {
         assertThat(event.details()).containsEntry("reason", "EXPIRED");
         assertThatThrownBy(() -> event.details().put("x", "y")).isInstanceOf(UnsupportedOperationException.class);
     }
+
+    // ----- u2-retention (BR2.1, BR2.15, J6): the wallet field. -----
+
+    @Test
+    void anAnonymousWalletEventHasTheMaskedActorAndTheWalletInItsOwnField() {
+        String address = com.memetrade.testsupport.TestWallet.generate().address();
+
+        AuditEventCommand event = AuditEventCommand.anonymousWallet(
+                AuditActions.LOGIN_REJECTED, address, null, "corr", NOW, Map.of("reason", "EXPIRED"));
+
+        assertThat(event.actor()).isEqualTo(com.memetrade.shared.wallet.WalletAddress.mask(address));
+        assertThat(event.wallet()).isEqualTo(address);
+        assertThat(event.details()).doesNotContainValue(address);
+        assertThat(event.toString()).doesNotContain(address).contains("wallet=" + event.actor());
+    }
+
+    @Test
+    void withWalletKeepsEveryOtherFieldAndTheFactoriesOfBeforeCarryNoWallet() {
+        String address = com.memetrade.testsupport.TestWallet.generate().address();
+        AuditEventCommand person = AuditEventCommand.person(
+                UUID.randomUUID(), UUID.randomUUID(), AuditActions.LOGIN_SUCCEEDED, "session:1", "corr", NOW, Map.of());
+
+        AuditEventCommand withWallet = person.withWallet(address);
+
+        assertThat(person.wallet()).isNull();
+        assertThat(person.toString()).contains("wallet=none");
+        assertThat(withWallet.wallet()).isEqualTo(address);
+        assertThat(withWallet.eventId()).isEqualTo(person.eventId());
+        assertThat(withWallet.actor()).isEqualTo(person.actor());
+        assertThat(withWallet.tenantId()).isEqualTo(person.tenantId());
+    }
+
+    @Test
+    void textThatIsNotAWalletIsRefusedWithoutEchoingIt() {
+        String notAWallet = "not-a-wallet!";
+
+        assertThatThrownBy(() -> AuditEventCommand.anonymousWallet(
+                        AuditActions.LOGIN_REJECTED, notAWallet, null, "corr", NOW, Map.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageNotContaining(notAWallet);
+        AuditEventCommand system = AuditEventCommand.system("ACTION", null, "corr", NOW, Map.of());
+        assertThatThrownBy(() -> system.withWallet(notAWallet))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageNotContaining(notAWallet);
+    }
 }

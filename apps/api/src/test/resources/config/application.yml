@@ -1,0 +1,6 @@
+# Test classpath only (never packaged in the jar): settings every Spring context of the backend tests needs.
+memetrade:
+  audit:
+    # u2-retention (NFR6.2): fixed, obviously fake HMAC key of the audit wallet references, for tests only. Production
+    # keys come only from MEMETRADE_AUDIT_WALLET_HMAC_KEY (.env or the secrets manager); docker-compose.yml requires it.
+    wallet-hmac-key: test-only-wallet-hmac-key-not-a-secret-0000

@@ -100,28 +100,34 @@ class AuditOutboxIT extends AbstractPostgresIT {
         assertThat(trailCount(event.eventId())).isEqualTo(1);
     }
 
+    /** u2-retention (BR2.1, BR2.18): the trail keeps the masked actor and the HMAC, never the full address. */
     @Test
-    void preLoginEventsHaveAnonymousActorAndNoTenantAndTheFullAddressOnlyInDetails() {
+    void preLoginEventsHaveAnonymousActorNoTenantAndOnlyTheHmacOfTheWallet() {
         String address = SyntheticIds.mint();
-        AuditEventCommand event = AuditEventCommand.anonymous(
+        AuditEventCommand event = AuditEventCommand.anonymousWallet(
                 AuditActions.LOGIN_REJECTED,
-                WalletAddress.mask(address),
+                address,
                 null,
                 UUID.randomUUID().toString(),
                 clock.instant(),
-                Map.of("reason", "EXPIRED", "walletAddress", address));
+                Map.of("reason", "EXPIRED"));
         tx.executeWithoutResult(status -> publisher.publish(event));
-        relay.relayBatch();
+        tx.executeWithoutResult(status -> {
+            while (relay.relayBatch() > 0) {
+                // deliver every pending row, this event included
+            }
+        });
 
-        Map<String, Object> row = jdbc.sql(
-                        "select tenant_id, actor, actor_type, details::text as details from audit_event where event_id = :id")
-                .param("id", event.eventId())
-                .query()
-                .singleRow();
+        Map<String, Object> row =
+                jdbc.sql("""
+                        select tenant_id, actor, actor_type, details::text as details, wallet_hmac
+                        from audit_event where event_id = :id
+                        """).param("id", event.eventId()).query().singleRow();
         assertThat(row.get("tenant_id")).isNull();
         assertThat(row.get("actor_type")).isEqualTo("ANONYMOUS");
-        assertThat((String) row.get("actor")).doesNotContain(address);
-        assertThat((String) row.get("details")).contains(address).contains("EXPIRED");
+        assertThat(row.get("actor")).isEqualTo(WalletAddress.mask(address));
+        assertThat((String) row.get("details")).doesNotContain(address).contains("EXPIRED");
+        assertThat(row.get("wallet_hmac")).isEqualTo(com.memetrade.testsupport.TestWalletHmac.of(address));
     }
 
     @Test

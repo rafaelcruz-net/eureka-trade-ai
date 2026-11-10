@@ -523,6 +523,405 @@ paths:
         a mesma resposta
       tags:
       - admin-kill-switch-controller
+  /api/v1/admin/privacy/requests:
+    get:
+      operationId: adminListDataRequests
+      parameters:
+      - in: query
+        name: status
+        schema:
+          type: string
+          enum:
+          - RECEIVED
+          - AWAITING_VERIFICATION
+          - IN_PROGRESS
+          - DONE
+          - REFUSED
+      - description: Cursor opaco devolvido em nextCursor
+        in: query
+        name: cursor
+        schema:
+          type: string
+      - description: Itens por página
+        in: query
+        name: limit
+        schema:
+          type: integer
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDataRequestPage"
+          description: "Uma página, do prazo mais próximo para o mais distante"
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED em status, limit ou cursor"
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN"
+      security:
+      - accessToken: []
+      summary: "Pedidos de titular por prazo, com filtro de situação e cursor (FR7.1,\
+        \ NFR3.2)"
+      tags:
+      - admin-data-request-controller
+    post:
+      operationId: adminRegisterEmailRequest
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterEmailDataRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDataRequest"
+          description: "Registrado como EMAIL e RECEIVED, com prazo de 15 dias"
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED em type, details, contact, receivedAt (futuro),\
+            \ userId (conta inexistente) ou campo desconhecido; o erro nomeia o campo,\
+            \ nunca o valor"
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: FORBIDDEN_ROLE
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "DATA_REQUEST_ALREADY_OPEN (a conta ligada já tem pedido aberto\
+            \ do mesmo tipo; aditivo, U4) ou IDEMPOTENCY_CONFLICT"
+      security:
+      - accessToken: []
+      summary: Registra pedido recebido pelo e-mail do encarregado (FR5.2c)
+      tags:
+      - admin-data-request-controller
+  /api/v1/admin/privacy/requests/{requestId}:
+    get:
+      operationId: adminGetDataRequest
+      parameters:
+      - in: path
+        name: requestId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDataRequest"
+          description: O pedido
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: NOT_FOUND
+      security:
+      - accessToken: []
+      summary: "Um pedido com o texto, a verificação e, para Acesso aberto, a pré\
+        via do resumo"
+      tags:
+      - admin-data-request-controller
+  /api/v1/admin/privacy/requests/{requestId}/anonymization:
+    post:
+      operationId: adminAnonymizeAccount
+      parameters:
+      - in: path
+        name: requestId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnonymizeAccountRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnonymizationResult"
+          description: "A conta anonimizada e o pedido DONE, ou a repetição"
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: FORBIDDEN_ROLE
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: NOT_FOUND
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: REQUEST_NOT_ELIGIBLE (não é Exclusão IN_PROGRESS) | NO_LINKED_ACCOUNT
+            | ADMIN_ACCOUNT_NOT_ANONYMIZABLE | IDENTITY_NOT_VERIFIED (origem EMAIL)
+            | IDEMPOTENCY_CONFLICT
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: CONFIRMATION_REQUIRED (confirmação diferente de ANONIMIZAR)
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "LOCK_TIMEOUT com Retry-After: nada mudou; repetir com a mesma\
+            \ Idempotency-Key"
+      security:
+      - accessToken: []
+      summary: Anonimiza a conta de um pedido de Exclusão em andamento (FR6); idempotente;
+        a repetição numa conta já anonimizada devolve o mesmo resultado com alreadyAnonymized
+      tags:
+      - admin-anonymization-controller
+  /api/v1/admin/privacy/requests/{requestId}/reply-sent:
+    post:
+      operationId: adminMarkReplySent
+      parameters:
+      - in: path
+        name: requestId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDataRequest"
+          description: O pedido com replySentAt; o primeiro registro é mantido
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: NOT_FOUND
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: INVALID_TRANSITION (origem ACCOUNT ou pedido ainda aberto)
+      security:
+      - accessToken: []
+      summary: Registra a data do envio da resposta ao contato de um pedido por e-mail
+        (só EMAIL encerrado)
+      tags:
+      - admin-data-request-controller
+  /api/v1/admin/privacy/requests/{requestId}/transitions:
+    post:
+      operationId: adminTransitionDataRequest
+      parameters:
+      - in: path
+        name: requestId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DataRequestTransition"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDataRequest"
+          description: O pedido depois da transição
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED (destino fora do enum, resposta ou motivo\
+            \ longos demais)"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: NOT_FOUND
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "INVALID_TRANSITION (inclui AWAITING_VERIFICATION para IN_PROGRESS,\
+            \ que só a confirmação faz, e verificação de identidade primeiro) | DATA_REQUEST_CLOSED\
+            \ | IDENTITY_NOT_VERIFIED"
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: UNPROCESSABLE_FIELDS (recusa sem motivo; liberar resumo fora
+            de um Acesso)
+      security:
+      - accessToken: []
+      summary: "Muda a situação do pedido. RECEIVED para IN_PROGRESS é recusado num\
+        \ pedido EMAIL de ACCESS ou DELETION ligado a conta ativa: ele passa antes\
+        \ pela verificação de identidade"
+      tags:
+      - admin-data-request-controller
+  /api/v1/admin/privacy/requests/{requestId}/verification:
+    post:
+      operationId: adminStartVerification
+      parameters:
+      - in: path
+        name: requestId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationView"
+          description: "A verificação, com a mensagem a enviar ao contato"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: NOT_FOUND
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "INVALID_TRANSITION (origem Conta, sem conta ligada, conta\
+            \ anonimizada, tipo sem verificação ou pedido fora de RECEIVED) | DATA_REQUEST_CLOSED"
+      security:
+      - accessToken: []
+      summary: Gera a mensagem de verificação e leva o pedido a AWAITING_VERIFICATION
+        (só origem EMAIL com conta)
+      tags:
+      - admin-data-request-controller
+  /api/v1/admin/privacy/requests/{requestId}/verification/confirm:
+    post:
+      operationId: adminConfirmVerification
+      parameters:
+      - in: path
+        name: requestId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmVerification"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDataRequest"
+          description: Identidade confirmada; o pedido está IN_PROGRESS
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: NOT_FOUND
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VERIFICATION_EXPIRED | VERIFICATION_ALREADY_USED | DATA_REQUEST_CLOSED
+            (antes de qualquer erro de verificação) | INVALID_TRANSITION (sem verificação
+            iniciada)
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: VERIFICATION_INVALID (o pedido continua aguardando)
+      security:
+      - accessToken: []
+      summary: Confere a assinatura da carteira da conta sobre a mensagem; a assinatura
+        nunca é guardada
+      tags:
+      - admin-data-request-controller
   /api/v1/admin/system-status:
     get:
       operationId: getSystemStatus
@@ -693,6 +1092,92 @@ paths:
       - legal-documents-controller
 components:
   schemas:
+    AcceptedVersion:
+      type: object
+      additionalProperties: false
+      properties:
+        acceptedAt:
+          type: string
+          format: date-time
+        version:
+          type: string
+      required:
+      - acceptedAt
+      - version
+    AccessSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        acceptedVersions:
+          type: array
+          items:
+            $ref: "#/components/schemas/AcceptedVersion"
+        accountCreatedAt:
+          type: string
+          format: date-time
+        botCount:
+          type: integer
+          format: int64
+          minimum: 0
+        feedbackCount:
+          type: integer
+          format: int64
+          minimum: 0
+        lastLoginAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+          description: Início da sessão mais recente; null antes do primeiro login
+        paperOrderCount:
+          type: integer
+          format: int64
+          minimum: 0
+        provider:
+          type: string
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccessSummaryRequest"
+        walletMasked:
+          type: string
+          description: 4 primeiros e 4 últimos caracteres
+      required:
+      - acceptedVersions
+      - accountCreatedAt
+      - botCount
+      - feedbackCount
+      - lastLoginAt
+      - paperOrderCount
+      - provider
+      - requests
+      - walletMasked
+    AccessSummaryRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        receivedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - RECEIVED
+          - AWAITING_VERIFICATION
+          - IN_PROGRESS
+          - DONE
+          - REFUSED
+        type:
+          type: string
+          enum:
+          - ACCESS
+          - CORRECTION
+          - DELETION
+          - OTHER
+      required:
+      - receivedAt
+      - status
+      - type
     AdminChallengeRequest:
       type: object
       additionalProperties: false
@@ -703,6 +1188,127 @@ components:
           minLength: 1
       required:
       - walletAddress
+    AdminDataRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        accessSummary:
+          description: Foto liberada na conclusão de um Acesso
+          oneOf:
+          - $ref: "#/components/schemas/AccessSummary"
+          - type: "null"
+        accessSummaryPreview:
+          description: Prévia do resumo de um Acesso aberto ligado a uma conta; null
+            na lista
+          oneOf:
+          - $ref: "#/components/schemas/AccessSummary"
+          - type: "null"
+        accountAnonymized:
+          type: boolean
+          description: A conta ligada foi anonimizada (acréscimo da U5); a tela mostra
+            'Conta anonimizada'
+        contact:
+          type:
+          - string
+          - "null"
+          description: E-mail do titular; só em pedidos por e-mail
+        details:
+          type: string
+          description: "Texto do pedido, como foi enviado"
+        dueAt:
+          type: string
+          format: date-time
+        dueSoon:
+          type: boolean
+          description: "Aberto, ainda no prazo e a 3 dias ou menos dele (acréscimo\
+            \ da U4, BR4.16)"
+        identityVerified:
+          type: boolean
+        origin:
+          type: string
+          enum:
+          - ACCOUNT
+          - EMAIL
+        overdue:
+          type: boolean
+          description: Aberto e com o prazo vencido
+        receivedAt:
+          type: string
+          format: date-time
+        refusalReason:
+          type:
+          - string
+          - "null"
+        replySentAt:
+          type:
+          - string
+          - "null"
+          format: date-time
+        requestId:
+          type: string
+          format: uuid
+        response:
+          type:
+          - string
+          - "null"
+        status:
+          type: string
+          enum:
+          - RECEIVED
+          - AWAITING_VERIFICATION
+          - IN_PROGRESS
+          - DONE
+          - REFUSED
+        type:
+          type: string
+          enum:
+          - ACCESS
+          - CORRECTION
+          - DELETION
+          - OTHER
+        userId:
+          type:
+          - string
+          - "null"
+          format: uuid
+        verification:
+          description: Verificação por assinatura; null sem verificação ou na lista
+          oneOf:
+          - $ref: "#/components/schemas/VerificationView"
+          - type: "null"
+      required:
+      - accessSummary
+      - accessSummaryPreview
+      - accountAnonymized
+      - contact
+      - details
+      - dueAt
+      - dueSoon
+      - identityVerified
+      - origin
+      - overdue
+      - receivedAt
+      - refusalReason
+      - replySentAt
+      - requestId
+      - response
+      - status
+      - type
+      - userId
+      - verification
+    AdminDataRequestPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminDataRequest"
+        nextCursor:
+          type: string
+          description: Cursor da próxima página; ausente na última
+      required:
+      - items
     AdminSession:
       type: object
       additionalProperties: false
@@ -752,6 +1358,51 @@ components:
       - provider
       - signature
       - walletAddress
+    AnonymizationResult:
+      type: object
+      additionalProperties: false
+      properties:
+        alreadyAnonymized:
+          type: boolean
+          description: A conta já estava anonimizada; nada mudou
+        anonymizedAt:
+          type: string
+          format: date-time
+        botsStopped:
+          type: integer
+          format: int32
+          minimum: 0
+        feedbackDeleted:
+          type: integer
+          format: int32
+          minimum: 0
+        requestId:
+          type: string
+          format: uuid
+        sessionsRevoked:
+          type: integer
+          format: int32
+          minimum: 0
+        userId:
+          type: string
+          format: uuid
+      required:
+      - alreadyAnonymized
+      - anonymizedAt
+      - botsStopped
+      - feedbackDeleted
+      - requestId
+      - sessionsRevoked
+      - userId
+    AnonymizeAccountRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        confirmation:
+          type: string
+          description: Exatamente ANONIMIZAR; qualquer outro texto é 422 CONFIRMATION_REQUIRED
+      required:
+      - confirmation
     AuditEventPage:
       type: object
       additionalProperties: false
@@ -854,6 +1505,15 @@ components:
       - issuedAt
       - message
       - nonce
+    ConfirmVerification:
+      type: object
+      additionalProperties: false
+      properties:
+        signature:
+          type: string
+          description: Assinatura Base58 recebida do titular
+      required:
+      - signature
     CountMapPart:
       type: object
       additionalProperties: false
@@ -898,6 +1558,33 @@ components:
           format: int64
       required:
       - status
+    DataRequestTransition:
+      type: object
+      additionalProperties: false
+      properties:
+        refusalReason:
+          type:
+          - string
+          - "null"
+          description: Obrigatório para REFUSED
+          maxLength: 500
+        releaseAccessSummary:
+          type: boolean
+          default: false
+          description: Só para Acesso concluído; exige identidade em pedido EMAIL
+        response:
+          type:
+          - string
+          - "null"
+          maxLength: 4000
+        to:
+          type: string
+          enum:
+          - IN_PROGRESS
+          - DONE
+          - REFUSED
+      required:
+      - to
     FeedbackItem:
       type: object
       additionalProperties: false
@@ -1259,6 +1946,10 @@ components:
           type: string
         correlationId:
           type: string
+        currentVersion:
+          type: string
+          description: Versão vigente efetiva dos termos; só em TERMS_REACCEPTANCE_REQUIRED
+            e TERMS_VERSION_OUTDATED
         detail:
           type: string
         fields:
@@ -1280,6 +1971,40 @@ components:
       - correlationId
       - status
       - title
+      - type
+    RegisterEmailDataRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        contact:
+          type: string
+          format: email
+          maxLength: 254
+        details:
+          type: string
+          maxLength: 1000
+          minLength: 1
+        receivedAt:
+          type: string
+          format: date-time
+          description: Data em que o e-mail chegou ao encarregado; nunca no futuro
+        type:
+          type: string
+          enum:
+          - ACCESS
+          - CORRECTION
+          - DELETION
+          - OTHER
+        userId:
+          type:
+          - string
+          - "null"
+          format: uuid
+          description: "Conta ligada, opcional"
+      required:
+      - contact
+      - details
+      - receivedAt
       - type
     RetentionItem:
       type: object
@@ -1393,6 +2118,27 @@ components:
       required:
       - name
       - tenantId
+    VerificationView:
+      type: object
+      additionalProperties: false
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+          description: "Mensagem a assinar: domínio, pedido, finalidade e validade;\
+            \ só para este pedido"
+        state:
+          type: string
+          enum:
+          - PENDING
+          - CONFIRMED
+          - EXPIRED
+      required:
+      - expiresAt
+      - message
+      - state
   securitySchemes:
     accessToken:
       scheme: bearer

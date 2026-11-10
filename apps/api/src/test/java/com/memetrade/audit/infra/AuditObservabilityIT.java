@@ -187,14 +187,16 @@ class AuditObservabilityIT extends AbstractAuditJobIT {
 
     private UUID publishPersonEvent(String address) {
         UUID tenant = UUID.randomUUID();
+        // u2-retention (BR2.1): the wallet goes by its own field; the trail keeps its HMAC only.
         tx.executeWithoutResult(status -> publisher.publish(AuditEventCommand.person(
-                tenant,
-                UUID.randomUUID(),
-                "OBSERVABILITY_IT",
-                null,
-                UUID.randomUUID().toString(),
-                clock.instant(),
-                Map.of("walletAddress", address))));
+                        tenant,
+                        UUID.randomUUID(),
+                        "OBSERVABILITY_IT",
+                        null,
+                        UUID.randomUUID().toString(),
+                        clock.instant(),
+                        Map.of("source", "observability-it"))
+                .withWallet(address)));
         try {
             tx.executeWithoutResult(status -> publisher.publish(AuditEventCommand.person(
                     tenant,

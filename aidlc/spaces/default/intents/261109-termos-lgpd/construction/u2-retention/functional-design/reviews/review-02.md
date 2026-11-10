@@ -1,0 +1,38 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-11-10T03:30:40Z
+**Iteration:** 2
+**Verdict Dictated:** no
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Major | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u2-retention/functional-design/rules.md > BR2.1, BR2.3; functional-spec.md > F1 | O fluxo de login recusado com endereço inválido não está desenhado. Hoje `LoginVerificationService` grava o endereço bruto em `details` mesmo quando o endereço é inválido (o ator vira `anonymous`). Pela BR2.3, um valor Base58 de 32 a 44 caracteres que falha na validação da carteira é recusado pelo publicador. O publicador lança exceção e desfaz a transação do chamador, então a recusa de login passa a falhar com erro técnico e perde o evento de auditoria. As regras também não dizem o que vira `walletHmac` e máscara para uma entrada que não é um endereço válido, nem se o HMAC é calculado sobre texto controlado pelo atacante. | Definir, em BR2.1 e F1, o tratamento do endereço inválido: o que vai para `actor`, `walletHmac` e `details`, e qual resposta o login devolve se a auditoria recusar. Acrescentar a regra de que a recusa da auditoria nunca transforma uma recusa de login em erro 5xx, ou justificar o contrário. | Resolved (reviewer) |
+| R-02 | Major | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u2-retention/functional-design/entities.md > PurgeRun; functional-spec.md > F3, F5 | Falta dizer onde `PurgeRun.lastSuccessAt` fica guardado. O expurgo roda em uma só instância por trava (ShedLock), mas cada instância calcula a saúde por conta própria. Se o valor ficar em memória, as instâncias que não executaram ficam `DEGRADED` depois de 48 horas sem nunca terem falhado. Se ficar no banco, o modelo não tem tabela nem migração para isso. Também não existe recuperação de execução perdida. O ambiente atual é um Windows local que pode estar desligado às 03:20 e 03:40 UTC, e o módulo Audit já tem uma recuperação na subida (`AuditJobRecovery`) que o desenho não reaproveita nem descarta. | Definir o armazenamento do último sucesso (por exemplo, o repositório de execuções de job do Audit ou uma tabela nova na migração da Unit). Dizer como o indicador lê esse valor entre instâncias. Definir se o expurgo roda na subida quando o último sucesso tem mais de 24 horas, como o precedente do Audit, ou registrar a decisão de não fazer. | Resolved (reviewer) |
+| R-03 | Major | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u2-retention/functional-design/functional-spec.md > F7, nota após a tabela de linhas; entities.md > PurgeDeclaration | A conformidade das 6 linhas `PURGE` dos módulos existentes (decisão, risco, idempotência, feedback, trilha, saída da trilha) depende de uma interface de declaração que não existe em nenhum contrato. O resumo de contratos só define J1 a J6, e nenhum deles cobre `PurgeDeclaration`. O desenho adia para a geração de código os nomes exatos dos expurgos de decisão, risco e idempotência. Ele diz que a declaração é acrescentada a cada módulo "pela interface pública", e diz também que o Privacy depende de cada módulo que declara. O desenho não fixa a assinatura da interface, nem quem a define, nem o sentido da dependência. Isso muda código de módulos que não são desta Unit (Bots, RiskControl, Identity, Feedback, Audit). Sem isso, o BR2.10 não é implementável sem decidir arquitetura na geração de código. | Fixar a interface de declaração (nome, pacote, método, dono e o sentido da dependência entre Privacy e os módulos, sem ciclo). Listar os módulos que ela altera e os nomes exatos dos expurgos, lidos do código, ou registrar a decisão de adiá-los com o motivo. Acrescentar o contrato ao resumo de contratos ou declarar que ele é interno e aditivo. | Resolved (reviewer) |
+| R-04 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u2-retention/functional-design/functional-spec.md > F1 passo 4 e "Coluna nova `wallet_hmac`" | O texto diz que o evento é gravado na trilha, mas o publicador existente (`JdbcAuditEventPublisher`) só grava em `audit_outbox`, e a coluna `audit_event.wallet_hmac` é preenchida pelo relay. O desenho não diz como o relay copia o `walletHmac` do payload para a coluna, nem como trata um payload sem o campo. | Acrescentar o passo do relay em F1 e a regra de que um payload sem `walletHmac` deixa a coluna nula. | Resolved (reviewer) |
+| R-05 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u2-retention/functional-design/rules.md > BR2.2, BR2.4 | Não há regra de rotação da chave do HMAC. Trocar a chave quebra a correlação entre eventos (BR2.2) sem aviso. O desenho também não diz como a anonimização da U5 trata o `walletHmac` e o ator mascarado, que ficam na trilha por 12 meses e ainda ligam eventos à mesma pessoa. | Registrar a política de rotação da chave, mesmo que seja "sem rotação no beta". Registrar, como decisão ou pendência, o tratamento do `walletHmac` na anonimização. | Resolved (reviewer) |
+| R-06 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u2-retention/functional-design/entities.md > PurgeRun | O campo `lastRunAt` aparece em `entities.md`, mas F5 e BR2.16 falam em gravar o "início" da execução. Não está dito se `lastRunAt` é o início ou o fim. Isso é inofensivo para o `DEGRADED` (que usa `lastSuccessAt`), mas um desenvolvedor teria de escolher. | Dizer no `PurgeRun` que `lastRunAt` é o instante de início da execução, ou renomear o campo. | New |
+
+> R-01 Reviewer note: BR2.15 e o fluxo F1 definem o login recusado com endereço inválido. O `actor` é `anonymous`, não há `walletHmac` e `details` leva só `addressFormat=INVALID`. O HMAC nunca é calculado sobre texto do atacante. A resposta do login segue a recusa de sempre, então a recusa do validador (BR2.3) não vira 5xx no fluxo normal.
+
+> R-02 Reviewer note: BR2.16 e F5 guardam o último sucesso na tabela do Identity, com uma linha por expurgo. Todas as instâncias leem a mesma linha. A recuperação na subida cobre os casos sem linha, sem sucesso e com sucesso há mais de 24 horas, pela mesma trava. `AuditJobRecovery` existe em `apps/api/.../audit/infra` e é o precedente citado.
+
+> R-03 Reviewer note: BR2.17 e F7 fixam a interface `RetentionEnforcerDeclaration` no pacote `com.memetrade.shared.retention`, com `purgeId`, prazo e âncora. A lista de módulos e de expurgos está completa e a dependência é só para o `shared`, sem ciclo. O contrato é declarado interno e aditivo (bloco J7 no mesmo commit). Os jobs citados existem no código.
+
+> R-04 Reviewer note: F1 passo 5 e BR2.18 descrevem o relay de `audit_outbox` para `wallet_hmac`, com a coluna nula quando o payload não traz o campo. A nota sobre o consumidor ignorar campos desconhecidos também está registrada.
+
+> R-05 Reviewer note: BR2.19 registra que a chave não tem rotação no beta e que a troca só ocorre por incidente. O walletHmac na anonimização fica como pendência explícita para a `u5-anonymization`.
+
+### Validation Tool Results
+
+| Tool | Result | Interpretation |
+|---|---|---|
+| Verificação no código (`apps/api`) | Existem `shared/` sem pacote `retention`, `AuditJobRecovery`, `FeedbackPurgeJob`, `DecisionPurgeJob`, `RiskEvaluationPurgeJob`, `IdempotencyCleanupJob` e `AuditRetentionPurge` | Os pontos de integração que o design nomeia existem. O pacote `shared.retention` é novo, como o design declara. |
+
+### Summary
+
+Os cinco achados anteriores estão corrigidos com regras testáveis e sem ciclo de dependência. Resta só uma ambiguidade de nome (Minor), e um desenvolvedor consegue implementar sem consultar o arquiteto.

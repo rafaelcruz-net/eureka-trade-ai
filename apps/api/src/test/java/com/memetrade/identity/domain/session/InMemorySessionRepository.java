@@ -85,6 +85,11 @@ public final class InMemorySessionRepository implements SessionRepository {
     }
 
     @Override
+    public Optional<SessionAuthView> findAuthViewSharingAccount(UUID sessionId) {
+        return findAuthView(sessionId);
+    }
+
+    @Override
     public Optional<SessionAuthView> findAuthView(UUID sessionId) {
         return findById(sessionId).map(s -> {
             Boolean[] flags = activity.getOrDefault(sessionId, new Boolean[] {true, true});

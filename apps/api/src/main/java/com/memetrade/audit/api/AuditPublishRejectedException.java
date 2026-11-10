@@ -19,6 +19,11 @@ public class AuditPublishRejectedException extends IllegalArgumentException {
         FORBIDDEN_KEY,
         /** A value looks like a JWT, a Bearer credential or a Base58 64-byte signature (BR1.4). */
         FORBIDDEN_VALUE,
+        /**
+         * u2-retention (BR2.3): a detail or the actor carries a full wallet address (a Base58 value of 32 to 44
+         * characters that decodes to 32 bytes); the wallet travels only in the command's own field (BR2.1).
+         */
+        FULL_WALLET,
         /** {@link AuditEventPublisher#publish(AuditEventCommand)} was called outside a transaction (C9). */
         NO_TRANSACTION
     }

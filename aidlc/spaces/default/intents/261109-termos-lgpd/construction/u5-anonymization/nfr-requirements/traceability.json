@@ -1,0 +1,16 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "u5-anonymization",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9"],
+  "coverage": [
+    { "id": "NFR1", "status": "OK", "target": "NFR1.1, NFR1.2" },
+    { "id": "NFR2", "status": "OK", "target": "NFR2.1, NFR2.2, NFR2.3" },
+    { "id": "NFR3", "status": "OK", "target": "NFR3.1, NFR3.2, NFR3.3" },
+    { "id": "NFR4", "status": "OK", "target": "NFR4.1 (diálogo T8); NFR4.2 (demais itens herdados das telas de pedidos da U4)" },
+    { "id": "NFR5", "status": "OK", "target": "NFR5.1, NFR5.2, NFR5.3, NFR5.4, NFR5.5, NFR5.6" },
+    { "id": "NFR6", "status": "N/A", "target": "a U5 não usa segredo novo" },
+    { "id": "NFR7", "status": "N/A", "target": "a U5 não tem expurgo" },
+    { "id": "NFR8", "status": "OK", "target": "NFR8.1, NFR8.2, NFR8.3, NFR8.4" },
+    { "id": "NFR9", "status": "OK", "target": "NFR9.1" }
+  ]
+}

@@ -8,6 +8,9 @@ memetrade:
     invite-code: ${SMOKE_INVITE_CODE:}
     # U3 load scenario: codes separated by commas (one per simulated user); empty creates nothing.
     invite-codes: ${SMOKE_INVITE_CODES:}
+    # u5-anonymization: a second single-use invitation for the throw-away account of the e2e/anonymization spec,
+    # generated per run by scripts/verify.sh; empty creates nothing.
+    anonymization-invite-code: ${SMOKE_ANONYMIZATION_INVITE_CODE:}
   market:
     simulated:
       # U5 (cicd-pipeline.md): STANDARD by default; FREQUENT_SIGNALS only for the load scenario u5, and only here

@@ -48,15 +48,28 @@ public class SmokeInviteSeeder {
     private final List<String> codes;
 
     public SmokeInviteSeeder(
+            InviteRepository invites, TransactionTemplate transactions, Clock clock, String code, String codeList) {
+        this(invites, transactions, clock, code, codeList, "");
+    }
+
+    /**
+     * u5-anonymization (infrastructure-specification.md "Dados de teste"): {@code anonymizationCode}
+     * ({@code memetrade.smoke.anonymization-invite-code}, from SMOKE_ANONYMIZATION_INVITE_CODE) is a second
+     * single-use invitation for the throw-away account of the e2e/anonymization spec, so that spec never touches the
+     * account of the smoke. Absent or empty, nothing more is seeded and the current scripts/verify.sh keeps working.
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public SmokeInviteSeeder(
             InviteRepository invites,
             TransactionTemplate transactions,
             Clock clock,
             @Value("${memetrade.smoke.invite-code:}") String code,
-            @Value("${memetrade.smoke.invite-codes:}") String codeList) {
+            @Value("${memetrade.smoke.invite-codes:}") String codeList,
+            @Value("${memetrade.smoke.anonymization-invite-code:}") String anonymizationCode) {
         this.invites = invites;
         this.transactions = transactions;
         this.clock = clock;
-        this.codes = parse(code, codeList);
+        this.codes = parse(code, codeList, anonymizationCode);
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -96,10 +109,11 @@ public class SmokeInviteSeeder {
         return true;
     }
 
-    private static List<String> parse(String code, String codeList) {
+    private static List<String> parse(String code, String codeList, String anonymizationCode) {
         Set<String> all = new LinkedHashSet<>();
         List<String> candidates = new ArrayList<>();
         candidates.add(code);
+        candidates.add(anonymizationCode);
         if (codeList != null) {
             candidates.addAll(Arrays.asList(codeList.split(",")));
         }
@@ -110,7 +124,8 @@ public class SmokeInviteSeeder {
             }
             if (!InviteCodes.isWellFormed(trimmed)) {
                 throw new IllegalStateException("The test profile got a malformed smoke invitation code in"
-                        + " SMOKE_INVITE_CODE or SMOKE_INVITE_CODES (43 characters of base64url expected)");
+                        + " SMOKE_INVITE_CODE, SMOKE_INVITE_CODES or SMOKE_ANONYMIZATION_INVITE_CODE (43 characters of"
+                        + " base64url expected)");
             }
             all.add(trimmed);
         }

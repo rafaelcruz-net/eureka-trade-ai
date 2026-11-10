@@ -169,7 +169,9 @@ public class SessionService {
         if (session.state() != SessionState.ACTIVE) {
             return new RefreshOutcome.Refused(RefreshOutcome.Reason.CLOSED);
         }
-        Optional<SessionAuthView> view = sessions.findAuthView(session.sessionId());
+        // u5-anonymization (BR5.6, NFR5.6): after the session lock, the account under a shared lock (the order sessions
+        // then account of the anonymization); an account no longer ACTIVE (ANONYMIZED included) revokes the session.
+        Optional<SessionAuthView> view = sessions.findAuthViewSharingAccount(session.sessionId());
         if (view.isEmpty() || !view.get().userActive() || !view.get().tenantActive()) {
             sessions.close(session.sessionId(), SessionState.REVOKED, now);
             return new RefreshOutcome.Refused(RefreshOutcome.Reason.INACTIVE_ACCOUNT);

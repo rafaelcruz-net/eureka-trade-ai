@@ -31,6 +31,7 @@ public class JdbcAccountDetailsRepository implements AccountDetailsRepository {
                             order by t.accepted_at desc limit 1
                         ) a on true
                         where u.user_id = :user and u.tenant_id = :tenant and s.session_id = :session
+                          and w.address is not null
                         """)
                 .param("user", userId)
                 .param("tenant", tenantId)

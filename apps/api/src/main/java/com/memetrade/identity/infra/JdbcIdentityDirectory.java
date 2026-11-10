@@ -38,7 +38,8 @@ public class JdbcIdentityDirectory implements IdentityDirectory {
 
     @Override
     public Optional<String> walletOf(UUID userId) {
-        return jdbc.sql("select address from wallet where user_id = :id")
+        // u5-anonymization: an anonymized account keeps its wallet row without the address; it has no wallet any more.
+        return jdbc.sql("select address from wallet where user_id = :id and address is not null")
                 .param("id", userId)
                 .query(String.class)
                 .optional();

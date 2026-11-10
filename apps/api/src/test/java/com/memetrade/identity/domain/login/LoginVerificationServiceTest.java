@@ -41,6 +41,7 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+/** U1 login verification; u2-retention adds the wallet minimization of its audit events (BR2.1, BR2.15). */
 @Tag("u1")
 class LoginVerificationServiceTest {
 
@@ -61,7 +62,18 @@ class LoginVerificationServiceTest {
             new ObjectMapper().findAndRegisterModules().disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS));
     private final LoginVerificationService service = new LoginVerificationService(
             challenges,
-            address -> Optional.ofNullable(accounts.get(address)),
+            new com.memetrade.identity.domain.session.AccountRepository() {
+                @Override
+                public Optional<Account> findByWallet(String address) {
+                    return Optional.ofNullable(accounts.get(address));
+                }
+
+                @Override
+                public boolean lockActiveForSession(UUID userId) {
+                    return accounts.values().stream()
+                            .anyMatch(account -> account.userId().equals(userId) && account.userActive());
+                }
+            },
             new SessionService(
                     sessions,
                     new FakeAccessTokens(),
@@ -228,9 +240,55 @@ class LoginVerificationServiceTest {
         assertThat(event.tenantId()).isEmpty();
         assertThat(event.actorType()).isEqualTo(ActorType.ANONYMOUS);
         assertThat(event.actor()).isEqualTo(WalletAddress.mask(wallet.address()));
-        assertThat(event.details()).containsEntry("reason", "EXPIRED").containsEntry("walletAddress", wallet.address());
+        // u2-retention (BR2.1): the wallet travels in its own field, never in details.
+        assertThat(event.details()).containsEntry("reason", "EXPIRED").doesNotContainKey("walletAddress");
+        assertThat(event.details().values()).noneMatch(value -> value.contains(wallet.address()));
+        assertThat(event.wallet()).isEqualTo(wallet.address());
         assertThat(String.join(",", event.details().values())).doesNotContain(issued.nonce());
         assertThat(event.correlationId()).isEqualTo("corr");
+    }
+
+    // ----- u2-retention Passo 5, written before the code (BR2.1, BR2.15, NFR1.1, NFR1.3). -----
+
+    @Test
+    void theAcceptedLoginCarriesTheWalletInItsOwnFieldAndNeverInDetails() {
+        registerBetaUser(wallet, true, true);
+        IssuedChallenge issued = issue(wallet);
+
+        service.verify(signed(wallet, issued.message()));
+
+        AuditEventCommand event = audit.withAction(AuditActions.LOGIN_SUCCEEDED).getFirst();
+        assertThat(event.wallet()).isEqualTo(wallet.address());
+        assertThat(event.details()).containsEntry("provider", "PHANTOM").doesNotContainKey("walletAddress");
+        assertThat(event.details().values()).noneMatch(value -> value.contains(wallet.address()));
+        assertThat(event.toString()).doesNotContain(wallet.address());
+    }
+
+    @Test
+    void aRejectionWithTextThatIsNotAWalletIsAnonymousWithoutWalletAndWithoutTheText() {
+        String notAWallet = "not-a-wallet <script>";
+
+        service.verify(new VerifyCommand(notAWallet, "sign in please", "sig", "PHANTOM", "corr"));
+
+        AuditEventCommand event = audit.withAction(AuditActions.LOGIN_REJECTED).getFirst();
+        assertThat(event.actor()).isEqualTo("anonymous");
+        assertThat(event.actorType()).isEqualTo(ActorType.ANONYMOUS);
+        assertThat(event.wallet()).isNull();
+        assertThat(event.details())
+                .containsEntry("reason", "MALFORMED_MESSAGE")
+                .containsEntry("addressFormat", "INVALID")
+                .doesNotContainKey("walletAddress");
+        assertThat(event.details().values()).noneMatch(value -> value.contains(notAWallet));
+    }
+
+    @Test
+    void aRejectionWithoutAnyAddressIsAlsoMarkedInvalid() {
+        service.verify(new VerifyCommand(null, "sign in please", "sig", "PHANTOM", "corr"));
+
+        AuditEventCommand event = audit.withAction(AuditActions.LOGIN_REJECTED).getFirst();
+        assertThat(event.actor()).isEqualTo("anonymous");
+        assertThat(event.wallet()).isNull();
+        assertThat(event.details()).containsEntry("addressFormat", "INVALID");
     }
 
     @Test

@@ -115,6 +115,8 @@ services:
       # BR3.1: months the trail keeps an event; the api refuses to start below 12.
       AUDIT_RETENTION_MONTHS: ${AUDIT_RETENTION_MONTHS:-12}
       ACCESS_TOKEN_SIGNING_KEY: ${ACCESS_TOKEN_SIGNING_KEY:?set ACCESS_TOKEN_SIGNING_KEY in .env}
+      # u2-retention (BR2.4, NFR6.2): key of the HMAC of the wallets in the audit trail; required, at least 32 bytes.
+      MEMETRADE_AUDIT_WALLET_HMAC_KEY: ${MEMETRADE_AUDIT_WALLET_HMAC_KEY:?}
       GUEST_APP_ORIGIN: ${GUEST_APP_ORIGIN:-http://localhost:3000}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       ADMIN_WALLET_ADDRESSES: ${ADMIN_WALLET_ADDRESSES:-}
@@ -122,7 +124,7 @@ services:
       ADMIN_APP_ORIGIN: ${ADMIN_APP_ORIGIN:-http://localhost:3001}
       # U4 (infrastructure-specification.md): none is a secret; the api checks each range at start-up.
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-20}
-      SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-16}
+      SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-21}
       MARKET_SOURCES: ${MARKET_SOURCES:-sim-a,sim-b}
       MARKET_COLLECTION_INTERVAL: ${MARKET_COLLECTION_INTERVAL:-30s}
       MARKET_SIMULATED_TOKENS_PER_SOURCE: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}
@@ -177,6 +179,8 @@ services:
       DB_NAME: ${POSTGRES_DB:-memetrade}
       DB_USER: ${DB_USER:-memetrade_app}
       DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      # u2-retention (BR2.4, NFR6.1): the worker publishes audit events too and validates the same key.
+      MEMETRADE_AUDIT_WALLET_HMAC_KEY: ${MEMETRADE_AUDIT_WALLET_HMAC_KEY:?}
       DB_POOL_MAX_SIZE: '14'
       SCHEDULER_POOL_SIZE: '4'
       MARKET_SOURCES: ${MARKET_SOURCES:-sim-a,sim-b}

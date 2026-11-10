@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.memetrade.identity.domain.ratelimit.LegalDocumentsRateLimiter;
-import com.memetrade.shared.health.HealthStatuses;
 import com.memetrade.testsupport.AbstractPostgresIT;
 import com.memetrade.testsupport.AuthFlow;
 import com.memetrade.testsupport.TestAccounts;
@@ -23,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.health.CompositeHealth;
 import org.springframework.boot.actuate.health.HealthComponent;
 import org.springframework.boot.actuate.health.HealthEndpoint;
+import org.springframework.boot.actuate.health.Status;
 import org.springframework.boot.actuate.health.SystemHealth;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.TestPropertySource;
@@ -85,8 +85,12 @@ class LegalDocumentsControllerIT extends AbstractPostgresIT {
         assertThat(body.get("deployment").has("storageLocation")).isTrue();
         assertThat(body.get("deployment").get("storageLocation").isNull()).isTrue();
         assertThat(body.get("deployment").get("dpoEmail").isNull()).isTrue();
-        assertThat(body.get("retention")).hasSize(2);
-        assertThat(body.get("retention").get(0).get("period").asText()).isEqualTo("12 meses");
+        // u2-retention (BR2.9): the current version shows the retention catalog of the Privacy module (J5), in its
+        // order, whatever table the test catalog declares.
+        assertThat(body.get("retention")).hasSize(12);
+        assertThat(body.get("retention").get(0).get("period").asText()).isEqualTo("Enquanto a conta existir");
+        assertThat(body.get("retention").get(10).get("dataItem").asText()).isEqualTo("Sessões e renovações");
+        assertThat(body.get("retention").get(10).get("period").asText()).isEqualTo("30 dias após o fim ou a revogação");
     }
 
     @Test
@@ -255,9 +259,9 @@ class LegalDocumentsControllerIT extends AbstractPostgresIT {
     }
 
     @Test
-    void theHealthComponentIsDegradedWithoutDeploymentFieldsAndOutsideTheReadinessGroup() {
+    void theHealthComponentStaysUpWithoutDeploymentFieldsAndIsOutsideTheReadinessGroup() {
         HealthComponent legal = health.healthForPath("legalDocuments");
-        assertThat(legal.getStatus()).isEqualTo(HealthStatuses.DEGRADED);
+        assertThat(legal.getStatus()).isEqualTo(Status.UP);
         assertThat(String.valueOf(legal)).contains("currentVersion=v2").contains("publishable=false");
 
         HealthComponent readiness = health.healthForPath("readiness");

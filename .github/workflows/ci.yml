@@ -67,7 +67,7 @@ jobs:
       - run: pnpm --dir apps/web format:check
       - run: pnpm --dir apps/web typecheck
       - name: Jest with the 80% line floor
-        run: pnpm --dir apps/web exec jest --coverage src/features/auth src/features/scanner src/lib src/middleware.test.ts
+        run: pnpm --dir apps/web exec jest --coverage
 
   contract:
     runs-on: ubuntu-24.04
@@ -123,10 +123,30 @@ jobs:
           name: smoke-report
           path: apps/web/playwright-report
           retention-days: 7
+  admin:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          package_json_file: apps/admin/package.json
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+          cache-dependency-path: apps/admin/pnpm-lock.yaml
+      - run: pnpm --dir apps/admin install --frozen-lockfile
+      - run: pnpm --dir apps/admin lint
+      - run: pnpm --dir apps/admin format:check
+      - run: pnpm --dir apps/admin typecheck
+      - name: Jest with the 80% line floor
+        run: pnpm --dir apps/admin exec jest --coverage
+      - name: Generated administrator types equal schema.d.ts
+        run: pnpm --dir apps/admin check:api
 
   e2e:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, frontend, contract, smoke]
+    needs: [backend, frontend, admin, contract, smoke]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

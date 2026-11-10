@@ -15,7 +15,7 @@ Contrato da U1 `u1-legal-documents` (histórias US1.1 a US1.3, US2.1, US2.2 e US
 - **Cache:** respostas `200` e `304` levam `Cache-Control: public, max-age=300` e um `ETag` forte (SHA-256 do corpo, montado na subida). `If-None-Match` igual responde `304` sem corpo. `404`, `429` e erros mantêm `no-store`.
 - **Nulos explícitos:** `privacy` e os `summary` vão como `null` numa versão legacy; um campo de implantação ausente vai como `null` ("a definir"). Os campos nunca são omitidos.
 - **Limite:** 60 requisições por minuto por IP do cliente (`memetrade.legal.rate-limit-per-minute`), com contadores próprios. Excedeu: `429 RATE_LIMITED` com `Retry-After`. A lista `MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS` isenta só o par direto da conexão (os contêineres `web` e `admin`), nunca o `X-Forwarded-For` nem o gateway da ponte. O perfil `loadtest` eleva o limite em `application-loadtest.yml`.
-- **Saúde:** o componente `legalDocuments` (`currentVersion`, `publishable`) fica `UP` quando os três campos de implantação existem e `DEGRADED` (HTTP 200) quando falta algum. Ele não entra nos grupos de liveness e readiness.
+- **Saúde:** o componente `legalDocuments` fica sempre `UP`, com os detalhes `currentVersion` e `publishable`. Quando falta algum dos três campos de implantação, ele mostra `publishable=false`, e o alerta `LEGAL_NOT_PUBLISHABLE` lê esse detalhe. Ele não fica `DEGRADED` porque a ordem de status do actuator põe `DEGRADED` antes de `UP`, o que derrubaria a saúde geral (NFR7.3). Ele não entra nos grupos de liveness e readiness.
 
 ## Catálogo e ativação
 
@@ -54,6 +54,8 @@ Antes de abrir o beta aos convidados:
 4. **Conferência:** o componente de saúde `legalDocuments` mostra `UP`, `currentVersion=v2` e `publishable=true`. `/privacidade` não mostra "a definir" nem o aviso de versão não publicada, e o log de subida não traz `WARN Legal version`.
 5. **Banco novo:** os dados de desenvolvimento e teste são descartados antes da abertura (ambiente novo, FR3.3 do intent).
 6. **Rede interna da nuvem:** `MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS` recebe só as sub-redes privadas dos apps `web` e `admin`, nunca a do balanceador.
+7. **Retenção e auditoria (U2):** cumprir o checklist de `docs/privacy/u2-retencao-e-auditoria.md`: chave HMAC da auditoria no gerenciador de segredos e as duas consultas de conferência vazias. A tabela de retenção de `/privacidade` vem do catálogo do Privacy.
+8. **Novo aceite (U3):** a partir da U3, toda versão nova que passa a ser a vigente efetiva ativa a trava de novo aceite para todos os convidados. Siga "Publicar uma versão nova dos termos" em [`u3-reacceptance.md`](u3-reacceptance.md).
 
 ## Páginas dos apps
 

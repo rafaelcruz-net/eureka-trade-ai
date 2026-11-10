@@ -9,6 +9,8 @@ import { messages } from '@/lib/i18n/messages';
 import { AppShell } from '@/components/shell/AppShell';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useRequireSession } from '@/features/auth/useRequireSession';
+import { TermsStatusPanel } from '@/features/reacceptance/TermsStatusPanel';
+import { DataRequestsSection } from '@/features/data-requests/DataRequestsSection';
 
 const text = messages.account;
 
@@ -153,6 +155,10 @@ export function AccountScreen({ timeZone }: { timeZone?: string }) {
           <dd data-testid="account-real-mode">{text.realMode}</dd>
         </dl>
       )}
+      {/* u3-reacceptance (BR3.10): the situation before the current version and the way to the new acceptance. */}
+      {load.kind === 'ready' && <TermsStatusPanel terms={load.account.terms} timeZone={timeZone} />}
+      {/* u4-data-requests (T5): the requests of the person as a data subject (LGPD). */}
+      {load.kind === 'ready' && <DataRequestsSection timeZone={timeZone} onSessionEnded={expire} />}
     </AppShell>
   );
 }

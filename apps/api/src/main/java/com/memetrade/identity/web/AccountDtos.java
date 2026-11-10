@@ -3,6 +3,7 @@ package com.memetrade.identity.web;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.memetrade.identity.domain.account.AccountQueryService.AcceptedTerms;
 import com.memetrade.identity.domain.account.AccountQueryService.AccountView;
+import com.memetrade.identity.domain.terms.TermsStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.time.Instant;
@@ -34,7 +35,13 @@ public final class AccountDtos {
             AcceptedTermsDto acceptedTerms,
 
             @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "UNAVAILABLE")
-            String realMode) {
+            String realMode,
+
+            @Schema(
+                    description = "u3-reacceptance (L2, BR3.10): situação diante da versão vigente; ausente só para"
+                            + " conta sem nenhum aceite (conta semeada por teste)")
+            @JsonInclude(JsonInclude.Include.NON_NULL)
+            TermsStatusDto terms) {
 
         static AccountResponse of(AccountView view) {
             return new AccountResponse(
@@ -42,7 +49,32 @@ public final class AccountDtos {
                     view.provider(),
                     view.sessionExpiresAt(),
                     view.acceptedTerms().map(AcceptedTermsDto::of).orElse(null),
-                    view.realMode());
+                    view.realMode(),
+                    view.terms().map(TermsStatusDto::of).orElse(null));
+        }
+    }
+
+    /** u3-reacceptance (L2): the TermsStatus of the Account and of {@code POST /api/v1/terms/acceptances}. */
+    @Schema(name = "TermsStatus")
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    public record TermsStatusDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Versão do aceite mais recente")
+            String acceptedVersion,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Versão vigente efetiva")
+            String currentVersion,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time", description = "UTC")
+            Instant acceptedAt,
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    description = "Verdadeiro quando há um aceite da versão vigente (a trava deixa passar)")
+            boolean upToDate) {
+
+        public static TermsStatusDto of(TermsStatus status) {
+            return new TermsStatusDto(
+                    status.acceptedVersion(), status.currentVersion(), status.acceptedAt(), status.upToDate());
         }
     }
 

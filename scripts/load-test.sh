@@ -24,6 +24,8 @@ export DB_OWNER_USER="${DB_OWNER_USER:-memetrade_owner}" DB_OWNER_PASSWORD="${DB
 export DB_RETENTION_USER="${DB_RETENTION_USER:-memetrade_retention}"
 export DB_RETENTION_PASSWORD="${DB_RETENTION_PASSWORD:-$(random_secret)}"
 export ACCESS_TOKEN_SIGNING_KEY="${ACCESS_TOKEN_SIGNING_KEY:-$(head -c 48 /dev/urandom | base64 | tr -d '\n')}"
+# u2-retention (NFR6.2): ephemeral HMAC key of the audit wallet references, required by the api and the worker.
+export MEMETRADE_AUDIT_WALLET_HMAC_KEY="${MEMETRADE_AUDIT_WALLET_HMAC_KEY:-$(openssl rand -hex 32)}"
 
 sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml test-compile exec:java \
   -Dexec.classpathScope=test -Dexec.mainClass=com.memetrade.tools.SmokeWalletTool -Dexec.args="$KEY_FILE" >/dev/null
@@ -98,8 +100,40 @@ case "$LOAD_SCENARIO" in
   # and /privacidade of the guest app and half on /api/v1/legal/** (p95 page <= 2 s, p95 api <= 300 ms, no 5xx). The
   # per-IP limit of the legal documents is raised by application-loadtest.yml (profile loadtest), never by a variable.
   legal) export MARKET_SIMULATED_TOKENS_PER_SOURCE="${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}" DURATION_S="${DURATION_S:-300}" ;;
-  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs, u6, u5 or legal" >&2; exit 1 ;;
+  # u3-reacceptance (infrastructure-specification.md "Dados de teste para a trava"): reacceptance creates 20 outdated
+  # guests (acceptance of v1 only; the test overlay mounts the catalog "reviewed", current v2) through DATABASE_URL,
+  # the same SQL path as the e2e spec, and each one is locked, accepts and passes (p95 acceptance <= 500 ms, p95 lock
+  # check <= 5 ms, from /actuator/prometheus). DATABASE_URL uses the ephemeral credentials generated above.
+  reacceptance)
+    export MARKET_SIMULATED_TOKENS_PER_SOURCE="${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}" DURATION_S="${DURATION_S:-60}"
+    export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB:-memetrade}"
+    ;;
+  # u4-data-requests (infrastructure-specification.md "Dados de teste"): data-requests creates 20 guests through their
+  # own invitations (as u3), seeds 1000 synthetic requests through the loadtest profile (LOADTEST_DATA_REQUESTS_SEED,
+  # 0 in every other scenario) and signs an administrator in with a throw-away wallet generated below; 5 minutes of
+  # creations and lists by the guests and of list, detail and preview by the administrator (p95 <= 500 ms guest,
+  # <= 1 s administrator, NFR3.1 to NFR3.3).
+  data-requests)
+    export MARKET_SIMULATED_TOKENS_PER_SOURCE="${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}" DURATION_S="${DURATION_S:-300}"
+    export USERS="${USERS:-20}" LOADTEST_DATA_REQUESTS_SEED="${LOADTEST_DATA_REQUESTS_SEED:-1000}"
+    # 20 throw-away codes (32 random bytes in base64url), never written to a file; the seeder stores only digests.
+    SMOKE_INVITE_CODES="$(node -e "const c=require('node:crypto');console.log(Array.from({length:Number(process.env.USERS||20)},()=>c.randomBytes(32).toString('base64url')).join(','))")"
+    export SMOKE_INVITE_CODES
+    ;;
+  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs, u6, u5, legal, reacceptance or data-requests" >&2; exit 1 ;;
 esac
+# Only data-requests seeds the synthetic requests and needs an administrator: its throw-away wallet has the format of
+# scripts/verify.sh (test-scope tool), the key file lives in the temporary directory of this run and is deleted with it.
+if [ "$LOAD_SCENARIO" = "data-requests" ]; then
+  ADMIN_KEY_FILE="$KEY_DIR/smoke-admin-wallet.json"
+  sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml exec:java \
+    -Dexec.classpathScope=test -Dexec.mainClass=com.memetrade.tools.SmokeWalletTool -Dexec.args="$ADMIN_KEY_FILE" >/dev/null
+  ADMIN_WALLET_ADDRESSES="$(sed -n 's/.*"address":"\([^"]*\)".*/\1/p' "$ADMIN_KEY_FILE")"
+  [ -n "$ADMIN_WALLET_ADDRESSES" ] || { echo "administrator wallet generation failed" >&2; exit 1; }
+  export ADMIN_WALLET_ADDRESSES SMOKE_ADMIN_WALLET_FILE="$ADMIN_KEY_FILE"
+else
+  export LOADTEST_DATA_REQUESTS_SEED=0
+fi
 case "$LOAD_SCENARIO" in
   u5)
     # As in u7: one throw-away invitation per person besides the smoke account, never written to a file.

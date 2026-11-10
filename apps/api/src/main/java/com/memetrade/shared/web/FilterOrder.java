@@ -19,6 +19,13 @@ public final class FilterOrder {
     /** U2: only an administrator passes {@code /api/v1/admin/**}, right after authentication (C8). */
     public static final int ADMIN_ROUTE = Ordered.HIGHEST_PRECEDENCE + 15;
 
+    /**
+     * u3-reacceptance (BR3.1, L3): a guest without an acceptance of the effective current terms only reaches the
+     * allowed prefixes; after authentication and the role rule (an administrator token never gets here on a guest
+     * route) and before the per-person limits, the mode guard and the idempotency key.
+     */
+    public static final int TERMS_REACCEPTANCE = Ordered.HIGHEST_PRECEDENCE + 16;
+
     /** U4: per person and route limit of the scanner routes, after authentication and the role rule (NFR6.3). */
     public static final int RATE_LIMIT = Ordered.HIGHEST_PRECEDENCE + 17;
 

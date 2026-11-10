@@ -435,6 +435,12 @@ class BotRoutesIT extends AbstractU5IT {
                 .param("address", wallet.address())
                 .param("user", userId)
                 .update();
+        // u3-reacceptance: an up-to-date guest, so the reacceptance lock lets the bot routes through.
+        com.memetrade.testsupport.TestAccounts.acceptTerms(
+                jdbc,
+                other.principal().tenantId(),
+                userId,
+                com.memetrade.testsupport.TestAccounts.CURRENT_TERMS_VERSION);
         AuthFlow auth = new AuthFlow(mvc, json);
         return new Guest(
                 "Bearer " + auth.accessToken(auth.login(wallet)),

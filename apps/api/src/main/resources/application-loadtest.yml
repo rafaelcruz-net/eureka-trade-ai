@@ -8,9 +8,18 @@ memetrade:
   # the host, so their per-IP limit is raised here only (never by a variable of the test overlay).
   legal:
     rate-limit-per-minute: 100000
+  # u4-data-requests (infrastructure-specification.md): the scenario data-requests measures the creation for real, so the
+  # limit per person and hour is raised here only (never by a variable of the test overlay).
+  privacy:
+    requests-per-hour: 100000
   # U7 (cicd-pipeline.md, Passo 23): the load cycle driver of com.memetrade.ledger.loadtest. With people at 0 (the
   # default, every scenario but u7 and u7-jobs) it does nothing; scripts/load-test.sh sets the values of u7 and u7-jobs.
   loadtest:
+    # u4-data-requests (Passo 11): 1000 synthetic requests of 250 accounts of one load tenant, seeded at start by
+    # com.memetrade.privacy.loadtest.DataRequestLoadSeed; 0 (the default, every scenario but data-requests) seeds
+    # nothing.
+    data-requests:
+      seed: ${LOADTEST_DATA_REQUESTS_SEED:0}
     ledger:
       people: ${LOADTEST_LEDGER_PEOPLE:0}
       fills-per-person: ${LOADTEST_FILLS_PER_PERSON:0}

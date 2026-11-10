@@ -50,7 +50,29 @@ public enum IdempotentOperation {
     /** U8 (BR2.4, R-03 of the NFR Design): change of the kill switch; the same key gives the same answer. */
     ADMIN_KILL_SWITCH("admin.kill-switch", Retention.DEFAULT),
     /** U8 (BR6.4): a comment of a guest; only a 201 is stored, 400 and 429 never are. */
-    FEEDBACK_SUBMIT("feedback.submit", Retention.DEFAULT);
+    FEEDBACK_SUBMIT("feedback.submit", Retention.DEFAULT),
+    /** u3-reacceptance (BR3.5, L2): acceptance of the current terms, {@code POST /api/v1/terms/acceptances}. */
+    TERMS_ACCEPT("terms.accept", Retention.DEFAULT),
+    /**
+     * u4-data-requests (NFR2.4, P1): a request of the person, {@code POST /api/v1/privacy/requests}; a 400, 409 or
+     * 429 is never stored, so a 429 does not consume the key.
+     */
+    DATA_REQUEST_CREATE("privacy.request.create", Retention.DEFAULT),
+    /** u4-data-requests (P2): an EMAIL request registered by the administrator. */
+    DATA_REQUEST_REGISTER_EMAIL("privacy.request.register-email", Retention.DEFAULT),
+    /** u4-data-requests (P2, BR4.5): a transition by the administrator. */
+    DATA_REQUEST_TRANSITION("privacy.request.transition", Retention.DEFAULT),
+    /** u4-data-requests (P2, BR4.11): start of the signature verification. */
+    DATA_REQUEST_VERIFICATION_START("privacy.request.verification-start", Retention.DEFAULT),
+    /** u4-data-requests (P2, BR4.12): confirmation of the signature; a 422 is never stored. */
+    DATA_REQUEST_VERIFICATION_CONFIRM("privacy.request.verification-confirm", Retention.DEFAULT),
+    /** u4-data-requests (P2, BR4.17): the reply was sent to the contact of an EMAIL request. */
+    DATA_REQUEST_REPLY_SENT("privacy.request.reply-sent", Retention.DEFAULT),
+    /**
+     * u5-anonymization (P2, BR5.5, NFR5.4): the anonymization of the account of a DELETION request; a 409, 422 or 5xx is
+     * never stored, so the same key may be repeated after a 503 LOCK_TIMEOUT.
+     */
+    DATA_REQUEST_ANONYMIZE("privacy.request.anonymize", Retention.DEFAULT);
 
     public enum Retention {
         DEFAULT,

@@ -362,6 +362,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/privacy/requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Pedidos de titular da pessoa, do mais novo para o mais antigo (FR5.2); pessoa e tenant do token */
+    get: operations['listMyDataRequests'];
+    put?: never;
+    /** Registra um pedido de titular (FR5.1); recebido com prazo de 15 dias */
+    post: operations['createDataRequest'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/privacy/requests/{requestId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Um pedido da pessoa; resposta, motivo e resumo só depois de concluído ou recusado */
+    get: operations['getMyDataRequest'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/reconciliation': {
     parameters: {
       query?: never;
@@ -447,6 +482,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/terms/acceptances': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Aceita a versão vigente dos termos (FR4.2); pessoa e tenant vêm do token */
+    post: operations['acceptTerms'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/tokens/{chain}/{mint}/assessment': {
     parameters: {
       query?: never;
@@ -468,6 +520,9 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AcceptTermsRequest: {
+      version: string;
+    };
     AcceptedTerms: {
       /**
        * Format: date-time
@@ -479,6 +534,39 @@ export interface components {
       /** @description Texto simples dos termos daquela versão */
       termsText: string | null;
       version: string;
+    };
+    AcceptedVersion: {
+      /** Format: date-time */
+      acceptedAt: string;
+      version: string;
+    };
+    AccessSummary: {
+      acceptedVersions: components['schemas']['AcceptedVersion'][];
+      /** Format: date-time */
+      accountCreatedAt: string;
+      /** Format: int64 */
+      botCount: number;
+      /** Format: int64 */
+      feedbackCount: number;
+      /**
+       * Format: date-time
+       * @description Início da sessão mais recente; null antes do primeiro login
+       */
+      lastLoginAt: string | null;
+      /** Format: int64 */
+      paperOrderCount: number;
+      provider: string;
+      requests: components['schemas']['AccessSummaryRequest'][];
+      /** @description 4 primeiros e 4 últimos caracteres */
+      walletMasked: string;
+    };
+    AccessSummaryRequest: {
+      /** Format: date-time */
+      receivedAt: string;
+      /** @enum {string} */
+      status: 'RECEIVED' | 'AWAITING_VERIFICATION' | 'IN_PROGRESS' | 'DONE' | 'REFUSED';
+      /** @enum {string} */
+      type: 'ACCESS' | 'CORRECTION' | 'DELETION' | 'OTHER';
     };
     Account: {
       /** @description Ausente só para conta criada sem convite (conta de smoke do perfil de teste) */
@@ -492,6 +580,8 @@ export interface components {
        * @description Fim absoluto da sessão atual (UTC); pode terminar antes, depois de 8 horas sem uso
        */
       sessionExpiresAt: string;
+      /** @description u3-reacceptance (L2, BR3.10): situação diante da versão vigente; ausente só para conta sem nenhum aceite (conta semeada por teste) */
+      terms?: components['schemas']['TermsStatus'];
       /** @description 4 primeiros e 4 últimos caracteres */
       walletAddressMasked: string;
     };
@@ -637,6 +727,12 @@ export interface components {
       name: string;
       templateId: string;
     };
+    CreateDataRequest: {
+      /** @description Texto do pedido, de 1 a 1.000 caracteres (pontos de código) */
+      details: string;
+      /** @enum {string} */
+      type: 'ACCESS' | 'CORRECTION' | 'DELETION' | 'OTHER';
+    };
     /** @description data do evento auth.expired */
     DashboardAuthExpiredEvent: {
       /** Format: date-time */
@@ -680,6 +776,27 @@ export interface components {
     /** @description data do evento trade.recorded */
     DashboardTradeRecordedEvent: {
       items: components['schemas']['DashboardTradeNotice'][];
+    };
+    DataRequestView: {
+      /** @description Foto do resumo de Acesso liberada na conclusão; null nos demais casos */
+      accessSummary: components['schemas']['AccessSummary'] | null;
+      /**
+       * Format: date-time
+       * @description receivedAt mais 15 dias corridos
+       */
+      dueAt: string;
+      /** Format: date-time */
+      receivedAt: string;
+      /** @description Motivo da recusa; null fora de REFUSED */
+      refusalReason: string | null;
+      /** Format: uuid */
+      requestId: string;
+      /** @description Resposta; null até o pedido ser concluído ou recusado */
+      response: string | null;
+      /** @enum {string} */
+      status: 'RECEIVED' | 'AWAITING_VERIFICATION' | 'IN_PROGRESS' | 'DONE' | 'REFUSED';
+      /** @enum {string} */
+      type: 'ACCESS' | 'CORRECTION' | 'DELETION' | 'OTHER';
     };
     /** @description Uso do dia UTC; os limites vêm da U5 na tela (BR7.5) */
     DayUsage: {
@@ -1048,6 +1165,8 @@ export interface components {
     Problem: {
       code: string;
       correlationId: string;
+      /** @description Versão vigente efetiva dos termos; só em TERMS_REACCEPTANCE_REQUIRED e TERMS_VERSION_OUTDATED */
+      currentVersion?: string;
       detail?: string;
       fields?: components['schemas']['FieldViolation'][];
       reason?: string;
@@ -1205,6 +1324,19 @@ export interface components {
       parameters: components['schemas']['StrategyParameter'][];
       templateId: string;
       version: string;
+    };
+    TermsStatus: {
+      /**
+       * Format: date-time
+       * @description UTC
+       */
+      acceptedAt: string;
+      /** @description Versão do aceite mais recente */
+      acceptedVersion: string;
+      /** @description Versão vigente efetiva */
+      currentVersion: string;
+      /** @description Verdadeiro quando há um aceite da versão vigente (a trava deixa passar) */
+      upToDate: boolean;
     };
     TokenRef: {
       chain: string;
@@ -2135,6 +2267,155 @@ export interface operations {
       };
     };
   };
+  listMyDataRequests: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A lista, possivelmente vazia */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DataRequestView'][];
+        };
+      };
+      /** @description UNAUTHENTICATED */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description FORBIDDEN_ROLE para token de administrador */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  createDataRequest: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateDataRequest'];
+      };
+    };
+    responses: {
+      /** @description Registrado; a mesma chave com o mesmo corpo devolve o mesmo pedido */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DataRequestView'];
+        };
+      };
+      /** @description VALIDATION_FAILED em type, details, campo desconhecido ou Idempotency-Key ausente */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description UNAUTHENTICATED */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description FORBIDDEN_ROLE para token de administrador */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description DATA_REQUEST_ALREADY_OPEN (já há pedido aberto do mesmo tipo) ou IDEMPOTENCY_CONFLICT */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description RATE_LIMITED: 10 pedidos na última hora; Retry-After diz quando tentar de novo (aditivo, U4) */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getMyDataRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        requestId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description O pedido */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DataRequestView'];
+        };
+      };
+      /** @description UNAUTHENTICATED */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description NOT_FOUND, inclusive pedido de outra pessoa ou tenant */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   getReconciliation: {
     parameters: {
       query?: {
@@ -2324,6 +2605,68 @@ export interface operations {
       429: {
         headers: {
           'Retry-After'?: number;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  acceptTerms: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AcceptTermsRequest'];
+      };
+    };
+    responses: {
+      /** @description Aceite registrado, ou já existente para a versão (sem nova gravação); a mesma chave devolve a mesma resposta */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TermsStatus'];
+        };
+      };
+      /** @description VALIDATION_FAILED: versão ausente, vazia ou com mais de 32 caracteres, campo desconhecido ou Idempotency-Key ausente */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description UNAUTHENTICATED */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description FORBIDDEN_ROLE para token de administrador */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description TERMS_VERSION_OUTDATED (o corpo traz a versão vigente em currentVersion) ou IDEMPOTENCY_CONFLICT (mesma chave com outra versão) */
+      409: {
+        headers: {
           [name: string]: unknown;
         };
         content: {

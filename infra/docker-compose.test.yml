@@ -24,6 +24,8 @@ services:
       LOGIN_RATE_LIMIT_PER_MINUTE: ${LOGIN_RATE_LIMIT_PER_MINUTE:-1000}
       SMOKE_INVITE_CODE: ${SMOKE_INVITE_CODE:-}
       SMOKE_INVITE_CODES: ${SMOKE_INVITE_CODES:-}
+      # u5-anonymization: the invitation of the throw-away account of e2e/anonymization; empty by default.
+      SMOKE_ANONYMIZATION_INVITE_CODE: ${SMOKE_ANONYMIZATION_INVITE_CODE:-}
       INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE: ${INVITE_LOOKUP_RATE_LIMIT_PER_MINUTE:-10}
       LOADTEST_LEDGER_PEOPLE: ${LOADTEST_LEDGER_PEOPLE:-0}
       LOADTEST_FILLS_PER_PERSON: ${LOADTEST_FILLS_PER_PERSON:-0}
@@ -38,6 +40,8 @@ services:
       LOADTEST_U5_ENABLED: ${LOADTEST_U5_ENABLED:-false}
       LOADTEST_U5_DECISIONS_PER_BOT: ${LOADTEST_U5_DECISIONS_PER_BOT:-20000}
       LOADTEST_U5_PEOPLE: ${LOADTEST_U5_PEOPLE:-20}
+      # u4-data-requests: the synthetic requests of the load scenario data-requests, read only by the loadtest profile.
+      LOADTEST_DATA_REQUESTS_SEED: ${LOADTEST_DATA_REQUESTS_SEED:-0}
       MARKET_SIMULATED_SCENARIO: ${MARKET_SIMULATED_SCENARIO:-STANDARD}
       # U8 (cicd-pipeline.md): the public address of the throw-away administrator wallet of the smoke, exported by
       # scripts/verify.sh before the `up`; empty by default, so no administrator exists outside that run.

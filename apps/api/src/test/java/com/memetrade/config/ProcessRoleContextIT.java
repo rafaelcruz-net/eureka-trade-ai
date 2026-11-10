@@ -36,7 +36,15 @@ class ProcessRoleContextIT extends AbstractU5IT {
             // U8: the kill switch reconciliation, its start-up round and the feedback purge (api only).
             "KillSwitchReconciler",
             "KillSwitchStartup",
-            "FeedbackPurgeJob");
+            "FeedbackPurgeJob",
+            // u2-retention: the login challenge and session purges and their start-up recovery (api only).
+            "IdentityJobSchedule",
+            "IdentityJobStartup",
+            // u4-data-requests: the timers and the purge of the requests, their start-up recovery and the refresher
+            // of the cached counts (api only).
+            "PrivacyJobSchedule",
+            "PrivacyJobStartup",
+            "DataRequestCountsRefresher");
 
     @Autowired
     private ApplicationContext context;
@@ -52,6 +60,8 @@ class ProcessRoleContextIT extends AbstractU5IT {
         java.util.Set<String> expected = new java.util.TreeSet<>(API_JOBS);
         expected.remove("AuditStartup");
         expected.remove("KillSwitchStartup");
+        expected.remove("IdentityJobStartup");
+        expected.remove("PrivacyJobStartup");
         assertThat(ProcessJobs.jobs(context)).containsExactlyInAnyOrderElementsOf(expected);
         assertThat(ProcessJobs.jobsWithoutRole(context)).isEmpty();
     }
@@ -69,6 +79,20 @@ class ProcessRoleContextIT extends AbstractU5IT {
         assertThat(ProcessJobs.jobs(context))
                 .doesNotContain("BotSchedules", "SlotDispatcher", "MidnightJob", "ClosingCheckJob", "DecisionPurgeJob");
         assertThat(environment.getProperty("memetrade.bots.scheduler.enabled")).isEqualTo("false");
+    }
+
+    /** u3-reacceptance (NFR2.2): the reacceptance lock is a request filter of the api only (absent in the worker). */
+    @Test
+    void theApiHasExactlyOneReacceptanceLockWithItsOrder() {
+        assertThat(context.getBeanNamesForType(com.memetrade.identity.web.TermsReacceptanceFilter.class))
+                .hasSize(1);
+        assertThat(com.memetrade.identity.web.TermsReacceptanceFilter.class
+                        .getAnnotation(ProcessRole.class)
+                        .value())
+                .isEqualTo(ProcessRole.Kind.API);
+        assertThat(com.memetrade.shared.web.FilterOrder.TERMS_REACCEPTANCE)
+                .isGreaterThan(com.memetrade.shared.web.FilterOrder.ADMIN_ROUTE)
+                .isLessThan(com.memetrade.shared.web.FilterOrder.RATE_LIMIT);
     }
 
     @Test

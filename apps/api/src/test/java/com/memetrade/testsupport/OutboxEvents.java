@@ -28,15 +28,18 @@ public final class OutboxEvents {
                 .list();
     }
 
-    /** Events of one action written for one wallet address (LOGIN_REJECTED keeps it in details). */
+    /**
+     * Reasons of the events of one action written for one wallet address. Since u2-retention (BR2.1) the payload keeps
+     * only the HMAC of the wallet ({@code walletHmac}), never the address; the test computes it with the test key.
+     */
     public static List<String> reasonsForWallet(JdbcClient jdbc, String action, String walletAddress) {
         return jdbc.sql("""
                         select payload->'details'->>'reason' from audit_outbox
-                        where payload->>'action' = :action and payload->'details'->>'walletAddress' = :wallet
+                        where payload->>'action' = :action and payload->>'walletHmac' = :hmac
                         order by created_at
                         """)
                 .param("action", action)
-                .param("wallet", walletAddress)
+                .param("hmac", TestWalletHmac.of(walletAddress))
                 .query(String.class)
                 .list();
     }

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation';
 import { ApiError } from '@/lib/api/client';
 import { useApi } from '@/lib/api/ApiProvider';
-import type { InviteLookup } from '@/lib/api/guest-api';
+import type { CurrentLegalDocuments, InviteLookup } from '@/lib/api/guest-api';
 import { formatInstant } from '@/lib/format/format';
 import { messages } from '@/lib/i18n/messages';
 import {
@@ -17,8 +17,12 @@ import { rejectionKey, signInWithInvite } from '@/features/auth/login-flow';
 import { HOME } from '@/features/auth/origin';
 import { useSession } from '@/features/auth/SessionProvider';
 import { watchWallets, type WalletPort } from '@/features/auth/wallets';
+import { LegalSummary } from '@/features/reacceptance/LegalSummary';
+import { reacceptanceMessages } from '@/features/reacceptance/messages';
+import { TermsConsentBoxes } from '@/features/reacceptance/TermsConsentBoxes';
 
 const text = messages.invite;
+const legalText = reacceptanceMessages.invite;
 
 export const PHANTOM_DOWNLOAD = 'https://phantom.app/download';
 export const SOLFLARE_DOWNLOAD = 'https://solflare.com/download';
@@ -31,6 +35,12 @@ type Load =
   | { kind: 'error' }
   | { kind: 'invalid'; status: string }
   | { kind: 'ready'; invite: InviteLookup };
+
+/** u3-reacceptance (BR3.8): the documents of the effective current version (L1), loaded with the invitation. */
+type Legal =
+  | { kind: 'loading' }
+  | { kind: 'error' }
+  | { kind: 'ready'; documents: CurrentLegalDocuments };
 
 type Flow =
   | { kind: 'idle' }
@@ -73,6 +83,7 @@ export function InviteScreen({
   const router = useRouter();
   const heading = useRef<HTMLHeadingElement>(null);
   const [load, setLoad] = useState<Load>(code ? { kind: 'loading' } : { kind: 'missing' });
+  const [legal, setLegal] = useState<Legal>({ kind: 'loading' });
   const [flow, setFlow] = useState<Flow>({ kind: 'idle' });
   const [acceptance, setAcceptance] = useState<Acceptance>({ terms: false, risk: false });
   const [termsChanged, setTermsChanged] = useState(false);
@@ -103,6 +114,26 @@ export function InviteScreen({
   useEffect(() => {
     void fetchInvite();
   }, [fetchInvite]);
+
+  /** u3-reacceptance (BR3.8): the summary of L1; until it loads, the boxes stay disabled. */
+  const fetchLegal = useCallback(async () => {
+    setLegal({ kind: 'loading' });
+    try {
+      setLegal({ kind: 'ready', documents: await api.getCurrentLegalDocuments() });
+    } catch (failure) {
+      console.warn(
+        'Legal documents request failed',
+        failure instanceof ApiError ? failure.status : 'unknown',
+      );
+      setLegal({ kind: 'error' });
+    }
+  }, [api]);
+
+  useEffect(() => {
+    if (code) {
+      void fetchLegal();
+    }
+  }, [code, fetchLegal]);
 
   function mark(change: Partial<Acceptance>) {
     if (load.kind !== 'ready') {
@@ -232,6 +263,8 @@ export function InviteScreen({
       {load.kind === 'ready' && (
         <ReadyInvite
           invite={load.invite}
+          legal={legal}
+          onRetryLegal={() => void fetchLegal()}
           acceptance={acceptance}
           wallets={wallets}
           flow={flow}
@@ -256,8 +289,39 @@ function loadFailure(failure: unknown): Load {
   return { kind: 'error' };
 }
 
+/**
+ * u3-reacceptance (BR3.8, US2.3): the summary of the current version from L1 and its links in another tab; while it
+ * loads or after a failure, the state in text and the boxes disabled.
+ */
+function InviteLegal({ legal, onRetry }: { legal: Legal; onRetry: () => void }) {
+  if (legal.kind === 'ready') {
+    return <LegalSummary documents={legal.documents} idPrefix="invite" />;
+  }
+  return (
+    <div aria-live="polite" data-testid="invite-legal-state">
+      {legal.kind === 'loading' ? (
+        <p data-testid="invite-legal-loading">{legalText.loading}</p>
+      ) : (
+        <div className="notice notice-error" data-testid="invite-legal-error">
+          <p>{legalText.error}</p>
+          <button
+            type="button"
+            className="secondary"
+            data-testid="invite-legal-retry"
+            onClick={onRetry}
+          >
+            {legalText.retry}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReadyInvite({
   invite,
+  legal,
+  onRetryLegal,
   acceptance,
   wallets,
   flow,
@@ -268,6 +332,8 @@ function ReadyInvite({
   onRetry,
 }: {
   invite: InviteLookup;
+  legal: Legal;
+  onRetryLegal: () => void;
   acceptance: Acceptance;
   wallets: WalletPort[];
   flow: Flow;
@@ -277,7 +343,9 @@ function ReadyInvite({
   onConnect: (wallet: WalletPort) => void;
   onRetry: () => void;
 }) {
-  const accepted = acceptance.terms && acceptance.risk;
+  const documentsReady = legal.kind === 'ready';
+  // BR3.8: connecting needs both marks AND the documents loaded.
+  const accepted = acceptance.terms && acceptance.risk && documentsReady;
   const busy = flow.kind === 'signing';
   return (
     <>
@@ -290,6 +358,7 @@ function ReadyInvite({
           {text.termsChanged}
         </p>
       )}
+      <InviteLegal legal={legal} onRetry={onRetryLegal} />
       <section aria-labelledby="invite-terms-heading">
         <h2 id="invite-terms-heading">{text.termsHeading(invite.termsVersion)}</h2>
         <Paragraphs value={invite.termsText} testId="invite-terms" />
@@ -298,29 +367,14 @@ function ReadyInvite({
         <h2 id="invite-risk-heading">{text.riskHeading}</h2>
         <Paragraphs value={invite.riskNoticeText} testId="invite-risk" />
       </section>
-      <fieldset>
-        <div>
-          <input
-            id="invite-accept-terms"
-            type="checkbox"
-            data-testid="invite-accept-terms"
-            checked={acceptance.terms}
-            onChange={(event) => onMark({ terms: event.target.checked })}
-          />
-          <label htmlFor="invite-accept-terms">{text.acceptTerms}</label>
-        </div>
-        <div>
-          <input
-            id="invite-accept-risk"
-            type="checkbox"
-            data-testid="invite-accept-risk"
-            checked={acceptance.risk}
-            onChange={(event) => onMark({ risk: event.target.checked })}
-          />
-          <label htmlFor="invite-accept-risk">{text.acceptRisk}</label>
-        </div>
-        <p className="muted">{text.acceptancesKept}</p>
-      </fieldset>
+      <TermsConsentBoxes
+        idPrefix="invite"
+        consent={acceptance}
+        disabled={!documentsReady}
+        labels={{ terms: text.acceptTerms, risk: text.acceptRisk }}
+        help={text.acceptancesKept}
+        onChange={(next) => onMark(next)}
+      />
 
       {wallets.length === 0 ? (
         <section role="status" className="notice" data-testid="invite-no-wallet">
@@ -355,7 +409,7 @@ function ReadyInvite({
             {text.connectWallet}
           </button>
           <p id="invite-connect-reason" data-testid="invite-connect-reason">
-            {text.connectUnavailable}
+            {documentsReady ? text.connectUnavailable : reacceptanceMessages.waitDocuments}
           </p>
         </div>
       ) : (

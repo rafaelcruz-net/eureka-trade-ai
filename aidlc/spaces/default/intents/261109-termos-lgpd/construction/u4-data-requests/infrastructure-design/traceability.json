@@ -1,0 +1,18 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u4-data-requests",
+  "upstream_ids": ["NFR2.2", "NFR3.1", "NFR3.2", "NFR3.7", "NFR4.1", "NFR5.1", "NFR7.1", "NFR8.1", "NFR8.2", "NFR8.3", "NFR9.1"],
+  "coverage": [
+    { "id": "NFR2.2", "status": "OK", "target": "cicd-pipeline: portão backend com as rotas administrativas" },
+    { "id": "NFR3.1", "status": "OK", "target": "infrastructure-specification: cenário de carga data-requests" },
+    { "id": "NFR3.2", "status": "OK", "target": "infrastructure-specification: 1000 pedidos semeados no perfil loadtest" },
+    { "id": "NFR3.7", "status": "OK", "target": "infrastructure-specification: travas ShedLock e pool 21" },
+    { "id": "NFR4.1", "status": "OK", "target": "cicd-pipeline: spec e2e/data-requests no verify.sh" },
+    { "id": "NFR5.1", "status": "OK", "target": "infrastructure-specification: migração 0014 aditiva" },
+    { "id": "NFR7.1", "status": "OK", "target": "monitoring-design: saúde e métricas do expurgo" },
+    { "id": "NFR8.1", "status": "OK", "target": "monitoring-design: métricas no Prometheus" },
+    { "id": "NFR8.2", "status": "OK", "target": "monitoring-design: saúde dataRequests" },
+    { "id": "NFR8.3", "status": "OK", "target": "monitoring-design: alerta DATA_REQUEST_OVERDUE (Alta)" },
+    { "id": "NFR9.1", "status": "OK", "target": "cicd-pipeline: portão backend e JaCoCo" }
+  ]
+}

@@ -70,7 +70,24 @@ class MigrationsBackwardCompatIT extends AbstractPostgresIT {
         Set<String> now = columns(connect(OWNER, url));
 
         assertThat(previousColumns).isNotEmpty();
-        assertThat(now).containsAll(previousColumns);
+        // u3-reacceptance (NFR5.1, reliability-design.md): the ONLY designed relaxation, invite_id accepts null for a
+        // REACCEPTANCE; the previous image never writes null there, so it keeps working. Nothing else may change.
+        assertThat(previousColumns).contains("terms_acceptance.invite_id:uuid:NO");
+        assertThat(now).contains("terms_acceptance.invite_id:uuid:YES");
+        Set<String> expectedNow = new java.util.TreeSet<>(previousColumns);
+        expectedNow.remove("terms_acceptance.invite_id:uuid:NO");
+        expectedNow.add("terms_acceptance.invite_id:uuid:YES");
+        // u5-anonymization (NFR5.3, cicd-pipeline.md): the second designed relaxation, the wallet of an anonymized
+        // account loses its address and provider. The previous image never writes null there and never reads
+        // anonymized_at, so it keeps working while no account was anonymized.
+        assertThat(previousColumns)
+                .contains("wallet.address:character varying:NO", "wallet.provider:character varying:NO");
+        assertThat(now).contains("wallet.address:character varying:YES", "wallet.provider:character varying:YES");
+        expectedNow.remove("wallet.address:character varying:NO");
+        expectedNow.remove("wallet.provider:character varying:NO");
+        expectedNow.add("wallet.address:character varying:YES");
+        expectedNow.add("wallet.provider:character varying:YES");
+        assertThat(now).containsAll(expectedNow);
         assertThat(now)
                 .anyMatch(column -> column.startsWith("kill_switch_state.pending_bots:"))
                 .anyMatch(column -> column.startsWith("feedback_entry.text:"));
@@ -106,6 +123,42 @@ class MigrationsBackwardCompatIT extends AbstractPostgresIT {
                                 where w.address = :address
                                 """).param("address", address).query(String.class).single())
                 .isEqualTo("BETA_USER");
+    }
+
+    /**
+     * u5-anonymization (cicd-pipeline.md "Rollback da imagem antes da primeira anonimização"): the login read and the
+     * per-request session read of the previous image, verbatim, still work on the schema of 0015 while no account was
+     * anonymized (every wallet keeps its address and provider).
+     */
+    @Test
+    void thePreviousLoginAndSessionReadsStillWorkWithoutAnAnonymizedAccount() {
+        JdbcClient app = connect(APP, url);
+        String address = SyntheticIds.mint();
+        TestAccounts.Seeded guest = TestAccounts.betaUser(app, address);
+
+        // JdbcAccountRepository.findByWallet of the previous image, verbatim.
+        String status = app.sql("""
+                        select u.user_id, u.tenant_id, u.role, u.status as user_status, t.status as tenant_status
+                        from wallet w
+                        join app_user u on u.user_id = w.user_id
+                        join tenant t on t.tenant_id = u.tenant_id
+                        where w.address = :address
+                        """)
+                .param("address", address)
+                .query((rs, n) -> rs.getString("user_status"))
+                .single();
+        // JdbcIdentityDirectory.walletOf of the previous image, verbatim.
+        String wallet = app.sql("select address from wallet where user_id = :id")
+                .param("id", guest.userId())
+                .query(String.class)
+                .single();
+
+        assertThat(status).isEqualTo("ACTIVE");
+        assertThat(wallet).isEqualTo(address);
+        assertThat(app.sql("select count(*) from wallet where address is null")
+                        .query(Long.class)
+                        .single())
+                .isZero();
     }
 
     @Test

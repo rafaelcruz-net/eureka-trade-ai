@@ -75,6 +75,30 @@ export function fakeAdminApi(overrides: Partial<AdminApi> = {}): jest.Mocked<Adm
     }),
     listTenants: jest.fn(async () => [{ tenantId: 't-1', name: 'Beta' }]),
     listFeedback: jest.fn(async () => ({ items: [], nextCursor: null })),
+    // u4-data-requests (P2): no request unless a test says otherwise.
+    listDataRequests: jest.fn(async () => ({ items: [] })),
+    getDataRequest: jest.fn(async () => {
+      throw new Error('no data request configured');
+    }),
+    registerEmailRequest: jest.fn(async () => {
+      throw new Error('no data request configured');
+    }),
+    transitionDataRequest: jest.fn(async () => {
+      throw new Error('no data request configured');
+    }),
+    startVerification: jest.fn(async () => {
+      throw new Error('no data request configured');
+    }),
+    confirmVerification: jest.fn(async () => {
+      throw new Error('no data request configured');
+    }),
+    markReplySent: jest.fn(async () => {
+      throw new Error('no data request configured');
+    }),
+    // u5-anonymization (P2): no anonymization unless a test says otherwise.
+    anonymizeAccount: jest.fn(async () => {
+      throw new Error('no anonymization configured');
+    }),
     ...overrides,
   } as jest.Mocked<AdminApi>;
 }

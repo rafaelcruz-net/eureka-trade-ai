@@ -33,6 +33,9 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           </Link>{' '}
           <Link href="/feedback" data-testid="admin-nav-feedback">
             {text.feedback}
+          </Link>{' '}
+          <Link href="/pedidos" data-testid="admin-nav-data-requests">
+            {text.dataRequests}
           </Link>
         </nav>
         <span data-testid="admin-wallet">

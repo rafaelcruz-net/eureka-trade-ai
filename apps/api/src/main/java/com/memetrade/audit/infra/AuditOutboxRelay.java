@@ -108,16 +108,21 @@ public class AuditOutboxRelay {
         });
     }
 
-    /** Returns 1 when the event was written, 0 when its {@code event_id} was already in the trail. */
-    private int insertIntoTrail(AuditEventCommand event, Instant recordedAt) {
+    /**
+     * Returns 1 when the event was written, 0 when its {@code event_id} was already in the trail. u2-retention
+     * (BR2.18): the {@code walletHmac} of the payload goes to {@code wallet_hmac}; without it the column stays null.
+     */
+    private int insertIntoTrail(DecodedAuditEvent decoded, Instant recordedAt) {
+        AuditEventCommand event = decoded.command();
         return jdbc.sql("""
                         insert into audit_event
                           (event_id, tenant_id, actor, actor_type, action, target_ref, correlation_id, occurred_at,
-                           recorded_at, details)
+                           recorded_at, details, wallet_hmac)
                         values (:id, :tenant, :actor, :actorType, :action, :target, :correlation, :occurredAt,
-                                :recordedAt, cast(:details as jsonb))
+                                :recordedAt, cast(:details as jsonb), :walletHmac)
                         on conflict (event_id) do nothing
                         """)
+                .param("walletHmac", decoded.walletHmac().orElse(null))
                 .param("id", event.eventId())
                 .param("tenant", event.tenantId().orElse(null))
                 .param("actor", event.actor())

@@ -29,6 +29,10 @@ public final class SensitiveValueScanner {
         WALLET_ADDRESS,
         /** U3 (BR2.3, NFR6.4): the full invitation code; never allowed anywhere, not even in audit details. */
         INVITE_CODE,
+        /** u4-data-requests (BR4.3, NFR1.1): the text of a data subject request or the verification message. */
+        REQUEST_TEXT,
+        /** u4-data-requests (BR4.3, NFR1.1): the e-mail contact of a request received by e-mail. */
+        CONTACT,
         JWT,
         AUTHORIZATION_HEADER,
         BEARER_PREFIX

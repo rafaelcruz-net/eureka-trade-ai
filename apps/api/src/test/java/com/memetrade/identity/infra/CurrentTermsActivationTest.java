@@ -47,6 +47,8 @@ class CurrentTermsActivationTest {
 
     private static final Instant NOW = Instant.parse("2026-10-28T12:00:00Z");
     private static final String CODE = "A".repeat(43);
+    private static final String WALLET =
+            com.memetrade.testsupport.TestWallet.generate().address();
 
     @TempDir
     Path dir;
@@ -108,7 +110,9 @@ class CurrentTermsActivationTest {
     }
 
     private static InviteAccountCreation.Request request(String version) {
-        return new InviteAccountCreation.Request("TestWallet1111", "PHANTOM", CODE, version, "corr-1");
+        // u2-retention (BR2.1, BR2.15): the wallet of a consumed challenge is always a valid address; the audit event
+        // now carries it in its own field, which refuses anything else.
+        return new InviteAccountCreation.Request(WALLET, "PHANTOM", CODE, version, "corr-1");
     }
 
     /** InviteAccountCreation over this catalog, with a PENDING invitation of an ACTIVE tenant. */

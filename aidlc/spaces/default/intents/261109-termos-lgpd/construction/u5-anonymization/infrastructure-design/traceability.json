@@ -1,0 +1,28 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u5-anonymization",
+  "upstream_ids": ["NFR1.1", "NFR1.2", "NFR2.1", "NFR2.2", "NFR2.3", "NFR3.1", "NFR3.2", "NFR3.3", "NFR4.1", "NFR4.2", "NFR5.1", "NFR5.2", "NFR5.3", "NFR5.4", "NFR5.5", "NFR5.6", "NFR8.1", "NFR8.2", "NFR8.3", "NFR8.4", "NFR9.1"],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "cicd-pipeline: AnonymizationNoWalletLeftIT e LogScanIT no portão backend" },
+    { "id": "NFR1.2", "status": "OK", "target": "monitoring-design: logs e auditoria só com contagens e identificadores" },
+    { "id": "NFR2.1", "status": "OK", "target": "infrastructure-specification: rota atrás de /api/v1/admin/; spec e2e/anonymization pelo administrador" },
+    { "id": "NFR2.2", "status": "OK", "target": "infrastructure-specification: spec e2e/anonymization confere token antigo e novo login recusados" },
+    { "id": "NFR2.3", "status": "OK", "target": "infrastructure-specification: 10-roles.sql com o dono em feedback_retention e risco aceito" },
+    { "id": "NFR3.1", "status": "OK", "target": "monitoring-design: SLO de teste e timer memetrade_account_anonymization_seconds" },
+    { "id": "NFR3.2", "status": "OK", "target": "infrastructure-specification: login_challenge_wallet_idx" },
+    { "id": "NFR3.3", "status": "OK", "target": "infrastructure-specification: síncrona, sem job, pool 21" },
+    { "id": "NFR4.1", "status": "OK", "target": "cicd-pipeline: Jest do admin com o diálogo T8; spec e2e/anonymization" },
+    { "id": "NFR4.2", "status": "N/A", "target": "sem efeito de infraestrutura: layout herdado da U4, coberto pelos testes existentes" },
+    { "id": "NFR5.1", "status": "N/A", "target": "sem efeito de infraestrutura: coberto pelo portão backend (AnonymizationKeepsHistoryIT)" },
+    { "id": "NFR5.2", "status": "OK", "target": "cicd-pipeline: falha em cada um dos cinco pontos" },
+    { "id": "NFR5.3", "status": "OK", "target": "infrastructure-specification: migração 0015; cicd-pipeline: rollback antes e depois da primeira anonimização" },
+    { "id": "NFR5.4", "status": "OK", "target": "infrastructure-specification: lock_timeout reaproveita memetrade.bots.lock-timeout (2 s)" },
+    { "id": "NFR5.5", "status": "N/A", "target": "sem efeito de infraestrutura: travas de linha no banco, portão backend" },
+    { "id": "NFR5.6", "status": "OK", "target": "cicd-pipeline: concorrência de login, renovação e ciclo de bot; spec e2e/anonymization" },
+    { "id": "NFR8.1", "status": "OK", "target": "monitoring-design: memetrade_accounts_anonymized_total" },
+    { "id": "NFR8.2", "status": "OK", "target": "monitoring-design: ACCOUNT_ANONYMIZED na auditoria" },
+    { "id": "NFR8.3", "status": "OK", "target": "monitoring-design: logs INFO e ERROR" },
+    { "id": "NFR8.4", "status": "OK", "target": "monitoring-design: contador pré-registrado, ANONYMIZATION_FAILED e ANONYMIZATION_FAILING_REPEATEDLY" },
+    { "id": "NFR9.1", "status": "OK", "target": "cicd-pipeline: portão backend e JaCoCo" }
+  ]
+}

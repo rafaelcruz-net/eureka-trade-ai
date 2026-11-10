@@ -90,5 +90,72 @@ public final class AuditActions {
     /** U5 (BR7.2): the kill switch was switched off; SYSTEM became ADMIN_RELEASED on this bot; actor system. */
     public static final String BOT_SYSTEM_PAUSE_LIFTED = "BOT_SYSTEM_PAUSE_LIFTED";
 
+    /**
+     * u2-retention (BR2.7, NFR8.4): one run of the daily login challenge purge; actor {@code system}, no tenant,
+     * details with the counts only ({@code deleted}, {@code batches}, {@code result}).
+     */
+    public static final String LOGIN_CHALLENGES_PURGED = "LOGIN_CHALLENGES_PURGED";
+
+    /**
+     * u2-retention (BR2.7, NFR8.4): one run of the daily session purge; actor {@code system}, no tenant, details with
+     * the counts only ({@code deleted}, {@code digestsDeleted}, {@code batches}, {@code result}).
+     */
+    public static final String SESSIONS_PURGED = "SESSIONS_PURGED";
+
+    /**
+     * u3-reacceptance (BR3.4, NFR8.2, J6): a person accepted a version of the terms without an invitation; actor the
+     * person, target {@code terms:<version>}, details {@code version} and {@code source} only (never the wallet).
+     * Published only when the acceptance was inserted; a repeated acceptance publishes nothing.
+     */
+    public static final String TERMS_ACCEPTED = "TERMS_ACCEPTED";
+
+    /**
+     * u4-data-requests (BR4.6, NFR8.4, J6): a data subject request was created by the person (ACCOUNT) or registered by
+     * the administrator (EMAIL). Target the linked account ({@code user:<id>}) or the request
+     * ({@code data-request:<id>}); details {@code requestId}, {@code type}, {@code origin}, {@code to} only - never the
+     * text, the contact, the response or the reason (BR4.3).
+     */
+    public static final String DATA_REQUEST_CREATED = "DATA_REQUEST_CREATED";
+
+    /**
+     * u4-data-requests (BR4.6): a request changed state by the administrator or by the system (verification expired);
+     * details {@code requestId}, {@code type}, {@code origin}, {@code from}, {@code to} only.
+     */
+    public static final String DATA_REQUEST_TRANSITIONED = "DATA_REQUEST_TRANSITIONED";
+
+    /**
+     * u4-data-requests (BR4.11): the administrator started the signature verification of an EMAIL request (RECEIVED to
+     * AWAITING_VERIFICATION); never the message.
+     */
+    public static final String DATA_REQUEST_VERIFICATION_STARTED = "DATA_REQUEST_VERIFICATION_STARTED";
+
+    /**
+     * u4-data-requests (BR4.12): a valid signature confirmed the identity (AWAITING_VERIFICATION to IN_PROGRESS);
+     * never the signature.
+     */
+    public static final String DATA_REQUEST_VERIFIED = "DATA_REQUEST_VERIFIED";
+
+    /** u4-data-requests (BR4.14): an open request passed its due date; published once per request, by the system. */
+    public static final String DATA_REQUEST_OVERDUE = "DATA_REQUEST_OVERDUE";
+
+    /**
+     * u4-data-requests (BR4.15, NFR7.1): one run of the daily purge of the requests closed 12 months ago; actor
+     * {@code system}, no tenant, details with the counts only ({@code deleted}, {@code verificationsDeleted},
+     * {@code batches}, {@code result}).
+     */
+    public static final String DATA_REQUESTS_PURGED = "DATA_REQUESTS_PURGED";
+
+    /**
+     * u5-anonymization (BR5.2, NFR8.2, J6): the account of a DELETION request was anonymized by the administrator. Actor
+     * the administrator, target the internal identifier of the account ({@code user:<id>}), details ONLY the counts
+     * {@code botsStopped}, {@code sessionsRevoked} and {@code feedbackDeleted}: the validator refuses any other key.
+     * Never published for a repetition (BR5.5).
+     */
+    public static final String ACCOUNT_ANONYMIZED = "ACCOUNT_ANONYMIZED";
+
+    /** u5-anonymization (NFR8.2): the only keys of {@code details} of {@link #ACCOUNT_ANONYMIZED}. */
+    public static final java.util.Set<String> ACCOUNT_ANONYMIZED_DETAILS =
+            java.util.Set.of("botsStopped", "sessionsRevoked", "feedbackDeleted");
+
     private AuditActions() {}
 }

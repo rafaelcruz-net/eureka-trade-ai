@@ -2,11 +2,14 @@ import type { ReactNode } from 'react';
 import { ApiProvider } from '@/lib/api/ApiProvider';
 import type {
   Account,
+  CurrentLegalDocuments,
   GuestApi,
   GuestSession,
   InviteLookup,
   ScannerPage,
+  TermsStatus,
 } from '@/lib/api/guest-api';
+import { CURRENT } from '@/features/legal/fixtures';
 import { SessionProvider } from '@/features/auth/SessionProvider';
 import type { WalletPort } from '@/features/auth/wallets';
 
@@ -38,6 +41,24 @@ export const ACCOUNT: Account = {
     riskNoticeText: 'Texto do aviso de risco v1.',
   },
   realMode: 'UNAVAILABLE',
+  // u3-reacceptance (L2): up to date with the current version.
+  terms: {
+    acceptedVersion: 'v1',
+    currentVersion: 'v1',
+    acceptedAt: '2026-10-28T12:00:00Z',
+    upToDate: true,
+  },
+};
+
+/** u3-reacceptance: the current legal documents (L1) of the API double, the fictitious v2 of the legal fixtures. */
+export const LEGAL_CURRENT: CurrentLegalDocuments = CURRENT;
+
+/** u3-reacceptance (L2): the answer of an acceptance of the current version. */
+export const TERMS_UP_TO_DATE: TermsStatus = {
+  acceptedVersion: 'v2',
+  currentVersion: 'v2',
+  acceptedAt: '2026-10-28T12:00:00Z',
+  upToDate: true,
 };
 
 /** API double typed with the generated contract types. */
@@ -133,6 +154,20 @@ export function fakeApi(overrides: Partial<GuestApi> = {}): jest.Mocked<GuestApi
       feedbackId: '00000000-0000-4000-8000-00000000f00d',
       createdAt: '2026-10-28T12:00:00Z',
     })),
+    // u3-reacceptance (L1, L2, L3): the current documents load and the acceptance is recorded unless a test says
+    // otherwise; the handler of the lock is a no-op double.
+    getCurrentLegalDocuments: jest.fn(async () => LEGAL_CURRENT),
+    acceptTerms: jest.fn(async () => TERMS_UP_TO_DATE),
+    // u4-data-requests (P1): no request unless a test says otherwise.
+    listDataRequests: jest.fn(async () => []),
+    createDataRequest: jest.fn(async () => {
+      throw new Error('no data request configured');
+    }),
+    getDataRequest: jest.fn(async () => {
+      throw new Error('no data request configured');
+    }),
+    setTermsReacceptanceHandler: jest.fn(() => () => undefined),
+    notifyTermsReacceptance: jest.fn(),
     ...overrides,
   } as jest.Mocked<GuestApi>;
 }

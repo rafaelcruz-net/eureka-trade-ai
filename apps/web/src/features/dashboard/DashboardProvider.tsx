@@ -165,6 +165,8 @@ export function DashboardProvider({
       onEvent: handleEvent,
       onStatus: (channel) => dispatch({ type: 'CHANNEL_STATUS', ...channel }),
       onSessionExpired: expire,
+      // u3-reacceptance (NFR2.4): the same handler of the REST calls of the API layer.
+      onTermsReacceptance: () => api.notifyTermsReacceptance(),
       fetchImpl,
     });
     client.current = stream;

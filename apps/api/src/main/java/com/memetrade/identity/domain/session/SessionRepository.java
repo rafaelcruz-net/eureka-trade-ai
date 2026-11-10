@@ -24,4 +24,10 @@ public interface SessionRepository {
     boolean close(UUID sessionId, SessionState target, Instant now);
 
     Optional<SessionAuthView> findAuthView(UUID sessionId);
+
+    /**
+     * u5-anonymization (BR5.6, NFR5.6): the same view, with a SHARED lock on the account row until the end of the
+     * refresh transaction. Called after the session lock, in the order sessions then account of the anonymization.
+     */
+    Optional<SessionAuthView> findAuthViewSharingAccount(UUID sessionId);
 }

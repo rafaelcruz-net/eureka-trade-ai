@@ -24,16 +24,18 @@ import org.springframework.mock.env.MockEnvironment;
 class U5SettingsTest {
 
     @Test
-    void theApiGuardAcceptsSixteenToThirtyTwoSchedulerThreads() {
-        // U8 (Passo 1): two more jobs in the api, the kill switch reconciliation and the feedback purge.
-        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(16);
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "16")))
+    void theApiGuardAcceptsEighteenToThirtyTwoSchedulerThreads() {
+        // U8 (Passo 1): two more jobs in the api, the kill switch reconciliation and the feedback purge;
+        // u2-retention (Passo 10): two more, the login challenge and session purges.
+        // u4-data-requests: three more, the request timers, the request purge and the count refresher.
+        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(21);
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "21")))
                 .doesNotThrowAnyException();
         assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "32")))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "15")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "20")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 16 and 32");
+                .hasMessageContaining("between 21 and 32");
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "4")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }

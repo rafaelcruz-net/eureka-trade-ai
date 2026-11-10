@@ -348,3 +348,33 @@ td {
     font-weight: 600;
   }
 }
+
+/* u4-data-requests (NFR2.5, NFR4.1): texts of a request as plain text; the due-date alert is an icon plus text. */
+.pre-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.deadline-alert {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.deadline-alert-overdue {
+  color: var(--danger);
+}
+
+/* u5-anonymization: "Conta anonimizada" in the lists; the icon always comes with the text (never colour alone). */
+.account-anonymized {
+  font-weight: 600;
+  white-space: nowrap;
+}

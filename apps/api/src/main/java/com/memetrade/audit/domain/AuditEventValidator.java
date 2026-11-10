@@ -1,6 +1,7 @@
 package com.memetrade.audit.domain;
 
 import com.memetrade.audit.api.ActorType;
+import com.memetrade.audit.api.AuditActions;
 import com.memetrade.audit.api.AuditEventCommand;
 import com.memetrade.audit.api.AuditPublishRejectedException;
 import com.memetrade.audit.api.AuditPublishRejectedException.Reason;
@@ -48,9 +49,21 @@ public final class AuditEventValidator {
     /** Candidates for a Base58 Ed25519 signature: 64 bytes encode to 86-88 characters (wallets are 32-44). */
     private static final Pattern BASE58_RUN = Pattern.compile("[1-9A-HJ-NP-Za-km-z]{80,90}");
 
+    /**
+     * u2-retention (BR2.3): the alphanumeric words of a value. A wallet candidate is a WHOLE word of 32 to 44 Base58
+     * characters: a fragment of a longer word (a hexadecimal hash or digest whose run between two '0' characters happens
+     * to be Base58) is not an address and must not refuse a legitimate event.
+     */
+    private static final Pattern ALPHANUMERIC_WORD = Pattern.compile("[0-9A-Za-z]+");
+
+    private static final Pattern BASE58_WORD = Pattern.compile("^[1-9A-HJ-NP-Za-km-z]{32,44}$");
+
     private static final String BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
     private static final BigInteger FIFTY_EIGHT = BigInteger.valueOf(58);
     private static final int SIGNATURE_BYTES = 64;
+
+    /** An Ed25519 public key, which is what a Solana wallet address encodes (BR2.3). */
+    private static final int WALLET_BYTES = 32;
 
     /** @throws AuditPublishRejectedException at the first problem found */
     public void validate(AuditEventCommand event) {
@@ -61,22 +74,59 @@ public final class AuditEventValidator {
             throw new AuditPublishRejectedException("tenantId", Reason.MISSING_FIELD);
         }
         requireLength("actor", event.actor(), MAX_ACTOR);
+        if (containsFullWallet(event.actor())) {
+            throw new AuditPublishRejectedException("actor", Reason.FULL_WALLET);
+        }
         requireLength("correlationId", event.correlationId(), MAX_CORRELATION_ID);
         if (event.targetRef() != null) {
             requireLength("targetRef", event.targetRef(), MAX_TARGET_REF);
             requireAllowedValue("targetRef", event.targetRef());
+            if (containsFullWallet(event.targetRef())) {
+                throw new AuditPublishRejectedException("targetRef", Reason.FULL_WALLET);
+            }
         }
         validateDetails(event.details());
+        if (AuditActions.ACCOUNT_ANONYMIZED.equals(event.action())) {
+            for (String key : event.details().keySet()) {
+                if (!AuditActions.ACCOUNT_ANONYMIZED_DETAILS.contains(key)) {
+                    // u5-anonymization (NFR8.2): only the three counts, never a wallet, a name or a text.
+                    throw new AuditPublishRejectedException("details." + key, Reason.FORBIDDEN_KEY);
+                }
+            }
+        }
     }
 
-    /** BR1.4 over every key and value of {@code details}. */
+    /** BR1.4 and u2-retention BR2.3 over every key and value of {@code details}. */
     public void validateDetails(Map<String, String> details) {
         for (Map.Entry<String, String> entry : details.entrySet()) {
+            String field = "details." + entry.getKey();
             if (FORBIDDEN_KEYS.contains(entry.getKey().toLowerCase(Locale.ROOT))) {
-                throw new AuditPublishRejectedException("details." + entry.getKey(), Reason.FORBIDDEN_KEY);
+                throw new AuditPublishRejectedException(field, Reason.FORBIDDEN_KEY);
             }
-            requireAllowedValue("details." + entry.getKey(), entry.getValue());
+            requireAllowedValue(field, entry.getValue());
+            if (containsFullWallet(entry.getValue())) {
+                throw new AuditPublishRejectedException(field, Reason.FULL_WALLET);
+            }
         }
+    }
+
+    /**
+     * u2-retention (BR2.3, NFR1.2): true when the text holds a whole word of 32 to 44 Base58 characters that decodes to
+     * exactly 32 bytes, the size of an Ed25519 public key (a wallet address). The same decoding confirms the 64-byte
+     * signatures; a UUID, a hexadecimal hash, an invitation code or a digest is not such a word.
+     */
+    public static boolean containsFullWallet(String text) {
+        if (text == null || text.isEmpty()) {
+            return false;
+        }
+        Matcher word = ALPHANUMERIC_WORD.matcher(text);
+        while (word.find()) {
+            String candidate = word.group();
+            if (BASE58_WORD.matcher(candidate).matches() && decodedLength(candidate) == WALLET_BYTES) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** True when the text carries a JWT, a Bearer credential or a Base58 64-byte signature. */

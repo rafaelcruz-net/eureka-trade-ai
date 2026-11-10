@@ -1,0 +1,283 @@
+{
+  "stage": "code-generation",
+  "unit": "u5-anonymization",
+  "version": 1,
+  "writes": [
+    {
+      "path": "apps/admin/src/app/globals.css"
+    },
+    {
+      "path": "apps/admin/src/features/accounts/AccountState.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/accounts/AccountState.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/data-requests/AdminDataRequestDetail.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/data-requests/AdminDataRequestList.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/data-requests/AdminDataRequests.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/data-requests/AnonymizeAccount.test.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/data-requests/AnonymizeAccountButton.tsx"
+    },
+    {
+      "path": "apps/admin/src/features/data-requests/AnonymizeAccountDialog.tsx"
+    },
+    {
+      "path": "apps/admin/src/lib/api/admin-api.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/api/schema.d.ts"
+    },
+    {
+      "path": "apps/admin/src/lib/i18n/messages.ts"
+    },
+    {
+      "path": "apps/admin/src/test-support.tsx"
+    },
+    {
+      "path": "apps/api/openapi/openapi-admin.yaml"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/audit/api/AuditActions.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/audit/domain/AuditEventValidator.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/api/BotOwnerDataPort.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/domain/BotStateMachine.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/infra/JdbcBotOwnerDataPort.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/infra/LockOrder.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/api/FeedbackOwnerDataPort.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/feedback/infra/JdbcFeedbackOwnerDataPort.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/api/AccountAnonymizationPort.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/api/IdempotentOperation.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/anonymization/AccountAnonymizationRepository.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/anonymization/AccountAnonymizationService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/login/LoginVerificationService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/session/AccountRepository.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/session/SessionRepository.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/domain/session/SessionService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/JdbcAccountAnonymizationRepository.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/JdbcAccountDetailsRepository.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/JdbcAccountRepository.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/JdbcIdentityDirectory.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/JdbcSessionRepository.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/PersonDataConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/identity/infra/SmokeInviteSeeder.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/domain/anonymization/AnonymizationEvents.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/domain/anonymization/AnonymizationOutcomes.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/domain/anonymization/AnonymizationResult.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/domain/anonymization/AnonymizationService.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/domain/anonymization/AnonymizationTimeouts.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/domain/anonymization/LockTimeouts.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/infra/AnonymizationMetrics.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/infra/AuditAnonymizationEvents.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/infra/JdbcAnonymizationTimeouts.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/infra/PrivacyConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/web/AdminAnonymizationController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/web/AdminDataRequestController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/web/AdminDataRequestDtos.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/shared/error/ErrorCode.java"
+    },
+    {
+      "path": "apps/api/src/main/resources/application-test.yml"
+    },
+    {
+      "path": "apps/api/src/main/resources/db/changelog/changes/0015-anonymization.sql"
+    },
+    {
+      "path": "apps/api/src/main/resources/db/changelog/db.changelog-master.yaml"
+    },
+    {
+      "path": "apps/api/src/main/resources/tenancy/route-registry.yml"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/administration/db/U8PrivilegesIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/audit/domain/AnonymizedAccountEventValidatorTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/domain/BotAnonymizeStopTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/infra/BotOwnerDataPortTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/config/U3ContextIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/contract/AdminOpenApiSlice.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/db/AnonymizationMigrationIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/db/MigrationsBackwardCompatIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/feedback/db/FeedbackEraseFunctionIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/feedback/infra/FeedbackOwnerDataPortTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/SmokeInviteSeederIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/domain/anonymization/AnonymizationOfAccountTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/domain/login/LoginVerificationServiceTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/domain/session/InMemorySessionRepository.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/infra/ComposeFilesTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/ops/LogScanIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AbstractAnonymizationIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AdminAnonymizationIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizationConcurrencyIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizationIndexIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizationKeepsHistoryIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizationLatencyIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizationLockTimeoutIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizationNoWalletLeftIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizationObservabilityIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizationRollbackIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizationTransactionIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizedAccessIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/AnonymizedWalletReadersIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/domain/anonymization/AnonymizationServiceTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/infra/AccessSummaryAssemblerTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/riskcontrol/db/RolesBootstrapIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/DataRequestCalls.java"
+    },
+    {
+      "path": "apps/web/e2e/anonymization/smoke.spec.ts"
+    },
+    {
+      "path": "docs/api/u5-anonymization.md"
+    },
+    {
+      "path": "infra/docker-compose.test.yml"
+    },
+    {
+      "path": "infra/postgres/bootstrap/10-roles.sql"
+    }
+  ]
+}

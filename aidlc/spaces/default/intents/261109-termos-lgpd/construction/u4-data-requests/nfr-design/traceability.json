@@ -1,0 +1,32 @@
+{
+  "stage": "nfr-design",
+  "unit": "u4-data-requests",
+  "upstream_ids": ["NFR1.1", "NFR1.2", "NFR2.1", "NFR2.2", "NFR2.3", "NFR2.4", "NFR2.5", "NFR3.1", "NFR3.2", "NFR3.3", "NFR3.4", "NFR3.5", "NFR3.6", "NFR3.7", "NFR3.8", "NFR4.1", "NFR4.2", "NFR5.1", "NFR7.1", "NFR7.2", "NFR8.1", "NFR8.2", "NFR8.3", "NFR8.4", "NFR9.1"],
+  "coverage": [
+    { "id": "NFR1.1", "status": "OK", "target": "security-design: eventos e logs só com identificador e estados; agulhas no LogScanIT" },
+    { "id": "NFR1.2", "status": "OK", "target": "security-design: AccessSummaryAssembler pelas J1 a J4" },
+    { "id": "NFR2.1", "status": "OK", "target": "security-design: filtro por tenant e pessoa, 404" },
+    { "id": "NFR2.2", "status": "OK", "target": "security-design: ADMIN_ROUTE e registro ADMIN" },
+    { "id": "NFR2.3", "status": "OK", "target": "security-design: VerificationMessage e UPDATE condicional" },
+    { "id": "NFR2.4", "status": "OK", "target": "security-design: DataRequestRateLimit por contagem no banco" },
+    { "id": "NFR2.5", "status": "OK", "target": "security-design: texto como nó de texto" },
+    { "id": "NFR3.1", "status": "OK", "target": "performance-design: criação e lista indexadas; cenário data-requests" },
+    { "id": "NFR3.2", "status": "OK", "target": "performance-design: cursor por due_at e índice (status, due_at)" },
+    { "id": "NFR3.3", "status": "OK", "target": "performance-design: quatro leituras indexadas" },
+    { "id": "NFR3.4", "status": "OK", "target": "performance-design: UPDATE condicional com RETURNING" },
+    { "id": "NFR3.5", "status": "OK", "target": "performance-design: índices e EXPLAIN com seqscan desligado" },
+    { "id": "NFR3.6", "status": "OK", "target": "scalability-design: 1000 pedidos nos testes" },
+    { "id": "NFR3.7", "status": "OK", "target": "scalability-design: ShedLock e atualizações condicionais" },
+    { "id": "NFR3.8", "status": "OK", "target": "scalability-design: índice único parcial e 409" },
+    { "id": "NFR4.1", "status": "OK", "target": "reliability-design: títulos, regiões, rótulos, alerta com ícone e texto" },
+    { "id": "NFR4.2", "status": "OK", "target": "reliability-design: estados loading, error e empty" },
+    { "id": "NFR5.1", "status": "OK", "target": "reliability-design: migração 0014 aditiva e teste" },
+    { "id": "NFR7.1", "status": "OK", "target": "reliability-design: DataSubjectRequestPurgeJob e privacy_job_run" },
+    { "id": "NFR7.2", "status": "OK", "target": "reliability-design: job idempotente" },
+    { "id": "NFR8.1", "status": "OK", "target": "observability-design: métricas em cache" },
+    { "id": "NFR8.2", "status": "OK", "target": "observability-design: DataRequestsHealthIndicator" },
+    { "id": "NFR8.3", "status": "Deferred", "target": "Infrastructure Design da U4: alerta DATA_REQUEST_OVERDUE" },
+    { "id": "NFR8.4", "status": "OK", "target": "observability-design: ações de auditoria" },
+    { "id": "NFR9.1", "status": "OK", "target": "security-design: testes antes do código" }
+  ]
+}

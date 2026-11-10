@@ -112,7 +112,7 @@ class LogScanIT extends AbstractPostgresIT {
         String accessToken = auth.accessToken(login);
         String refreshToken = AuthFlow.refreshToken(login);
         scanner.register(Kind.ACCESS_TOKEN, accessToken).register(Kind.REFRESH_TOKEN, refreshToken);
-        auth.verify(wallet, message, signature); // replay: LOGIN_REJECTED with the full address in details
+        auth.verify(wallet, message, signature); // replay: LOGIN_REJECTED with the masked actor and the HMAC only
         mvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("mt_refresh", refreshToken)));
         mvc.perform(get("/api/v1/admin/audit-events?from=2026-10-01T00:00:00Z&to=2026-10-02T00:00:00Z")
                 .header("Authorization", "Bearer " + accessToken));
@@ -135,12 +135,19 @@ class LogScanIT extends AbstractPostgresIT {
         scanTrail(scanner, findings);
 
         assertThat(findings).as(SensitiveValueScanner.report(findings)).isEmpty();
-        assertThat(jdbc.sql("select count(*) from audit_event where details->>'walletAddress' = :a")
+        // u2-retention (BR2.1, AC3.2.1): the LOGIN events keep only the HMAC of the wallet, never the address.
+        assertThat(jdbc.sql("select count(*) from audit_event where wallet_hmac = :h")
+                        .param("h", com.memetrade.testsupport.TestWalletHmac.of(wallet.address()))
+                        .query(Long.class)
+                        .single())
+                .as("the LOGIN events of the wallet are found by its HMAC")
+                .isPositive();
+        assertThat(jdbc.sql("select count(*) from audit_event where strpos(details::text, :a) > 0")
                         .param("a", wallet.address())
                         .query(Long.class)
                         .single())
-                .as("the full address of the LOGIN events is kept in details, where it is allowed")
-                .isPositive();
+                .as("no event keeps the full address in details")
+                .isZero();
     }
 
     /**
@@ -278,6 +285,153 @@ class LogScanIT extends AbstractPostgresIT {
         assertThat(findings).as(SensitiveValueScanner.report(findings)).isEmpty();
     }
 
+    /**
+     * u4-data-requests (BR4.3; NFR1.1, NFR9.1): a request created by a guest, one registered from an e-mail with its
+     * contact, a verification started, refused with another wallet and confirmed, the transitions with a response and
+     * the release of the summary. The text of the requests, the contact, the verification message and both signatures,
+     * the tokens and the full wallet never appear in the api logs, the PostgreSQL logs, the Prometheus output, the
+     * outbox, the trail or the idempotency records of the requests.
+     */
+    @Test
+    @Tag("u4-data-requests")
+    void theDataRequestFlowsNeverLeakTheTextTheContactTheMessageOrTheSignature(CapturedOutput output) throws Exception {
+        SensitiveValueScanner scanner = new SensitiveValueScanner();
+        com.memetrade.testsupport.DataRequestCalls calls = new com.memetrade.testsupport.DataRequestCalls(mvc, json);
+        AuthFlow auth = new AuthFlow(mvc, json);
+        TestWallet wallet = TestWallet.generate();
+        TestAccounts.Seeded person = TestAccounts.betaUser(jdbc, wallet.address());
+        scanner.register(Kind.WALLET_ADDRESS, wallet.address());
+        String accessToken = auth.accessToken(auth.login(wallet));
+        scanner.register(Kind.ACCESS_TOKEN, accessToken);
+        AdminSessions.AdminSession admin = adminSessions.openAdminSession();
+        scanner.register(Kind.ACCESS_TOKEN, admin.token());
+        String text = "texto-do-pedido-" + java.util.UUID.randomUUID();
+        String emailText = "texto-do-email-" + java.util.UUID.randomUUID();
+        String contact = "contato-" + java.util.UUID.randomUUID() + "@example.org";
+        String response = "resposta-do-admin-" + java.util.UUID.randomUUID();
+        scanner.register(Kind.REQUEST_TEXT, text)
+                .register(Kind.REQUEST_TEXT, emailText)
+                .register(Kind.REQUEST_TEXT, response)
+                .register(Kind.CONTACT, contact);
+
+        String access = json.readTree(
+                        calls.create("Bearer " + accessToken, "ACCESS", text).getContentAsString())
+                .get("requestId")
+                .asText();
+        String email = json.readTree(calls.register(
+                                admin.bearer(),
+                                "DELETION",
+                                emailText,
+                                contact,
+                                clock.instant().toString(),
+                                person.userId())
+                        .getContentAsString())
+                .get("requestId")
+                .asText();
+        String message = json.readTree(
+                        calls.startVerification(admin.bearer(), email).getContentAsString())
+                .get("message")
+                .asText();
+        String wrongSignature = TestWallet.generate().sign(message);
+        String signature = wallet.sign(message);
+        scanner.register(Kind.REQUEST_TEXT, message)
+                .register(Kind.SIGNATURE, wrongSignature)
+                .register(Kind.SIGNATURE, signature);
+        assertThat(calls.confirm(admin.bearer(), email, wrongSignature).getStatus())
+                .isEqualTo(422);
+        assertThat(calls.confirm(admin.bearer(), email, signature).getStatus()).isEqualTo(200);
+        calls.transition(admin.bearer(), access, "IN_PROGRESS", null, null, false);
+        calls.transition(admin.bearer(), access, "DONE", response, null, true);
+        calls.adminList(admin.bearer(), null);
+        calls.list("Bearer " + accessToken);
+        while (relay.relayBatch() > 0) {
+            // deliver every event of this flow to the trail
+        }
+
+        List<Finding> findings = new ArrayList<>();
+        findings.addAll(scanner.scan("api logs", output.getAll()));
+        findings.addAll(scanner.scan("postgresql logs", POSTGRES.getLogs()));
+        findings.addAll(scanner.scan("prometheus", prometheus()));
+        scanOutbox(scanner, findings);
+        scanTrail(scanner, findings);
+        for (String body : jdbc.sql("""
+                        select coalesce(response_body::text, '') from idempotency_record
+                        where scope like '%:privacy.request.%'
+                        """).query(String.class).list()) {
+            findings.addAll(scanner.scan("idempotency_record.response_body", body));
+        }
+
+        assertThat(findings).as(SensitiveValueScanner.report(findings)).isEmpty();
+        assertThat(jdbc.sql("select count(*) from audit_event where details->>'requestId' in (:a, :e)")
+                        .param("a", access)
+                        .param("e", email)
+                        .query(Long.class)
+                        .single())
+                .as("the events of the flow reached the trail and were scanned")
+                .isPositive();
+    }
+
+    /**
+     * u5-anonymization (NFR1.1, NFR1.2; BR5.4): a DELETION request of a guest anonymized through the administrator route.
+     * The full address of the anonymized test wallet (the needle) and the tokens never appear in the api logs, the
+     * PostgreSQL logs, the Prometheus output, the outbox, the trail or the idempotency records of the requests.
+     */
+    @Test
+    @Tag("u5-anonymization")
+    void theAnonymizationNeverLeaksTheAddressOfTheAnonymizedWallet(CapturedOutput output) throws Exception {
+        SensitiveValueScanner scanner = new SensitiveValueScanner();
+        com.memetrade.testsupport.DataRequestCalls calls = new com.memetrade.testsupport.DataRequestCalls(mvc, json);
+        AuthFlow auth = new AuthFlow(mvc, json);
+        TestWallet wallet = TestWallet.generate();
+        TestAccounts.betaUser(jdbc, wallet.address());
+        scanner.register(Kind.WALLET_ADDRESS, wallet.address());
+        String accessToken = auth.accessToken(auth.login(wallet));
+        scanner.register(Kind.ACCESS_TOKEN, accessToken);
+        AdminSessions.AdminSession admin = adminSessions.openAdminSession();
+        scanner.register(Kind.ACCESS_TOKEN, admin.token());
+        String id = json.readTree(calls.create("Bearer " + accessToken, "DELETION", "pedido-sintetico")
+                        .getContentAsString())
+                .get("requestId")
+                .asText();
+        assertThat(calls.transition(admin.bearer(), id, "IN_PROGRESS", null, null, false)
+                        .getStatus())
+                .isEqualTo(200);
+
+        MockHttpServletResponse anonymized =
+                calls.anonymize(admin.bearer(), id, "ANONIMIZAR", java.util.UUID.randomUUID());
+        assertThat(anonymized.getStatus()).as(anonymized.getContentAsString()).isEqualTo(200);
+        while (relay.relayBatch() > 0) {
+            // deliver every event of this flow to the trail
+        }
+
+        List<Finding> findings = new ArrayList<>();
+        findings.addAll(scanner.scan("api logs", output.getAll()));
+        findings.addAll(scanner.scan("postgresql logs", POSTGRES.getLogs()));
+        findings.addAll(scanner.scan("prometheus", prometheus()));
+        findings.addAll(scanner.scan("anonymization answer", anonymized.getContentAsString()));
+        scanOutbox(scanner, findings);
+        scanTrail(scanner, findings);
+        for (String body : jdbc.sql("""
+                        select coalesce(response_body::text, '') from idempotency_record
+                        where scope like '%:privacy.request.%'
+                        """).query(String.class).list()) {
+            findings.addAll(scanner.scan("idempotency_record.response_body", body));
+        }
+
+        assertThat(findings).as(SensitiveValueScanner.report(findings)).isEmpty();
+        assertThat(jdbc.sql("select count(*) from audit_event where action = 'ACCOUNT_ANONYMIZED' and target_ref = :t")
+                        .param(
+                                "t",
+                                "user:"
+                                        + json.readTree(anonymized.getContentAsString())
+                                                .get("userId")
+                                                .asText())
+                        .query(Long.class)
+                        .single())
+                .as("the event of the anonymization reached the trail and was scanned")
+                .isEqualTo(1);
+    }
+
     @Autowired
     private com.memetrade.marketdata.infra.MarketCollectorJob collector;
 
@@ -295,11 +449,12 @@ class LogScanIT extends AbstractPostgresIT {
             ObjectNode node = (ObjectNode) json.readTree(payload);
             JsonNode details = node.remove("details");
             findings.addAll(scanner.scan("audit_outbox.payload", node.toString()));
-            findings.addAll(scanner.scan("audit_outbox.payload.details", String.valueOf(details), true));
+            // u2-retention (BR2.3): details may no longer hold the full address either.
+            findings.addAll(scanner.scan("audit_outbox.payload.details", String.valueOf(details)));
         }
     }
 
-    /** {@code details} may hold the full address; every other column may not. */
+    /** Since u2-retention (BR2.1, BR2.3) no column of the trail may hold the full address, details included. */
     private void scanTrail(SensitiveValueScanner scanner, List<Finding> findings) {
         List<Map<String, Object>> rows = jdbc.sql("""
                         select actor, coalesce(target_ref, '') as target_ref, correlation_id, details::text as details
@@ -309,7 +464,7 @@ class LogScanIT extends AbstractPostgresIT {
             findings.addAll(scanner.scan(
                     "audit_event.actor/target_ref/correlation_id",
                     row.get("actor") + " " + row.get("target_ref") + " " + row.get("correlation_id")));
-            findings.addAll(scanner.scan("audit_event.details", String.valueOf(row.get("details")), true));
+            findings.addAll(scanner.scan("audit_event.details", String.valueOf(row.get("details"))));
         }
     }
 

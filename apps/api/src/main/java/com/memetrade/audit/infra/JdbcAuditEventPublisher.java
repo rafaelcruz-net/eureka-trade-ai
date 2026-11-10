@@ -9,6 +9,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -23,6 +24,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * propagates and the caller's action rolls back (NFR4.7). Each refusal increments
  * {@code audit_publish_rejected_total{reason}} and is logged at ERROR with action, reason and field, never the value.
  * {@code audit_events_published_total{action}} counts only events whose transaction committed.
+ *
+ * <p>u2-retention (BR2.1 to BR2.3, J6): an event with a wallet gets {@code walletHmac} in its payload, from the
+ * {@link WalletHasher}; the actor stays masked and the full address never reaches the outbox. A full address in
+ * {@code details} or as the actor is refused with {@code FULL_WALLET}, logged without the value
+ * ({@code AUDIT_FULL_WALLET_REJECTED} of monitoring-design.md).
  */
 @Component
 public class JdbcAuditEventPublisher implements AuditEventPublisher {
@@ -33,12 +39,14 @@ public class JdbcAuditEventPublisher implements AuditEventPublisher {
     private final Clock clock;
     private final AuditEventValidator validator;
     private final MeterRegistry registry;
+    private final WalletHasher wallets;
 
-    public JdbcAuditEventPublisher(JdbcClient jdbc, Clock clock, MeterRegistry registry) {
+    public JdbcAuditEventPublisher(JdbcClient jdbc, Clock clock, MeterRegistry registry, WalletHasher wallets) {
         this.jdbc = jdbc;
         this.clock = clock;
         this.validator = new AuditEventValidator();
         this.registry = registry;
+        this.wallets = wallets;
         for (Reason reason : Reason.values()) {
             rejected(reason);
         }
@@ -63,7 +71,7 @@ public class JdbcAuditEventPublisher implements AuditEventPublisher {
                         on conflict (event_id) do nothing
                         """)
                 .param("id", event.eventId())
-                .param("payload", AuditPayloadCodec.encode(event))
+                .param("payload", AuditPayloadCodec.encode(event, walletHmac(event)))
                 .param("createdAt", Timestamp.from(clock.instant()))
                 .update();
         Counter published = Counter.builder("audit_events_published")
@@ -76,6 +84,11 @@ public class JdbcAuditEventPublisher implements AuditEventPublisher {
                 published.increment();
             }
         });
+    }
+
+    /** u2-retention (BR2.1, BR2.2): the HMAC of the event's wallet; the full address itself is never written. */
+    private Optional<String> walletHmac(AuditEventCommand event) {
+        return Optional.ofNullable(event.wallet()).map(wallets::hmac);
     }
 
     private void refuse(AuditEventCommand event, AuditPublishRejectedException rejection) {

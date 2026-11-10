@@ -19,6 +19,16 @@ export type IssueInviteRequest = components['schemas']['IssueInviteRequest'];
 export type TenantOption = components['schemas']['TenantOption'];
 export type FeedbackItem = components['schemas']['FeedbackItem'];
 export type FeedbackPage = components['schemas']['FeedbackPage'];
+// u4-data-requests (P2): the data subject requests.
+export type AdminDataRequest = components['schemas']['AdminDataRequest'];
+export type AdminDataRequestPage = components['schemas']['AdminDataRequestPage'];
+export type RegisterEmailDataRequest = components['schemas']['RegisterEmailDataRequest'];
+export type DataRequestTransition = components['schemas']['DataRequestTransition'];
+export type VerificationView = components['schemas']['VerificationView'];
+export type AccessSummary = components['schemas']['AccessSummary'];
+export type AnonymizationResult = components['schemas']['AnonymizationResult'];
+export type DataRequestStatus = AdminDataRequest['status'];
+export type DataRequestType = AdminDataRequest['type'];
 
 /** Query string with only the parameters that have a value. */
 function query(values: Record<string, string | number | null | undefined>): string {
@@ -148,6 +158,80 @@ export function adminApi(client: ApiClient) {
         client.request<FeedbackPage>(`/api/v1/admin/feedback${query({ cursor, limit: 20 })}`, {
           authenticated: true,
         }),
+      );
+    },
+    /** u4-data-requests (P2, US5.9): one page of the requests by due date, optionally of one situation. */
+    listDataRequests(status: DataRequestStatus | null, cursor: string | null) {
+      return withRenewal(() =>
+        client.request<AdminDataRequestPage>(
+          `/api/v1/admin/privacy/requests${query({ status, cursor, limit: 50 })}`,
+          { authenticated: true },
+        ),
+      );
+    },
+    /** u4-data-requests (P2, US5.3): one request with the verification and, for an open Access, the preview. */
+    getDataRequest(requestId: string) {
+      return withRenewal(() =>
+        client.request<AdminDataRequest>(
+          `/api/v1/admin/privacy/requests/${encodeURIComponent(requestId)}`,
+          { authenticated: true },
+        ),
+      );
+    },
+    /** u4-data-requests (P2, US5.6): a request received by the e-mail of the DPO. */
+    registerEmailRequest(body: RegisterEmailDataRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<AdminDataRequest>('/api/v1/admin/privacy/requests', {
+          method: 'POST',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** u4-data-requests (P2, US5.3): a transition; the screen reuses the key on a new attempt of the same action. */
+    transitionDataRequest(requestId: string, body: DataRequestTransition, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<AdminDataRequest>(
+          `/api/v1/admin/privacy/requests/${encodeURIComponent(requestId)}/transitions`,
+          { method: 'POST', body, idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** u4-data-requests (P2, US5.6): the verification message of an EMAIL request. */
+    startVerification(requestId: string, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<VerificationView>(
+          `/api/v1/admin/privacy/requests/${encodeURIComponent(requestId)}/verification`,
+          { method: 'POST', idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** u4-data-requests (P2, US5.6): the signature received from the person; never stored by the app. */
+    confirmVerification(requestId: string, signature: string, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<AdminDataRequest>(
+          `/api/v1/admin/privacy/requests/${encodeURIComponent(requestId)}/verification/confirm`,
+          { method: 'POST', body: { signature }, idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** u5-anonymization (P2, US6.1): anonymizes the account of a DELETION in progress; the key is kept per dialog. */
+    anonymizeAccount(requestId: string, confirmation: string, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<AnonymizationResult>(
+          `/api/v1/admin/privacy/requests/${encodeURIComponent(requestId)}/anonymization`,
+          { method: 'POST', body: { confirmation }, idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** u4-data-requests (P2, BR4.17): the reply of a closed EMAIL request was sent to the contact. */
+    markReplySent(requestId: string, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<AdminDataRequest>(
+          `/api/v1/admin/privacy/requests/${encodeURIComponent(requestId)}/reply-sent`,
+          { method: 'POST', idempotencyKey, authenticated: true },
+        ),
       );
     },
   };

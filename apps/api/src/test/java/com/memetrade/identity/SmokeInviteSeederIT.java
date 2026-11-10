@@ -126,4 +126,34 @@ class SmokeInviteSeederIT extends AbstractU3IT {
         assertThat(new SmokeInviteSeeder(invites, transactions, clock, null, null).codes())
                 .isEmpty();
     }
+
+    /** u5-anonymization: the second invitation of the throw-away account is seeded once with the others. */
+    @Test
+    void theInvitationOfTheAnonymizationSpecIsSeededWithTheOthers() {
+        String anonymization = com.memetrade.testsupport.TestInvites.newCode();
+        SmokeInviteSeeder seeder = new SmokeInviteSeeder(invites, transactions, clock, SMOKE_CODE, "", anonymization);
+
+        seeder.seed();
+        seeder.seed();
+
+        assertThat(seeder.codes()).containsExactly(SMOKE_CODE, anonymization);
+        assertThat(jdbc.sql("select count(*) from invite where code_digest = :d")
+                        .param("d", com.memetrade.testsupport.TestInvites.digest(anonymization))
+                        .query(Long.class)
+                        .single())
+                .isEqualTo(1);
+    }
+
+    /** u5-anonymization: without SMOKE_ANONYMIZATION_INVITE_CODE nothing more is seeded; a malformed one stops. */
+    @Test
+    void anAbsentInvitationOfTheAnonymizationSpecSeedsNothingMoreAndAMalformedOneStops() {
+        assertThat(new SmokeInviteSeeder(invites, transactions, clock, "", "", null).codes())
+                .isEmpty();
+        assertThat(new SmokeInviteSeeder(invites, transactions, clock, "", "", "  ").codes())
+                .isEmpty();
+        assertThatThrownBy(() -> new SmokeInviteSeeder(invites, transactions, clock, "", "", "bad"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SMOKE_ANONYMIZATION_INVITE_CODE")
+                .hasMessageNotContaining("bad");
+    }
 }

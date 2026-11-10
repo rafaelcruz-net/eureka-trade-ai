@@ -105,6 +105,16 @@ public class JdbcSessionRepository implements SessionRepository {
 
     @Override
     public Optional<SessionAuthView> findAuthView(UUID sessionId) {
+        return authView(sessionId, "");
+    }
+
+    /** u5-anonymization (NFR5.6): the same read with a shared lock on the account row only. */
+    @Override
+    public Optional<SessionAuthView> findAuthViewSharingAccount(UUID sessionId) {
+        return authView(sessionId, " for share of u");
+    }
+
+    private Optional<SessionAuthView> authView(UUID sessionId, String lockClause) {
         return jdbc.sql("""
                         select s.session_id, s.user_id, s.tenant_id, s.role, s.state, s.absolute_expires_at,
                                u.status as user_status, t.status as tenant_status
@@ -112,7 +122,7 @@ public class JdbcSessionRepository implements SessionRepository {
                         join app_user u on u.user_id = s.user_id
                         join tenant t on t.tenant_id = s.tenant_id
                         where s.session_id = :id
-                        """)
+                        """ + lockClause)
                 .param("id", sessionId)
                 .query((rs, n) -> new SessionAuthView(
                         rs.getObject("session_id", UUID.class),

@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: Load scenario (u1, u4, u3, growth, u7, u7-jobs, u6 or u5)
+        description: Load scenario (u1, u4, u3, growth, u7, u7-jobs, u6, u5 or legal)
         type: choice
         options:
           - u1
@@ -24,6 +24,7 @@ on:
           - u7-jobs
           - u6
           - u5
+          - legal
         default: u1
 
 permissions:

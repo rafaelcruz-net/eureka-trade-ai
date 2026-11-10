@@ -159,6 +159,126 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/privacy/requests': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Pedidos de titular por prazo, com filtro de situação e cursor (FR7.1, NFR3.2) */
+    get: operations['adminListDataRequests'];
+    put?: never;
+    /** Registra pedido recebido pelo e-mail do encarregado (FR5.2c) */
+    post: operations['adminRegisterEmailRequest'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/privacy/requests/{requestId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Um pedido com o texto, a verificação e, para Acesso aberto, a prévia do resumo */
+    get: operations['adminGetDataRequest'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/privacy/requests/{requestId}/anonymization': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Anonimiza a conta de um pedido de Exclusão em andamento (FR6); idempotente; a repetição numa conta já anonimizada devolve o mesmo resultado com alreadyAnonymized */
+    post: operations['adminAnonymizeAccount'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/privacy/requests/{requestId}/reply-sent': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Registra a data do envio da resposta ao contato de um pedido por e-mail (só EMAIL encerrado) */
+    post: operations['adminMarkReplySent'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/privacy/requests/{requestId}/transitions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Muda a situação do pedido. RECEIVED para IN_PROGRESS é recusado num pedido EMAIL de ACCESS ou DELETION ligado a conta ativa: ele passa antes pela verificação de identidade */
+    post: operations['adminTransitionDataRequest'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/privacy/requests/{requestId}/verification': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Gera a mensagem de verificação e leva o pedido a AWAITING_VERIFICATION (só origem EMAIL com conta) */
+    post: operations['adminStartVerification'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/privacy/requests/{requestId}/verification/confirm': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Confere a assinatura da carteira da conta sobre a mensagem; a assinatura nunca é guardada */
+    post: operations['adminConfirmVerification'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admin/system-status': {
     parameters: {
       query?: never;
@@ -248,9 +368,84 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    AcceptedVersion: {
+      /** Format: date-time */
+      acceptedAt: string;
+      version: string;
+    };
+    AccessSummary: {
+      acceptedVersions: components['schemas']['AcceptedVersion'][];
+      /** Format: date-time */
+      accountCreatedAt: string;
+      /** Format: int64 */
+      botCount: number;
+      /** Format: int64 */
+      feedbackCount: number;
+      /**
+       * Format: date-time
+       * @description Início da sessão mais recente; null antes do primeiro login
+       */
+      lastLoginAt: string | null;
+      /** Format: int64 */
+      paperOrderCount: number;
+      provider: string;
+      requests: components['schemas']['AccessSummaryRequest'][];
+      /** @description 4 primeiros e 4 últimos caracteres */
+      walletMasked: string;
+    };
+    AccessSummaryRequest: {
+      /** Format: date-time */
+      receivedAt: string;
+      /** @enum {string} */
+      status: 'RECEIVED' | 'AWAITING_VERIFICATION' | 'IN_PROGRESS' | 'DONE' | 'REFUSED';
+      /** @enum {string} */
+      type: 'ACCESS' | 'CORRECTION' | 'DELETION' | 'OTHER';
+    };
     AdminChallengeRequest: {
       /** @description Endereço público Solana */
       walletAddress: string;
+    };
+    AdminDataRequest: {
+      /** @description Foto liberada na conclusão de um Acesso */
+      accessSummary: components['schemas']['AccessSummary'] | null;
+      /** @description Prévia do resumo de um Acesso aberto ligado a uma conta; null na lista */
+      accessSummaryPreview: components['schemas']['AccessSummary'] | null;
+      /** @description A conta ligada foi anonimizada (acréscimo da U5); a tela mostra 'Conta anonimizada' */
+      accountAnonymized: boolean;
+      /** @description E-mail do titular; só em pedidos por e-mail */
+      contact: string | null;
+      /** @description Texto do pedido, como foi enviado */
+      details: string;
+      /** Format: date-time */
+      dueAt: string;
+      /** @description Aberto, ainda no prazo e a 3 dias ou menos dele (acréscimo da U4, BR4.16) */
+      dueSoon: boolean;
+      identityVerified: boolean;
+      /** @enum {string} */
+      origin: 'ACCOUNT' | 'EMAIL';
+      /** @description Aberto e com o prazo vencido */
+      overdue: boolean;
+      /** Format: date-time */
+      receivedAt: string;
+      refusalReason: string | null;
+      /** Format: date-time */
+      replySentAt: string | null;
+      /** Format: uuid */
+      requestId: string;
+      response: string | null;
+      /** @enum {string} */
+      status: 'RECEIVED' | 'AWAITING_VERIFICATION' | 'IN_PROGRESS' | 'DONE' | 'REFUSED';
+      /** @enum {string} */
+      type: 'ACCESS' | 'CORRECTION' | 'DELETION' | 'OTHER';
+      /** Format: uuid */
+      userId: string | null;
+      /** @description Verificação por assinatura; null sem verificação ou na lista */
+      verification: components['schemas']['VerificationView'] | null;
+    };
+    AdminDataRequestPage: {
+      items: components['schemas']['AdminDataRequest'][];
+      /** @description Cursor da próxima página; ausente na última */
+      nextCursor?: string;
     };
     AdminSession: {
       accessToken: string;
@@ -270,6 +465,26 @@ export interface components {
       /** @description Assinatura em base58 */
       signature: string;
       walletAddress: string;
+    };
+    AnonymizationResult: {
+      /** @description A conta já estava anonimizada; nada mudou */
+      alreadyAnonymized: boolean;
+      /** Format: date-time */
+      anonymizedAt: string;
+      /** Format: int32 */
+      botsStopped: number;
+      /** Format: int32 */
+      feedbackDeleted: number;
+      /** Format: uuid */
+      requestId: string;
+      /** Format: int32 */
+      sessionsRevoked: number;
+      /** Format: uuid */
+      userId: string;
+    };
+    AnonymizeAccountRequest: {
+      /** @description Exatamente ANONIMIZAR; qualquer outro texto é 422 CONFIRMATION_REQUIRED */
+      confirmation: string;
     };
     /** @description Página da trilha, mais recentes primeiro (BR2.3) */
     AuditEventPage: {
@@ -316,6 +531,10 @@ export interface components {
       message: string;
       nonce: string;
     };
+    ConfirmVerification: {
+      /** @description Assinatura Base58 recebida do titular */
+      signature: string;
+    };
     /** @description OK com value, ou UNKNOWN com reason (nunca zero no lugar de um valor ausente) */
     CountMapPart: {
       /** @enum {string} */
@@ -334,6 +553,18 @@ export interface components {
       status: 'OK' | 'UNKNOWN';
       /** Format: int64 */
       value?: number;
+    };
+    DataRequestTransition: {
+      /** @description Obrigatório para REFUSED */
+      refusalReason?: string | null;
+      /**
+       * @description Só para Acesso concluído; exige identidade em pedido EMAIL
+       * @default false
+       */
+      releaseAccessSummary: boolean;
+      response?: string | null;
+      /** @enum {string} */
+      to: 'IN_PROGRESS' | 'DONE' | 'REFUSED';
     };
     FeedbackItem: {
       /** Format: date-time */
@@ -486,6 +717,8 @@ export interface components {
     Problem: {
       code: string;
       correlationId: string;
+      /** @description Versão vigente efetiva dos termos; só em TERMS_REACCEPTANCE_REQUIRED e TERMS_VERSION_OUTDATED */
+      currentVersion?: string;
       detail?: string;
       fields?: components['schemas']['FieldViolation'][];
       reason?: string;
@@ -494,6 +727,23 @@ export interface components {
       title: string;
       /** Format: uri */
       type: string;
+    };
+    RegisterEmailDataRequest: {
+      /** Format: email */
+      contact: string;
+      details: string;
+      /**
+       * Format: date-time
+       * @description Data em que o e-mail chegou ao encarregado; nunca no futuro
+       */
+      receivedAt: string;
+      /** @enum {string} */
+      type: 'ACCESS' | 'CORRECTION' | 'DELETION' | 'OTHER';
+      /**
+       * Format: uuid
+       * @description Conta ligada, opcional
+       */
+      userId?: string | null;
     };
     RetentionItem: {
       dataItem: string;
@@ -540,6 +790,14 @@ export interface components {
       name: string;
       /** Format: uuid */
       tenantId: string;
+    };
+    VerificationView: {
+      /** Format: date-time */
+      expiresAt: string;
+      /** @description Mensagem a assinar: domínio, pedido, finalidade e validade; só para este pedido */
+      message: string;
+      /** @enum {string} */
+      state: 'PENDING' | 'CONFIRMED' | 'EXPIRED';
     };
   };
   responses: never;
@@ -1125,6 +1383,410 @@ export interface operations {
       };
       /** @description IDEMPOTENCY_CONFLICT: mesma chave com outro corpo */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  adminListDataRequests: {
+    parameters: {
+      query?: {
+        status?: 'RECEIVED' | 'AWAITING_VERIFICATION' | 'IN_PROGRESS' | 'DONE' | 'REFUSED';
+        /** @description Cursor opaco devolvido em nextCursor */
+        cursor?: string;
+        /** @description Itens por página */
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Uma página, do prazo mais próximo para o mais distante */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdminDataRequestPage'];
+        };
+      };
+      /** @description VALIDATION_FAILED em status, limit ou cursor */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description FORBIDDEN_ROLE para token de convidado, auditado como REQUEST_FORBIDDEN */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  adminRegisterEmailRequest: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RegisterEmailDataRequest'];
+      };
+    };
+    responses: {
+      /** @description Registrado como EMAIL e RECEIVED, com prazo de 15 dias */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdminDataRequest'];
+        };
+      };
+      /** @description VALIDATION_FAILED em type, details, contact, receivedAt (futuro), userId (conta inexistente) ou campo desconhecido; o erro nomeia o campo, nunca o valor */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description FORBIDDEN_ROLE */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description DATA_REQUEST_ALREADY_OPEN (a conta ligada já tem pedido aberto do mesmo tipo; aditivo, U4) ou IDEMPOTENCY_CONFLICT */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  adminGetDataRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        requestId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description O pedido */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdminDataRequest'];
+        };
+      };
+      /** @description NOT_FOUND */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  adminAnonymizeAccount: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        requestId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AnonymizeAccountRequest'];
+      };
+    };
+    responses: {
+      /** @description A conta anonimizada e o pedido DONE, ou a repetição */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AnonymizationResult'];
+        };
+      };
+      /** @description FORBIDDEN_ROLE */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description NOT_FOUND */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description REQUEST_NOT_ELIGIBLE (não é Exclusão IN_PROGRESS) | NO_LINKED_ACCOUNT | ADMIN_ACCOUNT_NOT_ANONYMIZABLE | IDENTITY_NOT_VERIFIED (origem EMAIL) | IDEMPOTENCY_CONFLICT */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description CONFIRMATION_REQUIRED (confirmação diferente de ANONIMIZAR) */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description LOCK_TIMEOUT com Retry-After: nada mudou; repetir com a mesma Idempotency-Key */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  adminMarkReplySent: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        requestId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description O pedido com replySentAt; o primeiro registro é mantido */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdminDataRequest'];
+        };
+      };
+      /** @description NOT_FOUND */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description INVALID_TRANSITION (origem ACCOUNT ou pedido ainda aberto) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  adminTransitionDataRequest: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        requestId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DataRequestTransition'];
+      };
+    };
+    responses: {
+      /** @description O pedido depois da transição */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdminDataRequest'];
+        };
+      };
+      /** @description VALIDATION_FAILED (destino fora do enum, resposta ou motivo longos demais) */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description NOT_FOUND */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description INVALID_TRANSITION (inclui AWAITING_VERIFICATION para IN_PROGRESS, que só a confirmação faz, e verificação de identidade primeiro) | DATA_REQUEST_CLOSED | IDENTITY_NOT_VERIFIED */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description UNPROCESSABLE_FIELDS (recusa sem motivo; liberar resumo fora de um Acesso) */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  adminStartVerification: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        requestId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A verificação, com a mensagem a enviar ao contato */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['VerificationView'];
+        };
+      };
+      /** @description NOT_FOUND */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description INVALID_TRANSITION (origem Conta, sem conta ligada, conta anonimizada, tipo sem verificação ou pedido fora de RECEIVED) | DATA_REQUEST_CLOSED */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  adminConfirmVerification: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        requestId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConfirmVerification'];
+      };
+    };
+    responses: {
+      /** @description Identidade confirmada; o pedido está IN_PROGRESS */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AdminDataRequest'];
+        };
+      };
+      /** @description NOT_FOUND */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description VERIFICATION_EXPIRED | VERIFICATION_ALREADY_USED | DATA_REQUEST_CLOSED (antes de qualquer erro de verificação) | INVALID_TRANSITION (sem verificação iniciada) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description VERIFICATION_INVALID (o pedido continua aguardando) */
+      422: {
         headers: {
           [name: string]: unknown;
         };

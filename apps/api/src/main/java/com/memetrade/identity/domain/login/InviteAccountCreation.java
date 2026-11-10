@@ -141,18 +141,16 @@ public class InviteAccountCreation {
         }
         guests.recordAcceptance(
                 new TermsAcceptance(UUID.randomUUID(), userId, invite.tenantId(), version, now, invite.inviteId()));
+        // u2-retention (BR2.1): the wallet goes by its own field; the trail keeps only its HMAC.
         audit.publish(AuditEventCommand.person(
-                invite.tenantId(),
-                userId,
-                AuditActions.ACCOUNT_CREATED,
-                "invite:" + invite.inviteId(),
-                request.correlationId(),
-                now,
-                Map.of(
-                        "termsVersion", version,
-                        "acceptedAt", now.toString(),
-                        "provider", request.provider(),
-                        "walletAddress", request.walletAddress())));
+                        invite.tenantId(),
+                        userId,
+                        AuditActions.ACCOUNT_CREATED,
+                        "invite:" + invite.inviteId(),
+                        request.correlationId(),
+                        now,
+                        Map.of("termsVersion", version, "acceptedAt", now.toString(), "provider", request.provider()))
+                .withWallet(request.walletAddress()));
         return sessions.open(new Account(userId, invite.tenantId(), Role.BETA_USER, true, true), now);
     }
 

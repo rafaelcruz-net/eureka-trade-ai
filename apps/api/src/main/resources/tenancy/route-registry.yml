@@ -25,6 +25,21 @@ routes:
   - { method: GET, path: /api/v1/admin/system-status, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
   - { method: GET, path: /api/v1/admin/tenants, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
   - { method: GET, path: /api/v1/admin/feedback, scope: ADMIN, negativeTest: com.memetrade.feedback.AdminFeedbackListIT#aGuestCannotReadTheFeedback }
+  # u4-data-requests (P2, BR4.7): the data subject requests of the administrator, across tenants by design; a guest
+  # token is 403 FORBIDDEN_ROLE with one REQUEST_FORBIDDEN on every one of them, the anonymization of u5-anonymization included.
+  - { method: GET, path: /api/v1/admin/privacy/requests, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: /api/v1/admin/privacy/requests, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: GET, path: '/api/v1/admin/privacy/requests/{requestId}', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: '/api/v1/admin/privacy/requests/{requestId}/transitions', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: '/api/v1/admin/privacy/requests/{requestId}/verification', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: '/api/v1/admin/privacy/requests/{requestId}/verification/confirm', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: '/api/v1/admin/privacy/requests/{requestId}/reply-sent', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: '/api/v1/admin/privacy/requests/{requestId}/anonymization', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  # u4-data-requests (P1, BR4.4, NFR2.1): the data subject requests of the caller; tenant and person from the token
+  # only, every query filters by both, and a request of another person or tenant is the same 404 as an unknown one.
+  - { method: GET, path: /api/v1/privacy/requests, scope: CLIENT, negativeTest: com.memetrade.privacy.DataRequestIT#anotherPersonsRequestIsNotFoundOnEveryRoute }
+  - { method: POST, path: /api/v1/privacy/requests, scope: CLIENT, negativeTest: com.memetrade.privacy.DataRequestIT#anotherPersonsRequestIsNotFoundOnEveryRoute }
+  - { method: GET, path: '/api/v1/privacy/requests/{requestId}', scope: CLIENT, negativeTest: com.memetrade.privacy.DataRequestIT#anotherPersonsRequestIsNotFoundOnEveryRoute }
   # U8 (C6, BR6.2): a comment of the caller; tenant and person from the token only, a tenant in the body is refused.
   - { method: POST, path: /api/v1/feedback, scope: CLIENT, negativeTest: com.memetrade.feedback.FeedbackDedupIT#theTenantComesFromTheTokenNeverFromTheBody }
   - { method: POST, path: /api/v1/auth/challenge, scope: GLOBAL }
@@ -43,6 +58,9 @@ routes:
   - { method: GET, path: '/api/v1/legal/versions/{version}', scope: GLOBAL }
   # U3: personal data of the caller's own account (wallet, acceptance); person and tenant from the token only.
   - { method: GET, path: /api/v1/account, scope: CLIENT, negativeTest: com.memetrade.identity.AccountRouteIT#anotherTenantsSessionNeverSeesThisAccount }
+  # u3-reacceptance (L2, BR3.4): acceptance of the current terms by the caller; person and tenant from the token only,
+  # a tenant or person in the body is an unknown field. The table stays without UPDATE or DELETE for the application.
+  - { method: POST, path: /api/v1/terms/acceptances, scope: CLIENT, negativeTest: com.memetrade.identity.TermsAcceptanceIT#theAcceptanceOfOneTenantNeverReachesAnotherTenant }
   # U7 (C5, BR9.1): PAPER ledger and P&L of the caller; tenant and person from the token, every query filters by
   # tenant, person and PAPER. A bot of another person is 404 (negative test), a bot not yet activated is empty.
   - { method: GET, path: '/api/v1/bots/{botId}/trades', scope: CLIENT, negativeTest: com.memetrade.ledger.LedgerRoutesIT#anotherPersonsBotIsNotFound }
@@ -101,3 +119,15 @@ jobs:
   - { name: KillSwitchReconciler, scope: GLOBAL }
   # U8 (BR6.7): daily purge of the comments older than 180 days, through the retention pool; logs only totals.
   - { name: FeedbackPurgeJob, scope: GLOBAL }
+  # u2-retention (BR2.5 to BR2.7): daily purges of the expired login challenges and of the ended sessions with their used
+  # digests, across tenants by the instant of each row only; no tenant input, an event by system with counts only (two
+  # tenants are purged and neither is exposed, IdentityJobRunnerIT), logs with totals only.
+  - { name: IdentityJobSchedule, scope: GLOBAL }
+  # u4-data-requests (BR4.13 to BR4.15): the timers of the data subject requests (expired verifications, overdue
+  # notices) and their purge, across tenants by the state and the instants of each row only; no tenant input, events
+  # carry the tenant of each row and nothing else of the person, logs carry totals only (DataRequestTimersIT,
+  # DataSubjectRequestPurgeIT).
+  - { name: PrivacyJobSchedule, scope: GLOBAL }
+  # u4-data-requests (NFR8.1): one aggregate count by type of the open requests for the gauges and the health; returns
+  # no row of a person.
+  - { name: DataRequestCountsRefresher, scope: GLOBAL }

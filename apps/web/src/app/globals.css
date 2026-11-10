@@ -554,3 +554,16 @@ fieldset label {
     font-weight: 600;
   }
 }
+
+/* u4-data-requests (NFR2.5): texts of a data subject request keep their line breaks as plain text. */
+.pre-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.data-requests .card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 16px 0;
+  padding: 16px;
+}

@@ -42,6 +42,8 @@ class U3ContextIT extends AbstractU3IT {
                 .hasToString("${SMOKE_INVITE_CODE:}");
         assertThat(yaml("application-test.yml").getProperty("memetrade.smoke.invite-codes"))
                 .hasToString("${SMOKE_INVITE_CODES:}");
+        assertThat(yaml("application-test.yml").getProperty("memetrade.smoke.anonymization-invite-code"))
+                .hasToString("${SMOKE_ANONYMIZATION_INVITE_CODE:}");
     }
 
     private static PropertySource<?> yaml(String file) throws Exception {

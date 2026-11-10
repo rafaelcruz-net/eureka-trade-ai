@@ -1,0 +1,14 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u3-reacceptance",
+  "upstream_ids": ["NFR2.2", "NFR3.1", "NFR3.2", "NFR4.1", "NFR5.1", "NFR8.1", "NFR9.1"],
+  "coverage": [
+    { "id": "NFR2.2", "status": "OK", "target": "infrastructure-specification: trava só no processo api" },
+    { "id": "NFR3.1", "status": "OK", "target": "cicd-pipeline: cenário reacceptance e opção no load-test.yml" },
+    { "id": "NFR3.2", "status": "OK", "target": "monitoring-design: histograma da trava e alerta TERMS_CHECK_SLOW" },
+    { "id": "NFR4.1", "status": "OK", "target": "cicd-pipeline: spec e2e/reacceptance no verify.sh" },
+    { "id": "NFR5.1", "status": "OK", "target": "infrastructure-specification: migração 0013 aditiva" },
+    { "id": "NFR8.1", "status": "OK", "target": "monitoring-design: métricas no Prometheus" },
+    { "id": "NFR9.1", "status": "OK", "target": "cicd-pipeline: portão backend com o teste de todas as rotas" }
+  ]
+}

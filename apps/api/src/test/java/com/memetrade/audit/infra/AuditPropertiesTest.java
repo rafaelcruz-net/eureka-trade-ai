@@ -46,8 +46,10 @@ class AuditPropertiesTest {
         assertThat(value(yml, "memetrade.audit.jobs.lock-at-least-for")).isEqualTo("5m");
         // U4: the 3 threads of U1/U2 plus 4 for the U4 jobs; U7 adds 4 more (code-generation-plan.md, Passo 1); U6
         // counts one thread per scheduled job, 12 existing plus its purge (U6 code-generation-plan.md, Passo 1); U5
-        // raises the api default to 14 (U5SettingsTest) and U8 to 16 (U8SettingsTest).
-        assertThat(value(yml, "spring.task.scheduling.pool.size")).isEqualTo("${SCHEDULER_POOL_SIZE:16}");
+        // raises the api default to 14 (U5SettingsTest), U8 to 16 (U8SettingsTest) and u2-retention to 18, the login
+        // challenge and session purges.
+        // u4-data-requests: 21, the request timers, the request purge and the count refresher.
+        assertThat(value(yml, "spring.task.scheduling.pool.size")).isEqualTo("${SCHEDULER_POOL_SIZE:21}");
     }
 
     @Test

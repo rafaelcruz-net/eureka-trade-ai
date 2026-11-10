@@ -1,0 +1,9 @@
+# Desenho de confiabilidade e acessibilidade — U3 `u3-reacceptance`
+
+Conversa: português (Brasil). Implementa `construction/u3-reacceptance/nfr-requirements/reliability-requirements.md` (NFR5.1, NFR4.1, NFR4.2). NFR2.5 e NFR2.6 estão em `security-design.md`.
+
+| Requisito | Desenho |
+|---|---|
+| NFR5.1 | Migração `0013-reacceptance.sql` (Liquibase), um changeset por mudança, cada um com rollback:<ul><li>`ALTER COLUMN invite_id DROP NOT NULL`;</li><li>`ADD COLUMN source varchar(16) NOT NULL DEFAULT 'INVITE'`;</li><li>`CHECK (source IN ('INVITE','REACCEPTANCE'))`;</li><li>`CHECK ((source = 'INVITE') = (invite_id IS NOT NULL))`;</li><li>`ADD CONSTRAINT uq_terms_acceptance_user_version UNIQUE (user_id, terms_version)`.</li></ul>O rollback do `DROP NOT NULL` só vale antes do primeiro novo aceite: depois que existe um aceite `REACCEPTANCE` com `invite_id` nulo, a coluna não volta a `NOT NULL`, e o rollback da aplicação é feito pela imagem anterior, sem desfazer a migração (expand-contract). O `ReacceptanceMigrationTest` lê o arquivo, aceita `DROP NOT NULL` e recusa `UPDATE`, `DELETE`, `DROP TABLE`, `DROP COLUMN` e `DROP CONSTRAINT` fora do rollback |
+| NFR4.1 | `ReacceptanceScreen` e `InviteScreen`:<ul><li>`h1` "Novo aceite dos termos", com `h2` para cada resumo;</li><li>regiões `main` e o `SiteFooter` existente, com "Pular para o conteúdo" no `AppShell`;</li><li>caixas com `label` visível, botão com `aria-describedby` apontando para o motivo em texto;</li><li>região `aria-live="polite"` para os estados;</li><li>tokens de cor do tema escuro existentes, com o texto sempre ao lado da cor.</li></ul>Os testes Jest com Testing Library conferem a ordem de foco por `userEvent.tab()`, os papéis e os nomes acessíveis |
+| NFR4.2 | O estado `error` mostra a mensagem e o botão "Tentar de novo". As caixas recebem `disabled` em `loading`, `error` e `submitting` |

@@ -22,7 +22,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** BR1.2 and BR1.4 at the publisher: format, coherence and forbidden content, reported without the value. */
+/**
+ * BR1.2 and BR1.4 at the publisher: format, coherence and forbidden content, reported without the value; u2-retention
+ * BR2.3: no full wallet address in details or as the actor.
+ */
 @Tag("u2")
 class AuditEventValidatorTest {
 
@@ -31,11 +34,112 @@ class AuditEventValidatorTest {
     private final AuditEventValidator validator = new AuditEventValidator();
 
     @Test
-    void aValidEventWithTheFullWalletAddressInDetailsPasses() {
-        String address = SyntheticIds.mint();
-
-        assertThatCode(() -> validator.validate(anonymous(Map.of("walletAddress", address, "reason", "EXPIRED"))))
+    void aValidEventWithoutAWalletAddressPasses() {
+        assertThatCode(() -> validator.validate(anonymous(Map.of("reason", "EXPIRED", "provider", "PHANTOM"))))
                 .doesNotThrowAnyException();
+    }
+
+    // ----- u2-retention Passo 5, written before the code (BR2.3, NFR1.2): no full wallet address in details. -----
+
+    @Test
+    void aFullWalletAddressInDetailsIsRefusedWithFullWalletAndWithoutTheValue() {
+        String address = TestWallet.generate().address();
+
+        assertRejected(
+                () -> validator.validate(anonymous(Map.of("walletAddress", address, "reason", "EXPIRED"))),
+                "details.walletAddress",
+                Reason.FULL_WALLET);
+        assertThatThrownBy(() -> validator.validate(anonymous(Map.of("walletAddress", address))))
+                .message()
+                .doesNotContain(address);
+    }
+
+    @Test
+    void aFullWalletAddressInsideAListOrAMapTextIsRefused() {
+        String address = TestWallet.generate().address();
+
+        assertRejected(
+                () -> validator.validateDetails(Map.of("wallets", "[EXPIRED, " + address + "]")),
+                "details.wallets",
+                Reason.FULL_WALLET);
+        assertRejected(
+                () -> validator.validateDetails(Map.of("context", "{wallet=" + address + ", attempt=2}")),
+                "details.context",
+                Reason.FULL_WALLET);
+        assertRejected(
+                () -> validator.validateDetails(Map.of("note", "\"" + address + "\"")),
+                "details.note",
+                Reason.FULL_WALLET);
+    }
+
+    @Test
+    void anyThirtyTwoByteBase58ValueIsRefusedWhateverTheKey() {
+        String publicKeyShaped = SyntheticIds.mint();
+
+        assertThat(AuditEventValidator.decodedLength(publicKeyShaped)).isEqualTo(32);
+        assertRejected(
+                () -> validator.validateDetails(Map.of("anything", publicKeyShaped)),
+                "details.anything",
+                Reason.FULL_WALLET);
+    }
+
+    @Test
+    void aFullWalletAddressAsTheActorIsRefused() {
+        String address = TestWallet.generate().address();
+
+        assertRejected(() -> validator.validate(event(address, "corr", null)), "actor", Reason.FULL_WALLET);
+    }
+
+    @Test
+    void aFullWalletAddressAsTheTargetRefIsRefused() {
+        String address = TestWallet.generate().address();
+
+        assertRejected(
+                () -> validator.validate(event("system", "corr", "wallet:" + address)),
+                "targetRef",
+                Reason.FULL_WALLET);
+    }
+
+    @Test
+    void theMaskedAddressPasses() {
+        String masked = com.memetrade.shared.wallet.WalletAddress.mask(
+                TestWallet.generate().address());
+
+        assertThatCode(() -> validator.validate(anonymous(Map.of("wallet", masked))))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void legitimateLongValuesPass() {
+        String uuidWithoutHyphens = "7c9e6679742540de944be07fc1f90ae7";
+        String hexHash = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+        String digestWithAnAddressShapedRun = "0" + "2".repeat(44) + "0" + "ab".repeat(9);
+        String inviteCode = com.memetrade.testsupport.TestInvites.newCode();
+        String inviteDigest = com.memetrade.testsupport.TestInvites.digest(inviteCode);
+
+        assertThat(digestWithAnAddressShapedRun).hasSize(64);
+        assertThat(AuditEventValidator.decodedLength("2".repeat(44))).isEqualTo(32);
+        assertThatCode(() -> validator.validateDetails(Map.of(
+                        "id", uuidWithoutHyphens,
+                        "hash", hexHash,
+                        "digest", digestWithAnAddressShapedRun,
+                        "code", inviteCode,
+                        "codeDigest", inviteDigest,
+                        "uuid", UUID.randomUUID().toString())))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void theFullWalletCheckDoesNotHideTheSignatureCheck() {
+        String signature = TestWallet.generate().sign("message to sign");
+
+        assertRejected(
+                () -> validator.validateDetails(Map.of("proof", signature)), "details.proof", Reason.FORBIDDEN_VALUE);
+        assertThat(AuditEventValidator.containsFullWallet(signature)).isFalse();
+        assertThat(AuditEventValidator.containsFullWallet(TestWallet.generate().address()))
+                .isTrue();
+        assertThat(AuditEventValidator.containsFullWallet(null)).isFalse();
+        assertThat(AuditEventValidator.containsFullWallet("")).isFalse();
     }
 
     @ParameterizedTest

@@ -1,6 +1,7 @@
 import { parseEnvelope, type DashboardEvent } from '@/features/dashboard/envelopes';
 import { OversizedEventError, SseParser } from '@/features/dashboard/sse-reader';
 import { dashboardWarn, isEventKind } from '@/features/dashboard/warn';
+import { TERMS_REACCEPTANCE_REQUIRED } from '@/lib/api/guest-api';
 
 /**
  * Client of the live channel C7 of the dashboard (BR4.2, BR5.1 to BR5.6; NFR1.3, NFR2.1, NFR2.2, NFR6.1, NFR6.3,
@@ -37,6 +38,11 @@ export interface StreamClientOptions {
   onStatus: (status: ChannelStatus) => void;
   /** BR5.5: the renewal failed or the channel got `401` again right after it. */
   onSessionExpired: () => void;
+  /**
+   * u3-reacceptance (BR3.7, NFR2.4): the opening got `403 TERMS_REACCEPTANCE_REQUIRED`. The channel closes for good
+   * and the same handler of the REST calls sends the person to the new acceptance.
+   */
+  onTermsReacceptance?: () => void;
   fetchImpl?: typeof fetch;
   newId?: () => string;
 }
@@ -167,6 +173,13 @@ export function createStreamClient(options: StreamClientOptions): StreamClient {
   async function handleResponse(response: Response, mine: number) {
     if (response.status === 401) {
       renewOrExpire();
+      return;
+    }
+    if (response.status === 403 && (await isTermsLock(response))) {
+      if (mine === generation) {
+        close();
+        options.onTermsReacceptance?.();
+      }
       return;
     }
     if (response.status === 429) {
@@ -339,6 +352,18 @@ export function createStreamClient(options: StreamClientOptions): StreamClient {
     },
     close,
   };
+}
+
+/** u3-reacceptance: a `403` whose problem is the reacceptance lock (any other 403 is a drop like before). */
+async function isTermsLock(response: Response): Promise<boolean> {
+  try {
+    const problem = (await response.json()) as { code?: unknown } | null;
+    return problem?.code === TERMS_REACCEPTANCE_REQUIRED;
+  } catch {
+    // A 403 without a readable problem is not the lock: the caller treats it as a drop and warns once.
+    dashboardWarn('stream', 'NETWORK');
+    return false;
+  }
 }
 
 /** Milliseconds of the `Retry-After` header of a 429 (seconds), or 0 when absent or not a whole number. */

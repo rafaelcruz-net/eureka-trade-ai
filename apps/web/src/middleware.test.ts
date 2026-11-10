@@ -67,6 +67,9 @@ describe('middleware CSP', () => {
     expect(isPrivatePage('/convites-antigos')).toBe(false);
     expect(isPrivatePage('/contato')).toBe(false);
     expect(isPrivatePage('/conta/termos')).toBe(true);
+    // u3-reacceptance: the screen of the new acceptance carries the screen of origin in ?voltar=.
+    expect(isPrivatePage('/novo-aceite')).toBe(true);
+    expect(isPrivatePage('/novo-aceite-x')).toBe(false);
   });
 
   it('generates 128-bit nonces', () => {

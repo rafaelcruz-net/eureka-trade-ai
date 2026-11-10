@@ -26,6 +26,9 @@ import {
 import { expectedU5Slices, u5SlicesSql } from './u5-slices.mjs';
 import { u5DecisionsLine, u5Failures } from './u5-failures.mjs';
 import { legalMarkdown, runLegal } from './legal.mjs';
+import { reacceptanceMarkdown, runReacceptance } from './reacceptance.mjs';
+import { dataRequestsMarkdown, runDataRequests, walletFromSmokeFile } from './data-requests.mjs';
+import { createRequire } from 'node:module';
 
 const run = promisify(execFile);
 const API = process.env.API_BASE_URL ?? 'http://127.0.0.1:8080';
@@ -1540,6 +1543,91 @@ async function runLegalScenario() {
 
 if (SCENARIO === 'legal') {
   await runLegalScenario();
+}
+
+// ----- u3-reacceptance scenario (performance-design.md NFR3.1, NFR3.2) -----
+//   LOAD_SCENARIO=reacceptance  20 outdated guests (acceptance of v1 only, test catalog "reviewed") created through
+//                               DATABASE_URL with the `pg` client of apps/web, the same SQL path as the e2e spec; each
+//                               one is locked, accepts v2 and passes. Fails with a p95 of the acceptance above 500 ms
+//                               or of the lock check above 5 ms (histograms of /actuator/prometheus).
+//                               Report: docs/perf/u3-reacceptance-<date>.md (scripts/load/reacceptance.mjs).
+async function runReacceptanceScenario() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not set (scripts/load-test.sh exports it for the reacceptance scenario)');
+  }
+  const { Client } = createRequire(new URL('../../apps/web/package.json', import.meta.url))('pg');
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const report = await runReacceptance({
+      users: USERS,
+      io: {
+        fetch: (url, init) => fetch(url, init),
+        now: () => Date.now(),
+        apiBase: API,
+        managementBase: MANAGEMENT,
+        warn: (line) => console.warn(line),
+        insertOutdatedGuest: async (statements) => {
+          await client.query('begin');
+          try {
+            for (const statement of statements) {
+              await client.query(statement.text, statement.values);
+            }
+            await client.query('commit');
+          } catch (failure) {
+            await client.query('rollback');
+            throw failure;
+          }
+        },
+      },
+    });
+    mkdirSync('docs/perf', { recursive: true });
+    writeFileSync(`docs/perf/u3-reacceptance-${report.date}.md`, reacceptanceMarkdown(report));
+    console.warn(JSON.stringify(report));
+    process.exitCode = report.passed ? 0 : 1;
+  } finally {
+    await client.end();
+  }
+  process.exit(process.exitCode ?? 0);
+}
+
+if (SCENARIO === 'reacceptance') {
+  await runReacceptanceScenario();
+}
+
+// ----- u4-data-requests scenario (performance-design.md NFR3.1 to NFR3.3) -----
+//   LOAD_SCENARIO=data-requests  20 guests created through SMOKE_INVITE_CODES create a request of each type and list
+//                                theirs for DURATION_S (300 s), one action every 2 s, over the 1000 requests seeded by
+//                                the loadtest profile; the administrator (SMOKE_ADMIN_WALLET_FILE) reads the list, the
+//                                detail and the preview. Fails with a guest p95 above 500 ms, an administrator p95
+//                                above 1 s or an unexpected status. Report: docs/perf/u4-data-requests-<date>.md.
+async function runDataRequestsScenario() {
+  const adminWalletFile = process.env.SMOKE_ADMIN_WALLET_FILE;
+  if (!adminWalletFile) {
+    throw new Error('SMOKE_ADMIN_WALLET_FILE is not set (scripts/load-test.sh exports it for data-requests)');
+  }
+  const report = await runDataRequests({
+    users: USERS,
+    durationS: DURATION_S,
+    codes: (process.env.SMOKE_INVITE_CODES ?? '').split(',').filter((code) => code.length > 0),
+    adminWallet: walletFromSmokeFile(readFileSync(adminWalletFile, 'utf8')),
+    io: {
+      fetch: (url, init) => fetch(url, init),
+      now: () => performance.now(),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      apiBase: API,
+      warn: (line) => console.warn(line),
+    },
+  });
+  report.date = new Date().toISOString().slice(0, 10);
+  mkdirSync('docs/perf', { recursive: true });
+  writeFileSync(`docs/perf/u4-data-requests-${report.date}.md`, dataRequestsMarkdown(report));
+  console.warn(JSON.stringify(report));
+  process.exit(report.passed ? 0 : 1);
+}
+
+if (SCENARIO === 'data-requests') {
+  await runDataRequestsScenario();
 }
 
 const state = { token: await login(), errors: 0, mints: new Set() };

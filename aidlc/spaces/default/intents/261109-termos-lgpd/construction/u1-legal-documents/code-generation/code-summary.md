@@ -16,7 +16,7 @@ Conversa: português (Brasil). Código, nomes e logs em inglês. Este resumo cob
   - `LegalDocumentsRateLimiter` e `InternalNetworks` (CIDR comparado só com o par direto, IPv4 mapeado normalizado);
   - `LegalDocumentsRateLimitFilter`, posicionado depois de `SecurityHeadersFilter` (`FilterOrder`);
   - `RateLimitConfig` e a limpeza em `LoginLimiterEvictionJob`.
-- **Saúde:** `LegalDocumentsHealthIndicator` responde `UP` ou `DEGRADED` com HTTP 200, fora dos grupos de liveness e readiness.
+- **Saúde:** `LegalDocumentsHealthIndicator` responde sempre `UP`, com `currentVersion` e `publishable` nos detalhes, fora dos grupos de liveness e readiness (ver o desvio 8).
 - **Recursos:**
   - `terms/v1/version.properties` marcada `legacy=true`;
   - `terms/v2/` em rascunho, sem `legalReviewedAt` nem `legalReviewedBy`;
@@ -87,6 +87,8 @@ A primeira rodada completa do backend teve uma falha em `AdminGuestRoutesIT`: o 
 5. **Grupo OpenAPI do admin.** Passou a incluir `/api/v1/legal/**`. O construtor de 2 argumentos do `TermsCatalog` foi removido por causa da regra ArchUnit do relógio.
 6. **Relatório de carga.** O cenário de carga grava o relatório em `docs/perf/u1-legal-documents-<data>.md` e não grava `load-test-report.json`.
 7. **Volume de testes abaixo da estratégia.** `RetentionTable`, `DeploymentFields`, `VersionHistory` e `RequestButton` têm 2 ou 3 testes cada, abaixo dos 10 a 15 por componente da estratégia `Comprehensive`. `LegalDocument` tem 14 no web e 10 no admin. A lacuna fica registrada; nenhuma meta foi reduzida.
+
+8. **Saúde `legalDocuments` sempre `UP` (correção no ponto de controle do esqueleto).** A primeira verificação com `bash scripts/verify.sh` falhou antes do Playwright. Sem os campos de implantação, o componente ficava `DEGRADED`, e a ordem de status `DOWN,OUT_OF_SERVICE,DEGRADED,UP` levava a saúde geral para `DEGRADED`. O `verify.sh` espera `UP`, e o NFR7.3 pede que o componente não derrube a saúde geral. Por decisão do responsável do projeto, o componente fica sempre `UP` e sinaliza a versão não publicável pelo detalhe `publishable=false`, que é o que o alerta `LEGAL_NOT_PUBLISHABLE` lê. Isso contraria o NFR8.2, que previa `DEGRADED`. Os ajustes estão em `LegalDocumentsHealthIndicator`, `LegalDocumentsHealthIndicatorTest`, `LegalDocumentsControllerIT` e `docs/api/u1-legal-documents.md`.
 
 ## Pendências do responsável do projeto
 

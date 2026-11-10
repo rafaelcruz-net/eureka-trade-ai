@@ -1,0 +1,29 @@
+## Review
+
+**Verdict:** NOT-READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-11-10
+**Iteration:** 1
+**Verdict Dictated:** no
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Critical | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u5-anonymization/nfr-design/security-design.md > NFR2.3; reliability-design.md > NFR5.3 (item `GRANT feedback_retention TO` o dono) | O desenho faz o dono do esquema membro de `feedback_retention` dentro da migração 0015, para que `pg_has_role(current_user, 'feedback_retention', 'MEMBER')` do gatilho passe dentro da função `SECURITY DEFINER`. Isso não se sustenta sobre o que existe. `infra/postgres/bootstrap/10-roles.sql` roda a cada `docker compose up` e faz `REVOKE feedback_retention FROM` o dono e a aplicação ("the owner and the application never are"). O changeset roda uma vez, então a primeira reexecução do bootstrap desfaz a pertença e a função passa a falhar em produção com `insufficient_privilege`. Além disso, o dono é `NOSUPERUSER NOCREATEROLE` e o papel foi criado pelo superusuário, então o login da migração não tem `ADMIN OPTION` e o `GRANT` da migração falha no PostgreSQL 17. O desenho também contradiz a regra do bootstrap de que só o login de retenção é membro. Nenhum componente em `logical-components.md` prevê mudar o bootstrap. | Escolher um desenho que funcione com o bootstrap: (a) mudar `10-roles.sql` para conceder `feedback_retention` ao dono e parar de revogá-la, reescrevendo o comentário e o teste de papéis; ou (b) fazer a função pertencer a outro papel que seja membro por construção (por exemplo, o login de retenção) e conceder ao dono o que for preciso. Listar a mudança do bootstrap e a do papel em `logical-components.md` e no `AnonymizationMigrationIT`/`FeedbackEraseFunctionIT`, rodando o teste também depois de uma segunda execução do bootstrap. | New |
+| R-02 | Major | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u5-anonymization/nfr-design/reliability-design.md > NFR5.6 (frase "O login e a renovação travam a sessão e leem a conta com `FOR SHARE`") | A frase descreve como existente um comportamento que o código não tem. `JdbcAccountRepository.findByWallet` é um `select` simples, sem trava, e `LoginVerificationService` abre a sessão em seguida (`sessions.open`) sem reler a conta. Um login que leu a conta como `ACTIVE` antes do commit da anonimização apenas espera a chave estrangeira (a anonimização trava `app_user` com `FOR UPDATE`) e depois insere uma sessão `ACTIVE` para uma conta `ANONYMIZED`, o que viola o objetivo de "nenhuma sessão nova depois do commit". A renovação já trava a sessão por digest com `FOR UPDATE`, mas também não relê a conta com trava. A mudança necessária no módulo Identity (login e renovação) não aparece em nenhum componente nem na ordem de travas. | Especificar a mudança concreta: ao abrir a sessão no login, travar a conta com `FOR SHARE` (ou `FOR UPDATE` na mesma ordem) e reconferir `status = 'ACTIVE'` dentro da transação; o mesmo na renovação, depois da trava da sessão. Acrescentar esses pontos de código em `logical-components.md` e garantir que o caso de login do `AnonymizationConcurrencyIT` falhe sem a mudança. | New |
+| R-03 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u5-anonymization/nfr-design/security-design.md > NFR2.2 | O desenho deixa uma decisão condicional ("confere esse caminho primeiro, e se ele não recusar, a consulta da trava da U3 passa a exigir `status = 'ACTIVE'`"). O código já recusa: `SessionService` filtra `view.userActive() && view.tenantActive()` sobre `findAuthView`, que calcula `user_status`. A "consulta da trava da U3" não é identificada. | Registrar que o caminho existente já recusa a conta `ANONYMIZED` (status diferente de `ACTIVE`) e remover o ramo condicional; manter só o teste do token antigo. | New |
+| R-04 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u5-anonymization/nfr-design/reliability-design.md > NFR5.3 (`wallet_anonymized_ck`) | O `CHECK` `(anonymized_at IS NULL) = (address IS NOT NULL AND provider IS NOT NULL)` aceita, com `anonymized_at` preenchido, uma carteira com só um dos dois campos nulo. Os requisitos pedem endereço e provedor ausentes juntos. | Trocar por `(anonymized_at IS NULL) = (address IS NOT NULL) AND (address IS NULL) = (provider IS NULL)`, ou equivalente, e cobrir o caso no `AnonymizationMigrationIT`. | New |
+| R-05 | Minor | aidlc/spaces/default/intents/261109-termos-lgpd/construction/u5-anonymization/nfr-design/logical-components.md > Leitores de `wallet` | A lista de leitores que tratam carteira nula omite `JdbcIdentityDirectory.walletOf` (`select address from wallet where user_id = ?`), que passa a ler `NULL`, e `JdbcPersonDataRepository` (já com `left join`). | Incluir `walletOf` na lista e definir seu retorno para conta anonimizada (`Optional.empty`), com teste. | New |
+
+### Validation Tool Results
+
+| Tool | Result | Interpretation |
+|---|---|---|
+| Conferência manual de `traceability.json` | PASS | Os 21 IDs NFR1.1 a NFR9.1 do requisito têm linha e alvo no desenho. |
+| Conferência de índices e colunas (`0001`, `0010`, `0011`) | PASS | `bot_owner_state_idx`, `user_session_user_idx`, `feedback_entry_person_time_idx` e `wallet.user_id` único existem; `login_challenge.wallet_address` não tem índice, como o desenho afirma. |
+| Conferência do bootstrap de papéis (`10-roles.sql`) | FAIL | Revoga `feedback_retention` do dono a cada execução; confirma o achado Critical. |
+
+### Summary
+
+A cobertura dos requisitos e os nomes de índices e colunas conferem, mas o mecanismo central do NFR2.3 (dono membro de `feedback_retention` por migração) é contradito pelo bootstrap de papéis e não funcionaria no PostgreSQL 17, e a ordem de travas do NFR5.6 supõe um `FOR SHARE` no login que o código atual não tem. Corrigir esses dois pontos antes de aprovar.
