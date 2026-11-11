@@ -37,6 +37,7 @@ jobs:
           DB_RETENTION_PASSWORD: ci-placeholder
           ACCESS_TOKEN_SIGNING_KEY: ci-placeholder
           SMOKE_BETA_WALLET_ADDRESS: ci-placeholder
+          MEMETRADE_AUDIT_WALLET_HMAC_KEY: ci-placeholder
         run: |
           docker compose -f docker-compose.yml config --quiet
           docker compose -f docker-compose.yml -f infra/docker-compose.test.yml config --quiet
