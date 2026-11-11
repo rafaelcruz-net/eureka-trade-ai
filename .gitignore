@@ -57,3 +57,6 @@ apps/api/target/site/jacoco*/
 .idea/
 .vscode/
 *.iml
+
+# Load test output (scripts/load-test.sh); kept as a CI artifact, never committed
+/load-test-report.json

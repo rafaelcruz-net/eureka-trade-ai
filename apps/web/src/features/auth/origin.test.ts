@@ -29,6 +29,9 @@ describe('safeOrigin', () => {
   it.each([
     ['/scanner'],
     ['/conta'],
+    // Regression (Build and Test of 261109-termos-lgpd): /bots and /pnl went back to the dashboard.
+    ['/bots'],
+    ['/pnl'],
     ['/scanner?pagina=2'],
     ['/scanner#lista'],
     ['/scanner?minHolders=10&sort=AGE'],
@@ -38,7 +41,7 @@ describe('safeOrigin', () => {
 
   it('the home page is the dashboard and the guest routes are listed (U9)', () => {
     expect(HOME).toBe('/');
-    expect(GUEST_ROUTES).toEqual(['/', '/scanner', '/conta']);
+    expect(GUEST_ROUTES).toEqual(['/', '/scanner', '/conta', '/bots', '/pnl']);
     expect(reExported('/conta')).toBe('/conta');
     expect(safeOrigin('/')).toBe('/');
   });

@@ -77,6 +77,8 @@ export DB_OWNER_USER=memetrade_owner DB_OWNER_PASSWORD="$(random_secret)"
 export DB_RETENTION_USER=memetrade_retention DB_RETENTION_PASSWORD="$(random_secret)"
 export ACCESS_TOKEN_SIGNING_KEY="$(head -c 48 /dev/urandom | base64 | tr -d '\n')"
 export MSYS2_ENV_CONV_EXCL="ACCESS_TOKEN_SIGNING_KEY${MSYS2_ENV_CONV_EXCL:+;$MSYS2_ENV_CONV_EXCL}"
+# u2-retention (NFR6.2): ephemeral HMAC key of the audit wallet references, required by the api and the worker.
+export MEMETRADE_AUDIT_WALLET_HMAC_KEY="${MEMETRADE_AUDIT_WALLET_HMAC_KEY:-$(openssl rand -hex 32)}"
 
 # The test overlay requires the smoke wallet address (public address only, generated in test code).
 sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml test-compile exec:java \

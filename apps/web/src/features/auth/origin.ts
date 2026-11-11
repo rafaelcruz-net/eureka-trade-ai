@@ -4,9 +4,10 @@ export const HOME = '/';
 /**
  * Routes of the guest app a person may return to after signing in again (BR4.2). Neither the entry, the invitation
  * page (its path carries the code) nor anything administrative is a valid origin. U9: the dashboard itself, so an
- * expired session on the dashboard comes back to it (BR5.5 of U9).
+ * expired session on the dashboard comes back to it (BR5.5 of U9). The bots (U5) and P&L (U7) screens too, so the lock
+ * of the new acceptance (u3-reacceptance) and an expired session keep the screen of origin.
  */
-export const GUEST_ROUTES: readonly string[] = ['/', '/scanner', '/conta'];
+export const GUEST_ROUTES: readonly string[] = ['/', '/scanner', '/conta', '/bots', '/pnl'];
 
 // Control characters (tab, CR, LF included) and DEL.
 const CONTROL = /[\u0000-\u001f\u007f]/;

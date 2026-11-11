@@ -448,15 +448,11 @@ class ComposeFilesTest {
                 .contains("wallet-hmac-key: ${MEMETRADE_AUDIT_WALLET_HMAC_KEY:}");
     }
 
-    /**
-     * The load script starts the stack on its own and generates an ephemeral key, never a fixed one. The same line in
-     * {@code scripts/perf-audit.sh} is a prerequisite of the project owner (the code generation could not edit that
-     * file); add it to this list together with that change.
-     */
+    /** The scripts that start the stack on their own generate an ephemeral key, never a fixed one. */
     @Test
     @Tag("u2-retention")
     void theLoadScriptGeneratesAnEphemeralKey() throws IOException {
-        for (String script : List.of("scripts/load-test.sh")) {
+        for (String script : List.of("scripts/load-test.sh", "scripts/perf-audit.sh", "scripts/verify.sh")) {
             assertThat(read(script))
                     .as(script)
                     .contains(
