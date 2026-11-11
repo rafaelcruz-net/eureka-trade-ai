@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -162,13 +163,32 @@ public abstract class AbstractPostgresIT {
         }
     }
 
-    /** Applies the changelog with the OWNER login through the production db-migrate entry point. */
+    /**
+     * Applies the changelog with the OWNER login through the production db-migrate entry point, without letting it
+     * reinitialise the logging of the JVM. The migration tests ({@code db/*MigrationIT}) and {@link OwnTestDatabase}
+     * migrate in the middle of the run: the db-migrate application would reset Logback with {@code root=WARN} and every
+     * Spring context already cached would stop writing its INFO lines (Build and Test loop-back 1:
+     * {@code AuditObservabilityIT} after {@code AuditEventReaderPlanIT}; Build and Test of 261109-termos-lgpd, first CI
+     * run: {@code AnonymizationNoWalletLeftIT} and {@code AnonymizationObservabilityIT} after the {@code db} tests).
+     * Regression tests: {@code OwnTestDatabaseIT}.
+     */
     public static void migrate(String jdbcUrl) {
-        int exit = MigrationRunner.migrate(
-                "--spring.datasource.url=" + jdbcUrl,
-                "--DB_OWNER_USER=" + OWNER.user(),
-                "--DB_OWNER_PASSWORD=" + OWNER.password(),
-                "--logging.level.root=WARN");
+        String previous = System.getProperty(LoggingSystem.SYSTEM_PROPERTY);
+        System.setProperty(LoggingSystem.SYSTEM_PROPERTY, LoggingSystem.NONE);
+        int exit;
+        try {
+            exit = MigrationRunner.migrate(
+                    "--spring.datasource.url=" + jdbcUrl,
+                    "--DB_OWNER_USER=" + OWNER.user(),
+                    "--DB_OWNER_PASSWORD=" + OWNER.password(),
+                    "--logging.level.root=WARN");
+        } finally {
+            if (previous == null) {
+                System.clearProperty(LoggingSystem.SYSTEM_PROPERTY);
+            } else {
+                System.setProperty(LoggingSystem.SYSTEM_PROPERTY, previous);
+            }
+        }
         if (exit != 0) {
             throw new IllegalStateException("MigrationRunner exited with " + exit);
         }

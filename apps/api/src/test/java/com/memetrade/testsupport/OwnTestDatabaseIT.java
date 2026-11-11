@@ -36,6 +36,26 @@ class OwnTestDatabaseIT {
         }
     }
 
+    /**
+     * Regression of the first CI run of 261109-termos-lgpd: the {@code db/*MigrationIT} classes call
+     * {@link AbstractPostgresIT#migrate} directly, and the anonymization tests that ran after them lost their INFO lines.
+     */
+    @Test
+    void aDirectMigrationKeepsTheLoggingLevelsOfTheRun() {
+        Logger root = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+        Level before = root.getLevel();
+        root.setLevel(Level.INFO);
+        try {
+            // The shared database is already migrated, so Liquibase applies nothing; the runner still starts.
+            AbstractPostgresIT.migrate(AbstractPostgresIT.POSTGRES.getJdbcUrl());
+
+            Logger rootAfter = (Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME);
+            assertThat(rootAfter.getLevel()).isEqualTo(Level.INFO);
+        } finally {
+            root.setLevel(before);
+        }
+    }
+
     @Test
     void theDatabaseIsMigratedAndSeparateFromTheSharedOne() {
         String database = OwnTestDatabase.connect(PREFIX, AbstractPostgresIT.APP)

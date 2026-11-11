@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 /**
  * u1-legal-documents, walking skeleton of the intent 261109-termos-lgpd (US2.1, US2.2, US2.4, US2.5; NFR4.1, NFR6.3,
@@ -14,6 +14,15 @@ const API = process.env.API_BASE_URL ?? 'http://localhost:8080';
 /** NFR6.3: 60 requests per client IP and minute. */
 const LEGAL_LIMIT_PER_MINUTE = 60;
 
+/**
+ * The visible content of the page. The pages stream behind a loading.tsx, and a hidden copy of the streamed content
+ * can stay in the document next to the real one (first CI run: getByTestId('legal-version') resolved to 2 elements).
+ * A role query skips hidden elements, and the loading main has no accessible name, so this is the single page main.
+ */
+function content(page: Page) {
+  return page.getByRole('main', { name: /\S/ });
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test('/privacidade opens without a session with version, summary, PAPER notice and "a definir"', async ({
@@ -28,14 +37,16 @@ test('/privacidade opens without a session with version, summary, PAPER notice a
   await expect(
     page.getByRole('heading', { level: 1, name: 'Política de privacidade' }),
   ).toBeVisible();
-  await expect(page.getByTestId('legal-version')).toContainText('Versão v2');
-  await expect(page.getByTestId('legal-summary').getByRole('listitem').first()).toBeVisible();
-  await expect(page.getByTestId('legal-paper-notice')).toContainText('PAPER');
-  await expect(page.getByTestId('legal-deployment-storage')).toHaveText('a definir');
-  await expect(page.getByTestId('legal-deployment-transfer')).toHaveText('a definir');
-  await expect(page.getByTestId('legal-deployment-dpo')).toHaveText('a definir');
-  await expect(page.getByTestId('legal-retention-table')).toBeVisible();
-  await expect(page.getByTestId('legal-not-publishable')).toBeVisible();
+  await expect(content(page).getByTestId('legal-version')).toContainText('Versão v2');
+  await expect(
+    content(page).getByTestId('legal-summary').getByRole('listitem').first(),
+  ).toBeVisible();
+  await expect(content(page).getByTestId('legal-paper-notice')).toContainText('PAPER');
+  await expect(content(page).getByTestId('legal-deployment-storage')).toHaveText('a definir');
+  await expect(content(page).getByTestId('legal-deployment-transfer')).toHaveText('a definir');
+  await expect(content(page).getByTestId('legal-deployment-dpo')).toHaveText('a definir');
+  await expect(content(page).getByTestId('legal-retention-table')).toBeVisible();
+  await expect(content(page).getByTestId('legal-not-publishable')).toBeVisible();
   await expect(page.getByTestId('desktop-only-notice')).toHaveCount(0);
 });
 
@@ -44,8 +55,11 @@ test('"Fazer um pedido" leads to the entry without a session and the footer link
 }) => {
   await page.goto('/privacidade');
 
-  await expect(page.getByTestId('legal-request-button')).toHaveAttribute('href', '/entrar');
-  await expect(page.getByTestId('legal-request-email')).toContainText('a definir');
+  await expect(content(page).getByTestId('legal-request-button')).toHaveAttribute(
+    'href',
+    '/entrar',
+  );
+  await expect(content(page).getByTestId('legal-request-email')).toContainText('a definir');
   const footer = page.getByTestId('site-footer');
   await expect(footer.getByTestId('site-footer-terms-link')).toHaveAttribute('href', '/termos');
   await expect(footer.getByTestId('site-footer-accepted-version')).toHaveCount(0);
@@ -53,17 +67,19 @@ test('"Fazer um pedido" leads to the entry without a session and the footer link
   await footer.getByTestId('site-footer-terms-link').click();
   await page.waitForURL((url) => url.pathname === '/termos');
   await expect(page.getByRole('heading', { level: 1, name: 'Termos de uso' })).toBeVisible();
-  await expect(page.getByTestId('legal-risk-notice')).toBeVisible();
+  await expect(content(page).getByTestId('legal-risk-notice')).toBeVisible();
 });
 
 test('a script in the text appears literally and an old or unknown version is announced', async ({
   page,
 }) => {
   await page.goto('/termos');
-  await expect(page.getByText('<script>alert(1)</script>', { exact: false })).toBeVisible();
+  await expect(
+    content(page).getByText('<script>alert(1)</script>', { exact: false }),
+  ).toBeVisible();
 
   await page.goto('/termos?versao=v1');
-  await expect(page.getByTestId('legal-old-version-banner')).toContainText(
+  await expect(content(page).getByTestId('legal-old-version-banner')).toContainText(
     'Esta não é a versão vigente',
   );
 
@@ -84,7 +100,7 @@ test('"Pular para o conteúdo" is the first focus and the contents move the focu
   const outline = await skip.evaluate((el) => getComputedStyle(el).outlineStyle);
   expect(outline).not.toBe('none');
 
-  const firstLink = page.getByTestId('legal-toc').getByRole('link').first();
+  const firstLink = content(page).getByTestId('legal-toc').getByRole('link').first();
   for (
     let i = 0;
     i < 20 && !(await firstLink.evaluate((el) => el === document.activeElement));
@@ -111,11 +127,11 @@ test('at 320 px the pages have no sideways scroll, the contents collapse and the
     expect(overflow, path).toBeLessThanOrEqual(0);
   }
   await page.goto('/privacidade');
-  const toggle = page.getByTestId('legal-toc-toggle');
+  const toggle = content(page).getByTestId('legal-toc-toggle');
   await expect(toggle).toBeVisible();
   await expect(toggle).toHaveAttribute('aria-expanded', 'false');
   await toggle.click();
-  await expect(page.getByTestId('legal-toc').getByRole('link').first()).toBeVisible();
+  await expect(content(page).getByTestId('legal-toc').getByRole('link').first()).toBeVisible();
   const display = await page
     .getByTestId('legal-retention-row')
     .first()

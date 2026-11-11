@@ -3,7 +3,6 @@ package com.memetrade.testsupport;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
@@ -52,28 +51,7 @@ public final class OwnTestDatabase {
                 .update();
         String created = AbstractPostgresIT.POSTGRES.getJdbcUrl().replace("/memetrade", "/" + name);
         AbstractPostgresIT.bootstrap(name);
-        migrateKeepingTheLogging(created);
+        AbstractPostgresIT.migrate(created);
         return created;
-    }
-
-    /**
-     * Migrates through the production db-migrate entry point without letting it reinitialise the logging of the JVM.
-     * Unlike the shared database, migrated before any Spring context exists, an own database is migrated in the middle
-     * of the run: the db-migrate application would reset Logback with {@code root=WARN} and every Spring context
-     * already cached would stop writing its INFO lines (Build and Test loop-back 1: {@code AuditObservabilityIT} lost
-     * its job and query logs after {@code AuditEventReaderPlanIT}). Regression test: {@code OwnTestDatabaseIT}.
-     */
-    private static void migrateKeepingTheLogging(String jdbcUrl) {
-        String previous = System.getProperty(LoggingSystem.SYSTEM_PROPERTY);
-        System.setProperty(LoggingSystem.SYSTEM_PROPERTY, LoggingSystem.NONE);
-        try {
-            AbstractPostgresIT.migrate(jdbcUrl);
-        } finally {
-            if (previous == null) {
-                System.clearProperty(LoggingSystem.SYSTEM_PROPERTY);
-            } else {
-                System.setProperty(LoggingSystem.SYSTEM_PROPERTY, previous);
-            }
-        }
     }
 }
