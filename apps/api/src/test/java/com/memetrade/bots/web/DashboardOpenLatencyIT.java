@@ -39,14 +39,19 @@ import org.springframework.beans.factory.annotation.Autowired;
  * real port, each group of calls exactly as the app makes it (bots: the six lists by state with limit=100 following
  * nextCursor, then the last order of every bot that is not a draft, 3 at a time; P&L: P&L of the UTC day and
  * reconciliation in parallel; sources: the scanner list of one row; shell: the account; and the live channel, open on
- * its 200 answer). Every group reaches its answer with p95 of at most 2 s. Runs in the full suite of the merge to main.
+ * its 200 answer). Runs in the full suite of the merge to main.
+ *
+ * <p>Informative measurement (decision Q1 = B of the project owner, Build and Test of 261026-memetrade-saas-mvp,
+ * applied in the Build and Test of 261109-termos-lgpd): the p95 of every group is logged against the 2 s target of
+ * NFR3.1, but a group above it no longer fails the build. The bots group sits between 2.02 s and 2.16 s on the CI and
+ * on the local machine; every opening must still answer without failure.
  */
 class DashboardOpenLatencyIT extends AbstractU9MeasurementIT {
 
     private static final int SESSIONS = 20;
     private static final int ACTIVE_BOTS = 3;
     private static final int STOPPED_BOTS = 20;
-    private static final Duration P95_LIMIT = Duration.ofSeconds(2);
+    private static final Duration P95_TARGET = Duration.ofSeconds(2);
     private static final List<String> STATES =
             List.of("ACTIVE", "PAUSED", "CLOSING_PENDING", "DRAFT", "VALIDATED", "STOPPED");
 
@@ -70,7 +75,7 @@ class DashboardOpenLatencyIT extends AbstractU9MeasurementIT {
     private HttpClient http;
 
     @Test
-    void everyGroupOfTheDashboardOpeningAnswersWithinTwoSecondsAtP95() throws Exception {
+    void everyGroupOfTheDashboardOpeningAnswersAndItsP95IsRecorded() throws Exception {
         U5Bots fixtures = new U5Bots(commands, botRepository, CycleAuthContext::as);
         List<Session> sessions = new ArrayList<>();
         for (int i = 0; i < SESSIONS; i++) {
@@ -108,9 +113,18 @@ class DashboardOpenLatencyIT extends AbstractU9MeasurementIT {
                     .sorted()
                     .toList();
             Duration p95 = timings.get((int) Math.ceil(SESSIONS * 0.95) - 1);
-            LoggerFactory.getLogger(DashboardOpenLatencyIT.class)
-                    .info("U9 dashboard opening: group={}, p95Ms={}", group, p95.toMillis());
-            assertThat(p95).as(group.name()).isLessThanOrEqualTo(P95_LIMIT);
+            if (p95.compareTo(P95_TARGET) > 0) {
+                LoggerFactory.getLogger(DashboardOpenLatencyIT.class)
+                        .warn(
+                                "U9 dashboard opening above the NFR3.1 target (informative): group={}, p95Ms={},"
+                                        + " targetMs={}",
+                                group,
+                                p95.toMillis(),
+                                P95_TARGET.toMillis());
+            } else {
+                LoggerFactory.getLogger(DashboardOpenLatencyIT.class)
+                        .info("U9 dashboard opening: group={}, p95Ms={}", group, p95.toMillis());
+            }
         }
     }
 
