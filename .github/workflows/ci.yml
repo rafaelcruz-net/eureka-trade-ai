@@ -6,6 +6,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Manual run (gh workflow run ci), for when a push did not start the CI.
+  workflow_dispatch:
 
 permissions:
   contents: read
