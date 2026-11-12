@@ -5,7 +5,9 @@
 // signs in, calls a locked route (403 TERMS_REACCEPTANCE_REQUIRED), accepts the current version and calls the route
 // again (200). It fails with a p95 of the acceptance above 500 ms or of the lock check above 5 ms, both read from the
 // Prometheus histograms of the api (http_server_requests_seconds on the acceptance route and the timer
-// memetrade.terms.reacceptance.check), or when any person does not go through lock -> acceptance -> pass.
+// memetrade.terms.reacceptance.check), or when any person does not go through lock -> acceptance -> pass. The p95 of
+// the wait for a connection of the api pool (hikaricp_connections_acquire_seconds, pool memetrade-pool) is reported
+// next to the lock check as information only.
 // The functions take their I/O as arguments, so scripts/load/load-test-reacceptance.test.mjs runs them without a
 // network or a database. Synthetic values only; never targets anything but localhost.
 import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
@@ -15,6 +17,10 @@ export const ACCEPT_ROUTE = '/api/v1/terms/acceptances';
 export const LOCKED_ROUTE = '/api/v1/bots';
 export const OUTDATED_VERSION = 'v1';
 export const CHECK_TIMER = 'memetrade_terms_reacceptance_check_seconds';
+// Build and Test loop-back 1 (Passo 16): the wait for a connection of the api pool, read between the same two
+// snapshots and reported as acquireP95Ms next to checkP95Ms. Informative only: it never fails the run.
+export const ACQUIRE_TIMER = 'hikaricp_connections_acquire_seconds';
+export const API_POOL = 'memetrade-pool';
 
 const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
@@ -103,11 +109,12 @@ export function p95BetweenMs(before, after) {
   return bound === null ? null : bound === Infinity ? Infinity : Math.round(bound * 1000 * 1000) / 1000;
 }
 
-/** The two histograms of the scenario in one Prometheus text. */
+/** The histograms of the scenario in one Prometheus text (acquire: informative only, pool of the api). */
 export function snapshot(metrics) {
   return {
     accept: histogram(metrics, 'http_server_requests_seconds', { method: 'POST', uri: ACCEPT_ROUTE }),
     check: histogram(metrics, CHECK_TIMER),
+    acquire: histogram(metrics, ACQUIRE_TIMER, { pool: API_POOL }),
   };
 }
 
@@ -188,6 +195,7 @@ export async function runReacceptance({ users = 20, io, wallets = () => newWalle
   const after = snapshot(await (await io.fetch(`${io.managementBase}/actuator/prometheus`)).text());
   const acceptP95Ms = p95BetweenMs(before.accept, after.accept);
   const checkP95Ms = p95BetweenMs(before.check, after.check);
+  const acquireP95Ms = p95BetweenMs(before.acquire, after.acquire);
   const result = evaluateReacceptance({ acceptP95Ms, checkP95Ms, people });
   return {
     scenario: 'reacceptance',
@@ -197,6 +205,7 @@ export async function runReacceptance({ users = 20, io, wallets = () => newWalle
     outdatedVersion: OUTDATED_VERSION,
     acceptP95Ms,
     checkP95Ms,
+    acquireP95Ms,
     limitsMs: REACCEPTANCE_LIMITS_MS,
     locked: people.filter((p) => p.locked).length,
     accepted: people.filter((p) => p.accepted).length,
@@ -219,6 +228,7 @@ Gerado por \`scripts/load-test.sh\` com \`LOAD_SCENARIO=reacceptance\` (perfis \
 |---|---|---|
 | p95 de \`POST ${ACCEPT_ROUTE}\` (histograma da API) | ${ms(report.acceptP95Ms)} | ${report.limitsMs.accept} ms |
 | p95 da consulta da trava (\`${CHECK_TIMER}\`) | ${ms(report.checkP95Ms)} | ${report.limitsMs.check} ms |
+| p95 da espera por conexão do pool \`${API_POOL}\` (\`${ACQUIRE_TIMER}\`) | ${ms(report.acquireP95Ms ?? null)} | só informativo |
 | Pessoas barradas / aceitas / liberadas | ${report.locked} / ${report.accepted} / ${report.passedAfter} | ${report.users} / ${report.users} / ${report.users} |
 `;
 }

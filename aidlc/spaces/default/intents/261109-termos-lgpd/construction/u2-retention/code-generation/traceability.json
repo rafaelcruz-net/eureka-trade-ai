@@ -45,7 +45,7 @@
     { "id": "NFR3.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/identity/infra/SessionPurgePerformanceIT.java" },
     { "id": "NFR3.2", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/identity/infra/SessionPurgePerformanceIT.java" },
     { "id": "NFR3.3", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/audit/infra/WalletHasherTest.java" },
-    { "id": "NFR3.4", "status": "Deferred", "target": "Build and Test: cenários de carga u1 e u3" },
+    { "id": "NFR3.4", "status": "OK", "target": "scripts/load/load-test.mjs" },
     { "id": "NFR3.5", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/identity/infra/SessionPurgePerformanceIT.java" },
     { "id": "NFR3.6", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/identity/infra/SessionPurgePerformanceIT.java" },
     { "id": "NFR3.7", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/identity/infra/IdentityJobRunnerIT.java" },

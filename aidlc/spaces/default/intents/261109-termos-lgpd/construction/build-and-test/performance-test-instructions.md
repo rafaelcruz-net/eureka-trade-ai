@@ -25,7 +25,7 @@ LOAD_SCENARIO=<cenário> SPRING_PROFILES_ACTIVE=test,loadtest bash scripts/load-
 | `reacceptance` | `POST /api/v1/terms/acceptances` p95 ≤ 500 ms com 20 convidados | U3 NFR3.1 |
 | `data-requests` | criar, listar e abrir pedido p95 ≤ 500 ms; rotas administrativas p95 ≤ 1 s com 1000 pedidos; prévia do resumo p95 ≤ 1 s | U4 NFR3.1 a 3.3 |
 
-O `load-test.yml` ainda não tem as opções `reacceptance` e `data-requests` (pendência do responsável); localmente o script já tem os dois casos.
+O `load-test.yml` tem as opções `reacceptance` e `data-requests` desde o commit `5d30541`. O cenário `reacceptance` também informa `acquireP95Ms`, a espera por conexão do pool, só como informação; a reprovação continua sendo a trava acima de 5 ms.
 
 ## Medições na suíte
 

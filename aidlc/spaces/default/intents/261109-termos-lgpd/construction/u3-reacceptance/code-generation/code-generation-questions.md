@@ -17,8 +17,8 @@ Built without asking: plan approval is off for this piece of work (set by you).
 Full plan: aidlc/spaces/default/intents/261109-termos-lgpd/construction/u3-reacceptance/code-generation/code-generation-plan.md
 Test instructions: aidlc/spaces/default/intents/261109-termos-lgpd/construction/u3-reacceptance/code-generation/unit-test-instructions.md
 
-[Approval Fingerprint]: sha256:v3:0d69d842db28a9537d0511f24381663ec4e31ccf4cdf908872e2d6e895e88490
-[Planned Source]: 18d453aeda3bab5d09ee979f55f6b5ad21ee7af24d55182d39c2709453d27d6e
+[Approval Fingerprint]: sha256:v3:a44c01b6b504d5eca62d9c0bd0b71d09226f968f846b2ecc2916817fc40d7bf3
+[Planned Source]: 271f3dc03ee3c12018c3c0b535465a5f0d90414cddc8a17eb348c7d91736caf5
 
 
 [Answer]: Plan approval off

@@ -31,6 +31,16 @@ corepack pnpm@10.18.3 --dir apps/web exec playwright test e2e/reacceptance
 
 Antes do Passo 2, os comandos já rodam e devolvem "nenhum teste encontrado" sem falhar.
 
+### Volta do Build and Test (Passos 15 e 16)
+
+O comando do backend acima já pega os testes novos do aquecimento: `TermsReacceptanceWarmupTest` (padrão `TermsReacceptance*Test`) e `TermsReacceptanceWarmupIT` (padrão `TermsReacceptance*IT`). O `ProcessRoleContextIT` confere que o aquecimento é um trabalho só da `api`. Para rodar só esses testes:
+
+```bash
+sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml verify -Dtest='TermsReacceptanceWarmup*Test' -Dit.test='TermsReacceptanceWarmup*IT,ProcessRoleContextIT,WorkerProcessRoleContextIT' -Dsurefire.failIfNoSpecifiedTests=false -Dfailsafe.failIfNoSpecifiedTests=false -Djacoco.skip=true
+```
+
+O teste do script de carga continua o mesmo comando (`node --test scripts/load/load-test-reacceptance.test.mjs`), agora com a leitura de `hikaricp_connections_acquire_seconds`. No Node 24 do Windows, `node --test scripts/load/` (a pasta) não é aceito; para todos os testes de carga, use `node --test 'scripts/load/*.test.mjs'`.
+
 ## Metas de cobertura
 
 80% de linhas no backend e no web, medido pela configuração existente. As exclusões ficam só na configuração da ferramenta.

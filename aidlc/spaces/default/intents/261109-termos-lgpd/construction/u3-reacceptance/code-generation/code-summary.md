@@ -69,6 +69,44 @@ Conversa: português (Brasil). Código, nomes e logs em inglês. Os passos 1 a 1
 9. **Testes do seeder e das rotas de bot.** O teste do seeder ficou em `SmokeAccountSeederIT`; o `403` das rotas de bot está em `TermsReacceptanceRoutesIT`.
 10. **Formatação.** O `spotless:apply` rodou no módulo inteiro e pode ter só reformatado arquivos da U2 ainda não commitados.
 
+## Volta do Build and Test (Loop-back 1, 2026-11-11): Passos 15 e 16
+
+O Build and Test mediu o p95 da consulta da trava em 16,8, 8,4 e 7,0 ms, acima da meta de 5 ms (NFR3.2). A meta não mudou. O temporizador `memetrade.terms.reacceptance.check` continua medindo só a consulta das requisições.
+
+- **Passo 15: aquecimento da consulta da trava.** Novo componente `TermsReacceptanceWarmup` em `identity/infra`:
+  - **Quando roda:** no `ApplicationReadyEvent`, antes de a API passar a aceitar tráfego.
+  - **Onde roda:** só no processo `api`, com `@ProcessRole(API)` e o mesmo `@ConditionalOnProperty(memetrade.scheduling.enabled)` do `AuditStartup` e do `IdentityJobStartup`. Por isso não roda no worker nem no perfil `migrate`.
+  - **O que faz:** pega ao mesmo tempo as conexões do pool, até o `maximum-pool-size`. Em cada uma, roda 6 vezes o texto em que `JdbcTermsAcceptanceLookup.SQL` vira com os parâmetros trocados por `?`. Usa o mesmo vínculo de tipos da consulta real, UUIDs aleatórios e a versão vigente, e descarta o resultado. Com isso, o pgjdbc prepara a consulta no servidor, o que acontece depois de 5 execuções.
+  - **Medição e estado:** não passa pelo `JdbcTermsAcceptanceLookup`, então não grava amostra no temporizador. Não guarda estado: os únicos campos são o `DataSource` e o `CurrentTerms`.
+  - **Falhas:** cada consulta tem limite de 2 s. Qualquer falha vira um único `WARN` com a classe da exceção e nunca impede a subida.
+  - **Testes:** `TermsReacceptanceWarmupTest` (9 testes de unidade, sem banco) e `TermsReacceptanceWarmupIT` (4 testes sobre o PostgreSQL de teste, com um pool próprio de 4 conexões). Eles conferem que cada conexão fica com a consulta preparada no servidor, com o texto exato da consulta da trava; que o temporizador fica sem amostra; que o componente existe na `api` e não existe no worker nem com o agendamento desligado; e que uma falha do banco ou do catálogo vira só o `WARN`. O `TermsReacceptanceWarmup` entrou na lista de trabalhos da `api` do `ProcessRoleContextIT`.
+- **Passo 16: espera por conexão no cenário `reacceptance`.**
+  - `application.yml` publica `hikaricp.connections.acquire` com histograma (`percentiles-histogram`), o que antes não acontecia.
+  - `scripts/load/reacceptance.mjs` lê `hikaricp_connections_acquire_seconds` do pool `memetrade-pool` entre os dois instantâneos. O valor sai no relatório como `acquireP95Ms`, ao lado de `checkP95Ms`, e numa linha "só informativo" da tabela. A regra de reprovação não mudou.
+  - `load-test-reacceptance.test.mjs` ganhou 3 testes:
+    - lê só a série do pool da API;
+    - informa o valor sem reprovar a execução;
+    - registra "sem amostra" quando não há medição.
+
+### Testes executados na volta
+
+| Comando | Resultado |
+|---|---|
+| `spotless:apply` | ok |
+| Testes do aquecimento: `TermsReacceptanceWarmup*Test`, `TermsReacceptanceWarmup*IT`, `ProcessRoleContextIT` e `WorkerProcessRoleContextIT` | 9 de 9 de unidade e 13 de 13 de integração; BUILD SUCCESS |
+| `node --test 'scripts/load/*.test.mjs'` | 52 de 52 |
+| `mvnw verify` completo, sem `MEMETRADE_AUDIT_WALLET_HMAC_KEY` | 1326 testes de unidade e 1 erro: `SecurityExceptionsTest`. O erro vem do `security/exceptions.yml` ainda não commitado do Build and Test: as datas `approvedAt`/`expires` sem aspas são lidas pelo YAML como `Date`, e `LocalDate.parse` recebe `Wed Nov 11 00:00:00 UTC 2026`. A causa não está nesta volta. O arquivo não foi alterado |
+| `mvnw verify '-Dtest=!SecurityExceptionsTest,!*IT'` (unidade sem o teste acima; integração completa) | 1323 de 1323 testes de unidade. Na integração, 947 testes com 6 falhas e 27 erros, todos por falta de conexão ao PostgreSQL de teste: `remaining connection slots are reserved` e esgotamento do Hikari. A causa é o pool fixo que o Build and Test pôs no `application.yml` (`minimum-idle: ${DB_POOL_MAX_SIZE:20}`). Com ele, cada contexto Spring em cache nos testes mantém 20 conexões abertas, contra 5 antes, e o contêiner de teste tem 300 vagas (`max_connections=300`). BUILD FAILURE |
+| O mesmo comando com `-Dspring.datasource.hikari.minimum-idle=5` (só propriedade de sistema da execução, sem arquivo alterado) | 1323 de 1323 testes de unidade e 949 de 949 de integração; "All coverage checks have been met"; BUILD SUCCESS |
+
+### Observações da volta
+
+1. **`node --test scripts/load/`.** O comando com a pasta não é aceito pelo Node 24.22.1 no Windows (`Cannot find module ...\scripts\load`). Rodamos `node --test 'scripts/load/*.test.mjs'`.
+2. **Pendências do Build and Test, fora desta volta, que impedem o `mvnw verify` puro de ficar verde.** Nenhum dos dois arquivos foi alterado aqui:
+   - **`security/exceptions.yml`:** colocar as datas entre aspas. Sem isso, o `SecurityExceptionsTest` falha.
+   - **Pool fixo:** decidir como os testes de integração convivem com ele. Por exemplo, `minimum-idle` menor no perfil `test` dos ITs ou mais `max_connections` no contêiner de teste do `AbstractPostgresIT`. A decisão é do responsável do projeto.
+3. **Prontidão.** O aquecimento roda dentro do `ApplicationReadyEvent`, antes de a prontidão passar para `ACCEPTING_TRAFFIC`. O pior caso fica limitado ao `connection-timeout` do pool (2 s) e ao limite de 2 s por consulta.
+
 ## Pendências do responsável do projeto
 
 1. **`scripts/verify.sh`:** acrescentar `e2e/reacceptance` ao fim da lista de specs do Playwright, antes do ponto de controle da U3.

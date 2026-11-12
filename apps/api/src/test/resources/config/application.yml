@@ -4,3 +4,10 @@ memetrade:
     # u2-retention (NFR6.2): fixed, obviously fake HMAC key of the audit wallet references, for tests only. Production
     # keys come only from MEMETRADE_AUDIT_WALLET_HMAC_KEY (.env or the secrets manager); docker-compose.yml requires it.
     wallet-hmac-key: test-only-wallet-hmac-key-not-a-secret-0000
+spring:
+  datasource:
+    hikari:
+      # The application keeps a fixed-size pool (minimum-idle = maximum-pool-size, u3-reacceptance NFR3.2). The test
+      # run caches many Spring contexts against one PostgreSQL container, and 20 idle connections each exhausted its
+      # max_connections (Build and Test of 261109-termos-lgpd); here each context keeps 5 idle, as before.
+      minimum-idle: 5

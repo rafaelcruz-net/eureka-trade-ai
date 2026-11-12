@@ -11,7 +11,10 @@ spring:
       # U4 infrastructure-specification.md (Q1): 20 connections (10 in U1), 2 s wait for a connection; the wait counts
       # in the NFR3.1 budget. RuntimeSettingsGuard refuses a value outside 10..50 naming DB_POOL_MAX_SIZE.
       maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
-      minimum-idle: 5
+      # Fixed-size pool (HikariCP's recommendation): with 5 idle connections, a burst of guests opened up to 15 new ones
+      # and paid that inside the reacceptance lock check (u3-reacceptance NFR3.2, p95 8 to 17 ms against 5 ms in the
+      # Build and Test of 261109-termos-lgpd). The 20 connections are already in the budget of docker-compose.yml.
+      minimum-idle: ${DB_POOL_MAX_SIZE:20}
       connection-timeout: 2000
       pool-name: memetrade-pool
   liquibase:
@@ -78,6 +81,9 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+        # u3-reacceptance (Passo 16 of the Build and Test loop-back): the wait for a connection of the pool, read by the
+        # load scenario "reacceptance" next to the lock check (acquireP95Ms, informative only; no limit changes).
+        hikaricp.connections.acquire: true
   prometheus:
     metrics:
       export:

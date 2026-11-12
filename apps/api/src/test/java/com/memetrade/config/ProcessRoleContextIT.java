@@ -44,7 +44,9 @@ class ProcessRoleContextIT extends AbstractU5IT {
             // of the cached counts (api only).
             "PrivacyJobSchedule",
             "PrivacyJobStartup",
-            "DataRequestCountsRefresher");
+            "DataRequestCountsRefresher",
+            // u3-reacceptance (Build and Test loop-back 1): the warm-up of the lock query at start-up (api only).
+            "TermsReacceptanceWarmup");
 
     @Autowired
     private ApplicationContext context;
@@ -62,6 +64,7 @@ class ProcessRoleContextIT extends AbstractU5IT {
         expected.remove("KillSwitchStartup");
         expected.remove("IdentityJobStartup");
         expected.remove("PrivacyJobStartup");
+        expected.remove("TermsReacceptanceWarmup");
         assertThat(ProcessJobs.jobs(context)).containsExactlyInAnyOrderElementsOf(expected);
         assertThat(ProcessJobs.jobsWithoutRole(context)).isEmpty();
     }

@@ -6,6 +6,8 @@ import { createPublicKey, sign, verify } from 'node:crypto';
 import { test } from 'node:test';
 import {
   ACCEPT_ROUTE,
+  ACQUIRE_TIMER,
+  API_POOL,
   assertLocal,
   base58,
   CHECK_TIMER,
@@ -21,9 +23,18 @@ import {
   snapshot,
 } from './reacceptance.mjs';
 
-/** A Prometheus text with the acceptance route and the lock timer, `accept` and `check` as {le: cumulative count}. */
-function metrics({ accept = {}, check = {} } = {}) {
+/**
+ * A Prometheus text with the acceptance route, the lock timer and the connection wait of the api pool, `accept`,
+ * `check` and `acquire` as {le: cumulative count}; `otherPoolAcquire` is the same histogram of another pool.
+ */
+function metrics({ accept = {}, check = {}, acquire = {}, otherPoolAcquire = {} } = {}) {
   const lines = [];
+  for (const [le, count] of Object.entries(acquire)) {
+    lines.push(`${ACQUIRE_TIMER}_bucket{pool="${API_POOL}",le="${le}"} ${count}`);
+  }
+  for (const [le, count] of Object.entries(otherPoolAcquire)) {
+    lines.push(`${ACQUIRE_TIMER}_bucket{pool="memetrade-retention-pool",le="${le}"} ${count}`);
+  }
   for (const [le, count] of Object.entries(accept)) {
     lines.push(
       `http_server_requests_seconds_bucket{error="none",exception="none",method="POST",outcome="SUCCESS",status="200",uri="${ACCEPT_ROUTE}",le="${le}"} ${count}`,
@@ -149,6 +160,49 @@ test('the run creates 20 outdated guests and each goes lock -> acceptance -> pas
   assert.equal(accepts.length, 20);
   assert.ok(accepts.every((call) => call.init.headers['Idempotency-Key']), 'every POST has an Idempotency-Key');
   assert.equal(new Set(accepts.map((call) => call.init.headers['Idempotency-Key'])).size, 20);
+});
+
+test('reads the connection wait of the api pool only, between the two snapshots', () => {
+  const before = snapshot(
+    metrics({ acquire: { '0.001': 5, '0.01': 5, '+Inf': 5 }, otherPoolAcquire: { '0.001': 0, '0.5': 100, '+Inf': 100 } }),
+  ).acquire;
+  const after = snapshot(
+    metrics({ acquire: { '0.001': 25, '0.01': 45, '+Inf': 45 }, otherPoolAcquire: { '0.001': 0, '0.5': 900, '+Inf': 900 } }),
+  ).acquire;
+
+  assert.equal(after.get(0.01), 45, 'only the series of the api pool');
+  assert.equal(p95BetweenMs(before, after), 10);
+  assert.equal(p95BetweenMs(after, after), null);
+});
+
+test('the connection wait is reported next to the lock check and never fails the run', async () => {
+  const { io } = fakeApi({
+    metricsTexts: [
+      metrics({ acquire: { '0.001': 0, '0.05': 0, '+Inf': 0 } }),
+      metrics({
+        accept: { '0.1': 20, '+Inf': 20 },
+        check: { '0.002': 40, '+Inf': 40 },
+        acquire: { '0.001': 10, '0.05': 40, '+Inf': 40 },
+      }),
+    ],
+  });
+
+  const report = await runReacceptance({ users: 2, io });
+
+  assert.equal(report.acquireP95Ms, 50);
+  assert.equal(report.checkP95Ms, 2);
+  assert.equal(report.passed, true, 'a slow connection wait is information, not a failure');
+  const markdown = reacceptanceMarkdown(report);
+  assert.match(markdown, /hikaricp_connections_acquire_seconds/);
+  assert.match(markdown, /50 ms \| só informativo/);
+});
+
+test('without samples of the connection wait the report says so and the run still passes', async () => {
+  const report = await runReacceptance({ users: 2, io: fakeApi().io });
+
+  assert.equal(report.acquireP95Ms, null);
+  assert.equal(report.passed, true);
+  assert.match(reacceptanceMarkdown(report), /sem amostra \| só informativo/);
 });
 
 test('a slow acceptance or lock check fails the run', async () => {

@@ -33,6 +33,15 @@
         <!-- U4 (NFR6.7): time limit and retries of the market sources, configured in code (no Spring module), so the
              clock, the sleeper and the jitter seed stay injectable. Fixed version, published more than two weeks ago. -->
         <resilience4j.version>2.3.0</resilience4j.version>
+        <!-- Security fixes over the versions managed by Boot 3.5.16 (Build and Test of 261109-termos-lgpd, OWASP
+             Dependency-Check CVSS >= 7): Tomcat 10.1.59+ (CVE-2026-65905 and 13 others), pgjdbc 42.7.13+
+             (CVE-2026-54291), Kotlin 2.4.20+ (CVE-2026-53914; test classpath only, through solanaj -> okhttp 5),
+             Log4j API 2.25.5 (CVE-2026-34478 CVSS 3.1 7.5 and four medium ones; only the log4j-to-slf4j bridge).
+             Remove each override once the Boot BOM manages that version or a newer one. -->
+        <tomcat.version>10.1.61</tomcat.version>
+        <log4j2.version>2.25.5</log4j2.version>
+        <postgresql.version>42.7.14</postgresql.version>
+        <kotlin.version>2.4.21</kotlin.version>
         <!-- 80% line floor (team.md, NFR12.1). Never lowered to make a step pass. -->
         <coverage.line.minimum>0.80</coverage.line.minimum>
         <!-- Selected by -Dgroups=u1 on the command line; empty runs everything. -->

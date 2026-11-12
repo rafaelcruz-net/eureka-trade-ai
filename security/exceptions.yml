@@ -1,6 +1,7 @@
 # Versioned register of security-scan exceptions (team.md "Segurança na CI").
 # Each entry needs: id, tool (dependency-check | codeql | pnpm-audit | gitleaks), finding, justification,
-# approvedBy (project owner), approvedAt and expires (YYYY-MM-DD, at most 90 days after approvedAt).
+# approvedBy (project owner), approvedAt and expires ("YYYY-MM-DD" in quotes, so YAML keeps them as text; at most
+# 90 days after approvedAt).
 # An expired exception blocks the build again (SecurityExceptionsTest).
 #
 # Example:
@@ -9,6 +10,104 @@
 #     finding: CVE-2099-0001
 #     justification: Not reachable: the vulnerable parser is never called by the API.
 #     approvedBy: project-owner
-#     approvedAt: 2026-10-28
-#     expires: 2027-01-26
-exceptions: []
+#     approvedAt: "2026-10-28"
+#     expires: "2027-01-26"
+#
+# EX-001 to EX-012: Spring Framework 6.2.19, the last open-source 6.2 release (6.2.20 is commercial only). Approved by
+# the project owner in the Build and Test of 261109-termos-lgpd (2026-11-11), each one checked against the code: the
+# API is Spring MVC on Tomcat (no WebFlux, RSocket, Jetty, XsltView or functional endpoints), the live channel is the
+# annotated SseEmitter, no SpEL is ever built from request input, and every request parameter is read as a String and
+# parsed by hand (no implicit data binding). Follow-up before they expire: move to Spring Boot 4 (Spring 7.0.9+).
+# EX-013: false positive, the CVE is in the Prometheus server, not in the Micrometer client library.
+exceptions:
+  - id: EX-001
+    tool: dependency-check
+    finding: CVE-2026-47884
+    justification: XsltView SSRF/RCE. The API renders no views and has no XsltView; every endpoint returns JSON.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-002
+    tool: dependency-check
+    finding: CVE-2026-47885
+    justification: PartEventHttpMessageReader of Spring WebFlux. WebFlux is not on the classpath; no multipart endpoint.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-003
+    tool: dependency-check
+    finding: CVE-2026-47886
+    justification: DoS through SpEL evaluated from user input. No SpEL expression is ever built from request data.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-004
+    tool: dependency-check
+    finding: CVE-2026-47888
+    justification: Spring RSocket SETUP frame memory leak. RSocket is not used nor on the classpath.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-005
+    tool: dependency-check
+    finding: CVE-2026-47889
+    justification: WebFlux on the Jetty 12 Core adapter. The API runs Spring MVC on Tomcat; no WebFlux, no Jetty.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-006
+    tool: dependency-check
+    finding: CVE-2026-47890
+    justification: SSE with view fragments. The live channel sends JSON data through SseEmitter, never view fragments.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-007
+    tool: dependency-check
+    finding: CVE-2026-47891
+    justification: WebFlux with the Aalto XML processor. No WebFlux and no XML input; the API accepts JSON only.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-008
+    tool: dependency-check
+    finding: CVE-2026-47892
+    justification: Header predicate bypass of WebFlux functional endpoints. The API has only annotated MVC controllers.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-009
+    tool: dependency-check
+    finding: CVE-2026-47893
+    justification: WebFlux WebSocket exception reasons. No WebFlux and no WebSocket endpoint.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-010
+    tool: dependency-check
+    finding: CVE-2026-59282
+    justification: DoS through user-supplied property paths in data binding. No controller binds request data onto objects; parameters are Strings parsed by hand and bodies are read by Jackson.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-011
+    tool: dependency-check
+    finding: CVE-2026-59283
+    justification: SimpleEvaluationContext guard bypass with the SpEL compiler. No SpEL is evaluated from request data and the compiler mode is not enabled.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-012
+    tool: dependency-check
+    finding: CVE-2026-59313
+    justification: SSE stream corruption in the functional web framework. The live channel uses the annotated SseEmitter, not the functional framework.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"
+  - id: EX-013
+    tool: dependency-check
+    finding: CVE-2026-42154
+    justification: False positive. The CVE is in the remote read endpoint of the Prometheus server; micrometer-registry-prometheus is only the client that exposes /actuator/prometheus.
+    approvedBy: project-owner
+    approvedAt: "2026-11-11"
+    expires: "2027-02-09"

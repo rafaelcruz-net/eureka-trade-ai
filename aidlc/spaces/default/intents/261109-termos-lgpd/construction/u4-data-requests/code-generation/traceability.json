@@ -107,8 +107,8 @@
     },
     {
       "id": "AC5.1.5",
-      "status": "Deferred",
-      "target": "Build and Test: cenário de carga data-requests"
+      "status": "OK",
+      "target": "scripts/load/data-requests.mjs"
     },
     {
       "id": "AC5.1.6",
@@ -357,8 +357,8 @@
     },
     {
       "id": "BR4.19",
-      "status": "Deferred",
-      "target": "Build and Test: cenário de carga data-requests"
+      "status": "OK",
+      "target": "scripts/load/data-requests.mjs"
     },
     {
       "id": "BR4.20",
@@ -402,18 +402,18 @@
     },
     {
       "id": "NFR3.1",
-      "status": "Deferred",
-      "target": "Build and Test: cenário de carga data-requests"
+      "status": "OK",
+      "target": "scripts/load/data-requests.mjs"
     },
     {
       "id": "NFR3.2",
-      "status": "Deferred",
-      "target": "Build and Test: cenário de carga data-requests"
+      "status": "OK",
+      "target": "scripts/load/data-requests.mjs"
     },
     {
       "id": "NFR3.3",
-      "status": "Deferred",
-      "target": "Build and Test: cenário de carga data-requests"
+      "status": "OK",
+      "target": "scripts/load/data-requests.mjs"
     },
     {
       "id": "NFR3.4",

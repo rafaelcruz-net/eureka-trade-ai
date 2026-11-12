@@ -164,13 +164,30 @@ Conversa: português (Brasil); código, nomes e logs em inglês. Fontes:
 
   O responsável acrescenta a opção ao `load-test.yml`. (NFR3.1, NFR3.2)
 - [x] **Passo 13** — Documentação em `docs/api/`: rota de aceite, trava e lista de rotas liberadas, e como publicar uma versão nova dos termos (a trava passa a valer para todos).
-- [ ] **Passo 14** — Rodar:
+- [x] **Passo 14** — Rodar:
   - os comandos da Unit (`unit-test-instructions.md`);
   - o `mvnw verify` completo com JaCoCo;
   - Jest com cobertura no web;
   - `bash scripts/verify.sh` pelo ponto de controle da Unit, depois do pré-requisito do responsável.
 
   (todas)
+
+### Volta do Build and Test (Loop-back 1, 2026-11-11)
+
+O Build and Test mediu a trava com p95 de 16,8, 8,4 e 7,0 ms contra 5 ms (NFR3.2), numa rajada de 20 pessoas logo depois da subida da API. O pool de tamanho fixo (`minimum-idle` = 20 no `application.yml`) já entrou dentro daquele estágio. A meta de 5 ms não muda.
+
+- [x] **Passo 15** — Aquecer o caminho da consulta da trava na subida da API, sem guardar estado em memória (NFR3.4):
+  - **componente:** `TermsReacceptanceWarmup` no `identity/infra`, disparado no `ApplicationReadyEvent` só no processo da API (não no worker nem no `migrate`);
+  - **o que faz:** abre ao mesmo tempo as conexões do pool (até `maximum-pool-size`) e roda em cada uma, algumas vezes, a mesma `JdbcTermsAcceptanceLookup.SQL` com UUIDs aleatórios e a versão vigente, para o driver preparar a consulta no servidor (o pgjdbc prepara depois de 5 execuções por conexão) e a JVM compilar o caminho; o resultado é descartado;
+  - **medição:** as execuções do aquecimento NÃO passam pelo temporizador `memetrade.terms.reacceptance.check`, que continua medindo só a checagem das requisições;
+  - **falhas:** uma falha do aquecimento vira `WARN` com a classe da exceção e nunca impede a API de subir (a trava continua falhando fechada pelo NFR2.5);
+  - **testes (depois do código, é infraestrutura):** o aquecimento roda a consulta nas conexões, não registra amostra no temporizador, não roda no worker e não derruba a subida quando o banco falha.
+  (NFR3.2, NFR3.4, NFR2.5)
+- [x] **Passo 16** — Medir separadamente a espera por conexão e a consulta no cenário `reacceptance`:
+  - `scripts/load/reacceptance.mjs` lê também o histograma `hikaricp_connections_acquire_seconds` do pool `memetrade-pool` entre os dois instantâneos e grava no relatório `acquireP95Ms` ao lado de `checkP95Ms`, só como informação (a reprovação continua sendo `checkP95Ms` acima de 5 ms);
+  - teste em `scripts/load/load-test-reacceptance.test.mjs` para a leitura do novo histograma;
+  - rodar a Unit (`unit-test-instructions.md`) e o `mvnw verify` completo.
+  (NFR3.2)
 
 ## Rastreabilidade história → passos
 

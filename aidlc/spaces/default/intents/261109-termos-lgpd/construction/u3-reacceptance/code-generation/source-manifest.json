@@ -75,6 +75,9 @@
     { "path": "apps/admin/src/lib/api/schema.d.ts" },
     { "path": "scripts/load-test.sh" },
     { "path": "scripts/load/load-test.mjs" },
-    { "path": "docs/api/u1-legal-documents.md" }
+    { "path": "docs/api/u1-legal-documents.md" },
+    { "path": "apps/api/src/main/java/com/memetrade/identity/infra/TermsReacceptanceWarmup.java" },
+    { "path": "apps/api/src/test/java/com/memetrade/identity/infra/TermsReacceptanceWarmupTest.java" },
+    { "path": "apps/api/src/test/java/com/memetrade/identity/infra/TermsReacceptanceWarmupIT.java" }
   ]
 }

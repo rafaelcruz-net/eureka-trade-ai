@@ -269,8 +269,19 @@ function u3Wallet() {
   return { address: base58(spki.subarray(spki.length - 32)), key: privateKey };
 }
 
+/**
+ * The current version of the terms, as the invitation screen reads it. Since u1-legal-documents the current version
+ * is v2 (Build and Test of 261109-termos-lgpd: a fixed 'v1' was refused with 422 TERMS_VERSION_OUTDATED).
+ */
+async function currentTermsVersion() {
+  const response = await fetch(`${API}/api/v1/legal/current`);
+  const body = await response.json().catch(() => ({}));
+  if (response.status !== 200 || !body.version) throw new Error(`the current terms could not be read (${response.status})`);
+  return body.version;
+}
+
 /** Challenge, then the verification with the invitation; returns the client-side time of the verification only. */
-async function createAccount(code, wallet) {
+async function createAccount(code, wallet, termsVersion) {
   const challenge = await post('/api/v1/auth/challenge', { walletAddress: wallet.address });
   const signature = base58(sign(null, Buffer.from(challenge.body.message, 'utf8'), wallet.key));
   const started = performance.now();
@@ -280,7 +291,7 @@ async function createAccount(code, wallet) {
     signature,
     provider: 'PHANTOM',
     inviteCode: code,
-    acceptedTermsVersion: 'v1',
+    acceptedTermsVersion: termsVersion,
   });
   const seconds = (performance.now() - started) / 1000;
   if (verified.status !== 200) throw new Error(`account creation failed with ${verified.status}`);
@@ -338,8 +349,9 @@ ${rows}
 async function runU3() {
   const codes = (process.env.SMOKE_INVITE_CODES ?? '').split(',').filter((code) => code.length > 0);
   if (codes.length < USERS) throw new Error(`SMOKE_INVITE_CODES has ${codes.length} codes, ${USERS} needed`);
+  const termsVersion = await currentTermsVersion();
   const created = await Promise.all(
-    codes.slice(0, USERS).map(async (code) => ({ code, ...(await createAccount(code, u3Wallet())) })),
+    codes.slice(0, USERS).map(async (code) => ({ code, ...(await createAccount(code, u3Wallet(), termsVersion)) })),
   );
   const state = { errors: 0, rateLimited: 0 };
   const deadline = Date.now() + DURATION_S * 1_000;

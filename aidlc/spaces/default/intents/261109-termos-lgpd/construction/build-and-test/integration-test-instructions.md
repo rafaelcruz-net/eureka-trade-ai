@@ -39,12 +39,12 @@ bash scripts/verify.sh
 
 ## Specs de ponta a ponta desta intent
 
-| Spec | Unit | No `verify.sh` hoje |
+| Spec | Unit | No `verify.sh` |
 |---|---|---|
 | `e2e/legal-documents` | U1 | sim |
-| `e2e/reacceptance` | U3 | não (pendência do responsável) |
-| `e2e/data-requests` | U4 | não (pendência do responsável) |
-| `e2e/anonymization` | U5 | não (pendência do responsável, com `SMOKE_ANONYMIZATION_INVITE_CODE`) |
+| `e2e/reacceptance` | U3 | sim (desde o commit `5d30541`) |
+| `e2e/data-requests` | U4 | sim (desde o commit `5d30541`) |
+| `e2e/anonymization` | U5 | sim (desde o commit `5d30541`, com `SMOKE_ANONYMIZATION_INVITE_CODE`) |
 
 ## Metas de cobertura
 

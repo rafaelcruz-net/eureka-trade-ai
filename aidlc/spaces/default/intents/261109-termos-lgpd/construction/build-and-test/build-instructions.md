@@ -44,11 +44,11 @@ Os mesmos comandos valem para `apps/admin`, trocando `--dir`. O limite de cobert
 
 `bash scripts/verify.sh` é o comando de verificação autorizado. Ele sobe `docker-compose.yml` com `infra/docker-compose.test.yml`, espera os serviços ficarem saudáveis, roda os smokes Playwright, varre os logs atrás de endereço completo de carteira e devolve código diferente de zero em qualquer falha. O arquivo é protegido: só o responsável do projeto o altera, e só ele o roda diretamente (`! bash scripts/verify.sh`). O AI-DLC o roda pelo ponto de controle de cada Unit.
 
-### Pendências do responsável do projeto no `verify.sh`
+### Pré-requisitos do responsável no `verify.sh` (aplicados em 2026-11-11, commit `5d30541`)
 
-1. Exportar `MEMETRADE_AUDIT_WALLET_HMAC_KEY` fora do bloco do `.env` (U2). Hoje o ponto de controle a exporta no ambiente do comando.
-2. Gerar e exportar `SMOKE_ANONYMIZATION_INVITE_CODE`, como `SMOKE_INVITE_CODE`, e passá-lo ao Playwright (U5).
-3. Terminar a lista de specs em `... e2e/u3-identity-access e2e/legal-documents e2e/reacceptance e2e/data-requests e2e/anonymization`. Hoje ela termina em `e2e/legal-documents`, então os specs da U3, U4 e U5 desta intent ainda não rodam no `verify.sh`.
+1. `MEMETRADE_AUDIT_WALLET_HMAC_KEY` efêmera exportada com ou sem `.env` (U2).
+2. `SMOKE_ANONYMIZATION_INVITE_CODE` gerado, exportado e passado ao Playwright, e incluído na varredura de logs (U5).
+3. A lista de specs termina em `... e2e/legal-documents e2e/reacceptance e2e/data-requests e2e/anonymization`: os 19 specs rodam.
 
 ## Troubleshooting
 

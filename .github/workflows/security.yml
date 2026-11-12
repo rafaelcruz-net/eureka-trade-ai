@@ -104,7 +104,7 @@ jobs:
           sh apps/api/mvnw -B -ntp -f apps/api/pom.xml
           org.owasp:dependency-check-maven:12.1.0:check
           -DfailBuildOnCVSS=7
-          -DsuppressionFiles=../../dependency-check-suppressions.xml
+          -DsuppressionFiles="${GITHUB_WORKSPACE}/dependency-check-suppressions.xml"
           -DnvdApiKey="${NVD_API_KEY}"
           -Dformats=HTML,JSON
       - uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
