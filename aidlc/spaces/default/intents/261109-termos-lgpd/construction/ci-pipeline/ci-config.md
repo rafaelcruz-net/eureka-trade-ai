@@ -40,7 +40,7 @@ Só artefatos do GitHub Actions, com retenção curta: relatório de cobertura d
 
 ## OSS Index
 
-O analisador OSS Index continua ligado (resposta 4A). Se a CI der `401 Unauthorized` na Sonatype, o responsável cadastra as credenciais gratuitas do OSS Index como segredo do repositório e o job passa a lê-las; desligar o analisador só por decisão dele.
+A resposta 4A previa manter o analisador OSS Index ligado. Na primeira execução do `security.yml` com as exceções lidas (commit `4c530da`, execução `43148760804`), a Sonatype respondeu `401 Unauthorized` e o job falhou sem nenhuma vulnerabilidade acima de CVSS 7. Em 2026-11-12, no Deployment Execution, o responsável decidiu **desligar o analisador** (`-DossindexAnalyzerEnabled=false`, patch aplicado por ele). A varredura passa a usar só a base da NVD; a cobertura fica menor e a decisão pode ser revista cadastrando as credenciais do OSS Index como segredo.
 
 ## Pendente para a CI confirmar
 

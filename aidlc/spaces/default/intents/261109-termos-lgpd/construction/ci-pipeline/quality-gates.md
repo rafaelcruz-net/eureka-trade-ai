@@ -13,7 +13,7 @@ Conversa: português (Brasil). Portões que bloqueiam o merge em `main` (respost
 | Ponta a ponta | `ci` / `smoke` | `scripts/verify.sh` com saída diferente de zero: serviço não saudável, qualquer um dos 19 specs falhando (inclusive `e2e/reacceptance`, `e2e/data-requests` e `e2e/anonymization`), carteira, feedback ou convite nos logs | `team.md`; comando de verificação autorizado |
 | Segredos | `security` / `secrets` | qualquer segredo | `project.md` |
 | Análise estática | `security` / `sast` | achado Crítico ou Alto | `team.md` |
-| Dependências | `security` / `dependencies` | CVSS ≥ 7 sem exceção válida; exceção vencida (`SecurityExceptionsTest`); `pnpm audit` Alto ou acima | `team.md`; exceções EX-001 a EX-013 |
+| Dependências | `security` / `dependencies` | CVSS ≥ 7 sem exceção válida, pela base da NVD (o analisador OSS Index está desligado por decisão do responsável de 2026-11-12); exceção vencida (`SecurityExceptionsTest`); `pnpm audit` Alto ou acima | `team.md`; exceções EX-001 a EX-013 |
 
 ## Portões só de aviso
 
