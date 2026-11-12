@@ -84,7 +84,9 @@ class AuthSessionIT extends AbstractPostgresIT {
         assertThat(reuse.getStatus()).isEqualTo(401);
         assertThat(reuse.getHeader("Set-Cookie")).contains("Max-Age=0");
         assertThat(refresh(second).getStatus()).isEqualTo(401);
-        relay.relayBatch();
+        while (relay.relayBatch() > 0) {
+            // other test classes may have left rows pending; deliver every one, this event included
+        }
         assertThat(jdbc.sql(
                                 "select count(*) from audit_event where action = 'SESSION_REFRESH_REUSED' and correlation_id = :c")
                         .param("c", reuse.getHeader("X-Correlation-Id"))
@@ -160,7 +162,9 @@ class AuthSessionIT extends AbstractPostgresIT {
                 .getResponse();
 
         assertThat(response.getStatus()).isEqualTo(403);
-        relay.relayBatch();
+        while (relay.relayBatch() > 0) {
+            // other test classes may have left rows pending; deliver every one, this event included
+        }
         assertThat(jdbc.sql("select action from audit_event where correlation_id = :c")
                         .param("c", response.getHeader("X-Correlation-Id"))
                         .query(String.class)

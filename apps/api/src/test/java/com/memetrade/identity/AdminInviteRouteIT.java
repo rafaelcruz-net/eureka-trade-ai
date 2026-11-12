@@ -209,10 +209,17 @@ class AdminInviteRouteIT extends AbstractU3IT {
         assertThat(body).doesNotContain(code).doesNotContain("issuedBy").doesNotContain("\"code\"");
         JsonNode page = json.readTree(body);
         assertThat(page.has("nextCursor")).isTrue();
-        JsonNode first = page.get("items").get(0);
-        assertThat(first.get("codeSuffix").asText()).isEqualTo(code.substring(39));
-        assertThat(first.get("status").asText()).isEqualTo("PENDING");
-        assertThat(first.has("revokedAt")).isTrue();
+        // Other test classes issue invitations in the same shared database (some at this same clock instant), so the
+        // invitation of this test is found by its suffix instead of by its position in the list.
+        JsonNode issued = null;
+        for (JsonNode item : page.get("items")) {
+            if (item.get("codeSuffix").asText().equals(code.substring(39))) {
+                issued = item;
+            }
+        }
+        assertThat(issued).as("the invitation of this test is in the list").isNotNull();
+        assertThat(issued.get("status").asText()).isEqualTo("PENDING");
+        assertThat(issued.has("revokedAt")).isTrue();
     }
 
     @Test

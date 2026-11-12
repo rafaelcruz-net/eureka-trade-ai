@@ -54,7 +54,9 @@ class AdminAuditRouteIT extends AbstractPostgresIT {
 
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getContentAsString()).contains("FORBIDDEN_ROLE").doesNotContain("\"items\"");
-        relay.relayBatch();
+        while (relay.relayBatch() > 0) {
+            // other test classes may have left rows pending; deliver every one, this event included
+        }
         assertThat(jdbc.sql("select action from audit_event where correlation_id = :c")
                         .param("c", response.getHeader("X-Correlation-Id"))
                         .query(String.class)
@@ -70,7 +72,9 @@ class AdminAuditRouteIT extends AbstractPostgresIT {
 
         String first = refusedCorrelation(accessToken);
         String second = refusedCorrelation(accessToken);
-        relay.relayBatch();
+        while (relay.relayBatch() > 0) {
+            // other test classes may have left rows pending; deliver every one, this event included
+        }
 
         assertThat(jdbc.sql("""
                         select count(*) from audit_event

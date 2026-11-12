@@ -182,7 +182,9 @@ class AuthVerifyIT extends AbstractPostgresIT {
         String correlationId = response.getHeader("X-Correlation-Id");
 
         assertThat(response.getStatus()).isEqualTo(401);
-        relay.relayBatch();
+        while (relay.relayBatch() > 0) {
+            // other test classes may have left rows pending; deliver every one, this event included
+        }
         List<String> actions = jdbc.sql("select action from audit_event where correlation_id = :c")
                 .param("c", correlationId)
                 .query(String.class)
