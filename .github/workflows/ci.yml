@@ -45,6 +45,13 @@ jobs:
       # enforcer ban of the Solana SDK outside test scope, ArchUnit, default limit = 10, docker-compose.yml checks.
       - name: Verify backend
         run: sh apps/api/mvnw -B -ntp -f apps/api/pom.xml verify
+      - name: Alert rules (promtool)
+        run: |
+          for rules in real-alerts marketdata-alerts real-risk-alerts real-execution-alerts; do
+            docker run --rm -v "$PWD/infra/observability:/rules" --entrypoint promtool \
+              prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+              check rules "/rules/${rules}.yml"
+          done
       - name: Keep the coverage report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -146,10 +153,23 @@ jobs:
         run: pnpm --dir apps/admin exec jest --coverage
       - name: Generated administrator types equal schema.d.ts
         run: pnpm --dir apps/admin check:api
+  txsigner:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: TxSigner verify (testes, JaCoCo 80%, Spotless)
+        run: sh apps/txsigner/mvnw -B -ntp -f apps/txsigner/pom.xml verify
 
   e2e:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, frontend, admin, contract, smoke]
+    needs: [backend, frontend, admin, contract, smoke, txsigner]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

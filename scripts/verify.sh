@@ -120,7 +120,7 @@ log "waiting for the four services to be healthy (<= ${HEALTH_TIMEOUT_S}s)"
 deadline=$((SECONDS + HEALTH_TIMEOUT_S))
 until [ "$(service_health postgres)" = healthy ] && [ "$(service_health api)" = healthy ] \
   && [ "$(service_health web)" = healthy ] && [ "$(service_health admin)" = healthy ] \
-  && [ "$(service_health txsigner)" = healthy ] && [ "$(service_health solana-validator)" = healthy ]; do
+  && [ "$(service_health txsigner)" = healthy ] && [ "$(service_health solana-validator)" = healthy ] && [ "$(service_health jupiter-stub)" = healthy ]; do
   [ "$SECONDS" -lt "$deadline" ] || { log "timeout waiting for healthy services"; exit 1; }
   sleep 3
 done
@@ -144,6 +144,9 @@ until health="$(curl -fsS http://127.0.0.1:8081/actuator/health 2>/dev/null)" \
 done
 
 log "running the Playwright smoke"
+if [ -f infra/solana-fixtures/recorded.env ]; then
+  export RECORDED_FIXTURES="$PWD/infra/solana-fixtures/recorded.env"
+fi
 SMOKE_WALLET_FILE="$KEY_FILE" \
   SMOKE_ADMIN_WALLET_FILE="$ADMIN_KEY_FILE" \
   SMOKE_FEEDBACK_MARKER="$SMOKE_FEEDBACK_MARKER" \
@@ -156,13 +159,13 @@ SMOKE_WALLET_FILE="$KEY_FILE" \
   SOLANA_RPC_URL="http://127.0.0.1:8899" \
   DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB:-memetrade}" \
   "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl e2e/u5-bots-decision e2e/u8-admin-feedback e2e/u9-dashboard e2e/u3-identity-access e2e/legal-documents \
-    e2e/reacceptance e2e/data-requests e2e/anonymization e2e/real-bot-wallet
+    e2e/reacceptance e2e/data-requests e2e/anonymization e2e/real-bot-wallet e2e/real-swap
 
 log "scanning the api, worker and admin logs for full wallet addresses and the feedback text (NFR7.3)"
-SERVICE_LOGS="$("${COMPOSE[@]}" logs --no-color api worker admin txsigner )"
+SERVICE_LOGS="$("${COMPOSE[@]}" logs --no-color api worker admin txsigner jupiter-stub)"
 for needle in "$SMOKE_BETA_WALLET_ADDRESS" "$ADMIN_WALLET_ADDRESSES" "$SMOKE_FEEDBACK_MARKER" "$SMOKE_INVITE_CODE" \
   "$SMOKE_ANONYMIZATION_INVITE_CODE"; do
-  if printf '%s' "$SERVICE_LOGS" | grep -qF "$needle"; then
+  if printf '%s' "$SERVICE_LOGS" | grep -qF -- "$needle"; then
     log "a full wallet address or the feedback text appeared in the logs"
     exit 1
   fi
