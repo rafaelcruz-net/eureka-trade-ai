@@ -114,7 +114,10 @@ class AuditEventValidatorTest {
         String uuidWithoutHyphens = "7c9e6679742540de944be07fc1f90ae7";
         String hexHash = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
         String digestWithAnAddressShapedRun = "0" + "2".repeat(44) + "0" + "ab".repeat(9);
-        String inviteCode = com.memetrade.testsupport.TestInvites.newCode();
+        // A fixed invitation-shaped code: a random one is a single Base58 word decoding to 32 bytes about once in a
+        // hundred runs (no '-', '_', '0', 'O', 'I' or 'l'), which the wallet check rightly rejects (see
+        // aRandomInvitationCodeCanLookLikeAFullWallet); production audits only the digest and the last 4 characters.
+        String inviteCode = "q3Zx-7Hk_Pw2Rt9vYb4NcS8dLf6GjM1aXe5WuTo3Kp0";
         String inviteDigest = com.memetrade.testsupport.TestInvites.digest(inviteCode);
 
         assertThat(digestWithAnAddressShapedRun).hasSize(64);
@@ -127,6 +130,16 @@ class AuditEventValidatorTest {
                         "codeDigest", inviteDigest,
                         "uuid", UUID.randomUUID().toString())))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    void aRandomInvitationCodeCanLookLikeAFullWallet() {
+        // Regression of the CI flake of legitimateLongValuesPass (run 43772002105): 32 bytes in base64url with no
+        // character outside the Base58 alphabet are one Base58 word of 32 bytes, so the full code is never audited.
+        String base58OnlyCode = "z".repeat(43);
+
+        assertThat(AuditEventValidator.decodedLength(base58OnlyCode)).isEqualTo(32);
+        assertThat(AuditEventValidator.containsFullWallet(base58OnlyCode)).isTrue();
     }
 
     @Test
