@@ -73,7 +73,11 @@ class AuditPublisherIT extends AbstractPostgresIT {
 
         tx.executeWithoutResult(status -> publisher.publish(event));
         tx.executeWithoutResult(status -> publisher.publish(event));
-        relay.relayBatch();
+        // The relay delivers the oldest first; other test classes may have left more than one batch pending in the
+        // shared database (CI correction, run 43769144828), so every pending batch is delivered, then one more.
+        while (relay.relayBatch() > 0) {
+            // drain
+        }
         relay.relayBatch();
 
         assertThat(outboxCount(event.eventId())).isEqualTo(1);

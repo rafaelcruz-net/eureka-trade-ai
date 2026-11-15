@@ -25,4 +25,31 @@ public interface SwapChain {
     }
 
     record Effect(long ownerLamportsDelta, long tokenBaseUnitsDelta, long feeLamports, boolean feePaidByOwner) {}
+
+    /**
+     * The swap reads of {@code chain}: the ChainWatcher itself when it has them, or reads that are always unavailable
+     * (no RPC configured). CI correction (run 43769144828): derived from the one ChainPort bean instead of being a
+     * second bean, because the ChainWatcher is both a ChainPort and a SwapChain and two beans made both ambiguous.
+     */
+    static SwapChain of(ChainPort chain) {
+        if (chain instanceof SwapChain swaps) {
+            return swaps;
+        }
+        return new SwapChain() {
+            @Override
+            public long blockHeight() {
+                throw new ChainUnavailableException("No RPC provider configured");
+            }
+
+            @Override
+            public SignatureStatus status(String txSignature) {
+                throw new ChainUnavailableException("No RPC provider configured");
+            }
+
+            @Override
+            public Effect effect(String txSignature, String owner, String mint) {
+                throw new ChainUnavailableException("No RPC provider configured");
+            }
+        };
+    }
 }

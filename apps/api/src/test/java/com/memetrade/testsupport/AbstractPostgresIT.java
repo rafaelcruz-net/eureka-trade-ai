@@ -172,6 +172,14 @@ public abstract class AbstractPostgresIT {
      * run: {@code AnonymizationNoWalletLeftIT} and {@code AnonymizationObservabilityIT} after the {@code db} tests).
      * Regression tests: {@code OwnTestDatabaseIT}.
      */
+    /**
+     * The JDBC URL of the shared, migrated container, for context tests outside this package that must not import any
+     * test bean (CI correction: RealWorkerWiringIT, RealApiWiringIT).
+     */
+    public static String sharedJdbcUrl() {
+        return POSTGRES.getJdbcUrl();
+    }
+
     public static void migrate(String jdbcUrl) {
         String previous = System.getProperty(LoggingSystem.SYSTEM_PROPERTY);
         System.setProperty(LoggingSystem.SYSTEM_PROPERTY, LoggingSystem.NONE);

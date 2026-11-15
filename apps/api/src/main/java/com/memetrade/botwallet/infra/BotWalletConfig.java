@@ -65,26 +65,6 @@ public class BotWalletConfig {
         }
     }
 
-    /**
-     * 261113-trading-real-bot U4 (M3 for the REAL execution): the swap reads of the same ChainWatcher; without a
-     * configured provider every call is "unavailable".
-     */
-    @Bean
-    com.memetrade.botwallet.domain.SwapChain swapChain(ChainPort chain) {
-        if (chain instanceof com.memetrade.botwallet.domain.SwapChain swaps) {
-            return swaps;
-        }
-        return (com.memetrade.botwallet.domain.SwapChain) Proxy.newProxyInstance(
-                ChainPort.class.getClassLoader(),
-                new Class<?>[] {com.memetrade.botwallet.domain.SwapChain.class},
-                (proxy, method, args) -> {
-                    if (method.getDeclaringClass() == Object.class) {
-                        return method.invoke(this, args);
-                    }
-                    throw new ChainUnavailableException("No RPC provider configured");
-                });
-    }
-
     @Bean
     WithdrawalProcessor withdrawalProcessor(
             Clock clock, WithdrawalStore store, TxSignerPort signer, ChainPort chain, RealProperties properties) {

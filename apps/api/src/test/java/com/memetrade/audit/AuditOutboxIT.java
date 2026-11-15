@@ -53,10 +53,11 @@ class AuditOutboxIT extends AbstractPostgresIT {
 
     @Test
     void theRelayDeliversEachEventExactlyOnce() {
+        olderBacklogOfMoreThanOneBatch();
         AuditEventCommand event = rejected("ONCE");
         tx.executeWithoutResult(status -> publisher.publish(event));
 
-        relay.relayBatch();
+        relayUntilDelivered(event.eventId());
         relay.relayBatch();
 
         assertThat(trailCount(event.eventId())).isEqualTo(1);
@@ -67,8 +68,39 @@ class AuditOutboxIT extends AbstractPostgresIT {
                 .isTrue();
     }
 
+    /**
+     * CI correction (run 43769144828): the shared database may hold a backlog of pending events published by other
+     * integration tests (U3 and U4 publish many and never relay them); the relay delivers the OLDEST first, one batch at
+     * a time. Here a backlog of more than one batch, older than the event of the test, makes that state explicit, so
+     * the test no longer depends on which test classes ran before it.
+     */
+    private void olderBacklogOfMoreThanOneBatch() {
+        java.time.Instant now = clock.instant();
+        clock.set(now.minus(Duration.ofHours(1)));
+        try {
+            tx.executeWithoutResult(status -> {
+                for (int i = 0; i <= relayBatchSize; i++) {
+                    publisher.publish(rejected("BACKLOG"));
+                }
+            });
+        } finally {
+            clock.set(now);
+        }
+    }
+
+    @Autowired
+    private AuditProperties auditProperties;
+
+    private int relayBatchSize;
+
+    @org.junit.jupiter.api.BeforeEach
+    void batchSize() {
+        relayBatchSize = auditProperties.relayBatchSize();
+    }
+
     @Test
     void aRepeatedEventIdIsDiscardedWithoutError() {
+        olderBacklogOfMoreThanOneBatch();
         AuditEventCommand event = rejected("DUPLICATE");
         jdbc.sql("""
                         insert into audit_event (event_id, actor, actor_type, action, correlation_id, occurred_at)
@@ -76,10 +108,19 @@ class AuditOutboxIT extends AbstractPostgresIT {
                         """).param("id", event.eventId()).update();
         tx.executeWithoutResult(status -> publisher.publish(event));
 
-        relay.relayBatch();
+        relayUntilDelivered(event.eventId());
 
         assertThat(trailCount(event.eventId())).isEqualTo(1);
         assertThat(outboxPending(event.eventId())).isFalse();
+    }
+
+    /** Relays batch after batch, oldest first, until the event left the outbox (or nothing is pending any more). */
+    private void relayUntilDelivered(UUID eventId) {
+        for (int round = 0; round < 10_000 && outboxPending(eventId); round++) {
+            if (relay.relayBatch() == 0) {
+                break;
+            }
+        }
     }
 
     @Test
@@ -95,7 +136,12 @@ class AuditOutboxIT extends AbstractPostgresIT {
                 clock,
                 AuditProperties.relayOnly(Duration.ofSeconds(1), 100, Duration.ofSeconds(60)),
                 deliveryMetrics);
-        tx.executeWithoutResult(status -> restarted.relayBatch());
+        // Oldest first: the backlog other tests left may come before this event (CI correction, run 43769144828).
+        for (int round = 0; round < 10_000 && outboxPending(event.eventId()); round++) {
+            if (Boolean.FALSE.equals(tx.execute(status -> restarted.relayBatch() > 0))) {
+                break;
+            }
+        }
 
         assertThat(trailCount(event.eventId())).isEqualTo(1);
     }

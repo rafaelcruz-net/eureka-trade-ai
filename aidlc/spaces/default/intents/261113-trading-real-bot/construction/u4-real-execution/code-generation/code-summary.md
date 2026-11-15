@@ -106,6 +106,27 @@ Revisão da geração de código: READY, com 2 achados Major e 4 Minor. Os teste
 
 A cobertura continua sem medição: o `verify` completo não rodou, por causa da memória.
 
+## Correções da CI
+
+A execução 43769144828 do GitHub Actions, no commit f394d48 (U1 a U4 em `main`), falhou em dois jobs. Os dois eram defeitos reais. Cada correção tem um teste de regressão, que vi falhar antes de corrigir.
+
+| Job | Causa raiz | Correção | Teste de regressão |
+|---|---|---|---|
+| **smoke** (`scripts/verify.sh`): o worker não subia e, sem o leitor de depósitos, o spec da carteira falhava. | Com as duas URLs de RPC configuradas, o bean `chainPort` é um `RpcChainWatcher`, que é ao mesmo tempo `ChainPort` e `SwapChain`. O bean `swapChain` devolvia a mesma instância. O Spring via então dois `SwapChain` (e, com um qualificador, passaria a ver dois `ChainPort`). Nenhum teste de contexto subia o worker com RPC e sem dublês, por isso o erro só aparecia no smoke. | O bean `swapChain` saiu do `BotWalletConfig`. `RealChainAdapter` recebe só o `ChainPort` e deriva as leituras de swap com `SwapChain.of(chain)`: o próprio watcher, ou leituras sempre indisponíveis quando não há RPC. Agora há um único bean de cada tipo por processo. | `RealWorkerWiringIT` sobe o worker como no Compose: perfis `test,worker`, `MEMETRADE_PROCESS=worker`, REAL ligado, TxSigner, as duas URLs de RPC e o `jupiter-stub`, sem nenhum bean de teste. **Vermelho:** "expected single matching bean but found 2: chainPort,swapChain", a mesma mensagem da CI. **Verde** depois da correção. `RealApiWiringIT` faz o mesmo para a API, com perfil `test`, REAL ligado, `seed-test-release` e a carteira do smoke sintética; passou. |
+| **backend**: `AuditOutboxIT.aRepeatedEventIdIsDiscardedWithoutError` (linha 82). | O teste estava errado: assumia que o seu evento entra no primeiro lote do relay. O relay entrega do mais antigo para o mais novo, um lote por vez, e o banco é compartilhado entre as classes de teste. U3 e U4 publicam muitos eventos de auditoria sem passar o relay. Quando essas classes rodam antes (a ordem na CI Linux não é a do Windows), o evento do teste fica atrás de mais de um lote. O código está correto. | `AuditOutboxIT` agora entrega lote após lote até o evento sair da outbox (`relayUntilDelivered`), também no teste de entrega única e no de reinício. Em `AuditPublisherIT`, a deduplicação passou a esvaziar todos os lotes pendentes. | `AuditOutboxIT` cria antes um acúmulo explícito de mais de um lote de eventos mais antigos (`olderBacklogOfMoreThanOneBatch`), o que torna o teste independente da ordem. **Vermelho:** "Expecting value to be false but was true", a mesma mensagem da CI. **Verde** depois da correção. |
+
+**Papéis conferidos**
+- Worker e API: pelos dois testes novos de contexto.
+- TxSigner: `InternalApiIT` (REAL ligado) e `RealOffByDefaultIT` passaram na rodada da revisão (83 testes). O TxSigner não tem a ambiguidade, porque não tem o `ChainWatcher`.
+
+**Comandos** (todos a partir da raiz, uma build Maven por vez, só com escopo):
+
+| Comando | Resultado |
+|---|---|
+| `sh apps/api/mvnw -B -ntp -q -f apps/api/pom.xml test -Dtest='com.memetrade.config.RealWorkerWiringIT,com.memetrade.config.RealApiWiringIT'` antes da correção | `RealWorkerWiringIT` com 1 erro (a ambiguidade da CI) |
+| `sh apps/api/mvnw -B -ntp -q -f apps/api/pom.xml test -Dtest='com.memetrade.audit.AuditOutboxIT'` com o acúmulo e antes da correção | 8 testes, 1 falha (a mesma da CI) |
+| Depois das correções: `AuditOutboxIT`, `AuditPublisherIT`, `AuditRelayMeasureIT`, os dois testes de contexto, `config.*IT`, `botwallet.**.*IT`, `realexecution.infra.*IT` e `architecture.*Test` | 218 testes, 0 falhas |
+
 ## Pendências
 
 - **Gravação do swap (mainnet):** `infra/solana-fixtures/record.sh` foi escrito e **não** foi executado. O spec `apps/web/e2e/real-swap/swap.spec.ts` fica pulado até existir `RECORDED_FIXTURES`. Nenhum outro teste depende dele.

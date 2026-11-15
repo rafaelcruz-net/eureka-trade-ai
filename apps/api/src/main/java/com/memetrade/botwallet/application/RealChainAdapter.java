@@ -19,9 +19,13 @@ public class RealChainAdapter implements RealChain {
     private final ChainPort chain;
     private final SwapChain swaps;
 
-    public RealChainAdapter(ChainPort chain, SwapChain swaps) {
+    /**
+     * CI correction (run 43769144828): the swap reads come from the one ChainPort bean (the ChainWatcher with the RPC
+     * configured is both), never from a second bean, which made ChainPort and SwapChain ambiguous in the worker.
+     */
+    public RealChainAdapter(ChainPort chain) {
         this.chain = chain;
-        this.swaps = swaps;
+        this.swaps = SwapChain.of(chain);
     }
 
     @Override

@@ -45,7 +45,7 @@
 - **Construction Iteration**: unit-major
 - **Construction Execution**: serial
 
-- **Construction Verification Command**: bash scripts/verify.sh
+- **Construction Verification Command**: bash scripts/verify-checkpoint.sh
 
 - **Unit Ownership**: solo
 
