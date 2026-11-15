@@ -23,7 +23,8 @@ import java.util.Optional;
  *   <li>The displayed value is the most recent KNOWN one; a tie on the time goes to the smallest {@code sourceId}
  *       (BR1.2). Without any KNOWN value, the field is UNKNOWN with the reason of the most recent observation, or
  *       {@code NOT_YET_OBSERVED} without any (BR1.9). An informed 0 stays a KNOWN 0.
- *   <li>{@code stale} is computed now with the injectable clock: strictly above 5 minutes (BR1.1).
+ *   <li>{@code stale} is computed now with the injectable clock: strictly above the limit of the field, 5 minutes
+ *       for PRICE, LIQUIDITY and VOLUME_24H and 2 hours for HOLDERS and CREATED_AT (BR1.1, U2 BR1.4).
  *   <li>With two or more KNOWN, not stale values the divergence is checked with {@link DivergencePolicy} (BR1.7).
  * </ol>
  */
@@ -85,12 +86,12 @@ public final class FieldResolver {
         }
         List<MarketValue.Known> fresh = new ArrayList<>();
         for (SourcedObservation observation : known) {
-            MarketValue.Known value = toKnown(observation, now);
+            MarketValue.Known value = toKnown(field, observation, now);
             if (!value.stale()) {
                 fresh.add(value);
             }
         }
-        MarketValue.Known shown = toKnown(known.getFirst(), now);
+        MarketValue.Known shown = toKnown(field, known.getFirst(), now);
         return new ResolvedField(shown, divergent(field, shown, fresh), fresh);
     }
 
@@ -104,11 +105,12 @@ public final class FieldResolver {
                 .anyMatch(other -> divergence.diverges(field, shown.value(), other.value()));
     }
 
-    private static MarketValue.Known toKnown(SourcedObservation observation, Instant now) {
+    /** {@code stale} by the limit of the field (U2 BR1.4: 5 min for prices, 2 h for HOLDERS and CREATED_AT). */
+    private static MarketValue.Known toKnown(MarketField field, SourcedObservation observation, Instant now) {
         return new MarketValue.Known(
                 observation.value(),
                 observation.source(),
                 observation.observedAt(),
-                Freshness.isStale(observation.observedAt(), now));
+                Freshness.isStale(field, observation.observedAt(), now));
     }
 }

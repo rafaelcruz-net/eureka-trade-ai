@@ -38,12 +38,17 @@ class RiskControlArchitectureTest {
 
     private static final String U6 = "com.memetrade.riskcontrol..";
 
+    /** 261113-trading-real-bot U3: the REAL barrier, a package of its own inside the module. */
+    private static final String REAL = "com.memetrade.riskcontrol.real..";
+
     private static final Set<Class<?>> FLOATING = Set.of(double.class, float.class, Double.class, Float.class);
 
     /**
      * Outside its own packages, riskcontrol depends only on the public interfaces listed by the plan: C13
      * ({@code pnl.api}), C11 ({@code marketdata.api}), C10 ({@code identity.api}), C9 ({@code audit.api}) and
-     * {@code shared}; the web layer also reuses the common {@code MarketValue} response shape of U4 (as U7 does).
+     * {@code shared}; the web layer also reuses the common {@code MarketValue} response shape of U4 (as U7 does). Since
+     * 261113-trading-real-bot U3 also M1 ({@code botwallet.api}), M2 ({@code ledger.api}) and the indicator of the
+     * scanner ({@code riskassessment.api}); the narrower rules of the REAL package are in {@code RealRiskArchitectureTest}.
      */
     @Test
     void riskcontrolDependsOnlyOnThePublicInterfacesOfOtherModules() {
@@ -78,13 +83,18 @@ class RiskControlArchitectureTest {
         noClasses()
                 .that()
                 .resideOutsideOfPackage(U6)
+                .and()
+                // U4 of 261113-trading-real-bot (U4-NFR3.9): the purge of the REAL execution receives the retention
+                // pool of U6 and nothing else of the module (RealExecutionArchitectureTest checks the rest).
+                .doNotHaveFullyQualifiedName(REAL_EXECUTION_PURGE_JOB)
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
                         "com.memetrade.riskcontrol.domain..",
                         "com.memetrade.riskcontrol.infra..",
-                        "com.memetrade.riskcontrol.web..")
-                .because("U5 reaches the barrier only through OrderGate (C14)")
+                        "com.memetrade.riskcontrol.web..",
+                        "com.memetrade.riskcontrol.real..")
+                .because("U5 reaches the barrier only through OrderGate (C14); U4 and U5 of the REAL through M5")
                 .check(PRODUCTION);
     }
 
@@ -120,9 +130,20 @@ class RiskControlArchitectureTest {
                         "software.sava..",
                         "org.p2p.solanaj..",
                         "com.memetrade.identity.domain.signature..",
-                        "com.memetrade.shared.wallet..",
-                        "com.memetrade.ledger.api..")
-                .because("the barrier never builds, signs nor sends a transaction, nor executes (NFR6.1)")
+                        "com.memetrade.shared.wallet..")
+                .because("the barrier never builds, signs nor sends a transaction (NFR6.1)")
+                .check(PRODUCTION);
+        // The PAPER barrier never executes nor reads the ledger; the REAL barrier (261113-trading-real-bot U3) reads
+        // only the REAL reads of M2 (balance, positions, flows), never PaperExecution (RealRiskArchitectureTest).
+        noClasses()
+                .that()
+                .resideInAPackage(U6)
+                .and()
+                .resideOutsideOfPackage(REAL)
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage("com.memetrade.ledger.api..")
+                .because("the PAPER barrier never executes (NFR6.1)")
                 .check(PRODUCTION);
         noClasses()
                 .that()
@@ -184,6 +205,15 @@ class RiskControlArchitectureTest {
                 .check(PRODUCTION);
     }
 
+    /**
+     * 261113-trading-real-bot U3 (scalability-design.md, logical-components.md "Desvio de Q1 e Q6"): the REAL purge of
+     * 04:00 UTC uses the same retention pool, one round after the PAPER one.
+     */
+    private static final String REAL_PURGE_JOB = "com.memetrade.riskcontrol.real.infra.RealRiskPurgeJob";
+
+    /** 261113-trading-real-bot U4 (U4-NFR3.9, scalability-design.md): the purge of the REAL execution at 04:30 UTC. */
+    private static final String REAL_EXECUTION_PURGE_JOB = "com.memetrade.realexecution.infra.RealExecutionPurgeJob";
+
     @Test
     void onlyThePurgeJobReceivesTheRetentionPoolOfU6() {
         noClasses()
@@ -193,6 +223,10 @@ class RiskControlArchitectureTest {
                 .doNotHaveFullyQualifiedName(RiskRetentionDataSource.class.getName())
                 .and()
                 .doNotHaveFullyQualifiedName("com.memetrade.riskcontrol.infra.RiskRetentionDataSourceConfig")
+                .and()
+                .doNotHaveFullyQualifiedName(REAL_PURGE_JOB)
+                .and()
+                .doNotHaveFullyQualifiedName(REAL_EXECUTION_PURGE_JOB)
                 .should()
                 .dependOnClassesThat()
                 .areAssignableTo(RiskRetentionDataSource.class)
@@ -201,6 +235,10 @@ class RiskControlArchitectureTest {
         noClasses()
                 .that()
                 .haveFullyQualifiedName(RiskEvaluationPurgeJob.class.getName())
+                .or()
+                .haveFullyQualifiedName(REAL_PURGE_JOB)
+                .or()
+                .haveFullyQualifiedName(REAL_EXECUTION_PURGE_JOB)
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName("com.memetrade.audit.infra.AuditRetentionDataSource")
@@ -289,7 +327,12 @@ class RiskControlArchitectureTest {
                 "com.memetrade.identity.api.",
                 "com.memetrade.audit.api.",
                 "com.memetrade.shared.",
-                "com.memetrade.scanner.web.ScannerDtos");
+                "com.memetrade.scanner.web.ScannerDtos",
+                // 261113-trading-real-bot U3 (U3-NFR8.1): M1, M2 and the indicator of the scanner, for the REAL
+                // barrier.
+                "com.memetrade.botwallet.api.",
+                "com.memetrade.ledger.api.",
+                "com.memetrade.riskassessment.api.");
         return new DescribedPredicate<>("an internal class of another module") {
             @Override
             public boolean test(JavaClass type) {
@@ -309,7 +352,8 @@ class RiskControlArchitectureTest {
                 boolean chainTransaction = simple.contains("Transaction")
                         && !type.getPackageName().startsWith("org.springframework")
                         && !type.getPackageName().startsWith("java")
-                        && !type.getName().equals("com.memetrade.riskcontrol.infra.TransactionalOrderGate");
+                        && !type.getName().equals("com.memetrade.riskcontrol.infra.TransactionalOrderGate")
+                        && !type.getName().equals("com.memetrade.riskcontrol.real.infra.TransactionalRealRiskGate");
                 return signing || chainTransaction;
             }
         };

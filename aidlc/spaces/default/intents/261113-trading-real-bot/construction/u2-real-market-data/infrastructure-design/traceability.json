@@ -1,0 +1,20 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u2-real-market-data",
+  "upstream_ids": ["NFR1.1", "NFR1.6", "NFR3.7", "NFR4.1", "NFR4.3", "NFR4.6", "NFR5.6", "NFR5.7", "NFR5.8", "NFR5.9", "NFR5.10", "NFR8.2", "NFR9.1"],
+  "coverage": [
+    {"id": "NFR1.1", "status": "OK", "target": "Secrets Manager: segredo coingecko-api-key só para o papel do worker"},
+    {"id": "NFR1.6", "status": "OK", "target": "worker na subrede com NAT, saída em 443"},
+    {"id": "NFR3.7", "status": "OK", "target": "tabela marketdata_provider_usage com upsert antes de cada chamada e leitura horária da rota de uso"},
+    {"id": "NFR4.1", "status": "OK", "target": "SLO com a regra de gravação marketdata_price_fresh_minute"},
+    {"id": "NFR4.3", "status": "OK", "target": "tolerantFailure no adaptador e no caminho fail() do coletor, com teste de contrato do mapa de estados"},
+    {"id": "NFR4.6", "status": "OK", "target": "SourceCaller de 25 s para a coingecko e prazo interno de 18 s, sem chamada nova depois de 12 s"},
+    {"id": "NFR5.6", "status": "OK", "target": "alerta de fonte em falha"},
+    {"id": "NFR5.7", "status": "OK", "target": "alerta de orçamento"},
+    {"id": "NFR5.8", "status": "OK", "target": "alerta de valores inválidos"},
+    {"id": "NFR5.9", "status": "OK", "target": "alerta de preço velho"},
+    {"id": "NFR5.10", "status": "OK", "target": "CloudWatch Logs com 30 dias"},
+    {"id": "NFR8.2", "status": "OK", "target": "CI sem rede; WireMock só de teste"},
+    {"id": "NFR9.1", "status": "Deferred", "target": "deployment-execution: o preço do plano da CoinGecko é decidido pelo fundador antes da produção; se KMS, RPC e plano passarem de US$ 100, a decisão é dele"}
+  ]
+}

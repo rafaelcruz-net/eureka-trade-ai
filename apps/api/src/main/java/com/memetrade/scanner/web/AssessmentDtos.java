@@ -56,9 +56,12 @@ public final class AssessmentDtos {
             @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
             Instant computedAt,
 
-            @Schema(requiredMode = RequiredMode.REQUIRED) List<AssessmentFactorDto> factors) {
+            @Schema(requiredMode = RequiredMode.REQUIRED) List<AssessmentFactorDto> factors,
 
-        static AssessmentDto of(AssessmentDetail detail) {
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Fonte real ou simulada e atribuição (U2)")
+            ScannerDtos.DataSourceDto dataSource) {
+
+        static AssessmentDto of(AssessmentDetail detail, ScannerDtos.DataSourceDto dataSource) {
             AssessmentResult risk = detail.available()
                     ? new AssessmentResult.Available(
                             detail.score().orElseThrow(), detail.band().orElseThrow(), detail.weightSetVersion())
@@ -73,7 +76,8 @@ public final class AssessmentDtos {
                     detail.decisionHint().name(),
                     detail.bandRaisedByUnknown(),
                     detail.computedAt(),
-                    detail.factors().stream().map(AssessmentFactorDto::of).toList());
+                    detail.factors().stream().map(AssessmentFactorDto::of).toList(),
+                    dataSource);
         }
     }
 

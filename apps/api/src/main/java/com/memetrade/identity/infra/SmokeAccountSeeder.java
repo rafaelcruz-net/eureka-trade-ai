@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -52,7 +54,9 @@ public class SmokeAccountSeeder {
         this.walletAddress = walletAddress;
     }
 
+    /** Runs before the other test seeds of the same event (they read the account this one creates). */
     @EventListener(ApplicationReadyEvent.class)
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     public void seed() {
         if (!WalletAddress.isValid(walletAddress)) {
             throw new IllegalStateException(

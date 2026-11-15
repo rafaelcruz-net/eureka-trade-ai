@@ -92,7 +92,26 @@ public enum ErrorCode {
      * u5-anonymization (NFR5.4): a row lock was not obtained within {@code lock_timeout}; nothing changed and the same
      * Idempotency-Key may be repeated ({@code Retry-After}).
      */
-    LOCK_TIMEOUT(503, "unavailable", "Lock not obtained in time");
+    LOCK_TIMEOUT(503, "unavailable", "Lock not obtained in time"),
+    /** 261113-trading-real-bot (contract-summary.md "Códigos de erro novos"), U1 of the bot wallet. */
+    REAL_DISABLED(403, "real", "REAL is disabled in this environment"),
+    REAL_NOT_RELEASED(403, "real", "REAL is not released for this account"),
+    BOT_WALLET_ALREADY_ACTIVE(409, "conflict", "Bot wallet already active"),
+    BOT_WALLET_NOT_ACTIVE(409, "conflict", "Bot wallet not active"),
+    REAL_PAUSED(409, "conflict", "REAL paused"),
+    REAL_NOT_PAUSED(409, "conflict", "REAL not paused by the person"),
+    ORDER_AMBIGUOUS(409, "conflict", "An ambiguous order or withdrawal is still open"),
+    CONSENT_INVALID(422, "consent", "Consent invalid"),
+    CONSENT_EXPIRED(422, "consent", "Consent expired"),
+    CAP_ABOVE_MAXIMUM(422, "validation", "Cap above the maximum"),
+    INSUFFICIENT_FREE_BALANCE(422, "balance", "Insufficient free balance"),
+    WITHDRAWAL_DESTINATION_INVALID(422, "withdrawal", "Withdrawal destination invalid"),
+    SIGNING_POLICY_REFUSED(422, "signing", "Signing policy refused"),
+    // 261113-trading-real-bot U4 (contract-summary.md "Códigos de erro novos", R3).
+    SIGNING_DEADLINE_EXPIRED(409, "signing", "Signing deadline expired"),
+    SIGNED_MESSAGE_MISMATCH(422, "signing", "Signed message mismatch"),
+    ORDER_ALREADY_IN_PROGRESS(409, "conflict", "A liquidation is already in progress"),
+    UPSTREAM_UNAVAILABLE(503, "unavailable", "Upstream unavailable");
 
     private static final String TYPE_BASE = "https://memetrade.app/problems/";
 

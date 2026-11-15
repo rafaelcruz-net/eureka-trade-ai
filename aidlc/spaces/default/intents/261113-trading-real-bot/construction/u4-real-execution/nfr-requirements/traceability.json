@@ -1,0 +1,20 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "u4-real-execution",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9", "NFR10", "FR10.3", "FR10.4", "FR14"],
+  "coverage": [
+    {"id": "NFR1", "status": "OK", "target": "U4-NFR1.1, U4-NFR1.2, U4-NFR1.3, U4-NFR1.4, U4-NFR1.5 (BR4.3)"},
+    {"id": "NFR2", "status": "OK", "target": "U4-NFR2.1"},
+    {"id": "NFR3", "status": "OK", "target": "U4-NFR3.1 a U4-NFR3.9, com o orçamento por etapa"},
+    {"id": "NFR4", "status": "OK", "target": "U4-NFR4.1 a U4-NFR4.7 (BR3.1, BR5.1, BR5.2, BR9.1)"},
+    {"id": "NFR5", "status": "OK", "target": "U4-NFR5.1 a U4-NFR5.14, rótulos fechados"},
+    {"id": "NFR6", "status": "OK", "target": "U4-NFR6.1, U4-NFR6.2 (BR10.2)"},
+    {"id": "NFR7", "status": "N/A", "target": "as telas ficam na u6-real-modes-ui"},
+    {"id": "NFR8", "status": "OK", "target": "U4-NFR8.1 a U4-NFR8.10"},
+    {"id": "NFR9", "status": "N/A", "target": "a U4 usa a Jupiter sem custo de plano e o RPC orçado na U1; nenhum serviço pago novo"},
+    {"id": "NFR10", "status": "OK", "target": "U4-NFR10.1"},
+    {"id": "FR10.3", "status": "N/A", "target": "ordem da liberação (devnet, fundador, convidados): delivered by u5-real-operations"},
+    {"id": "FR10.4", "status": "OK", "target": "U4-NFR8.1, U4-NFR8.10 (rede por ambiente; Jupiter só na mainnet)"},
+    {"id": "FR14", "status": "OK", "target": "U4-NFR3.9 (retenção de 5 anos das ordens); a exportação fica na u7-exits-and-fiscal"}
+  ]
+}

@@ -4,257 +4,321 @@
 
 ### System Overview
 
-Monorepo com três aplicações e um banco:
+Monorepo com três aplicações e um banco, tudo local:
 
-- `apps/api` — API Spring Boot (Java 21), monólito modular por pacote. A mesma imagem roda em três papéis,
-  escolhidos por `MEMETRADE_PROCESS` e perfil: `api` (REST, jobs de sistema, canal SSE), `worker` (ciclo de 5 min
-  dos bots, meia-noite UTC, expurgo de decisões) e `db-migrate` (perfil `migrate`, aplica o Liquibase com o login
-  dono e termina).
-- `apps/web` — app do convidado Next.js 15 (porta 3000).
-- `apps/admin` — app administrativo Next.js 15 (porta 3001).
-- PostgreSQL 17, com três logins (dono, aplicação, retenção) e papéis de grupo fixos de retenção.
+- `apps/api` — API Spring Boot 3.5 (Java 21), monólito modular por pacote. A mesma imagem roda em três papéis,
+  escolhidos por `MEMETRADE_PROCESS` e perfil Spring:
+  - `api` (padrão): rotas REST, canal ao vivo, coleta de mercado, recálculo de risco, marcação de patrimônio,
+    reconciliação, kill switch, expurgos e jobs de privacidade (21 jobs agendados, `RuntimeSettingsGuard`);
+  - `worker` (perfil `worker`): ciclo dos bots a cada slot de 5 min, meia-noite UTC, verificação de fechamento e
+    expurgo de decisões (4 jobs); não tem controlador nem porta publicada;
+  - `db-migrate` (perfil `migrate`, `ops/MigrationRunner`): aplica o Liquibase com o login dono e termina.
+- `apps/web` — app do convidado, Next.js 15 / React 19 (porta 3000).
+- `apps/admin` — app do administrador, Next.js 15 / React 19 (porta 3001).
+- PostgreSQL 17 com três logins (dono, aplicação, retenção) e papéis de grupo fixos de retenção.
 
-Tudo sobe localmente com `docker-compose.yml`, só em `127.0.0.1`. Não há nuvem, fila, cache nem fornecedor externo:
-as fontes de mercado são adaptadores simulados.
+`docker-compose.yml` sobe `postgres`, `db-bootstrap`, `db-migrate`, `api`, `worker`, `web` e `admin`, todos ligados só
+em `127.0.0.1`. Não há nuvem, fila, cache, gerenciador de segredos, KMS, RPC Solana nem fornecedor externo: as fontes de
+mercado são adaptadores simulados dentro do processo.
 
 ### Architectural Style
 
-**Monólito modular** com fronteiras verificadas por ArchUnit (`apps/api/src/test/java/com/memetrade/architecture/`).
-Cada módulo tem `api` (interfaces públicas, contratos entre módulos), `domain` (regras, sem infraestrutura nem web),
-`infra` (JDBC, jobs, configuração) e `web` (controladores e DTOs); alguns têm `application`, `worker` ou `loadtest`.
-Um módulo fala com outro só pela interface `api` ou por evento, nunca pelas tabelas do outro. Persistência é JDBC
-direto (`JdbcClient`), sem ORM. A integridade crítica fica no banco: gatilhos append-only, CHECKs e matriz de
-privilégios por tabela.
+**Monólito modular** com fronteiras verificadas por ArchUnit (`apps/api/src/test/java/com/memetrade/architecture/`,
+9 classes de teste). Cada módulo tem:
 
-Evidências: `apps/api/pom.xml` (um artefato), pacotes por módulo em `com.memetrade.*`, `ProcessRole` e
-`ProcessRoleCondition` em `shared/config`, regras como "modules never read another module's tables" em
-`ArchitectureTest`.
+- `api`: interfaces e tipos públicos (os únicos que outros módulos podem importar);
+- `domain`: regras puras, sem Spring, JDBC nem web (regra testada em `ledger`, `riskcontrol`, `bots` e `decision`);
+- `infra`: JDBC (`JdbcClient`, sem ORM), jobs, configuração;
+- `web`: controladores e DTOs;
+- às vezes `application`, `worker` ou `loadtest` (este só existe com o perfil `loadtest`).
+
+A integridade crítica fica também no banco: `CHECK (mode = 'PAPER')`, gatilhos append-only sem `SECURITY DEFINER`,
+matriz de privilégios por coluna e papéis de grupo para os expurgos. Os eventos entre módulos são síncronos, publicados
+pelo `ApplicationEventPublisher` do Spring dentro da transação de quem publica.
 
 ### Component Relationships
 
 ```mermaid
 flowchart LR
-  subgraph Browser
+  subgraph Navegador
     WEB["apps/web convidado"]
     ADM["apps/admin administrador"]
   end
-  subgraph API["apps/api processo api"]
+  subgraph API["processo api"]
     IDN[identity]
+    PRV[privacy]
     AUD[audit]
     SCN[scanner]
     MKT[marketdata]
     RSA[riskassessment]
-    BOT[bots]
+    BOTW["bots web e comandos"]
     LED[ledger]
     PNL[pnl]
     RSC[riskcontrol]
     ADMN[administration]
     FBK[feedback]
   end
-  subgraph WRK["apps/api processo worker"]
+  subgraph WRK["processo worker"]
     CYC["bots worker"]
     DEC[decision]
   end
-  DB[(PostgreSQL 17)]
-  WEB -->|REST e SSE| API
-  ADM -->|REST admin| API
+  DB[("PostgreSQL 17")]
+  WEB -->|"REST e canal ao vivo"| API
+  ADM -->|"REST admin"| API
   SCN --> MKT
   SCN --> RSA
   RSA --> MKT
+  BOTW --> LED
+  BOTW --> PNL
   CYC --> DEC
   CYC --> RSC
   CYC --> LED
+  CYC --> MKT
+  CYC --> RSA
+  RSC --> MKT
   RSC --> PNL
   PNL --> LED
-  ADMN --> BOT
-  FBK --> IDN
-  BOT --> IDN
+  PNL --> MKT
+  LED --> MKT
+  ADMN --> BOTW
+  PRV --> IDN
+  PRV --> BOTW
+  PRV --> LED
+  PRV --> FBK
   IDN --> AUD
   LED --> AUD
   RSC --> AUD
-  BOT --> AUD
+  BOTW --> AUD
   API --> DB
   WRK --> DB
 ```
 
-Texto alternativo: o navegador usa `apps/web` (convidado) e `apps/admin` (administrador), que chamam a API por
-REST (e SSE no painel). Dentro do processo `api`, `scanner` lê `marketdata` e `riskassessment`; `administration`
-comanda `bots`; `feedback` e `bots` usam a idempotência e a identidade de `identity`; `identity`, `ledger`,
-`riskcontrol` e `bots` publicam eventos em `audit`. O processo `worker` roda o ciclo dos bots, que chama
-`decision`, a barreira `riskcontrol` (que lê o risco da carteira em `pnl`) e a execução PAPER em `ledger`. Os dois
-processos usam o mesmo PostgreSQL. A lista completa de dependências entre módulos está em
-[dependencies.md](dependencies.md).
+Texto alternativo: o navegador usa `apps/web` (convidado) e `apps/admin` (administrador), que chamam a API por REST
+(e o canal ao vivo no painel). No processo `api`, `scanner` lê `marketdata` e `riskassessment`; os comandos de `bots`
+usam `ledger` (financiamento e fechamento) e `pnl` (visão de risco); `administration` comanda `bots` pelo kill switch;
+`privacy` lê e aciona `identity`, `bots`, `ledger` e `feedback` por portas públicas; `identity`, `ledger`,
+`riskcontrol` e `bots` publicam eventos em `audit`. No processo `worker`, o ciclo dos bots lê mercado e risco, decide
+com `decision`, passa pela barreira `riskcontrol` (que lê `marketdata` e `pnl`) e executa em `ledger`. Os dois
+processos usam o mesmo PostgreSQL. A lista completa de dependências está em [dependencies.md](dependencies.md).
 
 ### Data Flow
 
-1. **Entrada**: o app pede um desafio (`/auth/challenge`), a carteira assina a mensagem, o app envia a assinatura
-   (`/auth/verify`). A API confere Ed25519 (código nativo, sem SDK Solana), consome o nonce, cria a conta quando há
-   convite e abre a sessão: token de acesso HMAC de 15 min (só na memória do navegador) e cookie `mt_refresh`
-   HttpOnly, Secure, SameSite=Strict.
-2. **Mercado**: `MarketCollectorJob` coleta as fontes simuladas a cada 30 s, valida e grava observações; o scanner e
-   a avaliação leem com `unknown` explícito.
-3. **Bots**: no worker, a cada slot de 5 min, cada bot ACTIVE decide (`decision`), passa pela barreira
-   (`riskcontrol`) e, aprovado, executa PAPER (`ledger`), que grava ordem, fill, lançamentos e posição na mesma
-   transação; `pnl` mantém o resumo diário e o pico.
-4. **Auditoria**: toda ação auditada grava em `audit_outbox` na mesma transação; `AuditRelayJob` (1 s) copia para
-   `audit_event` (append-only).
-5. **Retenção**: jobs diários com ShedLock apagam o que tem prazo (tabela abaixo), cada um com seu login ou papel.
+1. **Entrada**: o app pede um desafio (`POST /api/v1/auth/challenge`), a carteira assina a mensagem (Wallet Standard,
+   `solana:signMessage`), o app envia a assinatura (`POST /api/v1/auth/verify`). A API confere Ed25519 com o JDK (sem
+   SDK Solana), consome o nonce, cria a conta quando há convite e abre a sessão: token de acesso HMAC de 15 min (só na
+   memória do navegador) e cookie de renovação HttpOnly, SameSite=Strict.
+2. **Mercado**: `MarketCollectorJob` despacha a cada 1 s; cada fonte coleta no seu intervalo (padrão 30 s) com limite
+   de 5 s e até 3 tentativas (Resilience4j), fora da transação; a validação e a gravação acontecem numa transação; ao
+   final publica `MarketCollectionCompleted`, que dispara o recálculo do risco, a marcação de patrimônio e os
+   fechamentos pendentes.
+3. **Bots**: no worker, `SlotDispatcher` abre o slot 60 s depois de cada múltiplo de 5 min (ShedLock
+   `bots-slot-dispatch`) e roda os ciclos em 4 threads; cada ciclo é **uma transação** (veja o diagrama abaixo).
+4. **Contabilidade**: o preenchimento grava ordem, fill, lançamentos, posição, resumo diário e evento de auditoria na
+   mesma transação e publica `FillRecorded`, que atualiza o pico de patrimônio no `pnl`. A reconciliação roda a cada
+   5 min por pessoa e sob demanda.
+5. **Auditoria**: toda ação auditada grava em `audit_outbox` na transação da ação; `AuditRelayJob` (1 s) copia para
+   `audit_event` (append-only), com a carteira trocada por HMAC (`wallet_hmac`).
+6. **Retenção e privacidade**: jobs diários com ShedLock apagam o que tem prazo, cada um com seu pool e papel de
+   retenção; pedidos de titular têm prazos e expurgo próprios; a anonimização é uma ação do administrador.
 
-### Dados pessoais e retenção
+### Estado atual do modo REAL
 
-Inventário dono deste tema (outros artefatos apontam para cá). "Completo" quer dizer o endereço Base58 inteiro;
-"mascarado" é 4 + "…" + 4 caracteres.
+| Camada | Onde | Comportamento |
+|---|---|---|
+| Banco | `0008-ledger-pnl.sql`, `0009-risk-control.sql`, `0010-bots-decision.sql` | `mode varchar(8) NOT NULL DEFAULT 'PAPER'` com `CHECK (mode = 'PAPER')` em 13 tabelas: `paper_account`, `paper_order`, `fill`, `ledger_entry`, `position`, `pnl_daily`, `equity_peak`, `reconciliation_check`, `order_evaluation`, `order_rejection`, `rejection_reason_detail`, `bot`, `decision` |
+| HTTP | `shared/web/ModeGuardFilter` | Qualquer `mode` diferente de `PAPER` na query ou no corpo JSON de `/api/**` → `403 REAL_MODE_UNAVAILABLE`, auditado como `REQUEST_FORBIDDEN` |
+| Domínio | `ledger/api/PaperEnums.MODE = "PAPER"`, `PaperExecution` | "PAPER never builds, signs nor sends a transaction" |
+| Conta | `identity/domain/account/AccountQueryService` | REAL sempre `UNAVAILABLE` na resposta de `GET /api/v1/account` |
+| Interface | `apps/web/src/lib/i18n/messages.ts` (`realMode`) e `AccountScreen` | Linha de texto "Modo REAL: indisponível no beta", nunca um controle |
+| Build | `apps/api/pom.xml` (`maven-enforcer-plugin`) | `solanaj`, `bitcoinj`, `sol4k` e `sava` banidos nos escopos de produção; `solanaj` só em `test` |
+| Arquitetura | `ArchitectureTest`, `BotsArchitectureTest`, `LedgerArchitectureTest`, `RiskControlArchitectureTest` | Proíbem em produção `KeyPairGenerator`, `PrivateKey`, `PKCS8EncodedKeySpec`, `*Mnemonic*` e os pacotes dos SDKs; proíbem rede e tipos `Signature`/`Keypair`/`Signer` em `bots`, `ledger` e `riskcontrol`; proíbem `java.net` em `marketdata` |
+| Termos | `apps/api/src/main/resources/terms/v1` e `v2` | Textos dizem que o modo REAL está indisponível no beta |
 
-| Tabela (migração) | Dado pessoal ou ligado à pessoa | Retenção / expurgo | Travas que afetam exclusão ou anonimização |
+### Inventário de dados
+
+Inventário dono deste tema (outros artefatos apontam para cá). Tabelas por migração, com o que as protege.
+
+| Tabela (migração) | Dono | Conteúdo | Proteção e retenção |
 |---|---|---|---|
-| `app_user` (0001) | `user_id`, tenant, papel, status | Nenhuma | FK de quase todas as tabelas, sem `ON DELETE`; `status DISABLED` nunca escrito |
-| `wallet` (0001, 0007) | Endereço **completo**, provedor, `verified_at` | Nenhuma | `address` `NOT NULL`, único (`uq_wallet_address`), CHECK Base58 32 a 44 |
-| `login_challenge` (0001) | Endereço **completo**, mensagem assinada (contém o nonce e o domínio) | **Nenhuma** (cresce sempre) | Só muda de estado |
-| `user_session` (0001, 0011) | `user_id`, digest SHA-256 do refresh, datas | **Nenhuma** | Linhas expiradas/revogadas ficam |
-| `session_used_refresh_digest` (0001) | Digests usados | **Nenhuma** | — |
-| `invite` (0007) | Digest e 4 últimos caracteres do código, `issued_by` (carteira mascarada do admin), `used_by_user_id` | Nenhuma | CHECK de estado e datas |
-| `terms_acceptance` (0007) | `user_id`, versão, `accepted_at`, `invite_id` | Nenhuma | Aplicação sem UPDATE/DELETE/TRUNCATE; único por convite |
-| `idempotency_record` (0002) | `scope` com endereço **completo** antes do login (`wallet:<endereço>:<op>`) ou `tenant/user` depois; resposta guardada | Job de hora em hora apaga expirados (24 h padrão; desafio expira com o TTL de 5 min) | — |
-| `audit_outbox` (0004) | Payload do evento (inclui `details` com endereço **completo**) | 7 dias após entrega (03:30 UTC) | — |
-| `audit_event` (0004, 0005) | `actor` (userId, adminId ou endereço mascarado), `details` com endereço **completo** em `ACCOUNT_CREATED`, `LOGIN_SUCCEEDED`, `LOGIN_REJECTED` (convidado e admin) | 12 meses (03:00 UTC, papel `audit_retention`, lotes de 1000) | UPDATE e TRUNCATE recusados para **todos** os logins, inclusive o dono; DELETE só por `audit_retention` e só fora da janela de 12 meses |
-| `feedback_entry` (0011) | Texto livre (até 2000), tela, `user_id`, tenant | 180 dias (03:00 UTC, papel `feedback_retention`) | UPDATE/TRUNCATE recusados; DELETE só por `feedback_retention` |
-| `kill_switch_change` (0011) | `admin_user_id`, motivo | Nenhuma | Append-only para todos |
-| `bot` (0010) | `owner_user_id`, `name` (texto livre, 60), parâmetros | Nenhuma (bots nunca são apagados) | FK de `bot_owner` |
-| `bot_limits_version` (0010) | `created_by` | Nenhuma | Imutável (UPDATE/DELETE recusados) |
-| `bot_cycle`, `decision` (0010) | `owner_user_id`, decisão explicada | HOLD/NO_TRADE e ciclos sem decisão: 30 dias (worker, 04:15 UTC) | `decision` sem UPDATE |
-| `paper_account`, `paper_order`, `fill`, `ledger_entry`, `position`, `pnl_daily`, `equity_peak` (0008) | `owner_user_id` e histórico financeiro PAPER | Nenhuma | `ledger_entry` e `fill` append-only para todos; `paper_order`/`paper_account` sem DELETE; matriz de colunas atualizáveis |
-| `reconciliation_check` (0008) | `owner_user_id`, divergências | Mantém as últimas 100 por pessoa | — |
-| `order_evaluation`, `order_rejection`, `rejection_reason_detail` (0009) | `owner_user_id`, motivos | Avaliações APROVADAS com mais de 30 dias (03:30 UTC, `risk_retention`); recusas nunca | Recusas e detalhes append-only para todos |
-| Logs (stdout JSON) | Endereços mascarados pelo `Base58AddressValueMasker`; nunca texto de feedback, token, nonce ou assinatura | Fora da aplicação | — |
-| Navegador | Token de acesso só em memória; `sessionStorage` guarda só versão dos termos e as duas marcas de aceite | Até fechar a aba | — |
+| `tenant`, `app_user`, `wallet` (0001, 0007, 0015) | `identity` | Conta, papel, status (`ACTIVE`, `DISABLED`, `ANONYMIZED`), carteira com endereço único | `uq_wallet_address`; endereço e provedor ficam nulos juntos só com `anonymized_at` |
+| `login_challenge`, `user_session`, `session_used_refresh_digest` (0001, 0012) | `identity` | Desafios de login, sessões, digests de renovação usados | Expurgos diários `LoginChallengePurgeJob` e `SessionPurgeJob`, estado em `identity_job_run` |
+| `invite`, `terms_acceptance` (0007, 0013) | `identity` | Convites (digest do código) e aceites dos termos (convite ou reaceite) | Aceites sem UPDATE/DELETE/TRUNCATE para a aplicação |
+| `idempotency_record` (0002) | `identity` | Chave, escopo, digest e resposta guardada | Limpeza de hora em hora (24 h padrão) |
+| `data_source`, `token`, `market_observation`, `observation_sample`, `source_status_mark` (0003, 0006) | `marketdata` | Dados de mercado globais (sem cliente) | Limpeza de histórico de hora em hora |
+| `risk_weight_set`, `risk_assessment` (0006) | `riskassessment` | Pesos versionados (um ACTIVE) e última avaliação por token | Globais |
+| `audit_outbox`, `audit_event`, `audit_job_run`, `shedlock` (0004, 0005, 0012) | `audit` | Saída e trilha de eventos; `wallet_hmac` | Trilha append-only para todos; DELETE só pelo papel `audit_retention` após 12 meses; saída limpa 7 dias após a entrega |
+| `simulation_policy`, `paper_account`, `paper_order`, `fill`, `ledger_entry`, `position` (0008) | `ledger` | Política v1, conta PAPER por bot, ordens, preenchimentos, lançamentos, posições | `mode = 'PAPER'`; `fill` e `ledger_entry` append-only; `paper_order`/`paper_account` sem DELETE; `uq_paper_order_key (tenant_id, mode, idempotency_key)`; um `FUNDING` por bot |
+| `pnl_daily`, `equity_peak`, `reconciliation_check` (0008) | `pnl` (`pnl_daily` gravado pelo `ledger`) | Resumo diário, pico de patrimônio, resultados da reconciliação | `mode = 'PAPER'`; pico só sobe; mantém as últimas 100 reconciliações por pessoa |
+| `order_evaluation`, `order_rejection`, `rejection_reason_detail`, `risk_purge_run` (0009) | `riskcontrol` | Avaliações (uma por decisão), recusas e motivos | `mode = 'PAPER'`; recusas append-only; avaliações aprovadas com mais de 30 dias apagadas pelo papel `risk_retention` |
+| `strategy_template`, `bot_owner`, `bot`, `bot_limits_version`, `bot_cycle`, `bot_holding`, `system_pause_state` (0010) | `bots` | Modelos, bots, limites imutáveis por versão, ciclos por slot, posse dos tokens, pausa do sistema | `bot.mode = 'PAPER'`; `bot_limits_version` imutável; um ciclo por bot e slot |
+| `decision` (0010) | `decision` | Decisão explicada com entradas e contexto (JSONB) | `mode = 'PAPER'`; sem UPDATE; HOLD/NO_TRADE apagadas após 30 dias |
+| `kill_switch_state`, `kill_switch_change` (0011) | `administration` | Estado único ON/OFF com versão e histórico | Linha única; histórico append-only |
+| `feedback_entry` (0011, 0015) | `feedback` | Comentário, tela, pessoa | Apagado após 180 dias pelo papel `feedback_retention`; função `erase_feedback_of_user` para a anonimização |
+| `data_subject_request`, `data_subject_verification`, `privacy_job_run` (0014) | `privacy` | Pedidos de titular e verificação por assinatura | Um pedido aberto por tipo e pessoa; expurgo 12 meses após o fechamento |
 
-Tabelas de mercado (`data_source`, `token`, `market_observation`, `observation_sample`, `source_status_mark`,
-`risk_weight_set`, `risk_assessment`) são globais e não têm dado de cliente.
+Logs: JSON no stdout, com qualquer palavra Base58 de 32 a 44 caracteres mascarada (`Base58AddressValueMasker`) e
+`WalletAddress.toString()` sempre mascarado. Navegador: token de acesso só em memória.
 
 ### Key Design Decisions
 
-- **Migrações fora da API** (ADR-0002): o login de aplicação não tem DDL; só `db-migrate` com o dono aplica o
-  Liquibase. Migrações seguem expand-contract (só acrescentam), com teste `MigrationsBackwardCompatIT`.
-- **Proteção no banco, não só no código**: gatilhos sem `SECURITY DEFINER` recusam UPDATE/DELETE/TRUNCATE nas
-  tabelas append-only para todo login; exclusões de retenção exigem associação a papel de grupo fixo
-  (`audit_retention`, `risk_retention`, `feedback_retention`), e cada expurgo usa um pool próprio de 1 conexão,
-  entregue por ArchUnit só à classe do expurgo.
-- **Outbox de auditoria**: evento gravado na mesma transação da ação; relay assíncrono para a trilha.
-- **Dupla barreira de máscara da carteira**: `WalletAddress.toString()` sempre mascarado; o encoder de log mascara
-  qualquer sequência Base58 de 32 a 44 caracteres.
-- **Termos como recurso versionado**: pastas imutáveis lidas na subida; a API falha ao subir sem exatamente uma
-  versão vigente.
-- **Registro de rotas por escopo de dados** (`tenancy/route-registry.yml`): toda rota e job declara escopo; rotas
-  CLIENT e ADMIN exigem teste negativo nomeado, senão o build falha.
+- **Migrações fora da API** (ADR-0002): o login de aplicação não tem DDL; só `db-migrate`, com o dono, aplica o
+  Liquibase. Migrações seguem expand-contract, com rollback declarado e `MigrationsBackwardCompatIT`.
+- **Proteção no banco além do código**: gatilhos append-only, `CHECK` de modo, matriz de colunas atualizáveis por
+  login, papéis de grupo para os expurgos e um pool de 1 conexão por expurgo, entregue por ArchUnit só à classe dele.
+- **Ciclo do bot numa transação**: decisão, barreira e execução PAPER são atômicas (`Propagation.MANDATORY` em
+  `OrderGate` e `PaperExecution`); uma falha técnica desfaz tudo e o slot é gravado como `FAILED` em outra transação,
+  sem repetição.
+- **Barreira que falha fechada** (ADR de U6 no código): toda exceção de mercado, risco ou banco é relançada, nunca vira
+  aprovação.
+- **Duas fontes simuladas e o valor conhecido mais recente** (ADR-0004); **indicador de risco em validação** com pesos
+  versionados (ADR-0005).
+- **Sem agregação de recusas** (ADR-0003): todo 403 grava um `REQUEST_FORBIDDEN`.
+- **Registro de rotas por escopo de dados** (`tenancy/route-registry.yml`, 72 entradas): rotas `CLIENT` e `ADMIN`
+  exigem teste negativo nomeado.
 - **Contrato gerado**: OpenAPI gerado do código e versionado; tipos dos frontends gerados do OpenAPI; a CI compara.
+- **Processos separados por anotação** (`@ProcessRole`): um job só existe no seu processo, verificado por
+  `ProcessRoleContextIT`.
 
 ### Improvement Opportunities
 
-- Não há caminho para encerrar conta, atender titular (acesso, correção, exclusão, portabilidade) nem anonimizar;
-  o desenho atual de append-only e FKs sem `ON DELETE` impede excluir `app_user` e alterar `audit_event`.
-- Expurgo ausente para `login_challenge`, `user_session`, `session_used_refresh_digest` e convites antigos.
-- Endereço completo na trilha de auditoria por 12 meses, sem minimização (o mascarado já existe em `actor`).
-- Sem fluxo de reaceite de termos para contas existentes quando a versão vigente muda.
-- A trilha só é consultável pela API administrativa; o app administrativo não tem tela de auditoria.
+- A política de simulação v1 existe duas vezes (`ledger` no banco e `riskcontrol/domain/SlippageEstimate.V1` no código),
+  mantidas iguais por teste.
+- O frescor do preço tem dois limites: 60 s na barreira e 5 min no preenchimento.
+- As fronteiras de módulo são verificadas por ArchUnit módulo a módulo, sem uma regra única que cubra os módulos novos
+  automaticamente.
+- Não há fila nem worker de execução assíncrona: tudo o que o PRD §12 prevê para execução e reconciliação on-chain
+  ainda não tem lugar na arquitetura.
+
+### Pontos de extensão e bloqueios para o Trading REAL
+
+| Peça existente | Reaproveitável | Limite atual |
+|---|---|---|
+| `MarketSourceAdapter` (C19) | Porta pronta para um adaptador real (preço, liquidez, decimais) | Só `sim-a`/`sim-b` aceitos (`MarketDataProperties.KNOWN_SOURCES`); `java.net` proibido em `marketdata` |
+| `OrderGate` (C14) e `LimitChecks` | Limite por ordem, exposição, slippage, liquidez, frescor, intervalo, duplicidade, perda diária, drawdown | Saldo e exposição lidos do ledger PAPER; slippage estimado pela política simulada; motivo `INSUFFICIENT_PAPER_BALANCE` |
+| `PaperExecution` (C15) | Forma do contrato (resultado selado, idempotência por chave, recusa como resultado) | Exige a transação do ciclo; nunca envia nada |
+| Ledger append-only, compensação, reconciliação | Modelo de lançamentos, chave única com `mode`, gatilhos | `CHECK (mode = 'PAPER')`; reconciliação só com fatos internos |
+| Kill switch | Estado único, histórico, aplicação com trava e reconciliação a cada 30 s | Só pausa bots; não cancela transações enviadas nem ordens fora da plataforma |
+| Idempotência comum | `IdempotencyGuard` com operações fechadas no enum `IdempotentOperation` | Operações REAL não existem |
+| Auditoria | Outbox na transação, trilha de 12 meses | `AuditEventValidator` recusa a chave `signature` e sequências Base58 de 80 a 90 caracteres (assinatura de transação) e trata palavras Base58 de 32 bytes como carteira |
+| Processo `worker` | Lugar natural para jobs de execução e reconciliação | Pool de 14 conexões e 4 threads de agendamento dimensionados para o ciclo PAPER |
+| Login por assinatura | Ed25519 nativo, nonce de uso único | `chain: solana:mainnet` fixo na configuração |
 
 ## Interaction Diagrams
 
-### Criação de conta por convite com aceite dos termos
+### Ciclo de um bot PAPER (worker)
 
 ```mermaid
 sequenceDiagram
-  participant B as Navegador apps/web
-  participant AC as InviteLookupController e AuthController
+  participant SD as SlotDispatcher
+  participant CR as CycleRunner
+  participant DB as PostgreSQL
+  participant MK as CycleMarketReader e MarketDataQuery
+  participant DE as DecisionEngine
+  participant OG as OrderGate riskcontrol
+  participant PR as PortfolioRiskView pnl
+  participant PE as PaperExecution ledger
+  participant AU as AuditEventPublisher
+  SD->>CR: run bot e slot, uma thread por bot
+  CR->>DB: abre transacao READ COMMITTED, lock_timeout 2 s
+  CR->>DB: bot_cycle RUNNING, unico por bot e slot
+  CR->>DB: trava a linha do bot e confere ACTIVE e kill switch
+  CR->>PE: posicoes e saldo via LedgerReadModel
+  CR->>MK: janela, preco, decimais e avaliacao dos tokens
+  CR->>DE: decide, funcao pura
+  CR->>DB: grava decision com entradas e contexto
+  CR->>OG: avalia ordem candidata BUY ou SELL
+  OG->>MK: preco e liquidez
+  OG->>PR: exposicao, perda do dia, patrimonio, saldo virtual
+  OG->>DB: order_evaluation, e se recusada order_rejection
+  OG->>AU: ORDER_REJECTED quando recusada
+  OG-->>CR: Approved ou Rejected com gatilhos de pausa
+  CR->>PE: execute com chave order:decisionId
+  PE->>DB: trava a conta, confere a chave, grava paper_order, fill, ledger_entry, position, pnl_daily
+  PE->>AU: PAPER_ORDER_FILLED ou NOT_FILLED
+  CR->>DB: bot_cycle COMPLETED
+  CR->>DB: commit unico
+```
+
+Texto alternativo: o despachante roda cada bot ativo numa thread; o ciclo abre UMA transação, reivindica o slot, trava
+o bot e confere o estado e o kill switch, lê posições, saldo e mercado, decide (função pura) e grava a decisão. Uma
+ordem BUY ou SELL passa pela barreira, que lê mercado e a visão de risco, grava a avaliação e, se recusar, a recusa e o
+evento `ORDER_REJECTED` e devolve os gatilhos de pausa. Aprovada, a execução PAPER trava a conta, confere a chave de
+idempotência e grava ordem, fill, lançamentos, posição e resumo diário. Tudo termina num único commit; uma falha
+técnica desfaz tudo e o slot vira `FAILED` em outra transação.
+
+### Kill switch
+
+```mermaid
+sequenceDiagram
+  participant A as apps/admin
+  participant C as AdminKillSwitchController
+  participant S as KillSwitchService
+  participant DB as PostgreSQL
+  participant AP as KillSwitchApplier
+  participant B as BotAdministration bots
+  participant R as KillSwitchReconciler
+  participant W as CycleRunner worker
+  A->>C: PUT /api/v1/admin/kill-switch com Idempotency-Key, estado e motivo
+  C->>S: valida corpo e reivindica a chave
+  S->>DB: trava kill_switch_state, grava versao nova, kill_switch_change e KILL_SWITCH_ON ou OFF
+  C->>AP: applyCurrent depois do commit
+  AP->>DB: ApplyLock e leitura da cerca
+  AP->>B: applySystemPause ou liftSystemPause em lotes
+  B->>DB: motivo SYSTEM em cada bot ativo, system_pause_state
+  AP->>DB: pendingBots e limpa reconcileNeeded pela cerca
+  R->>AP: a cada 30 s e na subida, quando reconcileNeeded
+  W->>DB: no inicio de cada ciclo confere systemPaused e pula o slot
+```
+
+Texto alternativo: o administrador envia o novo estado com motivo e chave de idempotência; o serviço grava o estado,
+o histórico e o evento numa transação; depois do commit, o aplicador, sob uma trava própria, lê o estado vigente e
+pede ao módulo `bots` que pause (motivo `SYSTEM`) ou libere os bots em lotes. Se algo falhar, a marca
+`reconcileNeeded` fica e o reconciliador repete a cada 30 s e na subida. O worker, no início de cada ciclo, confere se
+o sistema está pausado e pula o slot.
+
+### Coleta de mercado e efeitos
+
+```mermaid
+flowchart TD
+  D["MarketCollectorJob despacho a cada 1 s"] --> F["SourceCaller fora da transacao: 5 s, ate 3 tentativas"]
+  F -->|falha| X["source FAILED, valores anteriores mantidos"]
+  F -->|sucesso| V["ObservationValidator descarta invalidos"]
+  V --> T["Uma transacao: tokens, valores atuais, amostra de 5 min, estado da fonte, marca global"]
+  T --> E["evento MarketCollectionCompleted"]
+  E --> R1["RiskRecalculator recalcula avaliacoes"]
+  E --> R2["EquityMarkingJob marca patrimonio e pico"]
+  E --> R3["PendingCloseJob conclui fechamentos pendentes"]
+```
+
+Texto alternativo: o despacho roda a cada segundo e coleta cada fonte no seu intervalo; a chamada à fonte acontece
+fora da transação, com limite de 5 s e até 3 tentativas; uma falha marca a fonte como `FAILED` e mantém os valores
+anteriores; um sucesso passa pela validação e grava tudo numa transação; o evento de fim de coleta dispara o recálculo
+do risco, a marcação de patrimônio e a conclusão dos fechamentos pendentes.
+
+### Entrada por convite
+
+```mermaid
+sequenceDiagram
+  participant B as apps/web
+  participant AC as AuthController e InviteLookupController
   participant LV as LoginVerificationService
   participant IC as InviteAccountCreation
   participant DB as PostgreSQL
   participant AP as AuditEventPublisher
   B->>AC: GET /api/v1/invites/codigo
-  AC-->>B: estado, validade, versão e textos vigentes
+  AC-->>B: estado, validade e textos vigentes
   B->>AC: POST /api/v1/auth/challenge com Idempotency-Key
-  AC-->>B: mensagem com nonce, expira em 5 min
-  B->>AC: POST /api/v1/auth/verify com assinatura, inviteCode, acceptedTermsVersion
-  AC->>LV: verify
+  AC-->>B: mensagem com dominio, nonce, chain e expiracao
+  B->>AC: POST /api/v1/auth/verify com assinatura, inviteCode e versao aceita
+  AC->>LV: verify Ed25519 nativo
   LV->>DB: consome o desafio
-  LV->>IC: create
-  IC->>DB: trava o convite por digest
-  IC->>IC: confere estado, carteira admin, carteira já ligada, tenant ativo, versão vigente
-  IC->>DB: insere app_user e wallet
-  IC->>DB: marca o convite USED
-  IC->>DB: insere terms_acceptance
-  IC->>AP: ACCOUNT_CREATED com versão, horário, provedor e endereço completo
-  AP->>DB: insere em audit_outbox
-  IC->>DB: abre user_session
-  AC-->>B: token de acesso e cookie mt_refresh
+  LV->>IC: cria a conta
+  IC->>DB: app_user, wallet, convite USED, terms_acceptance
+  IC->>AP: ACCOUNT_CREATED na saida da auditoria
+  IC->>DB: user_session
+  AC-->>B: token de acesso e cookie de renovacao
 ```
 
-Texto alternativo: o app consulta o convite e recebe os textos vigentes; pede um desafio; a carteira assina; o
-app envia assinatura, código e versão aceita. A API consome o desafio, trava o convite, confere as regras em ordem e,
-numa só transação, cria pessoa, carteira, convite usado, aceite, evento `ACCOUNT_CREATED` na saída da auditoria e a
-sessão. Uma violação concorrente de `uq_wallet_address` desfaz tudo e grava um `LOGIN_REJECTED` em nova transação.
-
-### Consulta da tela Conta
-
-```mermaid
-sequenceDiagram
-  participant B as AccountScreen
-  participant C as AccountController
-  participant S as AccountQueryService
-  participant R as JdbcAccountDetailsRepository
-  participant T as TermsCatalog
-  B->>C: GET /api/v1/account com Bearer
-  C->>S: view userId, tenantId, sessionId do token
-  S->>R: uma consulta app_user, wallet, user_session, último terms_acceptance
-  R-->>S: endereço, provedor, fim da sessão, versão, horário
-  S->>T: find versão aceita
-  S-->>C: carteira mascarada, textos aceitos, REAL UNAVAILABLE
-  C-->>B: 200 Cache-Control no-store
-```
-
-Texto alternativo: a tela chama `GET /api/v1/account`; a pessoa, o tenant e a sessão vêm do token; uma consulta
-junta pessoa, carteira, sessão e último aceite; o serviço mascara a carteira e busca o texto da versão aceita no
-catálogo; a resposta não é cacheada.
-
-### Auditoria: publicação, relay e expurgo
-
-```mermaid
-flowchart TD
-  A[Ação auditada em qualquer módulo] --> V[AuditEventValidator]
-  V -->|válido| O[(audit_outbox)]
-  V -->|chave ou valor proibido| X[AuditPublishRejectedException]
-  O -->|AuditRelayJob a cada 1 s| E[(audit_event append-only)]
-  E -->|AuditRetentionPurge 03:00 UTC login de retenção| D[Apaga eventos com mais de 12 meses]
-  O -->|AuditOutboxCleanup 03:30 UTC| L[Apaga entregues há mais de 7 dias]
-  E -->|GET /api/v1/admin/audit-events| Q[Consulta do administrador gera AUDIT_QUERIED]
-```
-
-Texto alternativo: toda ação passa pelo validador (que recusa chaves como `nonce`, `signature`, `token` e valores
-com JWT, Bearer ou assinatura Base58), é gravada na saída e copiada para a trilha a cada segundo. Às 03:00 UTC o
-login de retenção apaga eventos com mais de 12 meses; às 03:30 UTC a limpeza apaga saídas entregues há mais de 7
-dias. O administrador consulta a trilha pela API, e cada consulta gera `AUDIT_QUERIED`.
-
-### Ciclo do bot até o ledger
-
-```mermaid
-sequenceDiagram
-  participant W as BotSchedules worker
-  participant CR as CycleRunner
-  participant DE as DecisionEngine
-  participant OG as OrderGate riskcontrol
-  participant PE as PaperExecution ledger
-  participant DB as PostgreSQL
-  W->>CR: slot de 5 min mais 60 s
-  CR->>DB: bot_cycle RUNNING
-  CR->>DE: decide com dados de mercado
-  DE-->>CR: BUY, SELL, HOLD ou NO_TRADE
-  CR->>OG: avalia ordem candidata
-  OG-->>CR: aprovada ou recusada com motivos
-  CR->>PE: executa PAPER com chave de idempotência
-  PE->>DB: paper_order, fill, ledger_entry, position, pnl_daily
-  CR->>DB: bot_cycle COMPLETED e decision
-```
-
-Texto alternativo: o agendador do worker dispara o ciclo de cada bot ativo um minuto após o fim do slot de 5 min;
-o motor decide; a barreira avalia os limites (recusa gera `order_rejection` e `ORDER_REJECTED`); aprovada, a
-execução PAPER grava ordem, fill, lançamentos, posição e resumo diário na mesma transação, deduplicada pela chave de
-idempotência.
+Texto alternativo: o app consulta o convite e recebe os textos vigentes; pede um desafio; a carteira assina a
+mensagem; o app envia assinatura, código e versão aceita; a API confere a assinatura com Ed25519 nativo, consome o
+desafio e, numa transação, cria pessoa, carteira, uso do convite, aceite, evento de auditoria e sessão.

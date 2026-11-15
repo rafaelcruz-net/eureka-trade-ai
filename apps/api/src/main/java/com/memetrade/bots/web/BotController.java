@@ -143,7 +143,7 @@ public class BotController {
     public ResponseEntity<BotSummaryView> create(
             @RequestBody BotDtos.CreateBotRequest body, @Parameter(hidden = true) HttpServletRequest request) {
         Principal person = auth.current();
-        return answer(commands.create(person, body.templateId(), body.name(), key(request)));
+        return answer(commands.create(person, body.templateId(), body.name(), body.market(), key(request)));
     }
 
     @Operation(

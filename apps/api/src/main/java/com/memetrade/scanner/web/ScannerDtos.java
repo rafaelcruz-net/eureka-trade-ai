@@ -1,6 +1,8 @@
 package com.memetrade.scanner.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.memetrade.marketdata.api.Attribution;
+import com.memetrade.marketdata.api.MarketDataQuery;
 import com.memetrade.marketdata.api.MarketValue;
 import com.memetrade.marketdata.api.ResolvedField;
 import com.memetrade.marketdata.api.SourceRef;
@@ -228,6 +230,44 @@ public final class ScannerDtos {
         }
     }
 
+    /**
+     * 261113-trading-real-bot U2 (BR1.5, BR1.8, NFR7.1): the kind of the active market source and, for a real source,
+     * the attribution its provider requires on screen ("Dados: CoinGecko" with the link).
+     */
+    @Schema(name = "DataSource")
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record DataSourceDto(
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {"REAL", "SIMULATED"},
+                    description = "SIMULATED quando alguma fonte configurada é simulada")
+            String kind,
+
+            @Schema(description = "Atribuição exigida pelo fornecedor da fonte real; ausente sem fonte real")
+            AttributionDto attribution) {
+
+        public static DataSourceDto of(MarketDataQuery market) {
+            return new DataSourceDto(
+                    market.activeSourceKind().name(),
+                    market.attribution().map(AttributionDto::of).orElse(null));
+        }
+    }
+
+    @Schema(name = "Attribution")
+    public record AttributionDto(
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    description = "Texto exibido, por exemplo \"Dados: CoinGecko\"")
+            String text,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "uri", description = "Link HTTPS do fornecedor")
+            String url) {
+
+        static AttributionDto of(Attribution attribution) {
+            return new AttributionDto(attribution.text(), attribution.url());
+        }
+    }
+
     @Schema(name = "ScannerPage")
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record ScannerPageDto(
@@ -248,16 +288,20 @@ public final class ScannerDtos {
             long excludedByUnknown,
 
             @Schema(requiredMode = RequiredMode.REQUIRED, description = "Novidades em espera para \"Atualizar lista\"")
-            long pendingNewTokens) {
+            long pendingNewTokens,
 
-        static ScannerPageDto of(ScannerPage page) {
+            @Schema(requiredMode = RequiredMode.REQUIRED, description = "Fonte real ou simulada e atribuição (U2)")
+            DataSourceDto dataSource) {
+
+        static ScannerPageDto of(ScannerPage page, DataSourceDto dataSource) {
             return new ScannerPageDto(
                     page.items().stream().map(ScannerRowDto::of).toList(),
                     page.nextCursor().orElse(null),
                     page.total(),
                     page.sources().stream().map(SourceStatusDto::of).toList(),
                     page.excludedByUnknown(),
-                    page.pendingNewTokens());
+                    page.pendingNewTokens(),
+                    dataSource);
         }
     }
 

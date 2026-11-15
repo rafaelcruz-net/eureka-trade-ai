@@ -11,8 +11,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * A PAPER bot of one person (entities.md {@code Bot}), as read from its row. Every bot is PAPER; tenant and person come
- * from the row and are the scope of every later query (BR2.10).
+ * A bot of one person (entities.md {@code Bot}), as read from its row: PAPER, or REAL since the U4 of
+ * 261113-trading-real-bot ({@link BotMarket}, fixed at creation). Tenant and person come from the row and are the scope
+ * of every later query (BR2.10).
  *
  * @param parameters the strategy parameters by key, exact decimals; empty before step 1 is accepted
  * @param draftLimits the limits of step 2 while the bot is a draft (version 1 is recorded at VALIDATED, BR1.7)
@@ -37,7 +38,8 @@ public record Bot(
         Optional<Instant> stoppedAt,
         Instant createdAt,
         Instant updatedAt,
-        long version) {
+        long version,
+        BotMarket market) {
 
     public Bot {
         Objects.requireNonNull(botId, "botId");
@@ -47,6 +49,58 @@ public record Bot(
         Objects.requireNonNull(status, "status");
         parameters = Map.copyOf(parameters);
         selection = selection == null ? TokenSelection.empty() : selection;
+        market = market == null ? BotMarket.PAPER : market;
+    }
+
+    /** A PAPER bot (every bot before the U4 of 261113-trading-real-bot). */
+    @SuppressWarnings("checkstyle:ParameterNumber")
+    public Bot(
+            UUID botId,
+            TenantScope scope,
+            String name,
+            StrategyId templateId,
+            String templateVersion,
+            Map<String, BigDecimal> parameters,
+            TokenSelection selection,
+            Optional<BigDecimal> virtualBalance,
+            BotStatus status,
+            long changeSeq,
+            int draftStep,
+            Optional<Integer> currentLimitsVersion,
+            Optional<BotLimits> draftLimits,
+            Optional<Instant> fundedAt,
+            Optional<Instant> activatedAt,
+            Optional<Instant> pausedAt,
+            Optional<Instant> stoppedAt,
+            Instant createdAt,
+            Instant updatedAt,
+            long version) {
+        this(
+                botId,
+                scope,
+                name,
+                templateId,
+                templateVersion,
+                parameters,
+                selection,
+                virtualBalance,
+                status,
+                changeSeq,
+                draftStep,
+                currentLimitsVersion,
+                draftLimits,
+                fundedAt,
+                activatedAt,
+                pausedAt,
+                stoppedAt,
+                createdAt,
+                updatedAt,
+                version,
+                BotMarket.PAPER);
+    }
+
+    public boolean real() {
+        return market == BotMarket.REAL;
     }
 
     /** The principal of the owner, bound by the worker jobs before calling U6 and U7 (BR2.10, BR3.6). */
@@ -179,7 +233,8 @@ public record Bot(
                     stoppedAt,
                     base.createdAt,
                     updatedAt,
-                    base.version);
+                    base.version,
+                    base.market);
         }
     }
 }

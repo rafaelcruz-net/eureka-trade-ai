@@ -1,0 +1,14 @@
+# Profile of the txsigner-migrate service (infrastructure-specification.md): applies the changelog of the schema
+# "txsigner" with the OWNER login and exits. The TxSigner itself never migrates.
+spring:
+  main:
+    web-application-type: none
+  datasource:
+    username: ${TXSIGNER_DB_OWNER_USER:txsigner_owner}
+    password: ${TXSIGNER_DB_OWNER_PASSWORD:}
+  liquibase:
+    enabled: true
+
+txsigner:
+  jobs:
+    enabled: false

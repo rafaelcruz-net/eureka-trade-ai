@@ -288,6 +288,10 @@ class BotsArchitectureTest {
                 "com.memetrade.riskassessment.api.",
                 "com.memetrade.identity.api.",
                 "com.memetrade.audit.api.",
+                // 261113-trading-real-bot U4: the REAL bot reads the state of the REAL through M1 (botwallet.api) and
+                // hands its decisions to the execution through M6 (realexecution.api); never their internals.
+                "com.memetrade.botwallet.api.",
+                "com.memetrade.realexecution.api.",
                 "com.memetrade.shared.");
         return new DescribedPredicate<>("an internal class of another module") {
             @Override

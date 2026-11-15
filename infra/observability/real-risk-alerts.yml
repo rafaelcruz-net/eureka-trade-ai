@@ -1,0 +1,80 @@
+# Alert rules of the REAL risk barrier (261113-trading-real-bot U3, observability-requirements.md U3-NFR5.9 to
+# U3-NFR5.12, monitoring-design.md), in the Prometheus format, for the metrics the worker (cycle, jobs) and the api
+# (liquidation, block list, purge) expose on /actuator/prometheus. Checked by
+# `promtool check rules infra/observability/real-risk-alerts.yml`. Labels never carry a mint, an address nor a person.
+# Severities: critical (incident, e-mail and SMS) and warning (e-mail); in the pilot every alarm goes to the one SNS
+# topic, as the U2 recorded.
+#
+# Each alert carries the annotations `threshold` and `window_seconds` (and `job` for the stalled jobs);
+# RealRiskAlarmParityTest compares them with the expression below and with the CloudWatch alarm of the same name in
+# infra/terraform/modules/observability/real-risk.tf. The slow-barrier alarm has no CloudWatch twin yet (`cloud:
+# deferred`): its p95 needs the metric as a distribution, part of the pending decision on how the metrics of Micrometer
+# reach CloudWatch.
+#
+# U3-NFR5.12 (stalled job) uses the counter of successful runs, `real_risk_job_runs_total{job}`, with `absent()` for a
+# job that never published, instead of `time() - real_risk_job_last_success_seconds`: the same form then exists as a
+# CloudWatch alarm (Sum of the counter below 1, missing data breaching). monitoring-design.md replaced the form of the
+# requirement; the heartbeat gauge stays for the dashboard.
+groups:
+  - name: real-risk
+    rules:
+      - alert: RealRiskErrors
+        # U3-NFR5.10: the barrier failed closed more than 5 times in 5 minutes; no REAL order leaves meanwhile.
+        expr: sum(increase(real_risk_errors_total[5m])) > 5
+        labels: { severity: critical }
+        annotations:
+          summary: The REAL barrier failed closed more than 5 times in 5 minutes (wallet, ledger, market, assessment or lock).
+          threshold: "5"
+          window_seconds: "300"
+      - alert: RealRiskJobStalledDailyLoss
+        # U3-NFR5.12: no successful run of F4 (loss of the day) in 5 minutes, or the job never published.
+        expr: >
+          sum(increase(real_risk_job_runs_total{job="daily-loss"}[5m])) < 1
+          or absent(real_risk_job_runs_total{job="daily-loss"})
+        labels: { severity: critical }
+        annotations:
+          summary: The job of the loss of the day did not succeed in 5 minutes; a wallet past 20% may stay unpaused.
+          threshold: "1"
+          window_seconds: "300"
+          job: daily-loss
+      - alert: RealRiskJobStalledDay
+        # U3-NFR5.12: no successful run of F3 (photos and resume) in 15 minutes, or the job never published.
+        expr: >
+          sum(increase(real_risk_job_runs_total{job="day"}[15m])) < 1
+          or absent(real_risk_job_runs_total{job="day"})
+        labels: { severity: critical }
+        annotations:
+          summary: The job of the day did not succeed in 15 minutes; photos and the resume of DAILY_LOSS wait.
+          threshold: "1"
+          window_seconds: "900"
+          job: day
+      - alert: RealRiskJobStalledReservationExpiry
+        # U3-NFR5.12: no successful run of F5 (expiry of the reservations) in 15 minutes, or the job never published.
+        expr: >
+          sum(increase(real_risk_job_runs_total{job="reservation-expiry"}[15m])) < 1
+          or absent(real_risk_job_runs_total{job="reservation-expiry"})
+        labels: { severity: critical }
+        annotations:
+          summary: The expiry of the reservations did not succeed in 15 minutes; expired reservations keep holding the cap.
+          threshold: "1"
+          window_seconds: "900"
+          job: reservation-expiry
+      - alert: RealRiskReservationExpired
+        # U3-NFR5.9: a reservation of an approved buy expired in the last 15 minutes: the U4 did not take it over.
+        expr: sum(increase(real_risk_reservations_expired_total[15m])) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: A reservation of an approved REAL buy expired without the hand-over of the execution (U4).
+          threshold: "0"
+          window_seconds: "900"
+      - alert: RealRiskSlow
+        # U3-NFR5.11: p95 of the evaluation of a buy (after the lock) above 150 ms for 10 minutes.
+        expr: >
+          histogram_quantile(0.95, sum by (le) (rate(real_risk_evaluation_seconds_bucket{side="BUY"}[10m]))) > 0.15
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: The p95 of the REAL buy evaluation is above 150 ms for 10 minutes (informative target, no gate).
+          threshold: "0.15"
+          window_seconds: "600"
+          cloud: deferred

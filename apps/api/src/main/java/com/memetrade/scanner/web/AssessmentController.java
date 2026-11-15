@@ -36,10 +36,14 @@ public class AssessmentController {
 
     private final RiskAssessmentDetails details;
     private final AuthContext auth;
+    private final com.memetrade.marketdata.api.MarketDataQuery market;
 
-    public AssessmentController(RiskAssessmentDetails details, AuthContext auth) {
+    /** @param market M4: the kind of the active source and its attribution on the detail (U2 BR1.8) */
+    public AssessmentController(
+            RiskAssessmentDetails details, AuthContext auth, com.memetrade.marketdata.api.MarketDataQuery market) {
         this.details = details;
         this.auth = auth;
+        this.market = market;
     }
 
     @Operation(
@@ -77,8 +81,9 @@ public class AssessmentController {
             throw new ApiException(
                     ErrorCode.VALIDATION_FAILED, "One or more parameters are invalid.", violations, null, Map.of());
         }
+        ScannerDtos.DataSourceDto dataSource = ScannerDtos.DataSourceDto.of(market);
         return details.detail(new TokenId(chain, mint))
-                .map(AssessmentDto::of)
+                .map(detail -> AssessmentDto.of(detail, dataSource))
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Token not found."));
     }
 }

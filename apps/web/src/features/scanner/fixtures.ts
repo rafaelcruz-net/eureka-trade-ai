@@ -56,9 +56,16 @@ export function page(items: ScannerRow[], overrides: Partial<ScannerPage> = {}):
     sources: [sourceStatus('OK')],
     excludedByUnknown: 0,
     pendingNewTokens: 0,
+    dataSource: { kind: 'SIMULATED' },
     ...overrides,
   };
 }
+
+/** U2: the real source with the attribution its provider requires (BR1.8). */
+export const REAL_DATA_SOURCE: ScannerPage['dataSource'] = {
+  kind: 'REAL',
+  attribution: { text: 'Dados: CoinGecko', url: 'https://www.coingecko.com/' },
+};
 
 export function assessment(overrides: Partial<Assessment> = {}): Assessment {
   return {
@@ -104,6 +111,7 @@ export function assessment(overrides: Partial<Assessment> = {}): Assessment {
         contribution: { status: 'UNKNOWN', reason: 'NOT_YET_OBSERVED' },
       },
     ],
+    dataSource: { kind: 'SIMULATED' },
     ...overrides,
   };
 }

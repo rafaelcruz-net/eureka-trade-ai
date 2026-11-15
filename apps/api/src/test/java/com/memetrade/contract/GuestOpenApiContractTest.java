@@ -100,6 +100,16 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
                 .contains("items", "nextCursor", "total", "sources", "excludedByUnknown", "pendingNewTokens");
     }
 
+    /** 261113-trading-real-bot U2 (BR1.8): the scanner page and the detail carry the kind of source and attribution. */
+    @Test
+    void theScannerAndTheDetailCarryTheDataSourceWithItsAttribution() {
+        assertThat(strings(schema("ScannerPage").get("required"))).contains("dataSource");
+        assertThat(strings(schema("Assessment").get("required"))).contains("dataSource");
+        assertThat(strings(schema("DataSource").get("required"))).containsExactly("kind");
+        assertThat(String.valueOf(schema("DataSource"))).contains("REAL").contains("SIMULATED");
+        assertThat(strings(schema("Attribution").get("required"))).containsExactlyInAnyOrder("text", "url");
+    }
+
     /** U4 additions to C2 (functional-spec.md, "Acréscimos a contratos"). */
     @Test
     @org.junit.jupiter.api.Tag("u4")
@@ -277,7 +287,14 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
     @Test
     void theGuestSpecificationHasNoAdministrativeRouteAndNoRealMode() {
         assertThat(paths().keySet()).noneMatch(path -> path.startsWith("/api/v1/admin"));
-        assertThat(generated).doesNotContain("REAL").doesNotContain("name: mode");
+        // 261113-trading-real-bot: the REAL exists only under /api/v1/real/ (contract-summary.md "Modo"); every other
+        // route stays PAPER and no route takes a "mode" query parameter.
+        paths().forEach((path, item) -> {
+            if (!path.startsWith("/api/v1/real/")) {
+                assertThat(String.valueOf(item)).as(path).doesNotContain("REAL");
+            }
+        });
+        assertThat(generated).doesNotContain("name: mode");
     }
 
     @SuppressWarnings("unchecked")

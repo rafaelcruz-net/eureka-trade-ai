@@ -72,7 +72,21 @@ public enum IdempotentOperation {
      * u5-anonymization (P2, BR5.5, NFR5.4): the anonymization of the account of a DELETION request; a 409, 422 or 5xx is
      * never stored, so the same key may be repeated after a 503 LOCK_TIMEOUT.
      */
-    DATA_REQUEST_ANONYMIZE("privacy.request.anonymize", Retention.DEFAULT);
+    DATA_REQUEST_ANONYMIZE("privacy.request.anonymize", Retention.DEFAULT),
+    /** 261113-trading-real-bot (BR4.8): a withdrawal; the same key and content return the same withdrawal. */
+    REAL_WITHDRAWAL("real.withdrawal", Retention.DEFAULT),
+    /** 261113-trading-real-bot: activation of the bot wallet (the challenge also guards it). */
+    REAL_ACTIVATION("real.activation", Retention.DEFAULT),
+    /** 261113-trading-real-bot: preferences, pause and resume of the REAL. */
+    REAL_PREFERENCES("real.preferences", Retention.DEFAULT),
+    /** 261113-trading-real-bot U4 (R3, review Major 2): change of the operation mode. */
+    REAL_MODE("real.mode", Retention.DEFAULT),
+    /** U4 (R3): the transaction signed by the main wallet in the SIGNED mode. */
+    REAL_SIGNING_SUBMIT("real.signing.submit", Retention.DEFAULT),
+    /** U4 (R3): the person refuses to sign. */
+    REAL_SIGNING_REJECT("real.signing.reject", Retention.DEFAULT),
+    /** U4 (R3): "vender tudo e sacar". */
+    REAL_LIQUIDATION("real.liquidation", Retention.DEFAULT);
 
     public enum Retention {
         DEFAULT,

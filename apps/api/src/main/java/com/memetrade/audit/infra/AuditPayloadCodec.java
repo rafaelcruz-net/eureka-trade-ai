@@ -23,6 +23,21 @@ final class AuditPayloadCodec {
 
     static final String WALLET_HMAC = "walletHmac";
 
+    /** 261113-trading-real-bot (M8): typed REAL references, absent in every older payload. */
+    static final String REAL = "real";
+
+    private static com.memetrade.audit.api.RealReferences real(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        return new com.memetrade.audit.api.RealReferences(
+                text(node.get("txSignature")), text(node.get("mint")), text(node.get("botWalletAddress")));
+    }
+
+    private static String text(JsonNode node) {
+        return node == null || node.isNull() ? null : node.asText();
+    }
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private AuditPayloadCodec() {}
@@ -49,6 +64,12 @@ final class AuditPayloadCodec {
         ObjectNode details = node.putObject("details");
         event.details().forEach(details::put);
         walletHmac.ifPresent(hmac -> node.put(WALLET_HMAC, hmac));
+        if (event.real() != null) {
+            ObjectNode real = node.putObject(REAL);
+            real.put("txSignature", event.real().txSignature());
+            real.put("mint", event.real().mint());
+            real.put("botWalletAddress", event.real().botWalletAddress());
+        }
         try {
             return MAPPER.writeValueAsString(node);
         } catch (JsonProcessingException impossible) {
@@ -85,7 +106,9 @@ final class AuditPayloadCodec {
                     target == null || target.isNull() ? null : target.asText(),
                     node.get("correlationId").asText(),
                     Instant.parse(node.get("occurredAt").asText()),
-                    details);
+                    details,
+                    null,
+                    real(node.get(REAL)));
             return new DecodedAuditEvent(
                     command, hmac == null || hmac.isNull() ? Optional.empty() : Optional.of(hmac.asText()));
         } catch (JsonProcessingException corrupt) {

@@ -45,7 +45,7 @@ public class JdbcBotRepository {
                    b.parameters::text as parameters, b.token_selection::text as token_selection, b.virtual_balance,
                    b.state, b.pause_reasons, b.change_seq, b.draft_step, b.current_limits_version,
                    b.draft_limits::text as draft_limits, b.funded_at, b.activated_at, b.paused_at, b.stopped_at,
-                   b.created_at, b.updated_at, b.version
+                   b.created_at, b.updated_at, b.version, b.market
             from bot b""";
 
     /** PostgreSQL orders uuid by unsigned bytes: the all-zero id is below every other one (keyset start). */
@@ -78,10 +78,12 @@ public class JdbcBotRepository {
         jdbc.sql("""
                         insert into bot (bot_id, tenant_id, owner_user_id, mode, name, template_id, template_version,
                                          parameters, token_selection, state, pause_reasons, draft_step, created_at,
-                                         updated_at)
+                                         updated_at, market)
                         values (:bot, :tenant, :owner, 'PAPER', :name, :template, :version,
-                                cast(:parameters as jsonb), cast(:selection as jsonb), :state, '', :step, :now, :now)
+                                cast(:parameters as jsonb), cast(:selection as jsonb), :state, '', :step, :now, :now,
+                                :market)
                         """)
+                .param("market", bot.market().name())
                 .param("bot", bot.botId())
                 .param("tenant", bot.scope().tenantId())
                 .param("owner", bot.scope().ownerUserId())
@@ -441,7 +443,8 @@ public class JdbcBotRepository {
                 instant(rs, "stopped_at"),
                 rs.getTimestamp("created_at").toInstant(),
                 rs.getTimestamp("updated_at").toInstant(),
-                rs.getLong("version"));
+                rs.getLong("version"),
+                com.memetrade.bots.domain.BotMarket.valueOf(rs.getString("market")));
     }
 
     private static BotRef mapRef(ResultSet rs, int row) throws SQLException {

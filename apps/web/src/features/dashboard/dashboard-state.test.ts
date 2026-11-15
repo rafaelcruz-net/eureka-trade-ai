@@ -578,6 +578,7 @@ describe('dashboard loader', () => {
               sources: [sourceStatus()],
               excludedByUnknown: 0,
               pendingNewTokens: 0,
+              dataSource: { kind: 'SIMULATED' },
             },
           }
         : call === 2

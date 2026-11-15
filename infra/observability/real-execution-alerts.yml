@@ -1,0 +1,155 @@
+# Alert rules of the REAL execution (261113-trading-real-bot U4, observability-requirements.md U4-NFR5.9 to
+# U4-NFR5.14 and U4-NFR3.5, monitoring-design.md), in the Prometheus format, for the metrics the worker (orders, jobs,
+# providers), the api (orders of the signing session) and the TxSigner (swap decisions) expose on /actuator/prometheus.
+# Checked by `promtool check rules infra/observability/real-execution-alerts.yml`. Labels never carry a mint, an
+# address, a signature nor a person. Severities: critical (incident, e-mail and SMS), high and warning (e-mail); in the
+# pilot every alarm goes to the one SNS topic, as U1 to U3 recorded.
+#
+# Each alert carries the annotations `threshold` and `window_seconds` (and `job` or `provider` when the alarm has that
+# dimension); RealExecutionAlarmParityTest compares them with the expression below and with the CloudWatch alarm of the
+# same name in infra/terraform/modules/observability/real-execution.tf. The slow-execution alarm has no CloudWatch twin
+# yet (`cloud: deferred`), like the p95 of the U3: it needs the metric as a distribution, part of the pending decision on
+# how the metrics of Micrometer reach CloudWatch.
+#
+# The two age gauges use max_over_time over 1 minute, the same as the CloudWatch statistic Maximum over 60 seconds.
+groups:
+  - name: real-execution
+    rules:
+      - alert: RealExecutionAmbiguousOld
+        # U4-NFR5.9: an AMBIGUOUS order older than 5 minutes: money reserved without an answer of the network.
+        expr: max(max_over_time(real_orders_ambiguous_oldest_seconds[1m])) > 300
+        labels: { severity: critical }
+        annotations:
+          summary: A REAL order is AMBIGUOUS for more than 300 seconds; follow docs/runbooks/real-execution.md.
+          threshold: "300"
+          window_seconds: "60"
+      - alert: RealExecutionSentOld
+        # U4-NFR3.5: a SENT order older than 75 seconds: the rule of the 60 seconds of the confirmation failed.
+        expr: max(max_over_time(real_orders_sent_oldest_seconds[1m])) > 75
+        labels: { severity: critical }
+        annotations:
+          summary: A REAL order is SENT for more than 75 seconds without a final state nor AMBIGUOUS.
+          threshold: "75"
+          window_seconds: "60"
+      - alert: RealExecutionPolicyRefused
+        # U4-NFR5.10: the TxSigner refused a swap against its content policy: an attack or a wrong message.
+        expr: sum(increase(txsigner_swap_decisions_total{outcome="REFUSED"}[5m])) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: The TxSigner refused a REAL swap against its content policy in the last 5 minutes (reason in the label).
+          threshold: "0"
+          window_seconds: "300"
+      - alert: RealExecutionSigningRefused
+        # U4-NFR5.11: an order failed because the signature was refused.
+        expr: sum(increase(real_orders_total{code="SIGNING_REFUSED"}[5m])) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: A REAL order failed with SIGNING_REFUSED in the last 5 minutes.
+          threshold: "0"
+          window_seconds: "300"
+      - alert: RealExecutionSignerUnavailable
+        # U4-NFR5.11: the TxSigner did not answer more than twice in 5 minutes.
+        expr: sum(increase(real_upstream_failures_total{provider="TXSIGNER"}[5m])) > 2
+        labels: { severity: critical }
+        annotations:
+          summary: The TxSigner did not answer more than 2 times in 5 minutes; REAL orders wait or fail.
+          threshold: "2"
+          window_seconds: "300"
+          provider: TXSIGNER
+      - alert: RealExecutionUpstreamPause
+        # U4-NFR5.12: a person was paused UPSTREAM after repeated failures of a provider.
+        expr: sum(increase(real_upstream_pauses_total[5m])) > 0
+        labels: { severity: high }
+        annotations:
+          summary: A REAL wallet was paused UPSTREAM in the last 5 minutes (Jupiter, RPC or TxSigner down).
+          threshold: "0"
+          window_seconds: "300"
+      - alert: RealExecutionJobStalledQueue
+        # U4-NFR5.14: no successful run of the decision queue in 1 minute, or the job never published.
+        expr: >
+          sum(increase(real_execution_job_runs_total{job="queue"}[1m])) < 1
+          or absent(real_execution_job_runs_total{job="queue"})
+        labels: { severity: critical }
+        annotations:
+          summary: The queue of the REAL decisions did not succeed in 1 minute; no new REAL order is created.
+          threshold: "1"
+          window_seconds: "60"
+          job: queue
+      - alert: RealExecutionJobStalledDriver
+        # U4-NFR5.14: no successful run of the order driver in 1 minute, or the job never published.
+        expr: >
+          sum(increase(real_execution_job_runs_total{job="driver"}[1m])) < 1
+          or absent(real_execution_job_runs_total{job="driver"})
+        labels: { severity: critical }
+        annotations:
+          summary: The driver of the REAL orders did not succeed in 1 minute; quotes and sends wait.
+          threshold: "1"
+          window_seconds: "60"
+          job: driver
+      - alert: RealExecutionJobStalledConfirmation
+        # U4-NFR5.14: no successful run of the confirmation in 1 minute, or the job never published.
+        expr: >
+          sum(increase(real_execution_job_runs_total{job="confirmation"}[1m])) < 1
+          or absent(real_execution_job_runs_total{job="confirmation"})
+        labels: { severity: critical }
+        annotations:
+          summary: The confirmation of the REAL orders did not succeed in 1 minute; sent orders wait for a final state.
+          threshold: "1"
+          window_seconds: "60"
+          job: confirmation
+      - alert: RealExecutionJobStalledAmbiguous
+        # U4-NFR5.14: no successful run of the ambiguous check in 5 minutes, or the job never published.
+        expr: >
+          sum(increase(real_execution_job_runs_total{job="ambiguous"}[5m])) < 1
+          or absent(real_execution_job_runs_total{job="ambiguous"})
+        labels: { severity: critical }
+        annotations:
+          summary: The check of the AMBIGUOUS orders did not succeed in 5 minutes; reserved money stays held.
+          threshold: "1"
+          window_seconds: "300"
+          job: ambiguous
+      - alert: RealExecutionJobStalledSigningDeadline
+        # U4-NFR5.14: no successful run of the signing deadline in 5 minutes, or the job never published.
+        expr: >
+          sum(increase(real_execution_job_runs_total{job="signing-deadline"}[5m])) < 1
+          or absent(real_execution_job_runs_total{job="signing-deadline"})
+        labels: { severity: critical }
+        annotations:
+          summary: The deadline of the signing sessions did not succeed in 5 minutes; expired sessions keep the reserve.
+          threshold: "1"
+          window_seconds: "300"
+          job: signing-deadline
+      - alert: RealExecutionJobStalledHealth
+        # U4-NFR5.14: no successful run of the provider health in 5 minutes, or the job never published.
+        expr: >
+          sum(increase(real_execution_job_runs_total{job="health"}[5m])) < 1
+          or absent(real_execution_job_runs_total{job="health"})
+        labels: { severity: critical }
+        annotations:
+          summary: The health of the providers did not succeed in 5 minutes; UPSTREAM pauses are not lifted.
+          threshold: "1"
+          window_seconds: "300"
+          job: health
+      - alert: RealExecutionJobStalledLiquidation
+        # U4-NFR5.14: no successful run of the liquidation in 5 minutes, or the job never published.
+        expr: >
+          sum(increase(real_execution_job_runs_total{job="liquidation"}[5m])) < 1
+          or absent(real_execution_job_runs_total{job="liquidation"})
+        labels: { severity: critical }
+        annotations:
+          summary: The liquidation did not succeed in 5 minutes; "vender tudo e sacar" waits.
+          threshold: "1"
+          window_seconds: "300"
+          job: liquidation
+      - alert: RealExecutionSlow
+        # U4-NFR5.13: p95 from the decision to the send of AUTO_FULL above 3 seconds for 10 minutes.
+        expr: >
+          histogram_quantile(0.95, sum by (le) (rate(real_order_decision_to_send_seconds_bucket{mode="AUTO_FULL"}[10m])))
+          > 3
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: The p95 from the decision to the send of AUTO_FULL is above 3 seconds for 10 minutes (informative).
+          threshold: "3"
+          window_seconds: "600"
+          cloud: deferred

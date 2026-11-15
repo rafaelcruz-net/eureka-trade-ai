@@ -13,7 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * range stops it with a message that names the environment variable, never the value of a secret (none of these is a
  * secret).
  *
- * @param sources active simulated sources ({@code MARKET_SOURCES}), a non-empty subset of {@code sim-a,sim-b}
+ * @param sources active sources ({@code MARKET_SOURCES}), a non-empty subset of {@code sim-a,sim-b,coingecko}
  * @param collectInterval interval of each source ({@code MARKET_COLLECTION_INTERVAL}), 5 s to 60 s
  * @param divergenceTolerancePercent tolerance per field in percentage points, scale up to 4, 0 to 100
  *     ({@code MARKET_DIVERGENCE_TOLERANCE_PERCENT})
@@ -23,8 +23,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record MarketDataProperties(
         List<String> sources, Duration collectInterval, BigDecimal divergenceTolerancePercent, Simulated simulated) {
 
-    /** Identifiers of the simulated adapters available in the beta (C-06: no real source before G0). */
-    public static final Set<String> KNOWN_SOURCES = Set.of("sim-a", "sim-b");
+    /** Identifiers of the simulated adapters (local and test environments only with REAL on, BR1.6 of U2). */
+    public static final Set<String> SIMULATED_SOURCES = Set.of("sim-a", "sim-b");
+
+    /** 261113-trading-real-bot U2: the real source {@code coingecko}, collected only by the worker. */
+    public static final String COINGECKO = "coingecko";
+
+    /** Every source id accepted in {@code MARKET_SOURCES}: the simulated ones and the real CoinGecko (U2). */
+    public static final Set<String> KNOWN_SOURCES = Set.of("sim-a", "sim-b", COINGECKO);
 
     static final Duration MIN_INTERVAL = Duration.ofSeconds(5);
     static final Duration MAX_INTERVAL = Duration.ofSeconds(60);
@@ -35,7 +41,8 @@ public record MarketDataProperties(
                 || sources.isEmpty()
                 || !KNOWN_SOURCES.containsAll(sources)
                 || new LinkedHashSet<>(sources).size() != sources.size()) {
-            throw invalid("MARKET_SOURCES", "a comma-separated list of distinct values among sim-a and sim-b");
+            throw invalid(
+                    "MARKET_SOURCES", "a comma-separated list of distinct values among sim-a, sim-b and coingecko");
         }
         sources = List.copyOf(sources);
         if (collectInterval == null
@@ -52,6 +59,16 @@ public record MarketDataProperties(
         if (simulated == null) {
             throw invalid("MARKET_SIMULATED_TOKENS_PER_SOURCE", "configured");
         }
+    }
+
+    /** True when {@code MARKET_SOURCES} names a simulated source (sim-a or sim-b). */
+    public boolean anySimulated() {
+        return sources.stream().anyMatch(SIMULATED_SOURCES::contains);
+    }
+
+    /** True when {@code MARKET_SOURCES} names the real CoinGecko source. */
+    public boolean coingeckoConfigured() {
+        return sources.contains(COINGECKO);
     }
 
     /**

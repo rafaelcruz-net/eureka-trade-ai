@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-COMPOSE=(docker compose -f docker-compose.yml -f infra/docker-compose.test.yml)
+COMPOSE=(docker compose -f docker-compose.yml -f infra/docker-compose.test.yml -f infra/docker-compose.real.yml)
 KEY_DIR="$(mktemp -d)"
 KEY_FILE="$KEY_DIR/smoke-wallet.json"
 ADMIN_KEY_FILE="$KEY_DIR/smoke-admin-wallet.json"
@@ -67,6 +67,12 @@ fi
 # with or without a .env (a value already in the environment or in .env wins).
 export MEMETRADE_AUDIT_WALLET_HMAC_KEY="${MEMETRADE_AUDIT_WALLET_HMAC_KEY:-$(openssl rand -hex 32)}"
 
+# 261113-trading-real-bot U1: TxSigner secrets (ephemeral unless already in the environment or .env) and its image.
+export TXSIGNER_DB_OWNER_PASSWORD="${TXSIGNER_DB_OWNER_PASSWORD:-$(random_secret)}"
+export TXSIGNER_DB_PASSWORD="${TXSIGNER_DB_PASSWORD:-$(random_secret)}"
+export TXSIGNER_SERVICE_TOKEN="${TXSIGNER_SERVICE_TOKEN:-$(openssl rand -hex 32)}"
+docker build -t "memetrade-txsigner:${IMAGE_TAG:-local}" apps/txsigner
+
 log "generating the smoke wallet (test-scope tool)"
 sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml test-compile exec:java \
   -Dexec.classpathScope=test \
@@ -113,7 +119,8 @@ service_health() {
 log "waiting for the four services to be healthy (<= ${HEALTH_TIMEOUT_S}s)"
 deadline=$((SECONDS + HEALTH_TIMEOUT_S))
 until [ "$(service_health postgres)" = healthy ] && [ "$(service_health api)" = healthy ] \
-  && [ "$(service_health web)" = healthy ] && [ "$(service_health admin)" = healthy ]; do
+  && [ "$(service_health web)" = healthy ] && [ "$(service_health admin)" = healthy ] \
+  && [ "$(service_health txsigner)" = healthy ] && [ "$(service_health solana-validator)" = healthy ]; do
   [ "$SECONDS" -lt "$deadline" ] || { log "timeout waiting for healthy services"; exit 1; }
   sleep 3
 done
@@ -146,12 +153,13 @@ SMOKE_WALLET_FILE="$KEY_FILE" \
   MANAGEMENT_BASE_URL="http://localhost:8081" \
   SMOKE_INVITE_CODE="$SMOKE_INVITE_CODE" \
   SMOKE_ANONYMIZATION_INVITE_CODE="$SMOKE_ANONYMIZATION_INVITE_CODE" \
+  SOLANA_RPC_URL="http://127.0.0.1:8899" \
   DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB:-memetrade}" \
   "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl e2e/u5-bots-decision e2e/u8-admin-feedback e2e/u9-dashboard e2e/u3-identity-access e2e/legal-documents \
-    e2e/reacceptance e2e/data-requests e2e/anonymization
+    e2e/reacceptance e2e/data-requests e2e/anonymization e2e/real-bot-wallet
 
 log "scanning the api, worker and admin logs for full wallet addresses and the feedback text (NFR7.3)"
-SERVICE_LOGS="$("${COMPOSE[@]}" logs --no-color api worker admin)"
+SERVICE_LOGS="$("${COMPOSE[@]}" logs --no-color api worker admin txsigner )"
 for needle in "$SMOKE_BETA_WALLET_ADDRESS" "$ADMIN_WALLET_ADDRESSES" "$SMOKE_FEEDBACK_MARKER" "$SMOKE_INVITE_CODE" \
   "$SMOKE_ANONYMIZATION_INVITE_CODE"; do
   if printf '%s' "$SERVICE_LOGS" | grep -qF "$needle"; then

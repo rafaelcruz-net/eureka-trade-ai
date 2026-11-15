@@ -37,6 +37,8 @@ public class MarketHistoryCleanup {
     static final Duration RETENTION = Duration.ofHours(24);
     static final Duration LOCK_AT_MOST_FOR = Duration.ofMinutes(10);
     static final String LOCK = "market-history-cleanup";
+    /** U2: months of {@code marketdata_provider_usage} kept besides the current one (13 months in all). */
+    static final int USAGE_MONTHS_KEPT = 12;
 
     private final JdbcClient jdbc;
     private final TransactionTemplate transactions;
@@ -98,6 +100,17 @@ public class MarketHistoryCleanup {
                             """).param("cutoff", cutoff).param("batch", BATCH).update());
             deleted += batch;
         } while (batch == BATCH);
+        // U2 (reliability-design.md "Orçamento"): the monthly call counters of the real sources are kept 13 months.
+        String oldestKeptMonth = java.time.YearMonth.from(started.atZone(java.time.ZoneOffset.UTC))
+                .minusMonths(USAGE_MONTHS_KEPT)
+                .toString();
+        int usageDeleted =
+                transactions.execute(status -> jdbc.sql("delete from marketdata_provider_usage where month < :oldest")
+                        .param("oldest", oldestKeptMonth)
+                        .update());
+        if (usageDeleted > 0) {
+            log.info("Market provider usage rows older than 13 months deleted: rows={}", usageDeleted);
+        }
         timer.stop(Timer.builder("market_history_cleanup_duration_seconds").register(meters));
         Counter.builder("market_history_cleanup_deleted_total").register(meters).increment(deleted);
         samples.set(jdbc.sql("select count(*) from observation_sample")

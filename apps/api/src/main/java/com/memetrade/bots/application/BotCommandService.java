@@ -81,6 +81,13 @@ public class BotCommandService {
     private final Clock clock;
     private final ObjectMapper json;
     private final TransactionTemplate transactions;
+    private com.memetrade.botwallet.api.RealStateQuery realState;
+
+    /** 261113-trading-real-bot U4 (BR1.1): the REAL state of the person, read when a REAL bot is created. */
+    @org.springframework.beans.factory.annotation.Autowired
+    void useRealState(com.memetrade.botwallet.api.RealStateQuery realState) {
+        this.realState = realState;
+    }
 
     public BotCommandService(
             JdbcBotRepository bots,
@@ -113,51 +120,68 @@ public class BotCommandService {
 
     /** BR1.1: a DRAFT from a template with its default parameters; the owner row is created on the first bot. */
     public IdempotentResponse create(Principal person, String templateId, String name, IdempotencyKey key) {
-        return command(
-                person,
-                IdempotentOperation.BOT_CREATE,
-                key,
-                "create:" + templateId + ":" + name,
-                201,
-                () -> null,
-                nothing -> {
-                    StrategyTemplate template = StrategyTemplates.find(templateId)
-                            .orElseThrow(() -> invalid("templateId", "Estratégia modelo desconhecida."));
-                    String trimmed = name == null ? "" : name.trim();
-                    if (trimmed.isEmpty() || trimmed.length() > 60) {
-                        throw invalid("name", "Informe um nome de 1 a 60 caracteres.");
-                    }
-                    Instant now = clock.instant();
-                    TenantScope scope = TenantScope.of(person);
-                    bots.ensureOwner(scope, now);
-                    Bot bot = new Bot(
-                            UUID.randomUUID(),
-                            scope,
-                            trimmed,
-                            template.templateId(),
-                            template.version(),
-                            template.defaults(),
-                            TokenSelection.empty(),
-                            Optional.empty(),
-                            BotStatus.of(com.memetrade.bots.api.BotState.DRAFT),
-                            0,
-                            1,
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            Optional.empty(),
-                            now,
-                            now,
-                            0);
-                    bots.insert(bot);
-                    audit.byPerson(
-                            bot.ref(),
-                            AuditActions.BOT_CREATED,
-                            Map.of("templateId", template.templateId().name()));
-                    return bot;
-                });
+        return create(person, templateId, name, null, key);
+    }
+
+    /**
+     * 261113-trading-real-bot U4 (BR1.1): the market is chosen at creation and never changes; REAL needs an ACTIVE bot
+     * wallet of the person (M1 readRealState), otherwise 422 VALIDATION_FAILED on {@code market}.
+     */
+    public IdempotentResponse create(
+            Principal person, String templateId, String name, String market, IdempotencyKey key) {
+        com.memetrade.bots.domain.BotMarket chosen;
+        try {
+            chosen = market == null
+                    ? com.memetrade.bots.domain.BotMarket.PAPER
+                    : com.memetrade.bots.domain.BotMarket.valueOf(market);
+        } catch (IllegalArgumentException unknown) {
+            throw invalid("market", "Informe PAPER ou REAL.");
+        }
+        if (chosen == com.memetrade.bots.domain.BotMarket.REAL
+                && realState.readRealState(person.tenantId(), person.userId()).isEmpty()) {
+            throw invalid("market", "Ative a carteira do bot antes de criar um bot REAL.");
+        }
+        String content = "create:" + templateId + ":" + name
+                + (chosen == com.memetrade.bots.domain.BotMarket.REAL ? ":REAL" : "");
+        return command(person, IdempotentOperation.BOT_CREATE, key, content, 201, () -> null, nothing -> {
+            StrategyTemplate template = StrategyTemplates.find(templateId)
+                    .orElseThrow(() -> invalid("templateId", "Estratégia modelo desconhecida."));
+            String trimmed = name == null ? "" : name.trim();
+            if (trimmed.isEmpty() || trimmed.length() > 60) {
+                throw invalid("name", "Informe um nome de 1 a 60 caracteres.");
+            }
+            Instant now = clock.instant();
+            TenantScope scope = TenantScope.of(person);
+            bots.ensureOwner(scope, now);
+            Bot bot = new Bot(
+                    UUID.randomUUID(),
+                    scope,
+                    trimmed,
+                    template.templateId(),
+                    template.version(),
+                    template.defaults(),
+                    TokenSelection.empty(),
+                    Optional.empty(),
+                    BotStatus.of(com.memetrade.bots.api.BotState.DRAFT),
+                    0,
+                    1,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    now,
+                    now,
+                    0,
+                    chosen);
+            bots.insert(bot);
+            audit.byPerson(
+                    bot.ref(),
+                    AuditActions.BOT_CREATED,
+                    Map.of("templateId", template.templateId().name()));
+            return bot;
+        });
     }
 
     /** BR1.1, BR1.7: one step of the wizard; editing a VALIDATED bot returns it to DRAFT. */
@@ -193,7 +217,8 @@ public class BotCommandService {
                             .status(change.after())
                             .activatedAt(now)
                             .updatedAt(now);
-                    if (bot.fundedAt().isEmpty()) {
+                    // 261113-trading-real-bot U4 (U4-NFR2.1): a REAL bot never funds nor writes the PAPER ledger.
+                    if (bot.fundedAt().isEmpty() && !bot.real()) {
                         BigDecimal amount = bot.virtualBalance()
                                 .orElseThrow(() -> new IllegalStateException("A VALIDATED bot has a virtual balance"));
                         if (!(paper.fund(botId, amount, "fund:" + botId) instanceof FundResult.Funded)) {

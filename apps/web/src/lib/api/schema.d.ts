@@ -397,6 +397,247 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/real/bot-wallet': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Carteira do bot do próprio usuário */
+    get: operations['getBotWallet'];
+    put?: never;
+    /** Ativa a carteira do bot */
+    post: operations['activateBotWallet'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/bot-wallet/deposits': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Depósitos detectados */
+    get: operations['listRealDeposits'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/bot-wallet/preferences': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Teto, derrapagem e pausa */
+    patch: operations['changeRealPreferences'];
+    trace?: never;
+  };
+  '/api/v1/real/bot-wallet/resume': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Retoma o REAL pausado pelo próprio usuário */
+    post: operations['resumeReal'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/bot-wallet/withdrawals': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Saques */
+    get: operations['listRealWithdrawals'];
+    put?: never;
+    /** Saque só para a carteira principal */
+    post: operations['requestRealWithdrawal'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/bot-wallet/withdrawals/{withdrawalId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Um saque */
+    get: operations['getRealWithdrawal'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/consents/challenge': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Emite o desafio de consentimento */
+    post: operations['issueRealConsentChallenge'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/liquidations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Vender tudo e sacar */
+    post: operations['startRealLiquidation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/mode': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Troca o modo: rebaixar é imediato; subir exige o consentimento da carteira principal */
+    put: operations['changeRealMode'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/orders': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Ordens REAL da pessoa, mais recentes primeiro */
+    get: operations['listRealOrders'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/orders/{realOrderId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Uma ordem REAL da pessoa */
+    get: operations['getRealOrder'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/orders/{realOrderId}/reject': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** A pessoa recusa a assinatura; a ordem é cancelada */
+    post: operations['rejectRealSigning'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/orders/{realOrderId}/signing-session': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Modo Assinada: a transação montada pelo servidor para a carteira principal assinar */
+    get: operations['getRealSigningSession'];
+    put?: never;
+    /** Recebe a transação assinada pela carteira principal; o servidor confere, cossigna e envia */
+    post: operations['submitRealSignedTransaction'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/pnl': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** P&L REAL com taxas, nunca misturado com PAPER */
+    get: operations['getRealPnl'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/reconciliation': {
     parameters: {
       query?: never;
@@ -592,6 +833,8 @@ export interface components {
       computedAt: string;
       /** @description Percentual */
       coverage: string;
+      /** @description Fonte real ou simulada e atribuição (U2) */
+      dataSource: components['schemas']['DataSource'];
       /**
        * @description NO_TRADE quando indisponível (FR6.2)
        * @enum {string}
@@ -615,6 +858,15 @@ export interface components {
       input: components['schemas']['MarketValue'];
       label: string;
       weight: string;
+    };
+    Attribution: {
+      /** @description Texto exibido, por exemplo "Dados: CoinGecko" */
+      text: string;
+      /**
+       * Format: uri
+       * @description Link HTTPS do fornecedor
+       */
+      url: string;
     };
     AvailableRisk: {
       /** @enum {string} */
@@ -683,6 +935,11 @@ export interface components {
       draftStep?: number;
       /** Format: int32 */
       limitsVersion?: number;
+      /**
+       * @description 261113-trading-real-bot U4 (BR1.1): mercado do bot, fixo desde a criação
+       * @enum {string}
+       */
+      market: 'PAPER' | 'REAL';
       /** @enum {string} */
       mode: 'PAPER';
       name: string;
@@ -701,6 +958,20 @@ export interface components {
       templateId?: string;
       /** Format: date-time */
       updatedAt?: string;
+    };
+    BotWalletView: {
+      address?: string;
+      balance?: components['schemas']['RealBalanceView'];
+      capLamports?: string;
+      mainWalletAddress?: string;
+      maxCapLamports?: string;
+      /** Format: int32 */
+      maxSlippageBps?: number;
+      mode?: string;
+      network?: string;
+      pausedReason?: string;
+      policyResetRequired?: boolean;
+      status?: string;
     };
     ChallengeRequest: {
       /** @description Endereço público Solana */
@@ -724,6 +995,11 @@ export interface components {
       total: number;
     };
     CreateBotRequest: {
+      /**
+       * @description 261113-trading-real-bot U4 (BR1.1): mercado do bot, PAPER por padrão; REAL exige carteira do bot ativa; nunca muda depois da criação
+       * @enum {string}
+       */
+      market?: 'PAPER' | 'REAL';
       name: string;
       templateId: string;
     };
@@ -797,6 +1073,15 @@ export interface components {
       status: 'RECEIVED' | 'AWAITING_VERIFICATION' | 'IN_PROGRESS' | 'DONE' | 'REFUSED';
       /** @enum {string} */
       type: 'ACCESS' | 'CORRECTION' | 'DELETION' | 'OTHER';
+    };
+    DataSource: {
+      /** @description Atribuição exigida pelo fornecedor da fonte real; ausente sem fonte real */
+      attribution?: components['schemas']['Attribution'];
+      /**
+       * @description SIMULATED quando alguma fonte configurada é simulada
+       * @enum {string}
+       */
+      kind: 'REAL' | 'SIMULATED';
     };
     /** @description Uso do dia UTC; os limites vêm da U5 na tela (BR7.5) */
     DayUsage: {
@@ -1176,6 +1461,211 @@ export interface components {
       /** Format: uri */
       type: string;
     };
+    RealActivationRequest: {
+      /** Format: uuid */
+      challengeId?: string;
+      signature?: string;
+    };
+    RealBalanceView: {
+      aboveCapLamports?: string;
+      /** Format: date-time */
+      asOf?: string;
+      feeReserveLamports?: string;
+      freeLamports?: string;
+      operableLamports?: string;
+      reservedLamports?: string;
+      totalLamports?: string;
+    };
+    RealChallengeRequest: {
+      capLamports?: string;
+      /** @enum {string} */
+      kind?: 'ACTIVATE' | 'RAISE_MODE' | 'RAISE_CAP';
+      /** @enum {string} */
+      mode?: 'SIGNED' | 'AUTO_EXITS' | 'AUTO_FULL';
+    };
+    RealChallengeView: {
+      /** Format: uuid */
+      challengeId?: string;
+      /** Format: date-time */
+      expiresAt?: string;
+      message?: string;
+      nonce?: string;
+    };
+    RealLiquidationView: {
+      /** Format: uuid */
+      liquidationId: string;
+    };
+    RealModeRequest: {
+      /** Format: uuid */
+      challengeId?: string;
+      /** @enum {string} */
+      mode: 'SIGNED' | 'AUTO_EXITS' | 'AUTO_FULL';
+      signature?: string;
+    };
+    RealModeView: {
+      /** @enum {string} */
+      mode: 'SIGNED' | 'AUTO_EXITS' | 'AUTO_FULL';
+    };
+    /** @description Ordem REAL (contrato R3) */
+    RealOrder: {
+      /** Format: uuid */
+      botId?: string;
+      /** Format: date-time */
+      createdAt: string;
+      failureCode?: string;
+      feeLamports?: string;
+      /** @enum {string} */
+      feePayer?: 'BOT_WALLET' | 'MAIN_WALLET';
+      input: components['schemas']['RealTokenAmount'];
+      /** Format: uuid */
+      liquidationId?: string;
+      minOutput?: components['schemas']['RealTokenAmount'];
+      /** @enum {string} */
+      operationMode: 'SIGNED' | 'AUTO_EXITS' | 'AUTO_FULL';
+      /** @enum {string} */
+      origin: 'BOT' | 'USER_LIQUIDATION';
+      /** @description saída lida da rede na confirmação, ou a esperada antes dela */
+      output?: components['schemas']['RealTokenAmount'];
+      /** Format: uuid */
+      realOrderId: string;
+      /** @enum {string} */
+      side: 'BUY' | 'SELL';
+      /** Format: date-time */
+      signingDeadline?: string;
+      /** @enum {string} */
+      state:
+        | 'PROPOSED'
+        | 'QUOTED'
+        | 'SIGNED'
+        | 'SENT'
+        | 'CONFIRMED'
+        | 'FAILED'
+        | 'AMBIGUOUS'
+        | 'CANCELLED';
+      txSignature?: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    RealOrderPage: {
+      items: components['schemas']['RealOrder'][];
+      nextCursor?: string;
+      /** Format: int64 */
+      total: number;
+    };
+    /** @description data do evento real.order.state (R6) */
+    RealOrderStateChanged: {
+      /** Format: date-time */
+      at: string;
+      /** Format: uuid */
+      realOrderId: string;
+      /** @enum {string} */
+      state:
+        | 'PROPOSED'
+        | 'QUOTED'
+        | 'SIGNED'
+        | 'SENT'
+        | 'CONFIRMED'
+        | 'FAILED'
+        | 'AMBIGUOUS'
+        | 'CANCELLED';
+      /** @enum {string} */
+      type: 'REAL_ORDER_STATE';
+    };
+    RealPage: {
+      items?: components['schemas']['RealWithdrawalView'][];
+      nextCursor?: string;
+      /** Format: int32 */
+      total?: number;
+    };
+    /** @description P&L REAL por custo médio, com taxas; nunca misturado com PAPER */
+    RealPnl: {
+      feesLamports: string;
+      positions: components['schemas']['RealPnlPosition'][];
+      realizedLamports: string;
+      /** @description ausente quando algum preço é desconhecido */
+      unrealizedLamports?: string;
+      /** @enum {string} */
+      unrealizedStatus: 'KNOWN' | 'UNKNOWN';
+    };
+    RealPnlPosition: {
+      baseUnits: string;
+      costLamports: string;
+      mint: string;
+      /** @enum {string} */
+      priceStatus: 'KNOWN' | 'UNKNOWN';
+      /** @description ausente quando o preço é desconhecido */
+      unrealizedLamports?: string;
+      /** @description ausente quando o preço é desconhecido */
+      valueLamports?: string;
+    };
+    RealPreferencesRequest: {
+      capLamports?: string;
+      /** Format: uuid */
+      challengeId?: string;
+      /** Format: int32 */
+      maxSlippageBps?: number;
+      paused?: boolean;
+      signature?: string;
+    };
+    RealSignedTransactionRequest: {
+      signedTransactionBase64: string;
+    };
+    /** @description O que a tela de assinatura mostra (AC3.2.1) */
+    RealSigningDisplay: {
+      expectedOutput: components['schemas']['RealTokenAmount'];
+      feeLamports: string;
+      input: components['schemas']['RealTokenAmount'];
+      minOutput: components['schemas']['RealTokenAmount'];
+      reason: string;
+      /** @enum {string} */
+      side: 'BUY' | 'SELL';
+    };
+    /** @description Sessão de assinatura do modo Assinada (R3) */
+    RealSigningSession: {
+      /** Format: date-time */
+      deadline: string;
+      display: components['schemas']['RealSigningDisplay'];
+      /** @description SHA-256 da mensagem montada */
+      messageDigest: string;
+      transactionBase64: string;
+    };
+    /** @description data do evento real.signing.requested (R6) */
+    RealSigningSessionOpened: {
+      /** Format: date-time */
+      deadline: string;
+      /** Format: uuid */
+      realOrderId: string;
+      /** @enum {string} */
+      type: 'REAL_SIGNING_REQUESTED';
+    };
+    /** @description Quantidade em unidades base, com as casas decimais do mint */
+    RealTokenAmount: {
+      baseUnits: string;
+      /**
+       * Format: int32
+       * @description casas decimais do mint; ausente quando desconhecidas
+       */
+      decimals?: number;
+      mint: string;
+    };
+    RealWithdrawalAmount: {
+      all?: boolean;
+      lamports?: string;
+    };
+    RealWithdrawalRequest: {
+      amount?: components['schemas']['RealWithdrawalAmount'];
+    };
+    RealWithdrawalView: {
+      feeLamports?: string;
+      kind?: string;
+      lamports?: string;
+      /** Format: date-time */
+      requestedAt?: string;
+      state?: string;
+      txSignature?: string;
+      /** Format: uuid */
+      withdrawalId?: string;
+    };
     ReconciliationDivergence: {
       /** Format: uuid */
       botId: string;
@@ -1252,6 +1742,8 @@ export interface components {
     };
     RiskSummary: components['schemas']['AvailableRisk'] | components['schemas']['UnavailableRisk'];
     ScannerPage: {
+      /** @description Fonte real ou simulada e atribuição (U2) */
+      dataSource: components['schemas']['DataSource'];
       /**
        * Format: int64
        * @description Tokens fora do filtro só por campo unknown, na foto inteira (AC2.2.2)
@@ -2416,6 +2908,385 @@ export interface operations {
       };
     };
   };
+  getBotWallet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotWalletView'];
+        };
+      };
+    };
+  };
+  activateBotWallet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealActivationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotWalletView'];
+        };
+      };
+    };
+  };
+  listRealDeposits: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealPage'];
+        };
+      };
+    };
+  };
+  changeRealPreferences: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealPreferencesRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotWalletView'];
+        };
+      };
+    };
+  };
+  resumeReal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['BotWalletView'];
+        };
+      };
+    };
+  };
+  listRealWithdrawals: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealPage'];
+        };
+      };
+    };
+  };
+  requestRealWithdrawal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealWithdrawalRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealWithdrawalView'];
+        };
+      };
+    };
+  };
+  getRealWithdrawal: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        withdrawalId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealWithdrawalView'];
+        };
+      };
+    };
+  };
+  issueRealConsentChallenge: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealChallengeRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealChallengeView'];
+        };
+      };
+    };
+  };
+  startRealLiquidation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealLiquidationView'];
+        };
+      };
+    };
+  };
+  changeRealMode: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealModeRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealModeView'];
+        };
+      };
+    };
+  };
+  listRealOrders: {
+    parameters: {
+      query?: {
+        botId?: string;
+        state?: string;
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealOrderPage'];
+        };
+      };
+    };
+  };
+  getRealOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        realOrderId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealOrder'];
+        };
+      };
+    };
+  };
+  rejectRealSigning: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        realOrderId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealOrder'];
+        };
+      };
+    };
+  };
+  getRealSigningSession: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        realOrderId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealSigningSession'];
+        };
+      };
+    };
+  };
+  submitRealSignedTransaction: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        realOrderId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealSignedTransactionRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealOrder'];
+        };
+      };
+    };
+  };
+  getRealPnl: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealPnl'];
+        };
+      };
+    };
+  };
   getReconciliation: {
     parameters: {
       query?: {
@@ -2589,7 +3460,9 @@ export interface operations {
             | components['schemas']['DashboardPnlUpdatedEvent']
             | components['schemas']['DashboardDataStatusEvent']
             | components['schemas']['DashboardHeartbeatEvent']
-            | components['schemas']['DashboardAuthExpiredEvent'];
+            | components['schemas']['DashboardAuthExpiredEvent']
+            | components['schemas']['RealOrderStateChanged']
+            | components['schemas']['RealSigningSessionOpened'];
         };
       };
       /** @description UNAUTHENTICATED */

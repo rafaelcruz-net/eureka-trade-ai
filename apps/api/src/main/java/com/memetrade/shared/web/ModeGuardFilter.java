@@ -40,7 +40,11 @@ public class ModeGuardFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !request.getRequestURI().startsWith("/api/");
+        // 261113-trading-real-bot (contract-summary.md "Modo"): the REAL routes exist only for the REAL; their
+        // "mode" field is the operation mode (SIGNED, AUTO_EXITS, AUTO_FULL), never the PAPER/REAL mode.
+        // The normalised path, never the raw URI: "/api/v1/real/%2e%2e/<PAPER route>" must not escape the guard.
+        String path = RequestPaths.normalized(request);
+        return !path.startsWith("/api/") || path.startsWith("/api/v1/real/");
     }
 
     @Override

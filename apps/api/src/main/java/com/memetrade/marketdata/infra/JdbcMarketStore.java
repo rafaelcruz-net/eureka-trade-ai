@@ -159,8 +159,11 @@ public class JdbcMarketStore implements MarketStore {
                 }
             });
             ObservedValue created = fields.get(MarketField.CREATED_AT);
-            creations.add(creationParams(
-                    token.token(), created == null ? Optional.empty() : MarketCollector.creationTime(created.value())));
+            // U2: a real source sends only the fields renewed in its round; without CREATED_AT the stored creation
+            // time (and the order columns) stay as they are. The simulated sources always send every field.
+            if (created != null) {
+                creations.add(creationParams(token.token(), MarketCollector.creationTime(created.value())));
+            }
         }
         run(UPSERT_TOKEN, tokens);
         run(UPSERT_OBSERVATION, observations);

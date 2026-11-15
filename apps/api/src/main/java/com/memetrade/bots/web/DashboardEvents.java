@@ -82,6 +82,54 @@ public final class DashboardEvents {
             @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
             String at) {}
 
+    /**
+     * 261113-trading-real-bot U4 (contract R6, BR10.1): {@code real.order.state}, a REAL order of the person changed its
+     * state; the app reads {@code GET /api/v1/real/orders/{id}} (the source of truth).
+     */
+    @Schema(name = "RealOrderStateChanged", description = "data do evento real.order.state (R6)")
+    public record RealOrderStateChanged(
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {"REAL_ORDER_STATE"})
+            String type,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "uuid")
+            UUID realOrderId,
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {
+                        "PROPOSED",
+                        "QUOTED",
+                        "SIGNED",
+                        "SENT",
+                        "CONFIRMED",
+                        "FAILED",
+                        "AMBIGUOUS",
+                        "CANCELLED"
+                    })
+            String state,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
+            String at) {}
+
+    /**
+     * 261113-trading-real-bot U4 (contract R6, BR4.2): {@code real.signing.requested}, a signing session of the SIGNED
+     * mode is open until {@code deadline}; the app opens the signing dialog.
+     */
+    @Schema(name = "RealSigningSessionOpened", description = "data do evento real.signing.requested (R6)")
+    public record RealSigningSessionOpened(
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {"REAL_SIGNING_REQUESTED"})
+            String type,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "uuid")
+            UUID realOrderId,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
+            String deadline) {}
+
     /** {@code auth.expired}: the access token expired; the channel closes right after. */
     @Schema(name = "DashboardAuthExpiredEvent", description = "data do evento auth.expired")
     public record AuthExpired(

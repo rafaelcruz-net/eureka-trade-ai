@@ -992,6 +992,355 @@ paths:
         do ou recusado"
       tags:
       - data-request-controller
+  /api/v1/real/bot-wallet:
+    get:
+      operationId: getBotWallet
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotWalletView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Carteira do bot do próprio usuário
+      tags:
+      - REAL — carteira do bot
+    post:
+      operationId: activateBotWallet
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealActivationRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotWalletView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Ativa a carteira do bot
+      tags:
+      - REAL — carteira do bot
+  /api/v1/real/bot-wallet/deposits:
+    get:
+      operationId: listRealDeposits
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealPage"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Depósitos detectados
+      tags:
+      - REAL — carteira do bot
+  /api/v1/real/bot-wallet/preferences:
+    patch:
+      operationId: changeRealPreferences
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealPreferencesRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotWalletView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Teto, derrapagem e pausa"
+      tags:
+      - REAL — carteira do bot
+  /api/v1/real/bot-wallet/resume:
+    post:
+      operationId: resumeReal
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotWalletView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Retoma o REAL pausado pelo próprio usuário
+      tags:
+      - REAL — carteira do bot
+  /api/v1/real/bot-wallet/withdrawals:
+    get:
+      operationId: listRealWithdrawals
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealPage"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Saques
+      tags:
+      - REAL — carteira do bot
+    post:
+      operationId: requestRealWithdrawal
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealWithdrawalRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealWithdrawalView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Saque só para a carteira principal
+      tags:
+      - REAL — carteira do bot
+  /api/v1/real/bot-wallet/withdrawals/{withdrawalId}:
+    get:
+      operationId: getRealWithdrawal
+      parameters:
+      - in: path
+        name: withdrawalId
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealWithdrawalView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Um saque
+      tags:
+      - REAL — carteira do bot
+  /api/v1/real/consents/challenge:
+    post:
+      operationId: issueRealConsentChallenge
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealChallengeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealChallengeView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Emite o desafio de consentimento
+      tags:
+      - REAL — carteira do bot
+  /api/v1/real/liquidations:
+    post:
+      operationId: startRealLiquidation
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealLiquidationView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Vender tudo e sacar
+      tags:
+      - REAL — ordens e modo
+  /api/v1/real/mode:
+    put:
+      operationId: changeRealMode
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealModeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealModeView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Troca o modo: rebaixar é imediato; subir exige o consentimento da\
+        \ carteira principal"
+      tags:
+      - REAL — ordens e modo
+  /api/v1/real/orders:
+    get:
+      operationId: listRealOrders
+      parameters:
+      - in: query
+        name: botId
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealOrderPage"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Ordens REAL da pessoa, mais recentes primeiro"
+      tags:
+      - REAL — ordens e modo
+  /api/v1/real/orders/{realOrderId}:
+    get:
+      operationId: getRealOrder
+      parameters:
+      - in: path
+        name: realOrderId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealOrder"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Uma ordem REAL da pessoa
+      tags:
+      - REAL — ordens e modo
+  /api/v1/real/orders/{realOrderId}/reject:
+    post:
+      operationId: rejectRealSigning
+      parameters:
+      - in: path
+        name: realOrderId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealOrder"
+          description: OK
+      security:
+      - accessToken: []
+      summary: A pessoa recusa a assinatura; a ordem é cancelada
+      tags:
+      - REAL — ordens e modo
+  /api/v1/real/orders/{realOrderId}/signing-session:
+    get:
+      operationId: getRealSigningSession
+      parameters:
+      - in: path
+        name: realOrderId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealSigningSession"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Modo Assinada: a transação montada pelo servidor para a carteira principal\
+        \ assinar"
+      tags:
+      - REAL — ordens e modo
+    post:
+      operationId: submitRealSignedTransaction
+      parameters:
+      - in: path
+        name: realOrderId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealSignedTransactionRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealOrder"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Recebe a transação assinada pela carteira principal; o servidor confere,\
+        \ cossigna e envia"
+      tags:
+      - REAL — ordens e modo
+  /api/v1/real/pnl:
+    get:
+      operationId: getRealPnl
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealPnl"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "P&L REAL com taxas, nunca misturado com PAPER"
+      tags:
+      - REAL — ordens e modo
   /api/v1/reconciliation:
     get:
       operationId: getReconciliation
@@ -1199,6 +1548,8 @@ paths:
                 - $ref: "#/components/schemas/DashboardDataStatusEvent"
                 - $ref: "#/components/schemas/DashboardHeartbeatEvent"
                 - $ref: "#/components/schemas/DashboardAuthExpiredEvent"
+                - $ref: "#/components/schemas/RealOrderStateChanged"
+                - $ref: "#/components/schemas/RealSigningSessionOpened"
           description: "Fluxo de eventos do painel. Cada evento tem id (b<marca>.l<marca>.s<marca>,\
             \ só para Last-Event-ID), event (o nome) e data: o JSON de um destes envelopes,\
             \ conforme o nome: bot.state DashboardBotStateEvent, trade.recorded DashboardTradeRecordedEvent,\
@@ -1495,6 +1846,9 @@ components:
           type: string
           description: Percentual
           pattern: ^-?\d+(\.\d+)?$
+        dataSource:
+          $ref: "#/components/schemas/DataSource"
+          description: Fonte real ou simulada e atribuição (U2)
         decisionHint:
           type: string
           description: NO_TRADE quando indisponível (FR6.2)
@@ -1520,6 +1874,7 @@ components:
       - bandRaisedByUnknown
       - computedAt
       - coverage
+      - dataSource
       - decisionHint
       - factors
       - inValidation
@@ -1562,6 +1917,20 @@ components:
       - input
       - label
       - weight
+    Attribution:
+      type: object
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          description: "Texto exibido, por exemplo \"Dados: CoinGecko\""
+        url:
+          type: string
+          format: uri
+          description: Link HTTPS do fornecedor
+      required:
+      - text
+      - url
     AvailableRisk:
       type: object
       additionalProperties: false
@@ -1715,6 +2084,13 @@ components:
         limitsVersion:
           type: integer
           format: int32
+        market:
+          type: string
+          description: "261113-trading-real-bot U4 (BR1.1): mercado do bot, fixo desde\
+            \ a criação"
+          enum:
+          - PAPER
+          - REAL
         mode:
           type: string
           enum:
@@ -1751,10 +2127,38 @@ components:
           format: date-time
       required:
       - botId
+      - market
       - mode
       - name
       - pauseReasons
       - state
+    BotWalletView:
+      type: object
+      additionalProperties: false
+      properties:
+        address:
+          type: string
+        balance:
+          $ref: "#/components/schemas/RealBalanceView"
+        capLamports:
+          type: string
+        mainWalletAddress:
+          type: string
+        maxCapLamports:
+          type: string
+        maxSlippageBps:
+          type: integer
+          format: int32
+        mode:
+          type: string
+        network:
+          type: string
+        pausedReason:
+          type: string
+        policyResetRequired:
+          type: boolean
+        status:
+          type: string
     ChallengeRequest:
       type: object
       additionalProperties: false
@@ -1808,6 +2212,14 @@ components:
       type: object
       additionalProperties: false
       properties:
+        market:
+          type: string
+          description: "261113-trading-real-bot U4 (BR1.1): mercado do bot, PAPER\
+            \ por padrão; REAL exige carteira do bot ativa; nunca muda depois da criaç\
+            ão"
+          enum:
+          - PAPER
+          - REAL
         name:
           type: string
           maxLength: 60
@@ -1995,6 +2407,22 @@ components:
       - response
       - status
       - type
+    DataSource:
+      type: object
+      additionalProperties: false
+      properties:
+        attribution:
+          $ref: "#/components/schemas/Attribution"
+          description: Atribuição exigida pelo fornecedor da fonte real; ausente sem
+            fonte real
+        kind:
+          type: string
+          description: SIMULATED quando alguma fonte configurada é simulada
+          enum:
+          - REAL
+          - SIMULATED
+      required:
+      - kind
     DayUsage:
       type: object
       additionalProperties: false
@@ -2876,6 +3304,444 @@ components:
       - status
       - title
       - type
+    RealActivationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        signature:
+          type: string
+    RealBalanceView:
+      type: object
+      additionalProperties: false
+      properties:
+        aboveCapLamports:
+          type: string
+        asOf:
+          type: string
+          format: date-time
+        feeReserveLamports:
+          type: string
+        freeLamports:
+          type: string
+        operableLamports:
+          type: string
+        reservedLamports:
+          type: string
+        totalLamports:
+          type: string
+    RealChallengeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        capLamports:
+          type: string
+        kind:
+          type: string
+          enum:
+          - ACTIVATE
+          - RAISE_MODE
+          - RAISE_CAP
+        mode:
+          type: string
+          enum:
+          - SIGNED
+          - AUTO_EXITS
+          - AUTO_FULL
+    RealChallengeView:
+      type: object
+      additionalProperties: false
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        expiresAt:
+          type: string
+          format: date-time
+        message:
+          type: string
+        nonce:
+          type: string
+    RealLiquidationView:
+      type: object
+      additionalProperties: false
+      properties:
+        liquidationId:
+          type: string
+          format: uuid
+      required:
+      - liquidationId
+    RealModeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        challengeId:
+          type: string
+          format: uuid
+        mode:
+          type: string
+          enum:
+          - SIGNED
+          - AUTO_EXITS
+          - AUTO_FULL
+        signature:
+          type: string
+          pattern: "^[1-9A-HJ-NP-Za-km-z]{64,90}$"
+      required:
+      - mode
+    RealModeView:
+      type: object
+      additionalProperties: false
+      properties:
+        mode:
+          type: string
+          enum:
+          - SIGNED
+          - AUTO_EXITS
+          - AUTO_FULL
+      required:
+      - mode
+    RealOrder:
+      type: object
+      additionalProperties: false
+      description: Ordem REAL (contrato R3)
+      properties:
+        botId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        failureCode:
+          type: string
+        feeLamports:
+          type: string
+          pattern: "^[0-9]{1,20}$"
+        feePayer:
+          type: string
+          enum:
+          - BOT_WALLET
+          - MAIN_WALLET
+        input:
+          $ref: "#/components/schemas/RealTokenAmount"
+        liquidationId:
+          type: string
+          format: uuid
+        minOutput:
+          $ref: "#/components/schemas/RealTokenAmount"
+        operationMode:
+          type: string
+          enum:
+          - SIGNED
+          - AUTO_EXITS
+          - AUTO_FULL
+        origin:
+          type: string
+          enum:
+          - BOT
+          - USER_LIQUIDATION
+        output:
+          $ref: "#/components/schemas/RealTokenAmount"
+          description: "saída lida da rede na confirmação, ou a esperada antes dela"
+        realOrderId:
+          type: string
+          format: uuid
+        side:
+          type: string
+          enum:
+          - BUY
+          - SELL
+        signingDeadline:
+          type: string
+          format: date-time
+        state:
+          type: string
+          enum:
+          - PROPOSED
+          - QUOTED
+          - SIGNED
+          - SENT
+          - CONFIRMED
+          - FAILED
+          - AMBIGUOUS
+          - CANCELLED
+        txSignature:
+          type: string
+          pattern: "^[1-9A-HJ-NP-Za-km-z]{64,90}$"
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - createdAt
+      - input
+      - operationMode
+      - origin
+      - realOrderId
+      - side
+      - state
+      - updatedAt
+    RealOrderPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealOrder"
+        nextCursor:
+          type: string
+        total:
+          type: integer
+          format: int64
+      required:
+      - items
+      - total
+    RealOrderStateChanged:
+      type: object
+      additionalProperties: false
+      description: data do evento real.order.state (R6)
+      properties:
+        at:
+          type: string
+          format: date-time
+        realOrderId:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+          - PROPOSED
+          - QUOTED
+          - SIGNED
+          - SENT
+          - CONFIRMED
+          - FAILED
+          - AMBIGUOUS
+          - CANCELLED
+        type:
+          type: string
+          enum:
+          - REAL_ORDER_STATE
+      required:
+      - at
+      - realOrderId
+      - state
+      - type
+    RealPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealWithdrawalView"
+        nextCursor:
+          type: string
+        total:
+          type: integer
+          format: int32
+    RealPnl:
+      type: object
+      additionalProperties: false
+      description: "P&L REAL por custo médio, com taxas; nunca misturado com PAPER"
+      properties:
+        feesLamports:
+          type: string
+          pattern: "^[0-9]{1,20}$"
+        positions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealPnlPosition"
+        realizedLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        unrealizedLamports:
+          type: string
+          description: ausente quando algum preço é desconhecido
+        unrealizedStatus:
+          type: string
+          enum:
+          - KNOWN
+          - UNKNOWN
+      required:
+      - feesLamports
+      - positions
+      - realizedLamports
+      - unrealizedStatus
+    RealPnlPosition:
+      type: object
+      additionalProperties: false
+      properties:
+        baseUnits:
+          type: string
+          pattern: "^[0-9]{1,20}$"
+        costLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        mint:
+          type: string
+        priceStatus:
+          type: string
+          enum:
+          - KNOWN
+          - UNKNOWN
+        unrealizedLamports:
+          type: string
+          description: ausente quando o preço é desconhecido
+        valueLamports:
+          type: string
+          description: ausente quando o preço é desconhecido
+      required:
+      - baseUnits
+      - costLamports
+      - mint
+      - priceStatus
+    RealPreferencesRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        capLamports:
+          type: string
+        challengeId:
+          type: string
+          format: uuid
+        maxSlippageBps:
+          type: integer
+          format: int32
+        paused:
+          type: boolean
+        signature:
+          type: string
+    RealSignedTransactionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        signedTransactionBase64:
+          type: string
+          maxLength: 1700
+      required:
+      - signedTransactionBase64
+    RealSigningDisplay:
+      type: object
+      additionalProperties: false
+      description: O que a tela de assinatura mostra (AC3.2.1)
+      properties:
+        expectedOutput:
+          $ref: "#/components/schemas/RealTokenAmount"
+        feeLamports:
+          type: string
+          pattern: "^[0-9]{1,20}$"
+        input:
+          $ref: "#/components/schemas/RealTokenAmount"
+        minOutput:
+          $ref: "#/components/schemas/RealTokenAmount"
+        reason:
+          type: string
+          maxLength: 500
+        side:
+          type: string
+          enum:
+          - BUY
+          - SELL
+      required:
+      - expectedOutput
+      - feeLamports
+      - input
+      - minOutput
+      - reason
+      - side
+    RealSigningSession:
+      type: object
+      additionalProperties: false
+      description: Sessão de assinatura do modo Assinada (R3)
+      properties:
+        deadline:
+          type: string
+          format: date-time
+        display:
+          $ref: "#/components/schemas/RealSigningDisplay"
+        messageDigest:
+          type: string
+          description: SHA-256 da mensagem montada
+        transactionBase64:
+          type: string
+      required:
+      - deadline
+      - display
+      - messageDigest
+      - transactionBase64
+    RealSigningSessionOpened:
+      type: object
+      additionalProperties: false
+      description: data do evento real.signing.requested (R6)
+      properties:
+        deadline:
+          type: string
+          format: date-time
+        realOrderId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+          - REAL_SIGNING_REQUESTED
+      required:
+      - deadline
+      - realOrderId
+      - type
+    RealTokenAmount:
+      type: object
+      additionalProperties: false
+      description: "Quantidade em unidades base, com as casas decimais do mint"
+      properties:
+        baseUnits:
+          type: string
+          pattern: "^[0-9]{1,30}$"
+        decimals:
+          type: integer
+          format: int32
+          description: casas decimais do mint; ausente quando desconhecidas
+        mint:
+          type: string
+      required:
+      - baseUnits
+      - mint
+    RealWithdrawalAmount:
+      type: object
+      additionalProperties: false
+      properties:
+        all:
+          type: boolean
+        lamports:
+          type: string
+    RealWithdrawalRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        amount:
+          $ref: "#/components/schemas/RealWithdrawalAmount"
+    RealWithdrawalView:
+      type: object
+      additionalProperties: false
+      properties:
+        feeLamports:
+          type: string
+        kind:
+          type: string
+        lamports:
+          type: string
+        requestedAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+        txSignature:
+          type: string
+        withdrawalId:
+          type: string
+          format: uuid
     ReconciliationDivergence:
       type: object
       additionalProperties: false
@@ -3051,6 +3917,9 @@ components:
       type: object
       additionalProperties: false
       properties:
+        dataSource:
+          $ref: "#/components/schemas/DataSource"
+          description: Fonte real ou simulada e atribuição (U2)
         excludedByUnknown:
           type: integer
           format: int64
@@ -3077,6 +3946,7 @@ components:
           type: integer
           format: int64
       required:
+      - dataSource
       - excludedByUnknown
       - items
       - nextCursor

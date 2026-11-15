@@ -21,6 +21,14 @@ public final class SyntheticIds {
         return encode(bytes);
     }
 
+    /** 261113-trading-real-bot U4: a synthetic on-chain transaction signature (64 random bytes, 86 to 88 characters). */
+    public static String signature() {
+        byte[] bytes = new byte[64];
+        RANDOM.nextBytes(bytes);
+        bytes[0] = (byte) (bytes[0] | 0x01);
+        return encode(bytes);
+    }
+
     public static String encode(byte[] input) {
         if (input.length == 0) {
             return "";

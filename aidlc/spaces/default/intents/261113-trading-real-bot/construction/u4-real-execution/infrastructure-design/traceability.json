@@ -1,0 +1,33 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u4-real-execution",
+  "upstream_ids": ["U4-NFR1.1", "U4-NFR1.2", "U4-NFR3.5", "U4-NFR8.2", "U4-NFR3.6", "U4-NFR3.7", "U4-NFR3.8", "U4-NFR3.9", "U4-NFR4.7", "U4-NFR5.1", "U4-NFR5.2", "U4-NFR5.3", "U4-NFR5.4", "U4-NFR5.5", "U4-NFR5.6", "U4-NFR5.7", "U4-NFR5.8", "U4-NFR5.9", "U4-NFR5.10", "U4-NFR5.11", "U4-NFR5.12", "U4-NFR5.13", "U4-NFR5.14", "U4-NFR8.1", "U4-NFR8.8", "U4-NFR8.10"],
+  "coverage": [
+    {"id": "U4-NFR1.1", "status": "OK", "target": "infrastructure-specification: kms-sim com semente só em test e local; produção recusa a semente"},
+    {"id": "U4-NFR1.2", "status": "OK", "target": "infrastructure-specification: swap real da Jupiter gravado passa pela SwapPolicy no ponta a ponta"},
+    {"id": "U4-NFR3.5", "status": "OK", "target": "monitoring-design: SENT mais antiga acima de 75 s"},
+    {"id": "U4-NFR8.2", "status": "OK", "target": "infrastructure-specification: rollback com o REAL desligado; jupiter-stub só no Compose do REAL"},
+    {"id": "U4-NFR3.6", "status": "OK", "target": "infrastructure-specification: worker e API que já existem"},
+    {"id": "U4-NFR3.7", "status": "OK", "target": "infrastructure-specification: Compose, ComposeFilesTest e guard com SCHEDULER_POOL_SIZE 19 e DB_POOL_MAX_SIZE 27; max_connections sem mudança (56 de 100 local, 96 na nuvem)"},
+    {"id": "U4-NFR3.8", "status": "OK", "target": "infrastructure-specification: migração com os índices"},
+    {"id": "U4-NFR3.9", "status": "OK", "target": "infrastructure-specification: privilégios e gatilhos de idade"},
+    {"id": "U4-NFR4.7", "status": "OK", "target": "monitoring-design: real_execution_job_runs_total por trabalho"},
+    {"id": "U4-NFR5.1", "status": "OK", "target": "monitoring-design"},
+    {"id": "U4-NFR5.2", "status": "OK", "target": "monitoring-design"},
+    {"id": "U4-NFR5.3", "status": "OK", "target": "monitoring-design"},
+    {"id": "U4-NFR5.4", "status": "OK", "target": "monitoring-design"},
+    {"id": "U4-NFR5.5", "status": "OK", "target": "monitoring-design: contador do TxSigner"},
+    {"id": "U4-NFR5.6", "status": "OK", "target": "monitoring-design"},
+    {"id": "U4-NFR5.7", "status": "OK", "target": "monitoring-design"},
+    {"id": "U4-NFR5.8", "status": "OK", "target": "monitoring-design"},
+    {"id": "U4-NFR5.9", "status": "OK", "target": "monitoring-design: regra e alarme, crítica"},
+    {"id": "U4-NFR5.10", "status": "OK", "target": "monitoring-design: regra e alarme, crítica"},
+    {"id": "U4-NFR5.11", "status": "OK", "target": "monitoring-design: regra e alarme, crítica"},
+    {"id": "U4-NFR5.12", "status": "OK", "target": "monitoring-design: regra e alarme, alta"},
+    {"id": "U4-NFR5.13", "status": "Deferred", "target": "decisão do caminho das métricas até o CloudWatch (pendência única de U1 a U4, antes da mainnet); a regra do Prometheus existe"},
+    {"id": "U4-NFR5.14", "status": "OK", "target": "monitoring-design: sete regras e sete alarmes, breaching"},
+    {"id": "U4-NFR8.1", "status": "OK", "target": "infrastructure-specification: mainnet só na produção; local com validador"},
+    {"id": "U4-NFR8.8", "status": "OK", "target": "cicd-pipeline: testes no job backend; TxSigner local até o job da CI"},
+    {"id": "U4-NFR8.10", "status": "OK", "target": "infrastructure-specification: contas gravadas, jupiter-stub e spec de swap"}
+  ]
+}

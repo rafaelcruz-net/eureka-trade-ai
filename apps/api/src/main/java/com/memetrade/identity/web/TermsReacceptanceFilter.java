@@ -85,7 +85,9 @@ public class TermsReacceptanceFilter extends OncePerRequestFilter {
         Optional<Principal> principal = auth.optional();
         if (principal.isEmpty()
                 || principal.get().role() != Role.BETA_USER
-                || isAllowed(RequestPaths.normalized(request))) {
+                || isAllowed(RequestPaths.normalized(request))
+                || com.memetrade.identity.domain.realterms.RealTermsRoutes.isReachableWithoutNewAcceptance(
+                        request.getMethod(), RequestPaths.normalized(request))) {
             chain.doFilter(request, response);
             return;
         }

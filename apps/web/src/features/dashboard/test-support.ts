@@ -27,6 +27,7 @@ export function botSummary(overrides: Partial<BotSummary> = {}): BotSummary {
     botId: BOT_A,
     name: 'Alfa',
     mode: 'PAPER',
+    market: 'PAPER',
     state: 'ACTIVE',
     pauseReasons: [],
     templateId: 'MOMENTUM_VOLUME',

@@ -58,7 +58,12 @@ import org.springframework.transaction.support.TransactionTemplate;
             // u3-reacceptance (L2): the acceptance of the current terms.
             com.memetrade.identity.web.TermsAcceptanceController.class,
             // u4-data-requests (P1): the data subject requests of the guest.
-            com.memetrade.privacy.web.DataRequestController.class
+            com.memetrade.privacy.web.DataRequestController.class,
+            // 261113-trading-real-bot U1 (R2): the bot wallet of the guest.
+            com.memetrade.botwallet.web.BotWalletController.class,
+            // 261113-trading-real-bot U4 (R3): the REAL orders, mode, liquidation and P&L of the guest.
+            com.memetrade.realexecution.web.RealOrderController.class,
+            com.memetrade.pnl.web.RealPnlController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -74,6 +79,9 @@ public abstract class GuestOpenApiSlice {
 
     @MockitoBean
     ChallengeService challengeService;
+
+    @MockitoBean
+    com.memetrade.botwallet.application.BotWalletService botWalletService;
 
     @MockitoBean
     LoginVerificationService loginVerificationService;
@@ -101,6 +109,10 @@ public abstract class GuestOpenApiSlice {
 
     @MockitoBean
     ScannerService scannerService;
+
+    /** U2: the scanner and the assessment detail read the kind of the active source and its attribution (M4). */
+    @MockitoBean
+    com.memetrade.marketdata.api.MarketDataQuery marketDataQuery;
 
     @MockitoBean
     com.memetrade.riskassessment.api.RiskAssessmentDetails riskAssessmentDetails;
@@ -193,6 +205,22 @@ public abstract class GuestOpenApiSlice {
     /** u4-data-requests (P1): the requests of the guest. */
     @MockitoBean
     com.memetrade.privacy.domain.request.DataRequestService dataRequestService;
+
+    /** 261113-trading-real-bot U4 (R3): the collaborators of the REAL orders and P&L. */
+    @MockitoBean
+    com.memetrade.realexecution.infra.JdbcRealExecutionStore realExecutionStore;
+
+    @MockitoBean
+    com.memetrade.realexecution.infra.SigningSessionService signingSessionService;
+
+    @MockitoBean
+    com.memetrade.realexecution.infra.RealModeService realModeService;
+
+    @MockitoBean
+    com.memetrade.realexecution.infra.LiquidationService liquidationService;
+
+    @MockitoBean
+    com.memetrade.pnl.application.RealPnlService realPnlService;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/guest"))

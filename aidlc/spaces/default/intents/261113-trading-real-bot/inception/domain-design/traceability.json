@@ -1,0 +1,151 @@
+{
+  "stage": "domain-design",
+  "upstream_ids": [
+    "US1.1",
+    "US1.2",
+    "US2.1",
+    "US2.2",
+    "US3.1",
+    "US3.2",
+    "US3.3",
+    "US3.4",
+    "US4.1",
+    "US4.2",
+    "US4.3",
+    "US5.1",
+    "US5.2",
+    "US6.1",
+    "US6.2",
+    "US6.3",
+    "US7.1",
+    "US7.2",
+    "US7.3",
+    "US8.1",
+    "US8.2",
+    "US8.3",
+    "US8.4",
+    "US8.5"
+  ],
+  "coverage": [
+    {
+      "id": "US1.1",
+      "status": "OK",
+      "target": "Identity, BotWallet"
+    },
+    {
+      "id": "US1.2",
+      "status": "OK",
+      "target": "BotWallet, BotWalletAccount, WalletConsent, TxSigner"
+    },
+    {
+      "id": "US2.1",
+      "status": "OK",
+      "target": "BotWallet, RealPreferences, RiskControl"
+    },
+    {
+      "id": "US2.2",
+      "status": "OK",
+      "target": "BotWallet, ObservedDeposit, ChainWatcher"
+    },
+    {
+      "id": "US3.1",
+      "status": "OK",
+      "target": "BotWallet, RealPreferences"
+    },
+    {
+      "id": "US3.2",
+      "status": "OK",
+      "target": "RealExecution, RealOrder"
+    },
+    {
+      "id": "US3.3",
+      "status": "OK",
+      "target": "RealExecution, RealDecisionRequest, RealOrder, OrderAttempt, BotWallet, TxSigner"
+    },
+    {
+      "id": "US3.4",
+      "status": "OK",
+      "target": "RealExecution, ConditionalOrder"
+    },
+    {
+      "id": "US4.1",
+      "status": "OK",
+      "target": "RealExecution, RealOrder"
+    },
+    {
+      "id": "US4.2",
+      "status": "OK",
+      "target": "Ledger, LedgerEntry, Pnl"
+    },
+    {
+      "id": "US4.3",
+      "status": "OK",
+      "target": "Ledger, Pnl"
+    },
+    {
+      "id": "US5.1",
+      "status": "OK",
+      "target": "BotWallet, Withdrawal, ChainWatcher, TxSigner"
+    },
+    {
+      "id": "US5.2",
+      "status": "OK",
+      "target": "RealExecution, BotWallet"
+    },
+    {
+      "id": "US6.1",
+      "status": "OK",
+      "target": "RiskControl"
+    },
+    {
+      "id": "US6.2",
+      "status": "OK",
+      "target": "RiskControl, TokenBlock"
+    },
+    {
+      "id": "US6.3",
+      "status": "OK",
+      "target": "MarketData, RiskControl"
+    },
+    {
+      "id": "US7.1",
+      "status": "OK",
+      "target": "BotWallet, RealRelease, Administration"
+    },
+    {
+      "id": "US7.2",
+      "status": "OK",
+      "target": "Administration, RiskControl, TokenBlock"
+    },
+    {
+      "id": "US7.3",
+      "status": "OK",
+      "target": "Administration"
+    },
+    {
+      "id": "US8.1",
+      "status": "OK",
+      "target": "Administration, RealExecution, Bots"
+    },
+    {
+      "id": "US8.2",
+      "status": "OK",
+      "target": "BotWallet, ReconciliationRun"
+    },
+    {
+      "id": "US8.3",
+      "status": "OK",
+      "target": "RealExecution, OrderAttempt, ChainWatcher"
+    },
+    {
+      "id": "US8.4",
+      "status": "OK",
+      "target": "Privacy, BotWallet"
+    },
+    {
+      "id": "US8.5",
+      "status": "OK",
+      "target": "Audit"
+    }
+  ]
+}

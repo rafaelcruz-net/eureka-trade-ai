@@ -19,8 +19,11 @@ import org.springframework.stereotype.Component;
  *       purge of the data subject requests ({@code PrivacyJobSchedule}) and the refresher of their counts
  *       ({@code DataRequestCountsRefresher}). U8 also checks the origin of
  *       the administrator app ({@code ADMIN_APP_ORIGIN}): an http or https origin, never a wildcard.
- *   <li><b>worker</b>: pool 14 to 30 (4 cycles, 4 reserve, 6 jobs, scalability-design.md), scheduler 4 to 8 (slot
- *       dispatch, midnight, closing check, decision purge).
+ *   <li><b>worker</b>: one scheduler thread per {@code @Scheduled} method of the worker, 19 to 26 since the U4 of
+ *       261113-trading-real-bot (nfr-design/logical-components.md "Pool do worker"): the bots (3: slot dispatch,
+ *       midnight, decision purge), the bot wallet (3), CoinGecko (2), the REAL barrier (3 jobs and the reservation
+ *       gauge) and the REAL execution (7: queue, driver, confirmation, ambiguous, signing deadline, upstream health,
+ *       liquidation). Connection pool 27 to 40: 4 cycles, 4 reserve and one per scheduled job.
  * </ul>
  *
  * <p>{@code MEMETRADE_PROCESS} itself must be {@code api} or {@code worker}.
@@ -41,17 +44,31 @@ public class RuntimeSettingsGuard {
      */
     public static final int MIN_SCHEDULER_POOL = 21;
 
-    /** The smallest scheduler pool of the worker: its 4 scheduled jobs (U5). */
-    public static final int MIN_WORKER_SCHEDULER_POOL = 4;
+    /**
+     * The smallest scheduler pool of the worker: its 19 scheduled methods (U4 of 261113-trading-real-bot). The count
+     * test ({@code RuntimeSettingsGuardWorkerCountTest}) fails when the worker gets a scheduled method more than this.
+     */
+    public static final int MIN_WORKER_SCHEDULER_POOL = 19;
 
-    /** The smallest connection pool of the worker (scalability-design.md: 4 cycles, 4 reserve, 6 jobs). */
-    public static final int MIN_WORKER_POOL = 14;
+    /** The largest scheduler pool of the worker. */
+    public static final int MAX_WORKER_SCHEDULER_POOL = 26;
+
+    /** The smallest connection pool of the worker: 4 cycles + 4 reserve + 19 scheduled jobs. */
+    public static final int MIN_WORKER_POOL = 27;
+
+    /** The largest connection pool of the worker. */
+    public static final int MAX_WORKER_POOL = 40;
 
     public RuntimeSettingsGuard(Environment environment) {
         ProcessRole.Kind process = ProcessRole.Kind.parse(environment.getProperty(ProcessRole.PROPERTY));
         if (process == ProcessRole.Kind.WORKER) {
-            check(environment, POOL_PROPERTY, "DB_POOL_MAX_SIZE", MIN_WORKER_POOL, 30);
-            check(environment, SCHEDULER_PROPERTY, "SCHEDULER_POOL_SIZE", MIN_WORKER_SCHEDULER_POOL, 8);
+            check(environment, POOL_PROPERTY, "DB_POOL_MAX_SIZE", MIN_WORKER_POOL, MAX_WORKER_POOL);
+            check(
+                    environment,
+                    SCHEDULER_PROPERTY,
+                    "SCHEDULER_POOL_SIZE",
+                    MIN_WORKER_SCHEDULER_POOL,
+                    MAX_WORKER_SCHEDULER_POOL);
         } else {
             check(environment, POOL_PROPERTY, "DB_POOL_MAX_SIZE", 10, 50);
             check(environment, SCHEDULER_PROPERTY, "SCHEDULER_POOL_SIZE", MIN_SCHEDULER_POOL, 32);

@@ -104,6 +104,8 @@ function botSummary(value: unknown): BotSummary {
     botId: text(raw.botId),
     name: text(raw.name),
     mode: oneOf(raw.mode, ['PAPER'] as const),
+    // 261113-trading-real-bot U4: the market of the bot (REAL or PAPER); never guessed when absent.
+    market: oneOf(raw.market, ['PAPER', 'REAL'] as const),
     state: oneOf(raw.state, BOT_STATES),
     pauseReasons: list(raw.pauseReasons, (reason) => oneOf(reason, PAUSE_REASONS)),
   };

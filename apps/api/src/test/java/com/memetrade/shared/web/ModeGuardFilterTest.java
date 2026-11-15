@@ -102,6 +102,33 @@ class ModeGuardFilterTest {
         assertThat(response.getStatus()).isEqualTo(200);
     }
 
+    @Test
+    void aRealPrefixThatResolvesOutsideTheRealRoutesIsStillInspected() throws Exception {
+        for (String uri : List.of("/api/v1/real/%2e%2e/scanner/tokens", "/api/v1/real/../scanner/tokens")) {
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", uri);
+            request.setQueryString("mode=REAL");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, new MockFilterChain());
+
+            assertThat(response.getStatus()).as(uri).isEqualTo(403);
+        }
+        assertThat(recorded).hasSize(2);
+    }
+
+    @Test
+    void theRealRoutesAreNotInspected() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("PUT", "/api/v1/real/mode");
+        request.setContentType("application/json");
+        request.setContent("{\"mode\":\"AUTO_FULL\"}".getBytes(StandardCharsets.UTF_8));
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, new MockFilterChain());
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(recorded).isEmpty();
+    }
+
     private static MockHttpServletRequest jsonPost(String body) {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/challenge");
         request.setContentType("application/json");

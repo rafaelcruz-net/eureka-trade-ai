@@ -11,7 +11,8 @@ public final class LogMasking {
 
     private static final String B58 = "[1-9A-HJ-NP-Za-km-z]";
     private static final Pattern BASE58_RUN =
-            Pattern.compile("(?<!" + B58 + ")(" + B58 + "{4})" + B58 + "{24,36}(" + B58 + "{4})(?!" + B58 + ")");
+            // 32 to 44 characters (an address) or, since 261113-trading-real-bot (NFR1.10), up to 90 (a signature).
+            Pattern.compile("(?<!" + B58 + ")(" + B58 + "{4})" + B58 + "{24,82}(" + B58 + "{4})(?!" + B58 + ")");
 
     private LogMasking() {}
 

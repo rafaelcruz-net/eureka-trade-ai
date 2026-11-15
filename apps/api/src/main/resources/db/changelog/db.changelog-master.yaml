@@ -29,3 +29,11 @@ databaseChangeLog:
       file: db/changelog/changes/0014-data-requests.sql
   - include:
       file: db/changelog/changes/0015-anonymization.sql
+  - include:
+      file: db/changelog/changes/0016-real-bot-wallet.sql
+  - include:
+      file: db/changelog/changes/0017-marketdata-provider-usage.sql
+  - include:
+      file: db/changelog/changes/0018-real-risk.sql
+  - include:
+      file: db/changelog/changes/0019-real-execution.sql

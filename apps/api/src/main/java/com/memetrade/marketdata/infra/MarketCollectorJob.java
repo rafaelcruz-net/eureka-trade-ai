@@ -226,6 +226,14 @@ public class MarketCollectorJob {
         Gauge.builder("market_source_status", this, job -> job.statusCode(sourceId))
                 .tag("source", sourceId)
                 .register(meters);
+        // U2 (monitoring-design.md): one gauge per state, 1 for the current state and 0 for the others, so an alert
+        // reads marketdata_source_state{state="FAILED"} == 1 without decoding a number.
+        for (SourceStatus.State state : SourceStatus.State.values()) {
+            Gauge.builder("marketdata_source_state", this, job -> job.statusCode(sourceId) == state.ordinal() ? 1 : 0)
+                    .tag("source", sourceId)
+                    .tag("state", state.name())
+                    .register(meters);
+        }
         Gauge.builder("market_source_last_success_timestamp_seconds", this, job -> job.lastSuccess(sourceId)
                         .map(Instant::getEpochSecond)
                         .orElse(0L))

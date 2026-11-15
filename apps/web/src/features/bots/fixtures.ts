@@ -73,6 +73,7 @@ export function summary(overrides: Partial<BotSummary> = {}): BotSummary {
     botId: BOT_ID,
     name: 'Meu bot',
     mode: 'PAPER',
+    market: 'PAPER',
     state: 'ACTIVE',
     pauseReasons: [],
     ...overrides,

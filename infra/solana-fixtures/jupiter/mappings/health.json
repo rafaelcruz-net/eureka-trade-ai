@@ -1,0 +1,4 @@
+{
+  "request": { "method": "GET", "urlPath": "/__stub/health" },
+  "response": { "status": 200, "headers": { "Content-Type": "application/json" }, "body": "{\"status\":\"UP\"}" }
+}

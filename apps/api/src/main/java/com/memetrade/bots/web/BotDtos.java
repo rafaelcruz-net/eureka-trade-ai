@@ -36,7 +36,13 @@ final class BotDtos {
             String templateId,
 
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED, maxLength = 60)
-            String name) {}
+            String name,
+
+            @Schema(
+                    allowableValues = {"PAPER", "REAL"},
+                    description = "261113-trading-real-bot U4 (BR1.1): mercado do bot, PAPER por padrão; REAL exige"
+                            + " carteira do bot ativa; nunca muda depois da criação")
+            String market) {}
 
     @Schema(name = "TokenRef")
     record TokenDto(

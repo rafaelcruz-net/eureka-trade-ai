@@ -1,0 +1,15 @@
+# Projeto de escala e retenção — U4 `u4-real-execution`
+
+Conversa: português (Brasil). Fontes: `construction/u4-real-execution/nfr-requirements/scalability-requirements.md` (U4-NFR3.6 a U4-NFR3.9) e o padrão da U3 (`construction/u3-real-risk/infrastructure-design/infrastructure-specification.md`).
+
+| Requisito | Como o projeto atende |
+|---|---|
+| U4-NFR3.6 (volume) | Lotes pequenos com `SKIP LOCKED` e posse por ordem; uma ordem por bot limita o paralelismo a no máximo 105 ordens vivas. |
+| U4-NFR3.7 (pools) | Pela conta de `logical-components.md`, o worker tem 19 métodos `@Scheduled`: o scheduler fica com padrão 19 e faixa de 19 a 26, e o pool de conexões fica de 27 a 40. Dois testes acompanham a mudança: um conta os métodos `@Scheduled` com papel de worker e outro sobe o worker com os padrões. Isso corrige a conta de 17 do requisito. |
+| U4-NFR3.8 (índices) | Únicos em `real_order(idempotency_key)` e `real_order(tx_signature)`. Únicos parciais em `real_order(bot_id)` e em `real_order(user_id, mint) WHERE side='SELL'`, nos estados em andamento. Índices em `real_order(user_id, created_at)`, em `real_order(state, lease_until)` e em `real_decision_request(state, created_at)`. |
+| U4-NFR3.9 (retenção) | Expurgo diário na API pelo pool `risk_retention`, com a mesma matriz de privilégios e o mesmo gatilho de idade da U3: 5 anos para ordens, envios e liquidações e 13 meses para decisões fechadas. As ordens são atualizadas por compare-and-set, então a aplicação tem UPDATE em `real_order` e `real_liquidation`. Um gatilho `BEFORE UPDATE` só deixa mudar `state`, `failure_code`, `lease_owner`, `lease_until`, `signing_claimed_at`, `quote_at`, `expected_out`, `min_out`, `signing_deadline`, `message_digest`, `unsigned_message`, `signed_transaction`, `tx_signature`, `last_valid_block_height`, `out_base_units`, `fee_lamports`, `fee_payer`, `updated_at` (e, na liquidação, `state`, `withdrawal_id`, `remaining`). As colunas de identidade (`tenant_id`, `user_id`, `bot_id`, `idempotency_key`, `side`, `mint`, entradas) nunca mudam, e uma transição de estado final para outro estado é recusada. Não há DELETE para a aplicação. **Endereços nas ordens:**
+- `unsigned_message` e `signed_transaction` contêm a carteira do bot e, no modo Assinada, a carteira principal. Por isso são limpas (`NULL`) na passagem a um estado final, na mesma transação, depois de gravados a `tx_signature`, os valores lidos da rede e o resumo. O gatilho permite essa única mudança em estado final: da mensagem para `NULL`.
+- `fee_payer` guarda só o tipo (`BOT_WALLET` ou `MAIN_WALLET`), nunca o endereço.
+- Os envios guardam só o resultado.
+
+**Anonimização (U5):** com isso, nenhuma coluna de ordem, envio, liquidação ou decisão guarda endereço. A U5 desliga o `user_id` da pessoa como já faz nas outras tabelas, e o teste de anonimização do `team.md` passa a cobrir essas quatro tabelas. A ordem que ainda está em andamento na hora do pedido não é anonimizada: a U1 recusa a anonimização com ordem em andamento (`ORDER_IN_PROGRESS`). |

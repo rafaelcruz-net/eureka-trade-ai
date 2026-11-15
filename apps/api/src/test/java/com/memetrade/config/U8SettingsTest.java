@@ -63,8 +63,13 @@ class U8SettingsTest {
     void theWorkerIgnoresTheAdminOrigin() {
         MockEnvironment worker = new MockEnvironment()
                 .withProperty("memetrade.process", "worker")
-                .withProperty("spring.datasource.hikari.maximum-pool-size", "14")
-                .withProperty("spring.task.scheduling.pool.size", "4")
+                // 261113-trading-real-bot U4: the worker pools of the REAL execution (27 connections, 19 threads).
+                .withProperty(
+                        "spring.datasource.hikari.maximum-pool-size",
+                        String.valueOf(RuntimeSettingsGuard.MIN_WORKER_POOL))
+                .withProperty(
+                        "spring.task.scheduling.pool.size",
+                        String.valueOf(RuntimeSettingsGuard.MIN_WORKER_SCHEDULER_POOL))
                 .withProperty("memetrade.admin.app-origin", "*");
 
         assertThatCode(() -> new RuntimeSettingsGuard(worker)).doesNotThrowAnyException();

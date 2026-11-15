@@ -67,7 +67,13 @@ class ScannerControllerTest {
                 .setSerializationInclusion(JsonInclude.Include.NON_NULL);
         ScannerService service = new ScannerService(
                 listing, token -> new AssessmentResult.Unavailable(UnavailableReason.INSUFFICIENT_COVERAGE), clock);
-        mvc = MockMvcBuilders.standaloneSetup(new ScannerController(service, auth, new SimpleMeterRegistry()))
+        // U2: the page carries the kind of the active source (here the simulated ones, as in the beta).
+        com.memetrade.marketdata.api.MarketDataQuery market =
+                org.mockito.Mockito.mock(com.memetrade.marketdata.api.MarketDataQuery.class);
+        org.mockito.Mockito.when(market.activeSourceKind())
+                .thenReturn(com.memetrade.marketdata.api.SourceKind.SIMULATED);
+        org.mockito.Mockito.when(market.attribution()).thenReturn(Optional.empty());
+        mvc = MockMvcBuilders.standaloneSetup(new ScannerController(service, auth, market, new SimpleMeterRegistry()))
                 .setControllerAdvice(new ProblemDetailsHandler((request, code, reason) -> {}))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(mapper))
                 .build();

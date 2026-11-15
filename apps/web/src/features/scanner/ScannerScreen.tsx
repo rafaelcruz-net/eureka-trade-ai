@@ -11,6 +11,7 @@ import { AppShell } from '@/components/shell/AppShell';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useRequireSession } from '@/features/auth/useRequireSession';
 import { AssessmentPanel } from '@/features/scanner/AssessmentPanel';
+import { DataSourceNotice } from '@/features/scanner/DataSourceNotice';
 import {
   fromSearchParams,
   hasActiveFilters,
@@ -216,6 +217,7 @@ export function ScannerScreen({
             {sources.some((s) => s.source.simulated) && <strong> — {text.simulated}</strong>}
           </p>
         )}
+        <DataSourceNotice dataSource={page?.dataSource} testIdPrefix="scanner" />
         {load.kind !== 'allFailed' && failedSources.length > 0 && (
           <div role="status" className="notice notice-warning" data-testid="scanner-source-failed">
             <p>⚠ {text.sourcesFailed}</p>

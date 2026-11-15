@@ -43,10 +43,28 @@ public class SourceCaller implements SourceFetcher {
     /** Random variation of the wait, in percent either way (no floating point in the market module). */
     static final int JITTER_PERCENT = 20;
 
+    /**
+     * U2 (reliability-design.md "Dois níveis de proteção", infrastructure-specification.md "Prazo da coingecko"): the
+     * real source gets 25 s for the whole round and ONE attempt; it retries each call itself, so retries never pile
+     * up. Its own internal deadline (18 s) ends the round first; this limit only protects.
+     */
+    public static final CallPolicy COINGECKO_POLICY = new CallPolicy(Duration.ofSeconds(25), 1);
+
+    /** Time limit of one fetch and number of attempts of a source. */
+    public record CallPolicy(Duration timeout, int maxAttempts) {
+
+        public CallPolicy {
+            if (timeout == null || timeout.isNegative() || timeout.isZero() || maxAttempts < 1) {
+                throw new IllegalArgumentException("A positive time limit and at least one attempt");
+            }
+        }
+    }
+
     private final ExecutorService executor;
     private final Sleeper sleeper;
     private final Random jitter;
-    private final Duration timeout;
+    private final CallPolicy defaultPolicy;
+    private final Map<String, CallPolicy> policies;
     private final ObjIntConsumer<String> onRetry;
     private final Map<String, Retry> retries = new ConcurrentHashMap<>();
     private final Map<String, TimeLimiter> limiters = new ConcurrentHashMap<>();
@@ -60,11 +78,31 @@ public class SourceCaller implements SourceFetcher {
             Random jitter,
             Duration timeout,
             ObjIntConsumer<String> onRetry) {
+        this(executor, sleeper, jitter, timeout, Map.of(), onRetry);
+    }
+
+    /**
+     * @param timeout time limit of the sources without a policy of their own (sim-a and sim-b: 5 s, 3 attempts)
+     * @param policies policy per source id (U2: {@code coingecko} with {@link #COINGECKO_POLICY})
+     */
+    public SourceCaller(
+            ExecutorService executor,
+            Sleeper sleeper,
+            Random jitter,
+            Duration timeout,
+            Map<String, CallPolicy> policies,
+            ObjIntConsumer<String> onRetry) {
         this.executor = executor;
         this.sleeper = sleeper;
         this.jitter = jitter;
-        this.timeout = timeout;
+        this.defaultPolicy = new CallPolicy(timeout, MAX_ATTEMPTS);
+        this.policies = Map.copyOf(policies);
         this.onRetry = onRetry;
+    }
+
+    /** The policy of a source: its own, or the default one. */
+    public CallPolicy policy(String sourceId) {
+        return policies.getOrDefault(sourceId, defaultPolicy);
     }
 
     @Override
@@ -76,7 +114,7 @@ public class SourceCaller implements SourceFetcher {
                 id -> TimeLimiter.of(
                         "market-source-" + id,
                         TimeLimiterConfig.custom()
-                                .timeoutDuration(timeout)
+                                .timeoutDuration(policy(id).timeout())
                                 .cancelRunningFuture(true)
                                 .build()));
         int done = 0;
@@ -138,7 +176,7 @@ public class SourceCaller implements SourceFetcher {
                 id -> Retry.of(
                         "market-source-" + id,
                         RetryConfig.custom()
-                                .maxAttempts(MAX_ATTEMPTS)
+                                .maxAttempts(policy(id).maxAttempts())
                                 .intervalFunction(intervals)
                                 .retryOnException(SourceCaller::retryable)
                                 .failAfterMaxAttempts(false)

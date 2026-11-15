@@ -2,17 +2,20 @@
 
 ## Run Record
 
-- Date: 2026-11-08
-- Commit: ffde88f89326bb3bb4bad499c0c36496ea2bc077
+- Date: 2026-11-13
+- Commit: 40e25530928b5fcb5d82bcc4b7afc283a6e12369
 
-Varredura completa e primeira do repositório (sem base anterior), feita para o intent `termos-lgpd`, profundidade
-Standard, só por leitura de arquivos (nenhum teste, build ou programa executado). Ficaram fora, sem abrir: saídas de
-build e dependências (`node_modules/`, `.next/`, `target/`, `coverage/`, relatórios de teste), ferramentas locais e
-IDE (`.tools/`, `.vscode/`), `.env`, relatórios gerados (`docs/perf/`, `load-test-report.json`), a cópia PDF do PRD,
-os lockfiles e a instalação do AI-DLC (`.claude/`, `.codex/`, `.agents/`, `aidlc/`, `AGENTS.md`).
+Varredura completa (full rescan) do repositório para o intent `261113-trading-real-bot`, profundidade Comprehensive,
+feita só por leitura de arquivos (nenhum teste, build ou programa do projeto executado). Esta execução substitui por
+inteiro os 9 artefatos do mapa anterior (2026-11-08, commit `ffde88f`), que foi lido só como contexto.
+
+Ficaram fora, sem abrir: saídas de build e dependências (`node_modules/`, `.next/`, `target/`, `coverage/`,
+relatórios de teste), ferramentas locais e IDE (`.tools/`, `.vscode/`), `.env`, relatórios gerados (`docs/perf/`,
+`load-test-report.json`), a cópia PDF do PRD, os lockfiles, os tipos gerados `schema.d.ts` e a instalação do AI-DLC
+(`.claude/`, `.codex/`, `.agents/`, `aidlc/` e as seções do AI-DLC em `AGENTS.md` e `.gitignore`).
 
 A cobertura detalhada (o que foi lido a fundo e o que foi só percorrido) está no handoff
-`aidlc/spaces/default/intents/261109-termos-lgpd/inception/reverse-engineering/developer-scan.md`. A profundidade
+`aidlc/spaces/default/intents/261113-trading-real-bot/inception/reverse-engineering/developer-scan.md`. A profundidade
 de cada componente está em [component-inventory.md](component-inventory.md).
 
 ## Scope of Analysis
@@ -20,8 +23,8 @@ de cada componente está em [component-inventory.md](component-inventory.md).
 ```yaml
 scope_version: 1
 kind: full
-intent: termos-lgpd
-fingerprint: bd2204a77a0f52aa955663b652bb7575c5fde7be
+intent: 261113-trading-real-bot
+fingerprint: 633944d96db12b9877eb7b6f746a51f5dae21b6d
 analyzed:
   paths:
     - ./
@@ -39,6 +42,7 @@ analyzed:
     - pnl
     - administration
     - feedback
+    - privacy
     - ops
     - db-migrations
     - api-resources
@@ -53,23 +57,20 @@ analyzed:
     - project-docs
 shallow:
   paths:
-    - apps/api/src/main/java/com/memetrade/marketdata/
+    - apps/api/src/main/java/com/memetrade/identity/
+    - apps/api/src/main/java/com/memetrade/audit/
+    - apps/api/src/main/java/com/memetrade/privacy/
+    - apps/api/src/main/java/com/memetrade/feedback/
     - apps/api/src/main/java/com/memetrade/scanner/
     - apps/api/src/main/java/com/memetrade/riskassessment/
-    - apps/api/src/main/java/com/memetrade/riskcontrol/
-    - apps/api/src/main/java/com/memetrade/bots/
     - apps/api/src/main/java/com/memetrade/decision/
-    - apps/api/src/main/java/com/memetrade/ledger/
-    - apps/api/src/main/java/com/memetrade/pnl/
-    - apps/api/src/main/java/com/memetrade/administration/
-    - apps/api/src/main/java/com/memetrade/ops/
     - apps/api/src/test/
-    - apps/web/src/features/bots/
-    - apps/web/src/features/dashboard/
-    - apps/web/src/features/pnl/
-    - apps/web/src/features/scanner/
-    - apps/web/src/features/feedback/
+    - apps/web/src/
     - apps/web/e2e/
+    - apps/admin/src/
+    - infra/postgres/
     - scripts/
-    - PRD_MemeTrade_Analytics_v1.3_SaaS.md
+    - docs/
+    - README.md
+    - PromptInicial.txt
 ```

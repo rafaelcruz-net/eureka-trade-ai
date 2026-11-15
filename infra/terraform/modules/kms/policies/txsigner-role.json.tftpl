@@ -1,0 +1,69 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CreateWalletKeyOnlyWithTheFourTags",
+      "Effect": "Allow",
+      "Action": ["kms:CreateKey", "kms:TagResource"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "kms:KeySpec": "ECC_NIST_EDWARDS25519",
+          "kms:KeyUsage": "SIGN_VERIFY",
+          "aws:RequestTag/app": "eureka-botwallet"
+        },
+        "ForAllValues:StringEquals": {
+          "aws:TagKeys": ["app", "mainWalletMac", "creationRequestId", "network"]
+        },
+        "Null": {
+          "aws:RequestTag/app": "false",
+          "aws:RequestTag/mainWalletMac": "false",
+          "aws:RequestTag/creationRequestId": "false",
+          "aws:RequestTag/network": "false"
+        }
+      }
+    },
+    {
+      "Sid": "UseOnlyBotWalletKeys",
+      "Effect": "Allow",
+      "Action": ["kms:Sign", "kms:GetPublicKey", "kms:DescribeKey", "kms:ListResourceTags"],
+      "Resource": "arn:aws:kms:${region}:${account_id}:key/*",
+      "Condition": {
+        "StringEquals": { "aws:ResourceTag/app": "eureka-botwallet" }
+      }
+    },
+    {
+      "Sid": "AnchorMacOnlyWithTheHmacKey",
+      "Effect": "Allow",
+      "Action": ["kms:GenerateMac", "kms:VerifyMac"],
+      "Resource": "${hmac_key_arn}"
+    },
+    {
+      "Sid": "ListKeysHasNoResourceCondition",
+      "Effect": "Allow",
+      "Action": ["kms:ListKeys"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "TagsAreImmutableAfterCreation",
+      "Effect": "Deny",
+      "Action": ["kms:TagResource", "kms:UntagResource"],
+      "Resource": "*",
+      "Condition": {
+        "Null": { "aws:ResourceTag/app": "false" }
+      }
+    },
+    {
+      "Sid": "NeverDestroyNorDelegate",
+      "Effect": "Deny",
+      "Action": [
+        "kms:ScheduleKeyDeletion",
+        "kms:DisableKey",
+        "kms:PutKeyPolicy",
+        "kms:CreateGrant",
+        "kms:Decrypt"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

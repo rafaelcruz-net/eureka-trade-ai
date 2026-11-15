@@ -34,7 +34,41 @@ public record AuditEventCommand(
         String correlationId,
         Instant occurredAt,
         Map<String, String> details,
-        String wallet) {
+        String wallet,
+        RealReferences real) {
+
+    /**
+     * An event with or without a wallet and without typed REAL references (every event before 261113-trading-real-bot).
+     */
+    public AuditEventCommand(
+            UUID eventId,
+            Optional<UUID> tenantId,
+            String actor,
+            ActorType actorType,
+            String action,
+            String targetRef,
+            String correlationId,
+            Instant occurredAt,
+            Map<String, String> details,
+            String wallet) {
+        this(eventId, tenantId, actor, actorType, action, targetRef, correlationId, occurredAt, details, wallet, null);
+    }
+
+    /** 261113-trading-real-bot (M8, BR6.2): the same event with typed REAL references. */
+    public AuditEventCommand withReal(RealReferences references) {
+        return new AuditEventCommand(
+                eventId,
+                tenantId,
+                actor,
+                actorType,
+                action,
+                targetRef,
+                correlationId,
+                occurredAt,
+                details,
+                wallet,
+                references);
+    }
 
     /** Detail keys that are never accepted, whatever their value (BR4.3). */
     static final Set<String> FORBIDDEN_DETAIL_KEYS = Set.of(
@@ -211,7 +245,8 @@ public record AuditEventCommand(
                 correlationId,
                 occurredAt,
                 details,
-                walletAddress);
+                walletAddress,
+                real);
     }
 
     /** Actor of system events. */
@@ -230,6 +265,7 @@ public record AuditEventCommand(
                 + ", occurredAt=" + occurredAt
                 + ", details=" + details
                 + ", wallet=" + (wallet == null ? "none" : WalletAddress.mask(wallet))
+                + ", real=" + (real == null ? "none" : "typed")
                 + "]";
     }
 

@@ -586,6 +586,7 @@ describe('S2 dashboard: live updates, notices and accessibility', () => {
           sources: [sourceStatus({ status: 'DEGRADED' })],
           excludedByUnknown: 0,
           pendingNewTokens: 0,
+          dataSource: { kind: 'SIMULATED' as const },
         })),
       }),
     );

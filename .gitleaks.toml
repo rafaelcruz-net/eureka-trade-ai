@@ -16,3 +16,9 @@ paths = [
   '''(^|/)target/''',
   '''(^|/)\.tools/''',
 ]
+# Exception (team.md "Segurança na CI"): the AWS KMS key spec name of the bot-wallet key is a public constant, not a
+# secret; the generic-api-key rule matches it in the KMS policy, the TxSigner KMS adapter and the KMS test server.
+# Only this exact value is allowed. Approved by the project owner on 2026-11-15; valid until 2027-02-13.
+regexes = [
+  '''^ECC_NIST_EDWARDS25519$''',
+]

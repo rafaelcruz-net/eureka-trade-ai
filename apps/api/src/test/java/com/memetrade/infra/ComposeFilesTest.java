@@ -485,8 +485,8 @@ class ComposeFilesTest {
                             "POSTGRES_PASSWORD")
                     .containsKeys("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD", "MARKET_SOURCES");
             assertThat(String.valueOf(environment.get("MEMETRADE_PROCESS"))).isEqualTo("worker");
-            assertThat(String.valueOf(environment.get("DB_POOL_MAX_SIZE"))).isEqualTo("14");
-            assertThat(String.valueOf(environment.get("SCHEDULER_POOL_SIZE"))).isEqualTo("4");
+            assertThat(String.valueOf(environment.get("DB_POOL_MAX_SIZE"))).isEqualTo("27");
+            assertThat(String.valueOf(environment.get("SCHEDULER_POOL_SIZE"))).isEqualTo("19");
             assertThat(String.valueOf(environment.get("SPRING_PROFILES_ACTIVE")))
                     .endsWith("worker");
             assertThat(dependsOn(services, "worker"))
@@ -532,7 +532,8 @@ class ComposeFilesTest {
         // feedback retention, 1 connection each.
         int applyLock = 1;
         int feedbackRetention = 1;
-        int worker = 14;
+        // 261113-trading-real-bot U4 (infrastructure-specification.md "Compute"): 4 cycles + 4 reserve + 19 jobs.
+        int worker = 27;
         int startUp = 2;
         int superuserReserved = 3;
         int total = api
@@ -544,12 +545,13 @@ class ComposeFilesTest {
                 + startUp
                 + superuserReserved;
 
-        assertThat(total).isEqualTo(43).isLessThanOrEqualTo(100);
+        assertThat(total).isEqualTo(56).isLessThanOrEqualTo(100);
+        assertThat(total + 10).as("with the TxSigner of the REAL overlay").isEqualTo(66);
         assertThat(read("docker-compose.yml"))
                 .contains("api 20 + trail retention (U2) 1 + U6 retention 1")
-                .contains("+ U8 apply lock 1 + U8 feedback retention 1 + worker 14")
+                .contains("+ U8 apply lock 1 + U8 feedback retention 1 + worker 27")
                 .contains("+ db-bootstrap and db-migrate at start-up 2 + 3 reserved")
-                .contains("for the superuser = 43");
+                .contains("for the superuser = 56");
     }
 
     // ----- u1-legal-documents (infrastructure-specification.md "Rede" and "Configuração nova da api", NFR6.3) -----

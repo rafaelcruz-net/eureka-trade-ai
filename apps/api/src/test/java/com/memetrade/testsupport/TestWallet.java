@@ -39,13 +39,24 @@ public final class TestWallet {
     }
 
     public byte[] signRaw(String message) {
+        return signBytes(message.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** 261113-trading-real-bot U4: signs raw bytes (a transaction message), like a wallet signing a transaction. */
+    public byte[] signBytes(byte[] message) {
         try {
             Signature signer = Signature.getInstance("Ed25519");
             signer.initSign(keyPair.getPrivate());
-            signer.update(message.getBytes(StandardCharsets.UTF_8));
+            signer.update(message);
             return signer.sign();
         } catch (GeneralSecurityException failure) {
             throw new IllegalStateException(failure);
         }
+    }
+
+    /** The raw 32 bytes of the public key. */
+    public byte[] publicKey() {
+        byte[] encoded = keyPair.getPublic().getEncoded();
+        return Arrays.copyOfRange(encoded, encoded.length - 32, encoded.length);
     }
 }

@@ -1,0 +1,66 @@
+# Alert rules of the real market source (261113-trading-real-bot U2, monitoring-design.md, observability-design.md,
+# NFR4.1, NFR5.1 to NFR5.5), in the Prometheus format, for the metrics the worker exposes on /actuator/prometheus.
+# Checked by `promtool check rules infra/observability/marketdata-alerts.yml`. Labels never carry the API key nor a
+# mint. Severities: high (e-mail and SMS) and medium (e-mail). The "worker down" alert of U1 (real-alerts.yml) covers
+# the case where no U2 metric arrives at all.
+#
+# Each alert carries the annotations `threshold` and `window_seconds`; CoinGeckoAlarmParityTest compares them with the
+# expression below and with the CloudWatch alarm of the same name in infra/terraform/modules/observability/marketdata.tf.
+groups:
+  - name: market-data-real
+    rules:
+      # SLO base (NFR4.1): 1 in a minute when the oldest price of the active tokens is at most 60 s old, 0 otherwise.
+      # SLO: avg_over_time(marketdata_price_fresh_minute[30d]) >= 0.99 over 30 calendar days.
+      - record: marketdata_price_fresh_minute
+        expr: max(marketdata_oldest_price_age_seconds) <= bool 60
+      - alert: MarketSourceFailed
+        expr: max(marketdata_source_state{source="coingecko",state="FAILED"}) >= 1
+        for: 2m
+        labels: { severity: high }
+        annotations:
+          summary: The real market source is FAILED for more than 2 minutes; prices are unknown and REAL refuses orders.
+          threshold: "1"
+          window_seconds: "120"
+      - alert: RealPriceStale
+        # Three rounds of 30 s in a row with the oldest price above 60 s.
+        expr: min_over_time(marketdata_oldest_price_age_seconds[90s]) > 60
+        labels: { severity: high }
+        annotations:
+          summary: The oldest price of the active tokens is older than 60 s for 3 rounds; REAL refuses new orders.
+          threshold: "60"
+          window_seconds: "90"
+      - alert: MarketCallCounterUnavailable
+        # D-A2 (NFR3.7): the call counter cannot be read, the source makes no call (conservative mode).
+        expr: max(marketdata_provider_conservative_mode) >= 1
+        for: 5m
+        labels: { severity: high }
+        annotations:
+          summary: The CoinGecko call counter is unavailable for more than 5 minutes (conservative mode).
+          threshold: "1"
+          window_seconds: "300"
+      - alert: MarketMonthlyBudget
+        expr: max(marketdata_provider_budget_ratio) >= 0.8
+        labels: { severity: medium }
+        annotations:
+          summary: 80% of the monthly CoinGecko call budget is used; details stop at 90%, prices at 98%.
+          threshold: "0.8"
+          window_seconds: "300"
+      - alert: MarketInvalidValues
+        expr: >
+          sum(increase(marketdata_invalid_values_total[1h]))
+          / clamp_min(sum(increase(marketdata_observations_total[1h])), 1) > 0.05
+        labels: { severity: medium }
+        annotations:
+          summary: More than 5% of the market values read in one hour were invalid (counted, stored as unknown).
+          threshold: "0.05"
+          window_seconds: "3600"
+      - alert: MarketProviderUnstable
+        # D-A1 (NFR3.6): retries above 10% of the calls in one hour.
+        expr: >
+          sum(increase(marketdata_provider_calls_total{outcome="retry"}[1h]))
+          / clamp_min(sum(increase(marketdata_provider_calls_total[1h])), 1) > 0.1
+        labels: { severity: medium }
+        annotations:
+          summary: More than 10% of the CoinGecko calls were retried in one hour.
+          threshold: "0.1"
+          window_seconds: "3600"

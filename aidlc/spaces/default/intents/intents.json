@@ -14,5 +14,13 @@
     "scope": "feature",
     "status": "complete",
     "request": "51d8d2f6"
+  },
+  {
+    "uuid": "01a1d561-879c-72e6-bcc5-a18c10f75b72",
+    "slug": "trading-real-bot",
+    "dirName": "261113-trading-real-bot",
+    "scope": "classic",
+    "status": "in-flight",
+    "request": "85e59a58"
   }
 ]

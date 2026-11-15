@@ -33,3 +33,12 @@ done
 
 psql -X -v ON_ERROR_STOP=1 -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   -f "$SCRIPT_DIR/10-roles.sql"
+
+# 261113-trading-real-bot U1: the schema and logins of the TxSigner, only when its variables are set.
+if [ -n "${TXSIGNER_DB_OWNER_USER:-}" ]; then
+  : "${TXSIGNER_DB_OWNER_PASSWORD:?TXSIGNER_DB_OWNER_PASSWORD must be set}"
+  : "${TXSIGNER_DB_USER:?TXSIGNER_DB_USER must be set}"
+  : "${TXSIGNER_DB_PASSWORD:?TXSIGNER_DB_PASSWORD must be set}"
+  psql -X -v ON_ERROR_STOP=1 -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+    -f "$SCRIPT_DIR/20-txsigner.sql"
+fi

@@ -39,7 +39,13 @@ public record BotSummaryView(
         Integer draftStep,
         Integer limitsVersion,
         String templateId,
-        Instant updatedAt) {
+        Instant updatedAt,
+
+        @io.swagger.v3.oas.annotations.media.Schema(
+                requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED,
+                allowableValues = {"PAPER", "REAL"},
+                description = "261113-trading-real-bot U4 (BR1.1): mercado do bot, fixo desde a criação")
+        String market) {
 
     public static BotSummaryView of(Bot bot, Instant now) {
         return new BotSummaryView(
@@ -52,6 +58,7 @@ public record BotSummaryView(
                 bot.draftStep(),
                 bot.currentLimitsVersion().orElse(null),
                 bot.templateId().name(),
-                bot.updatedAt());
+                bot.updatedAt(),
+                bot.market().name());
     }
 }

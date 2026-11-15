@@ -75,7 +75,10 @@ class AnonymizationMigrationIT extends AbstractPostgresIT {
                     DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(connection));
             Liquibase liquibase =
                     new Liquibase("db/changelog/db.changelog-master.yaml", new ClassLoaderResourceAccessor(), database);
-            assertThatCode(() -> liquibase.rollback(6, "")).doesNotThrowAnyException();
+            // The 6 changesets of 0015 plus those of 261113-trading-real-bot that come after them (0016 and 0017: 13;
+            // 0018 of the U3: 8; 0019 of the U4: 10); this also exercises the rollback of 0019, 0018 and 0016 before
+            // the one of 0015.
+            assertThatCode(() -> liquibase.rollback(6 + 13 + 8 + 10, "")).doesNotThrowAnyException();
         }
 
         assertThat(functionExists(owner)).isFalse();

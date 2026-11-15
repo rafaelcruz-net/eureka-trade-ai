@@ -110,6 +110,88 @@ springdoc:
 memetrade:
   # U5 (C20, NFR10.9): api (default) or worker; @ProcessRole beans exist only in their process.
   process: ${MEMETRADE_PROCESS:api}
+  real:
+    # 261113-trading-real-bot (BR1.1, team.md "REAL desligado por padrão"): off by default in the api and the worker.
+    # Off, the routes that open risk answer 403 REAL_DISABLED, no bot wallet is created and nothing is signed; reading
+    # and withdrawing stay available for wallets created before (FR3.3). Fixed here, never a default from the
+    # environment: only an explicit MEMETRADE_REAL_ENABLED=true in a deployment turns it on.
+    enabled: false
+    # BR1.2: the activation needs the acceptance of this version of the terms (the REAL text; final text in the U6).
+    required-terms-version: v3
+    network: ${MEMETRADE_REAL_NETWORK:LOCALNET}
+    # BR2.1: absolute cap of the profile; BR3.4 fee reserve (0.03 SOL); BR5.1 f fee ceiling of a withdrawal.
+    max-cap-lamports: 10000000000
+    fee-reserve-lamports: 30000000
+    max-withdrawal-fee-lamports: 100000
+    # BR4.5: rent-exempt minimum of a system account (890,880 lamports on every Solana cluster today).
+    rent-exempt-minimum-lamports: 890880
+    # NFR4.3: the fee is known before signing: base fee per signature plus ceil(price x limit / 10^6).
+    base-fee-lamports: 5000
+    compute-unit-limit: 450
+    compute-unit-price: 0
+    # BR7.1: only the test profile seeds the release of the test founder; never in production.
+    seed-test-release: false
+    txsigner:
+      url: ${MEMETRADE_TXSIGNER_URL:http://txsigner:8443}
+      token: ${MEMETRADE_TXSIGNER_TOKEN:}
+      timeout: 2s
+    rpc:
+      # Two providers per environment (NFR3.7); only the worker calls them. Empty = no RPC (the worker waits).
+      primary-url: ${MEMETRADE_RPC_PRIMARY_URL:}
+      secondary-url: ${MEMETRADE_RPC_SECONDARY_URL:}
+      max-rps: 10
+      timeout: 3s
+    jobs:
+      deposit-scan-interval: 15s
+      withdrawal-interval: 1s
+      withdrawal-batch-size: 20
+      withdrawal-lease: 60s
+      stuck-challenge-interval: 10s
+    # 261113-trading-real-bot U3 (U3-NFR8.3): limits of the REAL risk barrier. Fixed here; outside the profiles test
+    # and local a looser value (higher percentage, more buys, longer age or reservation) refuses the start of the api
+    # and of the worker, and a value out of range refuses it in every profile. Stricter values are accepted.
+    risk:
+      order-max-bps: 1000
+      daily-loss-max-bps: 2000
+      daily-buys-max: 20
+      signal-max-age: 60s
+      reservation-ttl: 5m
+    # 261113-trading-real-bot U4 (U4-NFR3.3, U4-NFR1.5, BR3.2, BR4.2, BR5.1, BR9.1): the REAL execution. Fixed here;
+    # only the Jupiter base URL comes from the environment, and outside the profiles test and local it must be one of
+    # the fixed hosts of the Jupiter (RealExecutionSettings). The worker calls the Jupiter; the api never does.
+    execution:
+      jupiter:
+        base-url: ${MEMETRADE_JUPITER_BASE_URL:https://lite-api.jup.ag/swap/v1}
+        timeout: 2s
+        # U4-NFR1.5: the route is asked with at most 40 accounts so the message fits 1232 bytes with static keys only;
+        # one retry with 24 before ROUTE_TOO_LARGE.
+        max-accounts: 40
+        retry-max-accounts: 24
+      # BR3.2: a quote older than 10 s is never signed; BR4.2: 8 s for the main wallet to sign; a claimed session
+      # still QUOTED 15 s later is repeated with the same signingRequestId.
+      quote-max-age: 10s
+      signing-window: 8s
+      claim-stuck-after: 15s
+      # BR5.1: SENT without a final answer for 60 s becomes AMBIGUOUS.
+      confirmation-timeout: 60s
+      # reliability-design.md: the lease of an order step; no step lasts 10 s.
+      lease: 10s
+      # BR4.3: highest priority fee of a swap (0.001 SOL), also checked by the TxSigner.
+      max-priority-fee-lamports: 1000000
+      decision-batch-size: 20
+      order-batch-size: 20
+      # BR9.1: the third failure in a row of one provider for one person pauses the REAL of that person (UPSTREAM); the
+      # pause leaves when every provider is healthy for 5 minutes and the person has no AMBIGUOUS order.
+      upstream-failures-to-pause: 3
+      upstream-healthy-for: 5m
+      jobs:
+        queue-interval: 200ms
+        driver-interval: 200ms
+        confirmation-interval: 2s
+        ambiguous-interval: 15s
+        signing-deadline-interval: 1s
+        health-interval: 30s
+        liquidation-interval: 1s
   scheduling:
     enabled: true
   bots:
@@ -242,6 +324,13 @@ memetrade:
       # Fixed seed: the smoke and the CI are deterministic (NFR12.3); never random by default.
       seed: ${MARKET_SIMULATED_SEED:42}
       token-count: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:200}
+    # 261113-trading-real-bot U2: the real source coingecko (MARKET_SOURCES=coingecko), collected only by the worker.
+    # The other limits keep the values of the design in CoinGeckoProperties. The API key is never a property: only the
+    # worker reads COINGECKO_API_KEY from its environment.
+    coingecko:
+      base-url: ${COINGECKO_BASE_URL:https://pro-api.coingecko.com/api/v3}
+      attribution-text: "Dados: CoinGecko"
+      attribution-url: https://www.coingecko.com/
   ledger:
     # U7 (infrastructure-specification.md): fixed values, never read from the environment, so daily use cannot change
     # integrity rules by variable. Fallback round of the marking and the pending close (BR5.3), reconciliation (BR8.1),

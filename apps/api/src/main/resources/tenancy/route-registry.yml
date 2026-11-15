@@ -86,6 +86,28 @@ routes:
   - { method: GET, path: '/api/v1/bots/{botId}/decisions', scope: CLIENT, negativeTest: com.memetrade.bots.web.BotRoutesIT#anotherPersonsBotIsNotFoundOnEveryRoute }
   # U5 (C7, BR8.2): the live channel of the caller; every event is read with the scope of the channel's own person.
   - { method: GET, path: /api/v1/stream/dashboard, scope: CLIENT, negativeTest: com.memetrade.bots.web.DashboardStreamIT#aChannelNeverReceivesAnEventOfAnotherPerson }
+  # 261113-trading-real-bot U1 (R2, BR6.4): the bot wallet of the guest; tenant and person only from the access token,
+  # a withdrawal of another account answers 404 (BotWalletRoutesIT).
+  - { method: POST, path: /api/v1/real/consents/challenge, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  - { method: GET, path: /api/v1/real/bot-wallet, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  - { method: POST, path: /api/v1/real/bot-wallet, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  - { method: PATCH, path: /api/v1/real/bot-wallet/preferences, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  - { method: POST, path: /api/v1/real/bot-wallet/resume, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  - { method: GET, path: /api/v1/real/bot-wallet/deposits, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  - { method: GET, path: /api/v1/real/bot-wallet/withdrawals, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  - { method: POST, path: /api/v1/real/bot-wallet/withdrawals, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  - { method: GET, path: '/api/v1/real/bot-wallet/withdrawals/{withdrawalId}', scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  # 261113-trading-real-bot U4 (R3, BR10.2): the REAL orders, the signing session, the mode, the liquidation and the
+  # P&L REAL of the guest; tenant and person only from the access token, an order of another person is 404, and every
+  # one needs the acceptance of the terms v3 (no exception).
+  - { method: GET, path: /api/v1/real/orders, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
+  - { method: GET, path: '/api/v1/real/orders/{realOrderId}', scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
+  - { method: GET, path: '/api/v1/real/orders/{realOrderId}/signing-session', scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
+  - { method: POST, path: '/api/v1/real/orders/{realOrderId}/signing-session', scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
+  - { method: POST, path: '/api/v1/real/orders/{realOrderId}/reject', scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
+  - { method: PUT, path: /api/v1/real/mode, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
+  - { method: POST, path: /api/v1/real/liquidations, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
+  - { method: GET, path: /api/v1/real/pnl, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#theListAndThePnlShowOnlyThePersonOfTheToken }
 jobs:
   - { name: AuditRelayJob, scope: GLOBAL }
   # U2 retention purge and outbox cleanup: system jobs over the whole trail, no tenant input (BR3.1 to BR3.4).
@@ -131,3 +153,22 @@ jobs:
   # u4-data-requests (NFR8.1): one aggregate count by type of the open requests for the gauges and the health; returns
   # no row of a person.
   - { name: DataRequestCountsRefresher, scope: GLOBAL }
+  # The worker jobs of the bot wallet (deposit scan, withdrawal follow-up, stuck challenges) read every ACTIVE wallet
+  # and write with the tenant recorded on each wallet row, never a tenant from input (BR6.4, WorkerStoresIT).
+  - { name: BotWalletJobs, scope: GLOBAL }
+  # 261113-trading-real-bot U3 (F3, F4, F5): the worker jobs of the REAL barrier go through the wallets in force and the
+  # wallets paused for DAILY_LOSS; each wallet is handled in its own transaction with the tenant and the person read FROM
+  # THE WALLET ROW (M1), never from input, and every query of the barrier filters by that tenant (BR6.3, RealRiskJobsIT).
+  - { name: RealRiskSchedule, scope: GLOBAL }
+  # U3 (U3-NFR5.4): one aggregate count of the reservations by state for the gauge; returns no row of a person.
+  - { name: RealRiskReservationGauge, scope: GLOBAL }
+  # U3 (U3-NFR3.7): daily purge of the REAL evaluations, closed reservations and photos older than 13 months, through
+  # the retention pool; reads no tenant input, returns nothing per person and logs only totals.
+  - { name: RealRiskPurgeJob, scope: GLOBAL }
+  # 261113-trading-real-bot U4 (logical-components.md): the seven jobs of the REAL execution in the worker. Each order,
+  # decision and liquidation is handled with the tenant and the person read FROM ITS ROW, every write filters by them,
+  # and the queue checks the ownership of the bot again before creating an order (DecisionConsumerIT).
+  - { name: RealExecutionSchedule, scope: GLOBAL }
+  # U4 (U4-NFR3.9): daily purge of the REAL orders, sends and liquidations older than 5 years and of the closed decisions
+  # older than 13 months, through the retention pool; reads no tenant input and logs only totals.
+  - { name: RealExecutionPurgeJob, scope: GLOBAL }

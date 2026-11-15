@@ -173,16 +173,48 @@ class ArchitectureTest {
                 .check(PRODUCTION);
     }
 
+    /**
+     * 261113-trading-real-bot U2 (NFR1.4, security-design.md "Isolamento de rede"): only the CoinGecko adapter package
+     * may reach the network; the rest of the market module (and the simulated sources) never does.
+     */
+    static final ArchRule MARKET_NETWORK_RULE = noClasses()
+            .that()
+            .resideInAPackage("com.memetrade.marketdata..")
+            .and()
+            .resideOutsideOfPackage("com.memetrade.marketdata.infra.coingecko..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(
+                    "java.net..",
+                    "java.net.http..",
+                    "org.springframework.web.client..",
+                    "org.springframework.http.client..")
+            .because("only the real adapter in marketdata.infra.coingecko calls the provider (U2 NFR1.4)");
+
     @Test
     void theMarketModuleNeverUsesTheNetwork() {
-        noClasses()
-                .that()
-                .resideInAPackage("com.memetrade.marketdata..")
-                .should()
-                .dependOnClassesThat()
-                .resideInAnyPackage("java.net..", "java.net.http..")
-                .because("the simulated source is local; real adapters arrive in U4 (C-06)")
-                .check(PRODUCTION);
+        MARKET_NETWORK_RULE.check(PRODUCTION);
+    }
+
+    @Test
+    void theNetworkRuleFailsForAMarketClassOutsideTheCoinGeckoPackage() {
+        JavaClasses sample =
+                new ClassFileImporter().importClasses(com.memetrade.marketdata.infra.NetworkUsingFixture.class);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> MARKET_NETWORK_RULE.check(sample))
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("NetworkUsingFixture");
+    }
+
+    @Test
+    void theNetworkRuleAllowsTheCoinGeckoPackage() {
+        JavaClasses adapter =
+                new ClassFileImporter().importClasses(com.memetrade.marketdata.infra.coingecko.CoinGeckoHttp.class);
+
+        // The adapter package is outside the "that" clause, so nothing is left to check: no violation, empty should.
+        org.assertj.core.api.Assertions.assertThatCode(
+                        () -> MARKET_NETWORK_RULE.allowEmptyShould(true).check(adapter))
+                .doesNotThrowAnyException();
     }
 
     @Test

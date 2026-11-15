@@ -1,10 +1,12 @@
 package com.memetrade.marketdata.infra;
 
+import com.memetrade.marketdata.api.Attribution;
 import com.memetrade.marketdata.api.MarketDataQuery;
 import com.memetrade.marketdata.api.MarketField;
 import com.memetrade.marketdata.api.MarketRiskInputs;
 import com.memetrade.marketdata.api.MarketValue;
 import com.memetrade.marketdata.api.PriceVolumeWindow;
+import com.memetrade.marketdata.api.SourceKind;
 import com.memetrade.marketdata.api.SourceRef;
 import com.memetrade.marketdata.api.SourceStatus;
 import com.memetrade.marketdata.api.SourceStatusMarks;
@@ -14,15 +16,18 @@ import com.memetrade.marketdata.domain.FieldResolver;
 import com.memetrade.marketdata.domain.FieldResolver.SourcedObservation;
 import com.memetrade.marketdata.domain.Freshness;
 import com.memetrade.marketdata.domain.MarketStore;
+import com.memetrade.marketdata.infra.coingecko.CoinGeckoProperties;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -57,12 +62,50 @@ public class JdbcMarketDataQuery implements MarketDataQuery, MarketRiskInputs, S
     private final FieldResolver resolver;
     private final MarketStore store;
     private final Clock clock;
+    private final MarketDataProperties sources;
+    private final CoinGeckoProperties coingecko;
 
+    /** Without the configuration: the kind of the active source is derived from the stored sources. */
     public JdbcMarketDataQuery(JdbcClient jdbc, FieldResolver resolver, MarketStore store, Clock clock) {
+        this(jdbc, resolver, store, clock, null, null);
+    }
+
+    /**
+     * @param sources {@code MARKET_SOURCES}, the answer of {@link #activeSourceKind()} (U2 BR1.5)
+     * @param coingecko the attribution of the real source (U2 BR1.8)
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public JdbcMarketDataQuery(
+            JdbcClient jdbc,
+            FieldResolver resolver,
+            MarketStore store,
+            Clock clock,
+            MarketDataProperties sources,
+            CoinGeckoProperties coingecko) {
         this.jdbc = jdbc;
         this.resolver = resolver;
         this.store = store;
         this.clock = clock;
+        this.sources = sources;
+        this.coingecko = coingecko;
+    }
+
+    /** U2 (BR1.5): SIMULATED as soon as {@code MARKET_SOURCES} names a simulated source, REAL otherwise. */
+    @Override
+    public SourceKind activeSourceKind() {
+        if (sources == null) {
+            return MarketDataQuery.super.activeSourceKind();
+        }
+        return sources.anySimulated() ? SourceKind.SIMULATED : SourceKind.REAL;
+    }
+
+    /** U2 (BR1.5, BR1.8): the text and link of the real source when {@code MARKET_SOURCES} names coingecko. */
+    @Override
+    public Optional<Attribution> attribution() {
+        if (sources == null || coingecko == null || !sources.coingeckoConfigured()) {
+            return Optional.empty();
+        }
+        return Optional.of(new Attribution(coingecko.attributionText(), coingecko.attributionUrl()));
     }
 
     @Override
@@ -104,6 +147,92 @@ public class JdbcMarketDataQuery implements MarketDataQuery, MarketRiskInputs, S
             logFailure("decimals", failure);
             return new MarketValue.Unknown(UnknownReason.SOURCE_UNAVAILABLE, Optional.empty());
         }
+    }
+
+    @Override
+    public MarketValue volume24h(TokenId token) {
+        return field(token, MarketField.VOLUME_24H);
+    }
+
+    /**
+     * 261113-trading-real-bot U3 (M4, Q3 of the NFR Design): the PRICE of every token of the set in ONE query, resolved
+     * exactly like {@link #referencePrice(TokenId)}; a technical failure makes every price
+     * {@code Unknown(SOURCE_UNAVAILABLE)}.
+     */
+    @Override
+    public Map<TokenId, MarketValue> referencePrices(Set<TokenId> tokens) {
+        Map<TokenId, MarketValue> prices = new LinkedHashMap<>();
+        if (tokens.isEmpty()) {
+            return prices;
+        }
+        Instant now = clock.instant();
+        try {
+            Map<TokenId, Map<MarketField, List<SourcedObservation>>> observations = StoredObservations.read(
+                    keys(jdbc.sql(StoredObservations.COLUMNS + BATCH + " where o.field = 'PRICE'"), tokens));
+            for (TokenId token : tokens) {
+                List<SourcedObservation> price =
+                        observations.getOrDefault(token, Map.of()).getOrDefault(MarketField.PRICE, List.of());
+                prices.put(
+                        token, resolver.resolve(MarketField.PRICE, price, now).value());
+            }
+        } catch (DataAccessException failure) {
+            logFailure("referencePrices", failure);
+            tokens.forEach(token ->
+                    prices.put(token, new MarketValue.Unknown(UnknownReason.SOURCE_UNAVAILABLE, Optional.empty())));
+        }
+        return prices;
+    }
+
+    /** 261113-trading-real-bot U3 (BR5.2): {@link #decimals(TokenId)} of every token of the set in ONE query. */
+    @Override
+    public Map<TokenId, MarketValue> decimalsOf(Set<TokenId> tokens) {
+        Map<TokenId, MarketValue> decimals = new LinkedHashMap<>();
+        if (tokens.isEmpty()) {
+            return decimals;
+        }
+        try {
+            Map<TokenId, MarketValue> found = new HashMap<>();
+            keys(jdbc.sql("""
+                                    select distinct on (t.chain, t.mint) t.chain, t.mint, t.decimals, t.first_seen_at,
+                                           s.source_id, s.name, s.simulated
+                                    from token t
+                                    join unnest(string_to_array(:chains, ','), string_to_array(:mints, ','))
+                                      as k(chain, mint) on k.chain = t.chain and k.mint = t.mint
+                                    join market_observation o on o.chain = t.chain and o.mint = t.mint
+                                    join data_source s on s.source_id = o.source_id
+                                    order by t.chain, t.mint, o.observed_at desc, s.source_id
+                                    """), tokens).query(rs -> {
+                found.put(
+                        new TokenId(rs.getString("chain"), rs.getString("mint")),
+                        new MarketValue.Known(
+                                java.math.BigDecimal.valueOf(rs.getInt("decimals")),
+                                new SourceRef(
+                                        rs.getString("source_id"), rs.getString("name"), rs.getBoolean("simulated")),
+                                rs.getTimestamp("first_seen_at").toInstant(),
+                                false));
+            });
+            tokens.forEach(token -> decimals.put(token, found.getOrDefault(token, notYetObserved())));
+        } catch (DataAccessException failure) {
+            logFailure("decimalsOf", failure);
+            tokens.forEach(token ->
+                    decimals.put(token, new MarketValue.Unknown(UnknownReason.SOURCE_UNAVAILABLE, Optional.empty())));
+        }
+        return decimals;
+    }
+
+    /** Joins the observations with the set of tokens; chains and mints never contain a comma (Base58, ids). */
+    private static final String BATCH = " join unnest(string_to_array(:chains, ','), string_to_array(:mints, ','))"
+            + " as k(chain, mint) on k.chain = o.chain and k.mint = o.mint";
+
+    private static JdbcClient.StatementSpec keys(JdbcClient.StatementSpec statement, Set<TokenId> tokens) {
+        List<TokenId> ordered = List.copyOf(tokens);
+        return statement
+                .param(
+                        "chains",
+                        String.join(",", ordered.stream().map(TokenId::chain).toList()))
+                .param(
+                        "mints",
+                        String.join(",", ordered.stream().map(TokenId::mint).toList()));
     }
 
     @Override

@@ -36,11 +36,14 @@ class U7ContractsTest {
         RouteRegistry registry = RouteRegistry.load();
 
         assertThat(registry.routes())
-                .filteredOn(entry -> entry.key().contains("/trades")
-                        || entry.key().contains("/day-usage")
-                        || entry.key().contains("/ledger")
-                        || entry.key().contains("/pnl")
-                        || entry.key().contains("/reconciliation"))
+                // C5 is PAPER: the REAL P&L of 261113-trading-real-bot U4 (/api/v1/real/pnl) is checked by
+                // RouteRegistryTest.
+                .filteredOn(entry -> !entry.key().contains("/api/v1/real/")
+                        && (entry.key().contains("/trades")
+                                || entry.key().contains("/day-usage")
+                                || entry.key().contains("/ledger")
+                                || entry.key().contains("/pnl")
+                                || entry.key().contains("/reconciliation")))
                 .extracting(RouteRegistry.Entry::key, RouteRegistry.Entry::scope)
                 .containsExactlyInAnyOrder(
                         Tuple.tuple("GET /api/v1/bots/{botId}/trades", "CLIENT"),

@@ -93,6 +93,13 @@ public class CycleRunner {
     private final Clock clock;
     private final TransactionTemplate transactions;
     private final CycleTimings timings;
+    private RealCycle realCycle;
+
+    /** 261113-trading-real-bot U4 (F1): the REAL path of the cycle, for the bots of the market REAL. */
+    @org.springframework.beans.factory.annotation.Autowired
+    void useRealCycle(RealCycle realCycle) {
+        this.realCycle = realCycle;
+    }
 
     @SuppressWarnings("checkstyle:ParameterNumber")
     public CycleRunner(
@@ -198,7 +205,16 @@ public class CycleRunner {
         int version = bot.currentLimitsVersion().orElseThrow();
         BotLimits limits = bots.limits(bot.botId(), version).orElseThrow();
         long decideStarted = System.nanoTime();
-        DecisionRequest request = request(bot, version, limits, slotStart, now, stage);
+        // 261113-trading-real-bot U4 (F1): a REAL bot decides on the REAL balance and positions of its bot wallet.
+        Optional<RealCycle.Inputs> real = Optional.empty();
+        if (bot.real()) {
+            stage.at(CycleCause.EXECUTION);
+            real = realCycle.inputs(bot, bots.holdings(bot.botId()), now);
+            if (real.isEmpty()) {
+                return skip(cycleId, "REAL_UNAVAILABLE", now);
+            }
+        }
+        DecisionRequest request = request(bot, version, limits, slotStart, now, stage, real);
         stage.at(CycleCause.OTHER);
         DecisionOutcome outcome = engine.decide(request);
         stage.at(CycleCause.DATABASE);
@@ -216,7 +232,18 @@ public class CycleRunner {
                 json.write(request, outcome),
                 now));
         timings.decision(Duration.ofNanos(System.nanoTime() - decideStarted));
-        String result = outcome.isOrder() ? order(bot, version, limits, decisionId, outcome, now, stage) : "NO_ORDER";
+        String result;
+        if (!outcome.isOrder()) {
+            result = "NO_ORDER";
+        } else if (real.isPresent()) {
+            stage.at(CycleCause.RISK_GATE);
+            result = realCycle.order(bot, decisionId, outcome, request.tokens(), real.get());
+            if ("REAL_RECORDED".equals(result) && outcome.action() == DecisionAction.BUY) {
+                bots.openHolding(bot.botId(), outcome.token().orElseThrow(), now);
+            }
+        } else {
+            result = order(bot, version, limits, decisionId, outcome, now, stage);
+        }
         stage.at(CycleCause.DATABASE);
         cycles.finish(
                 cycleId,
@@ -231,22 +258,38 @@ public class CycleRunner {
 
     /** BR4.1, BR3.7, BR4.8: the inputs of the decision, read inside the cycle transaction. */
     private DecisionRequest request(
-            Bot bot, int version, BotLimits limits, Instant slotStart, Instant now, Stage stage) {
+            Bot bot,
+            int version,
+            BotLimits limits,
+            Instant slotStart,
+            Instant now,
+            Stage stage,
+            Optional<RealCycle.Inputs> real) {
         stage.at(CycleCause.EXECUTION);
-        List<PositionView> open = ledger.positions(bot.botId()).stream()
-                .filter(position -> position.quantity().signum() > 0)
-                .toList();
-        BigDecimal balance = ledger.balance(bot.botId());
-        stage.at(CycleCause.DATABASE);
-        Map<TokenId, Instant> holdings = bots.holdings(bot.botId());
+        BigDecimal balance;
         List<PositionInput> positions = new ArrayList<>();
-        for (PositionView position : open) {
-            TokenId token = new TokenId(position.chain(), position.tokenMint());
-            positions.add(new PositionInput(
-                    token,
-                    position.quantity(),
-                    position.costBasis(),
-                    holdings.getOrDefault(token, position.updatedAt())));
+        Map<TokenId, Instant> holdings;
+        if (real.isPresent()) {
+            // REAL (U4): never the PAPER ledger.
+            balance = real.get().balanceUsd();
+            positions.addAll(real.get().positions());
+            stage.at(CycleCause.DATABASE);
+            holdings = bots.holdings(bot.botId());
+        } else {
+            List<PositionView> open = ledger.positions(bot.botId()).stream()
+                    .filter(position -> position.quantity().signum() > 0)
+                    .toList();
+            balance = ledger.balance(bot.botId());
+            stage.at(CycleCause.DATABASE);
+            holdings = bots.holdings(bot.botId());
+            for (PositionView position : open) {
+                TokenId token = new TokenId(position.chain(), position.tokenMint());
+                positions.add(new PositionInput(
+                        token,
+                        position.quantity(),
+                        position.costBasis(),
+                        holdings.getOrDefault(token, position.updatedAt())));
+            }
         }
         holdings.keySet().stream()
                 .filter(token -> positions.stream().noneMatch(p -> p.token().equals(token)))

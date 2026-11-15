@@ -5,16 +5,18 @@
 spring:
   datasource:
     hikari:
-      # scalability-design.md: 4 cycles, 4 reserve for writes of other Units inside the cycle, 6 for the jobs.
-      maximum-pool-size: ${DB_POOL_MAX_SIZE:14}
+      # 261113-trading-real-bot U4 (logical-components.md "Pool do worker"): 4 cycles, 4 reserve for writes of other
+      # Units inside the cycle and one per scheduled method of the worker (19). RuntimeSettingsGuard: 27 to 40.
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:27}
       minimum-idle: 2
       connection-timeout: 5000
       pool-name: memetrade-worker-pool
   task:
     scheduling:
-      # Slot dispatch, midnight, closing check and decision purge (RuntimeSettingsGuard: 4 to 8 in the worker).
+      # One thread per scheduled method of the worker: bots 3, bot wallet 3, CoinGecko 2, REAL barrier 4 and REAL
+      # execution 7 = 19 (RuntimeSettingsGuard: 19 to 26 in the worker; RuntimeSettingsGuardWorkerCountTest).
       pool:
-        size: ${SCHEDULER_POOL_SIZE:4}
+        size: ${SCHEDULER_POOL_SIZE:19}
 
 server:
   # The embedded server has no controller in the worker; the management port is the only one that answers.

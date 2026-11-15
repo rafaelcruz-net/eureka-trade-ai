@@ -41,11 +41,18 @@ public class ScannerController {
 
     private final ScannerService scanner;
     private final AuthContext auth;
+    private final com.memetrade.marketdata.api.MarketDataQuery market;
     private final DistributionSummary excluded;
 
-    public ScannerController(ScannerService scanner, AuthContext auth, MeterRegistry registry) {
+    /** @param market M4: the kind of the active source and its attribution on every page (U2 BR1.8) */
+    public ScannerController(
+            ScannerService scanner,
+            AuthContext auth,
+            com.memetrade.marketdata.api.MarketDataQuery market,
+            MeterRegistry registry) {
         this.scanner = scanner;
         this.auth = auth;
+        this.market = market;
         this.excluded =
                 DistributionSummary.builder("scanner_excluded_by_unknown").register(registry);
     }
@@ -118,7 +125,7 @@ public class ScannerController {
         if (query.filters().anyActive()) {
             excluded.record(page.excludedByUnknown());
         }
-        return ScannerPageDto.of(page);
+        return ScannerPageDto.of(page, ScannerDtos.DataSourceDto.of(market));
     }
 
     /** BR1.4: {@code 503 SOURCE_UNAVAILABLE} with the {@code sources} extension, never zeroed or old values. */

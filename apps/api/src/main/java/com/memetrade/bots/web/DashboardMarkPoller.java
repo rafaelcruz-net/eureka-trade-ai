@@ -67,6 +67,14 @@ public class DashboardMarkPoller {
     /** U9 (NFR2.1): at most {@code max-channels-per-person} open channels per person. */
     private final ChannelSlots slots;
 
+    /** 261113-trading-real-bot U4 (R6): the REAL orders of the person (M6). */
+    private com.memetrade.realexecution.api.RealExecutionPort realExecution;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void useRealExecution(com.memetrade.realexecution.api.RealExecutionPort realExecution) {
+        this.realExecution = realExecution;
+    }
+
     /**
      * @param ledgerMarks the C18 mark of U7; U7 declared the interface without a bean, so until it provides one the mark
      *     is derived from its public read model (the instant of the newest order of the person's bots), registered as
@@ -244,6 +252,9 @@ public class DashboardMarkPoller {
                 if (sourceChanged) {
                     send(channel, "data.status", new DashboardEvents.DataStatus(market.sourceStatuses()));
                 }
+                if (realExecution != null) {
+                    sendRealChanges(channel, now);
+                }
                 if (polling && Duration.between(channel.lastHeartbeat, now).compareTo(heartbeat) >= 0) {
                     send(channel, "heartbeat", new DashboardEvents.Heartbeat(now.toString()));
                     channel.lastHeartbeat = now;
@@ -253,6 +264,46 @@ public class DashboardMarkPoller {
                 close(channel);
             }
         }
+    }
+
+    /**
+     * 261113-trading-real-bot U4 (R6, BR10.1): the REAL orders of THIS person changed since the last mark the channel
+     * saw: one {@code real.order.state} per change and one {@code real.signing.requested} per open signing session. At
+     * the opening of the channel only the mark is taken (the app reads the orders through REST).
+     */
+    private void sendRealChanges(Channel channel, Instant now) throws IOException {
+        TenantScope scope = TenantScope.of(channel.person);
+        long mark = realExecution.changeMark(scope.tenantId(), scope.ownerUserId());
+        if (channel.realSince == null) {
+            channel.realSince = Instant.ofEpochMilli(mark);
+            return;
+        }
+        if (mark <= channel.realSince.toEpochMilli()) {
+            return;
+        }
+        Instant latest = channel.realSince;
+        for (var order : realExecution.changedSince(scope.tenantId(), scope.ownerUserId(), channel.realSince, 50)) {
+            send(
+                    channel,
+                    "real.order.state",
+                    new DashboardEvents.RealOrderStateChanged(
+                            "REAL_ORDER_STATE",
+                            order.realOrderId(),
+                            order.state().name(),
+                            order.updatedAt().toString()));
+            if (order.state() == com.memetrade.realexecution.api.RealOrderState.QUOTED
+                    && order.signingDeadline().filter(now::isBefore).isPresent()) {
+                send(
+                        channel,
+                        "real.signing.requested",
+                        new DashboardEvents.RealSigningSessionOpened(
+                                "REAL_SIGNING_REQUESTED",
+                                order.realOrderId(),
+                                order.signingDeadline().get().toString()));
+            }
+            latest = order.updatedAt().isAfter(latest) ? order.updatedAt() : latest;
+        }
+        channel.realSince = latest;
     }
 
     /** The ledger mark of the person: C18 of U7 when it exists, else the newest order instant (milliseconds). */
@@ -323,6 +374,7 @@ public class DashboardMarkPoller {
         private Instant lastFull;
         private Instant lastHeartbeat;
         private Instant lastTradeAt;
+        private Instant realSince;
         private final AtomicBoolean closed = new AtomicBoolean();
 
         private Channel(UUID id, Principal person, SseEmitter emitter, Instant expiresAt, Instant openedAt) {

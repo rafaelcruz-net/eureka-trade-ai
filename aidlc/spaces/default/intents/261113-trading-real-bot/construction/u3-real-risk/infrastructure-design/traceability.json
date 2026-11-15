@@ -1,0 +1,29 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u3-real-risk",
+  "upstream_ids": ["U3-NFR3.6", "U3-NFR3.7", "U3-NFR4.4", "U3-NFR4.5", "U3-NFR5.1", "U3-NFR5.2", "U3-NFR5.3", "U3-NFR5.4", "U3-NFR5.5", "U3-NFR5.6", "U3-NFR5.7", "U3-NFR5.8", "U3-NFR5.9", "U3-NFR5.10", "U3-NFR5.11", "U3-NFR5.12", "U3-NFR8.3", "U3-NFR8.5", "U3-NFR8.6", "U3-NFR8.7", "U3-NFR8.8", "U3-NFR8.9"],
+  "coverage": [
+    {"id": "U3-NFR3.6", "status": "OK", "target": "infrastructure-specification: migração com os índices"},
+    {"id": "U3-NFR3.7", "status": "OK", "target": "infrastructure-specification: privilégios por tabela, gatilhos de idade por coluna, real_risk_purge_run"},
+    {"id": "U3-NFR4.4", "status": "OK", "target": "infrastructure-specification: trabalhos no worker e na API, ShedLock com nomes distintos"},
+    {"id": "U3-NFR4.5", "status": "OK", "target": "infrastructure-specification: estado nas tabelas, gatilho de transição das reservas"},
+    {"id": "U3-NFR5.1", "status": "OK", "target": "monitoring-design: métrica e origem"},
+    {"id": "U3-NFR5.2", "status": "OK", "target": "monitoring-design: histograma"},
+    {"id": "U3-NFR5.3", "status": "OK", "target": "monitoring-design: espera da trava"},
+    {"id": "U3-NFR5.4", "status": "OK", "target": "monitoring-design: medidor de reservas no worker"},
+    {"id": "U3-NFR5.5", "status": "OK", "target": "monitoring-design: contador de vencimentos"},
+    {"id": "U3-NFR5.6", "status": "OK", "target": "monitoring-design: pausas por perda"},
+    {"id": "U3-NFR5.7", "status": "OK", "target": "monitoring-design: erros por dependência"},
+    {"id": "U3-NFR5.8", "status": "OK", "target": "monitoring-design: real_risk_job_runs_total e batimento por processo"},
+    {"id": "U3-NFR5.9", "status": "OK", "target": "monitoring-design: regra e alarme, aviso"},
+    {"id": "U3-NFR5.10", "status": "OK", "target": "monitoring-design: regra e alarme, crítica"},
+    {"id": "U3-NFR5.11", "status": "Deferred", "target": "decisão do caminho das métricas até o CloudWatch (pendência única de U1, U2 e U3, antes da mainnet); a regra do Prometheus existe"},
+    {"id": "U3-NFR5.12", "status": "OK", "target": "monitoring-design: três alarmes por contador de execuções, treat_missing_data breaching"},
+    {"id": "U3-NFR8.3", "status": "OK", "target": "infrastructure-specification: limites na configuração, só comentados no .env.example"},
+    {"id": "U3-NFR8.5", "status": "OK", "target": "infrastructure-specification: trava na conexão do ciclo, folga do pool"},
+    {"id": "U3-NFR8.6", "status": "OK", "target": "infrastructure-specification: migração só de expansão, privilégios e rollback por changeset"},
+    {"id": "U3-NFR8.7", "status": "OK", "target": "infrastructure-specification: ShedLock e pool risk_retention que já existem"},
+    {"id": "U3-NFR8.8", "status": "OK", "target": "cicd-pipeline: testes no job backend com Testcontainers"},
+    {"id": "U3-NFR8.9", "status": "OK", "target": "cicd-pipeline: testes obrigatórios por risco no job backend"}
+  ]
+}

@@ -1,6 +1,7 @@
 package com.memetrade.marketdata.infra;
 
 import com.memetrade.marketdata.api.MarketSourceAdapter;
+import com.memetrade.marketdata.api.WatchedTokens;
 import com.memetrade.marketdata.domain.DivergencePolicy;
 import com.memetrade.marketdata.domain.FieldResolver;
 import com.memetrade.marketdata.domain.MarketCollector;
@@ -41,7 +42,10 @@ public class MarketDataConfig {
                 && !environment.acceptsProfiles(org.springframework.core.env.Profiles.of("test"))) {
             throw MarketDataProperties.invalid("MARKET_SIMULATED_SCENARIO", "STANDARD outside the test profile");
         }
+        // U2: the real source coingecko has no adapter here; only the worker builds it (CoinGeckoConfig), so the api
+        // never calls the provider (NFR1.6). The simulated sources keep being collected by the api, as before.
         return new ConfiguredSources(properties.sources().stream()
+                .filter(MarketDataProperties.SIMULATED_SOURCES::contains)
                 .map(id -> (MarketSourceAdapter) SimulatedMarketSource.forSource(
                         id,
                         properties.simulated().seed(),
@@ -74,16 +78,31 @@ public class MarketDataConfig {
                 Sleeper.REAL,
                 new Random(properties.simulated().seed()),
                 SourceCaller.TIMEOUT,
+                java.util.Map.of(MarketDataProperties.COINGECKO, SourceCaller.COINGECKO_POLICY),
                 (sourceId, attempt) -> Counter.builder("market_collection_retries_total")
                         .tag("source", sourceId)
                         .register(meters)
                         .increment());
     }
 
+    /**
+     * U2 (BR1.1): the tokens other modules need priced by the real source. Empty here; U4 replaces this bean with the
+     * REAL positions behind the same {@link WatchedTokens} interface.
+     */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(WatchedTokens.class)
+    public WatchedTokens watchedTokens() {
+        return WatchedTokens.NONE;
+    }
+
     @Bean
     public MarketCollector marketCollector(
-            MarketStore store, SourceFetcher fetcher, TransactionTemplate transactions, Clock clock) {
-        return new MarketCollector(store, fetcher, new TransactionUnitOfWork(transactions), clock);
+            MarketStore store,
+            SourceFetcher fetcher,
+            TransactionTemplate transactions,
+            Clock clock,
+            WatchedTokens watched) {
+        return new MarketCollector(store, fetcher, new TransactionUnitOfWork(transactions), clock, watched);
     }
 
     @Bean

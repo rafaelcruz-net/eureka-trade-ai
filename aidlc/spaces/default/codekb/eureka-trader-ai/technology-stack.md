@@ -1,79 +1,89 @@
 # Pilha de tecnologia — eureka-trader-ai
 
-Versões lidas dos manifestos no commit `ffde88f`. Este é o inventário dono de versões; relações entre pacotes e
-riscos de dependência estão em [dependencies.md](dependencies.md).
+Versões lidas no commit de referência. As bibliotecas com seu uso e as dependências entre pacotes estão em
+[dependencies.md](dependencies.md).
 
 ## Linguagens e runtimes
 
-| Item | Versão | Onde está fixado |
+| Item | Versão | Onde está fixada |
 |---|---|---|
-| Java | 21 (enforcer exige `[21,)`) | `apps/api/pom.xml` `java.version`, imagens `eclipse-temurin:21-*-alpine` |
-| Maven | 3.9 ou mais novo (Wrapper) | `maven-enforcer-plugin`, `apps/api/.mvn/` |
-| TypeScript | 5.9.3, modo `strict` | `apps/*/package.json`, `tsconfig.json` |
-| Node.js | 24 (`engines >=24 <25`) | `.nvmrc`, `node:24-alpine` |
-| pnpm | 10.18.3 | `packageManager` dos dois apps |
-| SQL | PostgreSQL 17 (plpgsql nos gatilhos) | `postgres:17-alpine` fixado por digest |
-| Shell | bash/sh (Git Bash no Windows) | `scripts/`, `infra/postgres/bootstrap/bootstrap.sh` |
+| Java | 21 | `apps/api/pom.xml` (`java.version`), enforcer exige JDK `[21,)` e Maven `[3.9,)` |
+| JRE/JDK das imagens | Eclipse Temurin 21 Alpine (JDK no build, JRE no runtime), por digest | `apps/api/Dockerfile` |
+| TypeScript | 5.9.3, modo `strict` | `apps/*/package.json`, `apps/*/tsconfig.json` |
+| Node.js | 24 (LTS) | `.nvmrc`, `engines` `>=24 <25`, imagem `node:24-alpine` por digest |
+| SQL | PostgreSQL 17 | `postgres:17-alpine` por digest em `docker-compose.yml` |
+| Shell | Bash e POSIX sh | `scripts/*.sh`, `.githooks/pre-commit`, `infra/postgres/bootstrap/bootstrap.sh` |
 
-## Backend (`apps/api`)
+## Backend
 
-| Biblioteca | Versão | Uso |
+| Tecnologia | Versão | Uso |
 |---|---|---|
-| Spring Boot (parent) | 3.5.16 | `starter-web`, `starter-validation`, `starter-jdbc`, `starter-actuator` |
-| Liquibase core | gerenciada pelo Boot | Migrações SQL (só no perfil `migrate`) |
-| PostgreSQL JDBC | gerenciada pelo Boot | Driver, leitura do nome da constraint |
-| HikariCP | gerenciada pelo Boot | Pool principal (20) e pools de retenção (1 conexão) |
-| springdoc-openapi-starter-webmvc-api | 2.8.17 | OpenAPI 3.1, grupos `guest` e `admin` |
-| nimbus-jose-jwt | 10.10 | Token de acesso HMAC |
-| ShedLock (spring, jdbc-template) | 6.10.0 | Execução única dos jobs |
-| Resilience4j retry e timelimiter | 2.3.0 | Chamadas às fontes de mercado |
-| logstash-logback-encoder | 8.1 | Logs JSON com máscara Base58 |
-| micrometer-registry-prometheus | gerenciada pelo Boot | Métricas em `/actuator/prometheus` |
-| Jackson | gerenciada pelo Boot | JSON (UTC, recusa campos desconhecidos) |
+| Spring Boot | 3.5.16 (parent) | Web MVC em Tomcat, validação, JDBC (`JdbcClient`), actuator |
+| Tomcat | 10.1.61 (sobreposição por CVE) | Servidor HTTP |
+| Liquibase | gerenciado pelo Boot | Migrações SQL formatadas, aplicadas só pelo processo `db-migrate` |
+| PostgreSQL JDBC | 42.7.14 (sobreposição por CVE) | Driver |
+| HikariCP | gerenciado pelo Boot | Pool fixo de 20 no `api`, 14 no `worker`, pools de 1 conexão para expurgos e para a trava do kill switch |
+| springdoc-openapi (webmvc-api) | 2.8.17 | OpenAPI 3.1 por grupo (`guest`, `admin`) |
+| nimbus-jose-jwt | 10.10 | Utilidades JOSE |
+| ShedLock (spring, jdbc-template) | 6.10.0 | Execução única dos jobs entre instâncias |
+| Resilience4j (retry, timelimiter) | 2.3.0 | Limite de tempo e novas tentativas das fontes de mercado, configurados em código |
+| Micrometer + Prometheus | gerenciado pelo Boot | Métricas em `/actuator/prometheus` |
+| logstash-logback-encoder | 8.1 | Logs JSON com máscara de carteira |
+| Log4j API | 2.25.5 (sobreposição por CVE) | Só a ponte `log4j-to-slf4j` |
+| Criptografia | JDK (`Signature.getInstance("Ed25519")`, HMAC) | Assinatura de login, token de acesso, HMAC da carteira na trilha |
 
-Criptografia: Ed25519 nativo do Java e decodificação Base58 própria (`identity/domain/signature`); SHA-256 para
-digests de refresh, código de convite e idempotência. Sem SDK Solana em produção (proibido pelo enforcer).
+Sem ORM, sem Spring Security (filtros próprios), sem fila, sem cache, sem cliente HTTP de saída, sem SDK Solana em
+produção, sem KMS.
 
-### Teste e qualidade do backend
+## Frontend
+
+| Tecnologia | Versão | Uso |
+|---|---|---|
+| Next.js | 15.5.28 | App Router nos dois apps; `middleware.ts` com CSP por nonce |
+| React / React DOM | 19.2.9 | UI |
+| Wallet Standard | `@wallet-standard/app` 1.1.0, `base` 1.1.0, `features` 1.1.0, `@solana/wallet-standard-features` 1.3.0 | Descoberta de Phantom e Solflare, `connect` e `solana:signMessage` |
+| openapi-typescript | 7.9.1 | Tipos gerados dos contratos |
+| pnpm | 10.18.3 (`packageManager`) | Instalação a partir dos lockfiles (`--frozen-lockfile`) |
+| postcss | 8.5.28 (override do pnpm) | Correção de segurança transitiva |
+
+## Testes
+
+| Tecnologia | Versão | Uso |
+|---|---|---|
+| JUnit 5 + Spring Boot Test | gerenciado pelo Boot | Unitários (`*Test`, Surefire) e integração (`*IT`, Failsafe) |
+| Testcontainers (junit-jupiter, postgresql) | gerenciado pelo Boot | PostgreSQL real com as migrações da aplicação |
+| ArchUnit | 1.5.1 | Fronteiras de módulo, pureza do domínio, proibições de rede, chave e ponto flutuante |
+| solanaj | 1.28.0, escopo `test` | Carteira e assinatura de teste (banido em produção pelo enforcer) |
+| JaCoCo | 0.8.15 | Cobertura mesclada com piso de 80% de linhas |
+| Jest + jsdom | 30.2.0 | Testes dos dois apps com piso de 80% de linhas |
+| Testing Library | react 16.3.0, user-event 14.6.1, jest-dom 6.10.0 | Testes de componentes |
+| Playwright | 1.56.1 | Smokes e ponta a ponta |
+| `node:test` | do Node 24 | Testes dos cenários de carga em `scripts/load/` |
+
+## Qualidade e segurança
 
 | Ferramenta | Versão | Uso |
 |---|---|---|
-| JUnit 5 / spring-boot-starter-test | gerenciada pelo Boot | Unitários e integração |
-| Testcontainers (junit-jupiter, postgresql) | gerenciada pelo Boot | PostgreSQL 17 real |
-| ArchUnit | 1.5.1 | Fronteiras de módulos e regras proibidas |
-| solanaj | 1.28.0, só `test` | Gera a carteira do smoke |
-| JaCoCo | 0.8.15 | Cobertura, `check` de 80% de linhas |
-| Spotless + palantir-java-format | 2.46.1 + 2.80.0 | Formatação na fase `verify` |
-| Surefire / Failsafe | gerenciados pelo Boot | `*Test` e `*IT`, seleção por `-Dgroups=uN` |
-
-## Frontends (`apps/web`, `apps/admin`)
-
-| Biblioteca | Versão | Uso |
-|---|---|---|
-| Next.js | 15.5.28 | App Router, `output: 'standalone'` |
-| React / React DOM | 19.2.9 | UI |
-| @wallet-standard/app, base, features | 1.1.0 | Descoberta de carteiras |
-| @solana/wallet-standard-features | 1.3.0 | Recurso de assinatura de mensagem |
-| openapi-typescript | 7.9.1 | Gera `schema.d.ts` do OpenAPI |
-| Jest / jest-environment-jsdom | 30.2.0 | Testes unitários (80% de linhas) |
-| @testing-library/react, jest-dom, user-event | 16.3.0, 6.10.0, 14.6.1 | Testes de componentes |
-| Playwright | 1.56.1 (só `apps/web`) | Ponta a ponta |
-| ESLint / eslint-config-next | 9.39.5 / 15.5.28 | Lint |
-| Prettier | 3.6.2 | Formatação |
-| pg | 8.16.3 (dev, só `apps/web`) | Leitura da trilha nos smokes |
-| Override `postcss` | 8.5.28 | Correção de segurança transitiva |
+| Spotless + palantir-java-format | 2.46.1 / 2.80.0 | Formatação Java, `format-check` no `verify` |
+| maven-enforcer-plugin | gerenciado pelo Boot | Versões mínimas e dependências banidas |
+| ESLint + eslint-config-next | 9.39.5 / 15.5.28 | Lint dos apps |
+| Prettier | 3.6.2 | Formatação dos apps |
+| Gitleaks | 8.30.1 (`.gitleaks-version`) | Pré-commit e CI |
+| CodeQL | ação `github/codeql-action` v3.29.5 por SHA | SAST do Java |
+| OWASP Dependency-Check | no workflow `security.yml` | Dependências Maven |
+| `pnpm audit` | do pnpm | Dependências npm dos dois apps, nível `high` |
+| Dependabot | — | Maven, npm (espera de 5 dias), Docker, Compose, Actions |
 
 ## Infraestrutura e entrega
 
-| Item | Versão / referência |
+| Tecnologia | Uso |
 |---|---|
-| Docker Compose | arquivo `docker-compose.yml` com sobreposição `infra/docker-compose.test.yml` |
-| Imagens | `postgres:17-alpine`, `eclipse-temurin:21-jdk-alpine` (build) e `21-jre-alpine`, `node:24-alpine`, todas por digest SHA-256 |
-| GitHub Actions | `ubuntu-24.04`; `actions/checkout` v4.2.2, `setup-java` v4.7.1, `setup-node` v4.4.0, `pnpm/action-setup` v4.1.0, `upload-artifact` v4.6.2, `cache` v4.2.3, `codeql-action` v3.29.5 — todas por SHA |
-| Gitleaks | 8.30.1 (`.gitleaks-version`) |
-| OWASP Dependency-Check, CodeQL, pnpm audit | Workflow `security.yml` |
-| Dependabot | Maven, npm (dois apps, espera de 5 dias), Docker, docker-compose, GitHub Actions |
+| Docker Compose | Ambiente local completo, só em `127.0.0.1`; sobreposição `infra/docker-compose.test.yml` |
+| GitHub Actions | `ci.yml`, `security.yml`, `load-test.yml`; ações fixadas por SHA; `permissions: contents: read` |
+| Ambiente | Só local (Windows); sem nuvem, região, staging nem IaC (AWS prevista no PRD) |
 
-## O que o PRD cita e o código não tem
+## Ausências relevantes para o Trading REAL
 
-Redis, fila, IA, SDK Solana em produção, trading REAL, assinaturas/pagamentos, AWS e IaC: ausentes.
+Nenhuma destas peças existe no repositório: cliente Solana RPC/WebSocket, cliente da API da Jupiter (cotação, swap,
+ordens condicionais), assinatura de transação, gerenciador de segredos ou KMS/HSM, fila durável, configuração de
+cluster (devnet/mainnet) além da cadeia fixa `solana:mainnet` da mensagem de login.

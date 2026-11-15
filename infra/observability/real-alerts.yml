@@ -1,0 +1,74 @@
+# Alert rules of the REAL bot wallet (261113-trading-real-bot U1, monitoring-design.md, NFR5.7 to NFR5.19), in the
+# Prometheus format, for the metrics the code exposes on /actuator/prometheus of the api, the worker and the TxSigner.
+# Checked by `promtool check rules infra/observability/real-alerts.yml`. Severities: critical (incident, e-mail and
+# SMS), high (e-mail and SMS), medium and low (e-mail). Metric names differ from the design in two places, noted on
+# the rules: txsigner_orphan_keys (design: realwallet_orphan_keys; the orphan check runs in the TxSigner) and the
+# recovery, alerted from txsigner_recovery_phase (the per-key blocked count is not exported in the U1).
+groups:
+  - name: real-bot-wallet
+    rules:
+      - alert: TxSignerRefusedAWithdrawal
+        expr: increase(txsigner_decisions_total{kind="WITHDRAWAL",decision="REFUSED"}[5m]) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: The TxSigner refused a withdrawal (NFR5.7); the reason is in the audit and the metric label.
+      - alert: OrphanBotWalletKey
+        expr: txsigner_orphan_keys > 0
+        labels: { severity: critical }
+        annotations:
+          summary: A bot wallet key without policy for more than 10 minutes (BR1.10).
+      - alert: TxSignerDown
+        expr: up{job="txsigner"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: No metrics of the TxSigner for 2 minutes (NFR5.11); new activations and signatures stop.
+      - alert: WorkerDown
+        expr: up{job="worker"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: No metrics of the worker for 2 minutes; deposits and withdrawals wait.
+      - alert: WithdrawalAmbiguousTooLong
+        expr: realwallet_withdrawal_oldest_pending_seconds{state="AMBIGUOUS"} > 300
+        labels: { severity: high }
+        annotations:
+          summary: A withdrawal is AMBIGUOUS for more than 5 minutes (NFR5.8).
+      - alert: WithdrawalStuck
+        expr: max(realwallet_withdrawal_oldest_pending_seconds) > 600
+        labels: { severity: high }
+        annotations:
+          summary: The oldest unfinished withdrawal is older than 10 minutes in some state (NFR5.18).
+      - alert: TxSignerCredentialFailures
+        expr: sum(increase(txsigner_auth_failures_total[5m])) > 5
+        labels: { severity: high }
+        annotations:
+          summary: More than 5 answers 401 or 403 of the TxSigner in 5 minutes (NFR5.17).
+      - alert: TxSignerRecoveryStalled
+        expr: txsigner_recovery_phase == 2
+        for: 10m
+        labels: { severity: high }
+        annotations:
+          summary: The recovery mode is still in WITHDRAWALS_ONLY 10 minutes after its wait (NFR4.13).
+      - alert: TxSignerSlow
+        expr: >
+          histogram_quantile(0.95, sum by (le) (rate(txsigner_latency_seconds_bucket[10m]))) > 1
+        for: 10m
+        labels: { severity: medium }
+        annotations:
+          summary: p95 of the signing requests above 1 s for 10 minutes.
+      - alert: ConsentRefusals
+        expr: sum(increase(txsigner_decisions_total{kind="CREATE_WALLET",decision="REFUSED"}[1h])) > 5
+        labels: { severity: medium }
+        annotations:
+          summary: More than 5 refused consents in one hour (NFR5.7).
+      - alert: UnknownSourceDeposit
+        expr: increase(realwallet_unknown_deposit_over_threshold_total[15m]) > 0
+        labels: { severity: medium }
+        annotations:
+          summary: A deposit above 0.001 SOL from a source other than the main wallet (BR3.2, NFR5.9).
+      - alert: TxSignerCredentialOld
+        expr: txsigner_credential_age_days >= 80
+        labels: { severity: low }
+        annotations:
+          summary: The service credential of the TxSigner is 80 days old; rotate it (NFR1.5, runbook).

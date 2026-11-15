@@ -153,6 +153,10 @@ export const messages = {
       FAILED: 'com falha',
     } as Record<string, string>,
     sources: (names: string) => `Fontes: ${names}`,
+    dataSource: {
+      simulatedActive: 'Atenção: fonte simulada ativa. Os dados de mercado não são reais.',
+      opensInNewTab: '(abre em nova aba)',
+    },
     staleUpdatedAt: (time: string) => `Atualizado às ${time}`,
     divergent: 'Fontes divergem',
     origin: (source: string, value: string, time: string) => `${source}: ${value} às ${time}`,

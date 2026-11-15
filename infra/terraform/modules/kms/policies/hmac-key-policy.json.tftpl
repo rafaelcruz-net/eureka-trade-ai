@@ -1,0 +1,40 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AccountAdministrationThroughIam",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::${account_id}:root" },
+      "Action": [
+        "kms:Describe*",
+        "kms:Get*",
+        "kms:List*",
+        "kms:PutKeyPolicy",
+        "kms:EnableKey",
+        "kms:DisableKey",
+        "kms:ScheduleKeyDeletion",
+        "kms:CancelKeyDeletion",
+        "kms:TagResource",
+        "kms:UntagResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OnlyTheTxSignerMacs",
+      "Effect": "Allow",
+      "Principal": { "AWS": "${txsigner_role_arn}" },
+      "Action": ["kms:GenerateMac", "kms:VerifyMac", "kms:DescribeKey"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NobodyElseGeneratesTheAnchorMac",
+      "Effect": "Deny",
+      "Principal": { "AWS": "*" },
+      "Action": ["kms:GenerateMac"],
+      "Resource": "*",
+      "Condition": {
+        "ArnNotEquals": { "aws:PrincipalArn": "${txsigner_role_arn}" }
+      }
+    }
+  ]
+}

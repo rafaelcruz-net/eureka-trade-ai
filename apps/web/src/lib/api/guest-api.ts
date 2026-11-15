@@ -465,8 +465,58 @@ export function guestApi(client: ApiClient) {
         ),
       );
     },
+    /** 261113-trading-real-bot U1 (R2): the bot wallet of the person; 404 when there is none yet. */
+    getBotWallet() {
+      return withRenewal(() =>
+        client.request<RealBotWallet>('/api/v1/real/bot-wallet', { authenticated: true }),
+      );
+    },
+    /** R2: the consent challenge; the message is built by the server and signed as is by the main wallet. */
+    requestRealChallenge(body: RealChallengeRequest) {
+      return withRenewal(() =>
+        client.request<RealChallenge>('/api/v1/real/consents/challenge', {
+          method: 'POST',
+          body,
+          idempotent: true,
+          authenticated: true,
+        }),
+      );
+    },
+    /** R2: activation with the signed challenge; the key is created by the signing service, never in the browser. */
+    activateBotWallet(body: RealActivationRequest) {
+      return withRenewal(() =>
+        client.request<RealBotWallet>('/api/v1/real/bot-wallet', {
+          method: 'POST',
+          body,
+          idempotent: true,
+          authenticated: true,
+        }),
+      );
+    },
+    /**
+     * R2: a withdrawal, always to the registered main wallet (no destination field). The Idempotency-Key is the one of
+     * the form, so a new attempt after an error never asks for a second withdrawal (BR4.8).
+     */
+    requestRealWithdrawal(body: RealWithdrawalRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealWithdrawal>('/api/v1/real/bot-wallet/withdrawals', {
+          method: 'POST',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
   };
 }
+
+// 261113-trading-real-bot U1 (R2): the bot wallet.
+export type RealBotWallet = components['schemas']['BotWalletView'];
+export type RealChallengeRequest = components['schemas']['RealChallengeRequest'];
+export type RealChallenge = components['schemas']['RealChallengeView'];
+export type RealActivationRequest = components['schemas']['RealActivationRequest'];
+export type RealWithdrawalRequest = components['schemas']['RealWithdrawalRequest'];
+export type RealWithdrawal = components['schemas']['RealWithdrawalView'];
 
 // U5 (C4): bots, wizard, commands and decisions; U6 (C21): refused orders.
 export type RejectionPage = components['schemas']['RejectionPage'];

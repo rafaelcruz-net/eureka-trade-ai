@@ -46,7 +46,13 @@ class ProcessRoleContextIT extends AbstractU5IT {
             "PrivacyJobStartup",
             "DataRequestCountsRefresher",
             // u3-reacceptance (Build and Test loop-back 1): the warm-up of the lock query at start-up (api only).
-            "TermsReacceptanceWarmup");
+            "TermsReacceptanceWarmup",
+            // 261113-trading-real-bot U3: the purge of the REAL barrier at 04:00 UTC, through the retention pool (api
+            // only); the jobs F3, F4, F5 and the reservation gauge run only in the worker, with scheduling on.
+            "RealRiskPurgeJob",
+            // 261113-trading-real-bot U4: the purge of the REAL execution at 04:30 UTC, through the same retention
+            // pool (api only); the seven jobs of RealExecutionSchedule run only in the worker.
+            "RealExecutionPurgeJob");
 
     @Autowired
     private ApplicationContext context;

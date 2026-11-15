@@ -86,6 +86,7 @@ public final class AuditEventValidator {
             }
         }
         validateDetails(event.details());
+        validateReal(event.real());
         if (AuditActions.ACCOUNT_ANONYMIZED.equals(event.action())) {
             for (String key : event.details().keySet()) {
                 if (!AuditActions.ACCOUNT_ANONYMIZED_DETAILS.contains(key)) {
@@ -94,6 +95,31 @@ public final class AuditEventValidator {
                 }
             }
         }
+    }
+
+    /**
+     * 261113-trading-real-bot (M8, BR6.2): the typed REAL fields accept exactly what their name says, a 64-byte Base58
+     * transaction signature and 32-byte Base58 addresses; any other value is refused.
+     */
+    static void validateReal(com.memetrade.audit.api.RealReferences real) {
+        if (real == null) {
+            return;
+        }
+        if (real.txSignature() != null && !isBase58OfBytes(real.txSignature(), SIGNATURE_RUN, SIGNATURE_BYTES)) {
+            throw new AuditPublishRejectedException("real.txSignature", Reason.INVALID_FORMAT);
+        }
+        if (real.mint() != null && !isBase58OfBytes(real.mint(), BASE58_WORD, WALLET_BYTES)) {
+            throw new AuditPublishRejectedException("real.mint", Reason.INVALID_FORMAT);
+        }
+        if (real.botWalletAddress() != null && !isBase58OfBytes(real.botWalletAddress(), BASE58_WORD, WALLET_BYTES)) {
+            throw new AuditPublishRejectedException("real.botWalletAddress", Reason.INVALID_FORMAT);
+        }
+    }
+
+    private static final Pattern SIGNATURE_RUN = Pattern.compile("^[1-9A-HJ-NP-Za-km-z]{80,90}$");
+
+    private static boolean isBase58OfBytes(String value, Pattern shape, int bytes) {
+        return shape.matcher(value).matches() && decodedLength(value) == bytes;
     }
 
     /** BR1.4 and u2-retention BR2.3 over every key and value of {@code details}. */

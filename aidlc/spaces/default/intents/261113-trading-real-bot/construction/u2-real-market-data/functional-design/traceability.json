@@ -1,0 +1,17 @@
+{
+  "stage": "functional-design",
+  "unit": "u2-real-market-data",
+  "upstream_ids": ["AC6.3.1", "AC6.3.2", "AC6.3.3"],
+  "coverage": [
+    {"id": "AC6.3.1", "status": "OK", "target": "BR1.1, BR1.2, BR1.8"},
+    {"id": "AC6.3.2", "status": "OK", "target": "BR1.5, BR1.6"},
+    {"id": "AC6.3.3", "status": "OK", "target": "BR1.4"}
+  ],
+  "reverse": [
+    {"id": "BR1.3", "status": "N/A", "target": "cota e orçamento do fornecedor (NFR9)"},
+    {"id": "BR1.7", "status": "N/A", "target": "cobertura com uma fonte real só (FR1.1)"},
+    {"id": "BR1.9", "status": "N/A", "target": "comportamento em falha do fornecedor (FR1.3, FR1.4)"},
+    {"id": "BR1.10", "status": "N/A", "target": "segredo da chave da API (NFR1)"}
+  ],
+  "notes": "AC6.3.2 e AC6.3.3: a U2 entrega o sinal (fonte simulada e observedAt); a recusa da ordem é da U3 (u3-real-risk)."
+}

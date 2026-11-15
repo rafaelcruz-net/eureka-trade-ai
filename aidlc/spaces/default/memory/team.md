@@ -17,13 +17,11 @@
   Não existe ramo `master` depois disso.
 - **Commits fora de Bolts**: um commit pedido fora de um Bolt vai para a branch
   atual. Só criamos branch quando pedimos.
-- **Lacunas da CI (intent `261109-termos-lgpd`)**: a CI ainda não roda lint,
-  verificação de tipos, Jest nem `check:api` do app administrativo (`apps/admin`),
-  e o Jest do web (`apps/web`) roda com cobertura só em parte das telas. Essas
-  lacunas são corrigidas dentro deste intent: antes do primeiro commit dele, o
-  responsável do projeto aplica no `ci.yml` as mudanças já descritas em
-  `aidlc/spaces/default/intents/261026-memetrade-saas-mvp/construction/ci-pipeline/ci-config.md`.
-  Só o responsável do projeto altera o `ci.yml`.
+- **Cobertura da CI**: a CI já roda lint, formatação, verificação de tipos, Jest
+  com o piso de cobertura e `check:api` do app web (`apps/web`) e do app
+  administrativo (`apps/admin`), além do backend e do `scripts/verify.sh`. As
+  lacunas do intent `261109-termos-lgpd` foram corrigidas. Só o responsável do
+  projeto altera o `ci.yml`.
 - **Revisão**: como trabalhamos sozinhos, não há revisão por outra pessoa no dia
   a dia. Cada mudança é revisada pelo responsável do projeto nos gates de
   aprovação do AI-DLC e pelos portões automáticos da CI. Nenhum merge acontece
@@ -77,13 +75,26 @@
 - **Verificação**: um único script versionado no repositório sobe o ambiente,
   espera os serviços ficarem saudáveis, roda um teste de ponta a ponta (smoke)
   que atravessa a fatia inteira e verifica fonte, horário e `unknown`, e devolve
-  código de saída diferente de zero em qualquer falha. O comando exato é
-  autorizado pelo responsável do projeto na Construction (a definir).
+  código de saída diferente de zero em qualquer falha. Esse comando é
+  `bash scripts/verify.sh`, autorizado pelo responsável do projeto, e ele já
+  roda na CI.
 - **Fatia do intent `261109-termos-lgpd`**: a página `/privacidade` servida pela
   API a partir do catálogo, com a versão vigente, e mostrada no app sem login,
   coberta por um spec de ponta a ponta novo. A verificação continua sendo
   `bash scripts/verify.sh`, com o spec novo que o responsável do projeto
   acrescenta ao script.
+- **Fatia do intent `261113-trading-real-bot`**: a carteira do bot no validador
+  Solana local (Unit U1 `u1-bot-wallet`, Bolt B1): navegador (tela mínima) → API →
+  BotWallet → TxSigner (processo próprio, KMS simulado no ambiente local) →
+  ChainWatcher → validador local → ledger REAL. O spec de ponta a ponta novo
+  ativa a carteira do bot, deposita 1 SOL a partir da carteira principal de
+  teste, confere o saldo, saca de volta para a carteira principal e confirma que
+  um saque para outro endereço é recusado. A carteira principal de teste é
+  gerada só no código de teste. A verificação continua sendo sempre
+  `bash scripts/verify.sh`, com o spec novo e o validador local que o
+  responsável do projeto acrescenta ao script. O spec da carteira, com o
+  validador local, roda em toda mudança e no merge para `main`; se a cota do
+  GitHub Actions apertar, a frequência é revista com dados de consumo.
 - **Depois do esqueleto**: com o esqueleto verificado e aprovado, o framework
   oferece seguir automaticamente ou revisar cada ponto de controle. Plan
   Approval, confirmação de resumo, escolha do comando de verificação e falhas
@@ -92,7 +103,7 @@
 ## Testing Posture
 
 - **Methodology**: custom
-- **Ordering**: No núcleo financeiro (limites de risco, ledger, P&L e deduplicação) e na lógica de dados pessoais (anonimização, exclusão, novo aceite dos termos e expurgos) escrevemos os testes antes do código a partir da regra de negócio, e em todas as demais camadas implementamos cada camada testável e, em seguida, escrevemos e executamos os testes dessa camada.
+- **Ordering**: No núcleo financeiro (limites de risco, ledger, P&L e deduplicação), na lógica de dados pessoais (anonimização, exclusão, novo aceite dos termos e expurgos) e na lógica da carteira do bot, do saque e da política de assinatura do TxSigner (inclusive os estados e a idempotência das ordens REAL) escrevemos os testes antes do código a partir da regra de negócio, e em todas as demais camadas implementamos cada camada testável e, em seguida, escrevemos e executamos os testes dessa camada.
 - **Methodology evidence**: decisão do responsável do projeto na entrevista
   (Q10, opção A). TDD no núcleo financeiro porque código gerado com IA tende a
   passar em testes escritos depois sobre o próprio código; com o teste escrito
@@ -101,7 +112,11 @@
   intent `261109-termos-lgpd` (Q5, opção A), o responsável do projeto estendeu a
   ordem de testes antes do código à lógica de dados pessoais (anonimização,
   exclusão, novo aceite dos termos e expurgos), porque ela toca tabelas
-  append-only como a trilha de auditoria e as ligadas ao ledger.
+  append-only como a trilha de auditoria e as ligadas ao ledger. No intent
+  `261113-trading-real-bot`, o NFR8 dos requisitos estende a ordem de testes
+  antes do código à lógica de carteira e saque, e o plano de Bolts pede os testes
+  de ataque da política do TxSigner escritos antes do código (B1) e os testes de
+  estados e idempotência da execução REAL antes do código (B4).
 - **Volume de testes**: a Test Strategy do workflow é `Comprehensive`, também no
   intent `261109-termos-lgpd` (Q4, opção A); o piso de cobertura abaixo é somado
   a ela e nunca a substitui.
@@ -111,7 +126,8 @@
   listadas na configuração da ferramenta de cobertura, nunca decididas na hora. A
   ferramenta falha o build abaixo do piso (por exemplo, regra `check` do JaCoCo
   no Maven e limite de cobertura do executor de testes do frontend). O piso não
-  pode ser reduzido para fazer uma etapa passar.
+  pode ser reduzido para fazer uma etapa passar. O processo TxSigner também
+  segue o piso de 80%.
 - **Testes obrigatórios por risco**: toda mudança que toque essas áreas inclui ou
   mantém verdes os testes de:
   - isolamento entre contas (tenants), inclusive acesso a recurso de outra conta
@@ -126,14 +142,33 @@
     acontece por lançamento compensatório;
   - P&L com cenários determinísticos de resultado conhecido, em aritmética
     decimal e unidades de token;
-  - REAL desligado por padrão: nenhum caminho assina ou envia transação com a
-    configuração padrão;
+  - REAL desligado por padrão: com a configuração padrão (API, worker e
+    TxSigner), nenhuma carteira do bot é criada, nenhum caminho assina ou envia
+    transação e nenhuma assinatura é pedida ao KMS;
   - login sem reutilização de assinatura: nonce reutilizado ou assinatura
     expirada são rejeitados, e a assinatura de login não serve para autorizar
     trading;
   - a anonimização não deixa o endereço da carteira em nenhuma tabela nem log
     consultável;
-  - a versão nova dos termos exige novo aceite antes de qualquer outra rota.
+  - a versão nova dos termos exige novo aceite antes de qualquer outra rota,
+    **exceto** a leitura da carteira do bot (`GET /api/v1/real/bot-wallet`) e as
+    rotas de saque (`/api/v1/real/bot-wallet/withdrawals` e
+    `/api/v1/real/bot-wallet/withdrawals/{withdrawalId}`), que continuam
+    disponíveis sem o novo aceite para o usuário sempre poder tirar o próprio
+    dinheiro; o teste cobre as duas metades: as rotas da exceção respondem sem o
+    novo aceite e todas as demais respondem `403 TERMS_REACCEPTANCE_REQUIRED`;
+  - saque só para a carteira principal registrada: qualquer outro destino é
+    recusado pela API e pelo TxSigner, e o saque continua disponível com o kill
+    switch acionado, com o REAL desligado e sem a liberação vigente;
+  - a política de conteúdo do TxSigner (ADR-004) recusa toda transação fora da
+    lista: programa fora da lista, assinante ou pagador diferente da carteira do
+    bot, destino fora da carteira do bot ou da carteira principal, saída mínima
+    abaixo da cotação menos a derrapagem, troca de autoridade, fechamento de
+    conta para terceiros e valor acima do teto autorizado; cada recusa registra o
+    motivo;
+  - uma única transação por ordem REAL: repetir a ordem com a mesma
+    `Idempotency-Key`, reprocessar a decisão da fila ou repetir depois de uma
+    ordem ambígua nunca gera segunda transação.
 - **Defeitos**: todo defeito corrigido ganha um teste de regressão que o
   reproduz.
 - **Acessibilidade**: sem portão automático de acessibilidade na CI por enquanto.
@@ -144,7 +179,10 @@
   fixtures gravadas. Testes de integração usam as mesmas migrações da aplicação
   sobre PostgreSQL real em contêiner (por exemplo, Testcontainers) e não dependem
   de estado compartilhado nem da ordem de execução. Fixtures nunca usam carteira,
-  mint ou dados pessoais reais.
+  mint ou dados pessoais reais. No REAL, a rede é o validador Solana local (com
+  contas clonadas para os swaps), o KMS é simulado no ambiente local e as
+  respostas da Jupiter e do RPC usadas em testes de unidade são gravadas; nenhum
+  teste da CI usa devnet, mainnet, KMS real ou chave real.
 - **Ambientes de teste**: a CI roda em Linux; o desenvolvimento local é no
   Windows. O fim de linha é padronizado em LF por `.gitattributes` e
   `.editorconfig` para que os testes deem o mesmo resultado nos dois ambientes.
@@ -167,26 +205,40 @@
 ## Deployment
 
 - **Situação atual**: não há conta de nuvem, região nem orçamento (C-10, C-12).
-  O único ambiente é o local, no Windows, com Docker Compose.
+  O único ambiente é o local, no Windows, com Docker Compose. Para o REAL, uma
+  conta AWS nova é aberta para o KMS (TR-C20) antes da mainnet.
 - **Staging**: quando existir um ambiente de staging, implantamos nele a cada
   merge em `main` (a definir: quando e onde o staging vai existir).
 - **Produção do beta PAPER**: exige aprovação manual separada, dada pelo
   responsável do projeto.
-- **Gates de REAL (G2/G3)**: a autoaprovação do responsável do projeto não
-  satisfaz G2/G3. Esses gates exigem um revisor independente, ainda a nomear
-  (C-14). Falha em G0 a G4 impede o avanço da função afetada; trading REAL,
-  cobrança pública e implantação on-chain continuam bloqueados até as aprovações
-  específicas.
+- **Gates de REAL (G2/G3)**: nesta fase, o fundador (responsável do projeto) é o
+  revisor único dos gates do REAL. O G2 é cumprido pelo modelo de ameaças da
+  carteira do bot do ADR-005. O G3 (auditoria externa) fica dispensado nesta fase
+  e será reavaliado com o crescimento do produto. Falha em G0, G1, G2 ou G4
+  impede o avanço da função afetada; cobrança pública e implantação on-chain
+  continuam bloqueadas até as aprovações específicas.
+- **Rollout do REAL**: o REAL avança por etapas, cada uma aprovada pelo fundador:
+  validador local e devnet desde o primeiro Bolt; depois a carteira do fundador
+  na mainnet (Bolts B1 a B6 prontos, conta AWS e KMS reais, dois provedores de
+  RPC); depois até 20 convidados. A abertura aos convidados exige as três
+  condições: quarentena de 24 horas da liberação, pelo menos 7 dias da carteira
+  do fundador na mainnet sem divergência e parecer de custódia decidido. Toda
+  liberação de usuário para o REAL passa por uma quarentena de 24 horas entre o
+  registro e o efeito.
 - **Rollback**: toda implantação tem caminho de rollback documentado e testado;
   artefatos são marcados com o SHA do commit; migrações de banco seguem o padrão
   expand-contract e nunca removem colunas na mesma implantação da mudança de
-  aplicação. Uma implantação só termina quando o smoke test passa.
+  aplicação. Uma implantação só termina quando o smoke test passa. No REAL, o
+  rollback desliga primeiro o flag do REAL (`memetrade.real.enabled` e
+  `txsigner.real.enabled`) ou aciona o kill switch REAL, e o saque continua
+  disponível durante todo o rollback.
 - **Controles antes do beta multiusuário (G1)**: varredura dinâmica (DAST),
   varredura de imagens e SBOM por release são candidatos a definir nos estágios
   de segurança e infraestrutura (a definir).
 - **Destino futuro**: AWS com serviços gerenciados, IaC e CI/CD, previsto no PRD
   para a Sprint 7. A ferramenta de IaC e a plataforma de CD ficam para os
-  estágios de infraestrutura.
+  estágios de infraestrutura. A topologia do TxSigner (contêiner ou função, com
+  credencial AWS própria) é decidida no Infrastructure Design.
 
 ## Code Style
 
@@ -223,7 +275,10 @@
   carregando, erro e `unknown` são estados visíveis distintos.
 - **Tenant no código**: o tenant vem do contexto de autenticação, nunca do corpo
   da requisição; toda consulta de dados de cliente filtra pelo tenant.
-- **Fronteiras de módulos (convenção, sem verificação automática por enquanto)**:
+- **Fronteiras de módulos (verificadas por ArchUnit)**: as regras ArchUnit do
+  backend (`apps/api/src/test/java/com/memetrade/architecture/`) já verificam as
+  fronteiras, a pureza do domínio e as proibições de rede, chave, ponto
+  flutuante e SDK; módulo novo ganha a sua regra.
   o backend é organizado por módulo (Ledger, Risk, Scanner etc.), não por camada
   técnica global. Um módulo fala com outro só pela interface pública ou por
   evento, nunca lendo as tabelas ou repositórios do outro; dentro do módulo, o

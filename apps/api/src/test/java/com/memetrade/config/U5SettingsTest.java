@@ -40,21 +40,22 @@ class U5SettingsTest {
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }
 
+    /** 261113-trading-real-bot U4 (logical-components.md "Pool do worker"): 19 to 26 threads, 27 to 40 connections. */
     @Test
-    void theWorkerGuardAcceptsFourToEightThreadsAndFourteenToThirtyConnections() {
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "14", "4")))
+    void theWorkerGuardAcceptsNineteenToTwentySixThreadsAndTwentySevenToFortyConnections() {
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "27", "19")))
                 .doesNotThrowAnyException();
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "30", "8")))
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "40", "26")))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "13", "4")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "26", "19")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE")
-                .hasMessageContaining("between 14 and 30");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "31", "4")))
+                .hasMessageContaining("between 27 and 40");
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "41", "19")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "14", "3")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "27", "18")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 4 and 8");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "14", "14")))
+                .hasMessageContaining("between 19 and 26");
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "27", "27")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }
 
@@ -102,9 +103,9 @@ class U5SettingsTest {
         PropertySource<?> worker = yaml("application-worker.yml");
 
         assertThat(String.valueOf(worker.getProperty("spring.datasource.hikari.maximum-pool-size")))
-                .isEqualTo("${DB_POOL_MAX_SIZE:14}");
+                .isEqualTo("${DB_POOL_MAX_SIZE:27}");
         assertThat(String.valueOf(worker.getProperty("spring.task.scheduling.pool.size")))
-                .isEqualTo("${SCHEDULER_POOL_SIZE:4}");
+                .isEqualTo("${SCHEDULER_POOL_SIZE:19}");
         assertThat(String.valueOf(worker.getProperty("spring.datasource.hikari.connection-timeout")))
                 .isEqualTo("5000");
         assertThat(String.valueOf(worker.getProperty("memetrade.bots.scheduler.enabled")))

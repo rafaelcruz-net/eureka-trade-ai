@@ -156,6 +156,14 @@ class TermsReacceptanceRoutesIT extends AbstractPostgresIT {
         if (WITHOUT_SESSION.contains(key)) {
             return false;
         }
+        // 261113-trading-real-bot (team.md, contract-summary.md "Termos"): reading the bot wallet and the withdrawal
+        // routes stay open without the new acceptance, so a person can always take their own money out; every other
+        // REAL route is locked (both halves also in com.memetrade.botwallet.BotWalletRoutesIT).
+        String method = key.substring(0, key.indexOf(' '));
+        if (com.memetrade.identity.domain.realterms.RealTermsRoutes.isReachableWithoutNewAcceptance(
+                method, path.replace("{withdrawalId}", "0b8f0d4e-6d7e-4a43-9a3c-2a8f51f0c001"))) {
+            return false;
+        }
         return ALLOWED.stream()
                 .noneMatch(
                         prefix -> path.equals(prefix) || path.startsWith(prefix.endsWith("/") ? prefix : prefix + "/"));

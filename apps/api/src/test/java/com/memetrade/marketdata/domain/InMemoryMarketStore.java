@@ -98,8 +98,9 @@ public final class InMemoryMarketStore implements MarketStore {
                 }
             });
             ObservedValue created = fields.get(MarketField.CREATED_AT);
-            updateCreationTime(
-                    token.token(), created == null ? Optional.empty() : MarketCollector.creationTime(created.value()));
+            if (created != null) {
+                updateCreationTime(token.token(), MarketCollector.creationTime(created.value()));
+            }
         }
     }
 

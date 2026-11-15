@@ -1,0 +1,119 @@
+spring:
+  application:
+    name: memetrade-txsigner
+  main:
+    banner-mode: off
+  datasource:
+    # Own schema and own login (infrastructure-specification.md): the api and the worker have no credential here.
+    url: jdbc:postgresql://${TXSIGNER_DB_HOST:localhost}:${TXSIGNER_DB_PORT:5432}/${TXSIGNER_DB_NAME:memetrade}?currentSchema=txsigner
+    username: ${TXSIGNER_DB_USER:txsigner_app}
+    password: ${TXSIGNER_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 5
+      connection-timeout: 2000
+      pool-name: txsigner-pool
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    default-schema: txsigner
+    # The txsigner-migrate service (profile "migrate") applies the changelog with the owner login; the TxSigner itself
+    # never migrates (same rule as the api, NFR6.3 of the previous intent).
+    enabled: false
+  jackson:
+    time-zone: UTC
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: true
+      fail-on-null-for-primitives: true
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: false
+
+server:
+  # Private network only (NFR1.2): the Compose service publishes no port; in the cloud Service Connect on 8443 (mTLS).
+  port: 8443
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-exception: false
+    whitelabel:
+      enabled: false
+
+management:
+  server:
+    port: 8444
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,db,kms
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+txsigner:
+  # NFR1.11 / BR1.1: off by default. With it off the TxSigner creates no key and signs only WITHDRAWAL for wallets
+  # created before; with the default configuration no wallet exists, so nothing is ever signed.
+  real:
+    enabled: false
+  # Network of this TxSigner; the consent line "network:" and the key tag must be equal to it (BR5.3).
+  network: ${TXSIGNER_NETWORK:LOCALNET}
+  # BR2.1: absolute cap of a consent, never above 10 SOL; the TxSigner applies it without trusting the api (BR5.3).
+  max-cap-lamports: 10000000000
+  # BR5.1 (f): highest total fee (base plus priority) of a withdrawal, per environment.
+  max-withdrawal-fee-lamports: 100000
+  # BR5.1 (d): highest SetComputeUnitLimit of a withdrawal.
+  max-withdrawal-compute-units: 1000
+  # Base fee of one signature in lamports (Solana fixed fee), used in the fee check of BR5.1 (f).
+  base-fee-lamports-per-signature: 5000
+  # 261113-trading-real-bot U4 (BR4.3): ceiling of the priority fee of a swap (0.001 SOL), never above it.
+  max-swap-priority-fee-lamports: 1000000
+  # NFR4.13: recovery mode after restoring the TxSigner database (runbook docs/runbooks/txsigner-recovery.md).
+  recovery:
+    enabled: ${TXSIGNER_RECOVERY:false}
+    # 150 blocks counted as wall clock time: the TxSigner never talks to the RPC (infrastructure-specification.md).
+    wait-duration: 5m
+  # security-design.md "Limites de criação": at most 30 keys per hour in the application.
+  max-keys-per-hour: 30
+  # NFR1.5: service credential. Locally two environment variables (current and previous, for the 24 h overlap of a
+  # rotation); in the cloud the Secrets Manager versions AWSCURRENT and AWSPREVIOUS, re-read every 5 minutes.
+  credential:
+    source: ${TXSIGNER_CREDENTIAL_SOURCE:environment}
+    current: ${TXSIGNER_SERVICE_TOKEN:}
+    previous: ${TXSIGNER_SERVICE_TOKEN_PREVIOUS:}
+    secret-id: ${TXSIGNER_CREDENTIAL_SECRET_ID:}
+    refresh-interval: 5m
+  kms:
+    # Empty = the default AWS endpoint of the region. Only the profile kms-sim (tests and local Compose) may point to
+    # the kms-sim container; the production profile refuses any other endpoint (NFR1.6).
+    endpoint: ${TXSIGNER_KMS_ENDPOINT:}
+    region: ${AWS_REGION:us-east-1}
+    hmac-key-id: ${TXSIGNER_KMS_HMAC_KEY_ID:}
+    # reliability-design.md: 1 s per KMS call, no retry; circuit of 60 s, at least 3 calls, opens at 50%.
+    call-timeout: 1s
+    # JSON key policy passed in CreateKey (infra/terraform/modules/kms renders it); empty only with kms-sim.
+    key-policy: ${TXSIGNER_KMS_KEY_POLICY:}
+  aws:
+    # NFR1.6: checked only by the production profile (account of the credential, VPC endpoints of the KMS allowed).
+    account-id: ${TXSIGNER_AWS_ACCOUNT_ID:}
+    allowed-kms-endpoints: ${TXSIGNER_ALLOWED_KMS_ENDPOINTS:}
+  jobs:
+    enabled: true
+    nonce-cleanup-cron: '0 7 * * * *'
+    orphan-keys-cron: '0 40 2 * * *'
+    # An orphan key (tag app without WalletPolicy) older than this raises the alert (reliability-design.md).
+    orphan-key-min-age: 10m
+
+logging:
+  level:
+    root: INFO

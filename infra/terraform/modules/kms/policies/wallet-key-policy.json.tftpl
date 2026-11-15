@@ -1,0 +1,40 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AccountAdministrationThroughIam",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::${account_id}:root" },
+      "Action": [
+        "kms:Describe*",
+        "kms:Get*",
+        "kms:List*",
+        "kms:PutKeyPolicy",
+        "kms:EnableKey",
+        "kms:DisableKey",
+        "kms:ScheduleKeyDeletion",
+        "kms:CancelKeyDeletion",
+        "kms:TagResource",
+        "kms:UntagResource"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OnlyTheTxSignerSigns",
+      "Effect": "Allow",
+      "Principal": { "AWS": "${txsigner_role_arn}" },
+      "Action": ["kms:Sign", "kms:GetPublicKey", "kms:DescribeKey", "kms:ListResourceTags"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "NobodyElseSigns",
+      "Effect": "Deny",
+      "Principal": { "AWS": "*" },
+      "Action": ["kms:Sign"],
+      "Resource": "*",
+      "Condition": {
+        "ArnNotEquals": { "aws:PrincipalArn": "${txsigner_role_arn}" }
+      }
+    }
+  ]
+}

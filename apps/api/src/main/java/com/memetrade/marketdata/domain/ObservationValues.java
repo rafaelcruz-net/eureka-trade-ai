@@ -1,5 +1,6 @@
 package com.memetrade.marketdata.domain;
 
+import com.memetrade.marketdata.api.MarketField;
 import com.memetrade.marketdata.api.MarketValue;
 import com.memetrade.marketdata.api.SourceRef;
 import com.memetrade.marketdata.api.UnknownReason;
@@ -14,8 +15,20 @@ public final class ObservationValues {
 
     public static MarketValue fromStored(
             String status, BigDecimal value, String unknownReason, SourceRef source, Instant observedAt, Instant now) {
+        return fromStored(MarketField.PRICE, status, value, unknownReason, source, observedAt, now);
+    }
+
+    /** U2 (BR1.4): {@code stale} by the limit of {@code field}. */
+    public static MarketValue fromStored(
+            MarketField field,
+            String status,
+            BigDecimal value,
+            String unknownReason,
+            SourceRef source,
+            Instant observedAt,
+            Instant now) {
         if ("KNOWN".equals(status)) {
-            return new MarketValue.Known(value, source, observedAt, Freshness.isStale(observedAt, now));
+            return new MarketValue.Known(value, source, observedAt, Freshness.isStale(field, observedAt, now));
         }
         return new MarketValue.Unknown(UnknownReason.valueOf(unknownReason), Optional.of(source));
     }

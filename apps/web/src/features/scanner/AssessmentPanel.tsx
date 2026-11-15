@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { ApiError } from '@/lib/api/client';
 import { useApi } from '@/lib/api/ApiProvider';
 import type { Assessment, AssessmentFactor } from '@/lib/api/guest-api';
+import { DataSourceNotice } from '@/features/scanner/DataSourceNotice';
 import { formatClock, formatDecimal, formatInstant } from '@/lib/format/format';
 import { messages } from '@/lib/i18n/messages';
 
@@ -153,6 +154,7 @@ function Detail({ assessment, timeZone }: { assessment: Assessment; timeZone?: s
       <p data-testid="assessment-computed-at">
         {text.computedAt(formatClock(new Date(assessment.computedAt), timeZone))}
       </p>
+      <DataSourceNotice dataSource={assessment.dataSource} testIdPrefix="assessment" />
       <table className="factors" data-testid="assessment-factors">
         <caption>{text.factorsCaption}</caption>
         <thead>

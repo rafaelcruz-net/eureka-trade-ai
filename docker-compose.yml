@@ -168,8 +168,9 @@ services:
     # (8081 answers only the actuator, inside the network). It receives only what it uses: never the signing key, the
     # app origin, the trusted proxies, the administrator wallets nor the retention login.
     # Connections of PostgreSQL (max_connections 100 of postgres:17): api 20 + trail retention (U2) 1 + U6 retention 1
-    # + U8 apply lock 1 + U8 feedback retention 1 + worker 14 + db-bootstrap and db-migrate at start-up 2 + 3 reserved
-    # for the superuser = 43 (ComposeFilesTest).
+    # + U8 apply lock 1 + U8 feedback retention 1 + worker 27 + db-bootstrap and db-migrate at start-up 2 + 3 reserved
+    # for the superuser = 56 (ComposeFilesTest). 261113-trading-real-bot U4: the worker has one connection per scheduled
+    # method (19) plus 4 cycles and 4 reserve; the REAL overlay adds the TxSigner (up to 10), 66 of 100.
     image: memetrade-api:${IMAGE_TAG:-local}
     environment:
       SPRING_PROFILES_ACTIVE: worker
@@ -181,8 +182,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
       # u2-retention (BR2.4, NFR6.1): the worker publishes audit events too and validates the same key.
       MEMETRADE_AUDIT_WALLET_HMAC_KEY: ${MEMETRADE_AUDIT_WALLET_HMAC_KEY:?}
-      DB_POOL_MAX_SIZE: '14'
-      SCHEDULER_POOL_SIZE: '4'
+      DB_POOL_MAX_SIZE: '27'
+      SCHEDULER_POOL_SIZE: '19'
       MARKET_SOURCES: ${MARKET_SOURCES:-sim-a,sim-b}
       MARKET_COLLECTION_INTERVAL: ${MARKET_COLLECTION_INTERVAL:-30s}
       MARKET_SIMULATED_TOKENS_PER_SOURCE: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}

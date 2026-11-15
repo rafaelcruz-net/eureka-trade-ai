@@ -273,9 +273,14 @@ class CycleIT extends AbstractU5WorkerIT {
                         .query(Long.class)
                         .single())
                 .isZero();
+        // 261113-trading-real-bot: the only "signer" bean is the HTTP client of the separate TxSigner process
+        // (TxSignerPort); the monolith itself never signs (BotWalletArchitectureTest) and, with REAL off, no bot
+        // wallet exists to sign for (RealOffByDefaultRoutesIT). The PAPER cycle still has no signer nor sender.
         assertThat(context.getBeanDefinitionNames())
+                .filteredOn(name -> !"txSigner".equals(name))
                 .noneMatch(name -> name.toLowerCase(java.util.Locale.ROOT).contains("signer")
                         || name.toLowerCase(java.util.Locale.ROOT).contains("transactionsender"));
+        assertThat(context.getBean("txSigner")).isInstanceOf(com.memetrade.botwallet.domain.TxSignerPort.class);
     }
 
     /** BR3.1: the dispatcher runs every ACTIVE bot of the slot once, behind its lock (a second round is skipped). */

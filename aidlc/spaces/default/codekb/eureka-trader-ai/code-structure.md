@@ -1,105 +1,119 @@
 # Estrutura do código — eureka-trader-ai
 
+Responsabilidade de cada componente em [component-inventory.md](component-inventory.md); dependências em
+[dependencies.md](dependencies.md); rotas e contratos em [api-documentation.md](api-documentation.md).
+
 ## Layout do repositório
 
-| Caminho | Conteúdo |
-|---|---|
-| `apps/api/` | API Spring Boot: `pom.xml`, Maven Wrapper, `Dockerfile`, `openapi/` (contratos gerados) |
-| `apps/api/src/main/java/com/memetrade/` | Código de produção, um pacote por módulo (515 arquivos, cerca de 39,8 mil linhas) |
-| `apps/api/src/main/resources/` | `application*.yml` (perfis padrão, `worker`, `migrate`, `test`, `loadtest`), `logback-spring.xml`, `db/changelog/` (11 migrações SQL), `terms/v1/`, `tenancy/route-registry.yml` |
-| `apps/api/src/test/` | 318 arquivos de teste (136 de integração `*IT`), suporte em `testsupport/`, changelogs parciais e fixtures de mercado |
-| `apps/web/` | App do convidado Next.js: `src/app/` (rotas), `src/features/` (telas por domínio), `src/lib/` (API, auth, formatação, i18n, tema), `src/components/shell/`, `src/content/` (termos proibidos), `e2e/` (Playwright) |
-| `apps/admin/` | App administrativo Next.js com a mesma organização (`app/`, `features/`, `lib/`, `components/`) |
-| `infra/` | `postgres/bootstrap/` (logins e papéis), `postgres/init/`, `docker-compose.test.yml` |
-| `scripts/` | `setup.sh`, `verify.sh`, `load-test.sh`, `perf-audit.sh`, `load/*.mjs` |
-| `docs/` | `adr/` (5 ADRs), `api/` (anexos de contrato por Unit); `docs/perf/` são relatórios gerados |
-| `security/` | `exceptions.yml` (exceções de varredura com validade) |
-| `.github/` | `workflows/` (ci, security, load-test), `dependabot.yml` |
-| Raiz | `docker-compose.yml`, `.env.example`, `.editorconfig`, `.gitattributes`, `.gitleaks.toml`, `.gitleaks-version`, `.nvmrc`, `.githooks/pre-commit`, `README.md`, PRD |
-
-## Organização interna de um módulo do backend
-
+```text
+./
+├── apps/
+│   ├── api/                      Spring Boot (Maven, um artefato memetrade-api)
+│   │   ├── openapi/              openapi-guest.yaml, openapi-admin.yaml (gerados do código, versionados)
+│   │   ├── src/main/java/com/memetrade/<módulo>/{api,domain,infra,web,application,worker,loadtest}
+│   │   ├── src/main/resources/   application*.yml, db/changelog (15 migrações), terms/v1 e v2,
+│   │   │                         tenancy/route-registry.yml, logback-spring.xml
+│   │   ├── src/test/java/com/memetrade/<módulo e transversais>
+│   │   ├── src/test/resources/   fixtures de mercado gravadas, changelogs parciais, termos de teste
+│   │   ├── pom.xml, mvnw, .mvn/, Dockerfile
+│   ├── web/                      Next.js do convidado (App Router)
+│   │   ├── src/app/              rotas: / (painel), entrar, convite, conta, scanner, bots, pnl, termos,
+│   │   │                         privacidade, novo-aceite, api/health
+│   │   ├── src/features/         auth, account, bots, dashboard, scanner, pnl, legal, reacceptance,
+│   │   │                         data-requests, feedback
+│   │   ├── src/components/shell, src/lib/{api,auth,format,i18n,theme}, src/content, src/middleware.ts
+│   │   ├── e2e/                  specs Playwright por Unit e suporte (carteira de teste, leitura da trilha)
+│   │   └── scripts/              check-api-types.mjs, guest-bundle-test.mjs
+│   └── admin/                    Next.js do administrador
+│       ├── src/app/              rotas: / (estado), convites, feedback, kill-switch, pedidos, privacidade, termos
+│       ├── src/features/         auth, status, invites, killswitch, feedback, data-requests, accounts, legal, layout
+│       └── scripts/check-api-types.mjs
+├── infra/
+│   ├── docker-compose.test.yml   sobreposição do perfil test (smoke, e2e, carga)
+│   └── postgres/{bootstrap,init} logins e papéis de grupo
+├── scripts/                      verify.sh, setup.sh, load-test.sh, perf-audit.sh, load/*.mjs
+├── security/exceptions.yml       exceções versionadas das varreduras
+├── docs/{adr,api,privacy,perf}   ADRs, anexos de contrato, retenção; perf são relatórios gerados
+├── .github/                      workflows ci, security, load-test; dependabot
+├── .githooks/pre-commit          Gitleaks
+├── docker-compose.yml, .env.example, .editorconfig, .gitattributes, .nvmrc, .gitleaks.toml
+└── PRD_MemeTrade_Analytics_v1.3_SaaS.md, PromptInicial.txt, README.md
 ```
-com.memetrade.<módulo>/
-  api/          interfaces públicas e tipos de contrato usados por outros módulos
-  domain/       regras de negócio, sem Spring Web nem JDBC (ArchUnit)
-  application/  orquestração de casos de uso (bots, ledger, pnl)
-  infra/        repositórios Jdbc*, jobs @Scheduled, *Config, *Properties, health indicators
-  web/          *Controller, *Dtos (records com @Schema), filtros
-  worker/       só em bots: ciclo, meia-noite, expurgo de decisões
-  loadtest/     drivers de carga ativados só no perfil loadtest
-```
 
-Módulos: `shared`, `identity`, `audit`, `marketdata`, `scanner`, `riskassessment`, `riskcontrol`, `bots`,
-`decision`, `ledger`, `pnl`, `administration`, `feedback`, `ops`. Responsabilidades em
-[component-inventory.md](component-inventory.md).
+## Organização do backend
 
-## Mapa do módulo `identity` (área do intent)
+Organizado **por módulo de negócio**, não por camada técnica global. Contagem de arquivos de produção por módulo e
+subpacote (commit de referência):
 
-| Subpacote | Arquivos-chave | Papel |
-|---|---|---|
-| `domain/terms` | `CurrentTerms`, `TermsDocument` | Porta dos termos versionados |
-| `infra` | `TermsCatalog`, `TermsProperties` | Lê `classpath:terms/<versão>/` na subida, valida UTF-8 e unicidade da versão vigente |
-| `domain/invite` | `InviteService`, `InviteLookupService`, `InviteCodes`, `Invite`, `InviteRepository` | Emissão, revogação e consulta pública de convite (código guardado só como digest + sufixo) |
-| `domain/login` | `ChallengeService`, `LoginVerificationService`, `InviteAccountCreation`, `AdminLoginService`, `LoginMessage` | Desafio, verificação da assinatura, criação de conta com aceite, entrada do administrador |
-| `domain/account` | `AccountQueryService`, `AccountDetailsRepository`, `GuestAccountRepository` | Tela Conta e escritas da criação de conta |
-| `domain/session` | `SessionService`, `AccessTokens`, `RefreshTokens`, `Session*` | Sessão, rotação do refresh, detecção de reuso |
-| `domain/idempotency` | `IdempotencyService`, `IdempotencyStore`, `RequestDigest` | Mecanismo comum de idempotência |
-| `domain/ratelimit` | `LoginRateLimiter`, `InviteLookupRateLimiter`, `AdminLoginLimiter` | Limites por IP e por carteira |
-| `domain/signature` | `Ed25519SignatureVerifier`, `Base58` | Verificação nativa, sem SDK Solana |
-| `web` | `AuthController`, `InviteLookupController`, `AccountController`, `AdminAuthController`, `AdminInviteController`, `AuthenticationFilter`, `AdminRouteFilter`, `RefreshCookie`, `AdminRefreshCookie`, CORS | Rotas e filtros |
-| `infra` | `Jdbc*Repository`, `IdempotencyCleanupJob`, `LoginLimiterEvictionJob`, `HmacAccessTokens`, `SmokeAccountSeeder`/`SmokeInviteSeeder` (`@Profile("test")`) | Persistência e jobs |
+| Módulo | api | domain | application | infra | web | worker | loadtest | Linhas |
+|---|---|---|---|---|---|---|---|---|
+| `shared` | — | — | — | `clock`, `config`, `error`, `health`, `logging`, `retention`, `wallet`, `web` (33 arquivos) | | | | 1.823 |
+| `identity` | 23 | 79 (em `account`, `anonymization`, `idempotency`, `invite`, `legal`, `login`, `person`, `purge`, `ratelimit`, `session`, `signature`, `terms`) | — | 50 | 29 | — | — | 11.839 |
+| `audit` | 7 | 14 | — | 30 | 2 | — | — | 3.445 |
+| `marketdata` | 17 | 11 | — | 16 (com `infra/simulated`) | — | — | — | 3.211 |
+| `scanner` | — | 7 | — | 3 | 5 | — | — | 1.259 |
+| `riskassessment` | 15 | 10 | — | 8 | — | — | — | 1.819 |
+| `riskcontrol` | 9 | 16 | — | 15 | 2 | — | 4 | 3.622 |
+| `bots` | 6 | 14 | 9 | 10 | 7 | 12 | 2 | 6.592 |
+| `decision` | — | 21 | — | 2 | — | — | — | 1.589 |
+| `ledger` | 9 | 9 | 8 | 8 | 2 | — | 5 | 4.717 |
+| `pnl` | 2 | 5 | 6 | 5 | 4 | — | — | 2.000 |
+| `administration` | 1 | 8 | — | 9 | 4 | — | — | 2.135 |
+| `feedback` | 2 | 5 | — | 10 | 3 | — | — | 1.220 |
+| `privacy` | — | 39 (em `anonymization`, `purge`, `request` e catálogo de retenção) | — | 26 | 5 | — | 1 | 6.298 |
+| `ops` | `HealthProbe`, `MigrationRunner` | | | | | | | 83 |
 
-## Mapa do app do convidado (`apps/web/src`)
-
-| Rota (`app/`) | Tela (`features/`) |
-|---|---|
-| `/entrar` | `auth/LoginScreen.tsx` |
-| `/convite`, `/convite/[codigo]` | `auth/InviteScreen.tsx` (textos dos termos, duas marcas de aceite, `acceptance-store.ts`) |
-| `/conta` | `account/AccountScreen.tsx` |
-| `/` | `dashboard/DashboardScreen.tsx` (canal ao vivo por `fetch` com leitura contínua) |
-| `/scanner` | `scanner/ScannerScreen.tsx` |
-| `/bots`, `/bots/new`, `/bots/new/[botId]`, `/bots/[botId]` | `bots/*` |
-| `/pnl` | `pnl/PnlScreen.tsx` |
-| (diálogo global) | `feedback/FeedbackDialog.tsx` |
-
-`middleware.ts` gera CSP com nonce por requisição e põe `Cache-Control: no-store` em `/convite*` e `/conta*`.
-`lib/auth/token-store.ts` guarda o token só na memória. Textos de interface em `lib/i18n/messages.ts` (pt-BR).
-
-## Mapa do app administrativo (`apps/admin/src`)
-
-| Rota | Tela |
-|---|---|
-| `/` | `status/SystemStatusPage.tsx` (ou `auth/AdminSignIn.tsx` sem sessão) |
-| `/convites` | `invites/InvitesPage.tsx`, `IssueInviteDialog.tsx`, `RevokeInviteDialog.tsx` |
-| `/feedback` | `feedback/FeedbackListPage.tsx` (texto como texto puro, sem pessoa nem carteira) |
-| `/kill-switch` | `killswitch/KillSwitchPage.tsx`, `KillSwitchDialog.tsx` |
-
-Não há tela da trilha de auditoria no app administrativo.
+`decision` não tem pacote `api`: o módulo `bots` importa diretamente `decision.domain` e `decision.infra`
+(`BotsArchitectureTest` trata os dois como uma unidade).
 
 ## Classificação dos arquivos
 
-| Categoria | Onde |
-|---|---|
-| Model/Entity | records em `*/domain/` e `*/api/`; DTOs em `*/web/*Dtos.java`; `schema.d.ts` gerado nos frontends |
-| Controller/Handler | `*/web/*Controller.java`; `app/**/page.tsx` |
-| Service/UseCase | `*/domain/*Service.java`, `*/application/*` |
-| Repository/DAO | `*/infra/Jdbc*.java` |
-| Utility | `shared/*`, `apps/*/src/lib/*` |
-| Configuration | `*/infra/*Config.java`, `*/infra/*Properties.java`, `application*.yml`, `next.config.ts` |
-| Middleware | `shared/web/*Filter.java`, `identity/web/AuthenticationFilter.java`, `AdminRouteFilter.java`, `apps/*/src/middleware.ts` |
-| Test | `apps/api/src/test/**`, `**/*.test.ts(x)`, `apps/web/e2e/**`, `scripts/load/*.test.mjs` |
-| Migration | `apps/api/src/main/resources/db/changelog/changes/*.sql`, `infra/postgres/bootstrap/10-roles.sql` |
-| Static/Asset | `terms/v1/*.txt`, `globals.css`, `content/prohibited-terms.json` |
+| Categoria | Onde | Exemplos |
+|---|---|---|
+| Modelo / entidade | `*/domain`, `*/api` (records) | `Bot`, `BotLimits`, `MarketValue`, `DecisionOutcome`, `FillQuote`, `KillSwitchSnapshot`, `DataSubjectRequest` |
+| Controlador | `*/web` | `BotController`, `LedgerController`, `PnlController`, `ScannerController`, `AdminKillSwitchController`, `AuthController` |
+| Serviço / caso de uso | `*/application`, `*/domain` | `BotCommandService`, `PaperExecutionImpl`, `OrderGateService`, `KillSwitchService`, `AnonymizationService` |
+| Repositório | `*/infra/Jdbc*` | `JdbcLedgerRepository`, `JdbcBotRepository`, `JdbcMarketStore`, `JdbcKillSwitchStore` |
+| Utilitário | `shared/*`, `*/domain` puros | `KeysetCursor`, `WalletAddress`, `Scales`, `Numbers`, `Base58`, `Digests` |
+| Configuração | `*/infra/*Config`, `*Properties`, `application*.yml` | `MarketDataConfig`, `LedgerProperties`, `RuntimeSettingsGuard` |
+| Middleware (filtros) | `shared/web`, `identity/web` | `CorrelationIdFilter`, `SecurityHeadersFilter`, `ModeGuardFilter`, `AuthenticationFilter`, `IdempotencyKeyFilter`, `TermsReacceptanceFilter`, `AdminRouteFilter` |
+| Jobs | `*/infra/*Job`, `bots/worker` | `MarketCollectorJob`, `EquityMarkingJob`, `ReconciliationJob`, `SlotDispatcher`, `MidnightJob`, `KillSwitchReconciler` |
+| Migração | `src/main/resources/db/changelog/changes/` | `0001-identity.sql` a `0015-anonymization.sql` |
+| Teste | `src/test/java` | 169 `*Test`, 170 `*IT`, 54 de suporte (detalhe em [code-quality-assessment.md](code-quality-assessment.md#testes)) |
+| Estático | `src/main/resources/terms/`, `apps/*/src/app/globals.css` | termos v1 e v2, aviso de risco, tabela de retenção |
 
-## Padrões de código recorrentes
+## Padrões de código
 
-- Records imutáveis com validação no construtor compacto; `toString()` sobrescrito para nunca vazar endereço, código
-  de convite, nonce, assinatura ou texto de feedback.
-- Tipos selados para resultados (`Result.Created`/`Refused`, `VerificationOutcome`) e para `unknown` de mercado.
-- `Clock` injetável em todo domínio (ArchUnit proíbe `now()` direto).
-- SQL explícito em text blocks via `JdbcClient`; paginação por cursor de tupla, sem `OFFSET`.
-- Violação de unicidade reconhecida pelo NOME da constraint (`PSQLException.getServerErrorMessage()`).
-- Jobs: `@Scheduled` com zona UTC, ShedLock, `ProcessRole` para escolher o processo, health indicator por job.
-- Javadoc cita os IDs de requisito (BR, NFR, FR, AC) de cada Unit.
-- Frontends: estados de carregamento, erro e dado distintos; foco no título; `data-testid` para testes.
+- **Tipos selados para resultados e ausência**: `MarketValue` (`Known` | `Unknown`), `GateResult` (`Approved` |
+  `Rejected`), `ExecutionResult` (`Filled` | `NotFilled` | `Duplicate` | `Conflict`), `FundResult`, `CloseResult`,
+  `FactorValue`. Recusas de domínio são resultados, não exceções; só falhas técnicas lançam.
+- **Domínio puro**: `FillCalculator`, `LimitChecks`, `SlippageEstimate`, `DecisionEngine`, `BotStateMachine`,
+  `PnlCalculator`, `RiskCalculator` não leem relógio nem banco; o instante entra como argumento.
+- **Aritmética decimal com escalas fixas**: USDC 6 casas, preço unitário 12, percentuais 4, `HALF_EVEN`; quantidades
+  truncadas para as casas do mint; nunca ponto flutuante.
+- **Transações explícitas**: `TransactionTemplate` com isolamento e propagação declarados no ciclo; `SET LOCAL
+  lock_timeout` e `statement_timeout`; `Propagation.MANDATORY` nos contratos chamados de dentro do ciclo; ordem global
+  de travas (`bots/infra/LockOrder`).
+- **Idempotência**: chave por operação (`order:<decisionId>`, `fund:<botId>`, `close:<botId>`) e digest SHA-256 do
+  conteúdo; mesma chave e conteúdo devolve o resultado gravado, conteúdo diferente devolve conflito.
+- **Execução única de jobs**: ShedLock com nome por job (`market-collect-<fonte>`, `bots-slot-dispatch`,
+  `pnl-equity-marking`, `pnl-reconciliation`).
+- **Processo por anotação**: `@ProcessRole(API | WORKER)` em todo bean que roda sozinho.
+- **Configuração validada na subida**: `*Properties` recusam valores fora de faixa citando a variável, nunca o valor.
+- **Logs e métricas sem dado pessoal**: rótulos só de listas fechadas; carteira mascarada; correlação por `cycleId` ou
+  `correlationId`.
+
+## Organização dos frontends
+
+- **App Router** com uma pasta por rota em português (`/entrar`, `/convite/[codigo]`, `/conta`, `/scanner`, `/bots`,
+  `/bots/new`, `/bots/[botId]`, `/pnl`, `/termos`, `/privacidade`, `/novo-aceite`; no admin `/convites`, `/feedback`,
+  `/kill-switch`, `/pedidos`, `/pedidos/[id]`, `/pedidos/novo`, `/privacidade`, `/termos`).
+- **Por feature** em `src/features/<feature>` com tela, estado, mensagens e testes lado a lado.
+- **Cliente de API tipado** em `src/lib/api` (`client.ts`, `guest-api.ts` ou `admin-api.ts`) sobre `schema.d.ts`
+  gerado do OpenAPI; token em memória (`src/lib/auth/token-store.ts`).
+- **Carteira** em `src/features/auth/wallets.ts`: Wallet Standard com `standard:connect` e `solana:signMessage`; o app
+  só vê o endereço público e a assinatura. Não há `signTransaction` nem `signAndSendTransaction`.
+- **Segurança no servidor Next**: `middleware.ts` gera CSP com nonce por requisição, `connect-src` só para o próprio
+  app e a origem da API, `frame-ancestors 'none'` e `no-store` nas páginas privadas.
+- **Textos de interface** em pt-BR em `src/lib/i18n/messages.ts` e `messages.ts` por feature; termos proibidos de
+  promessa de lucro em `src/content/prohibited-terms.json` (com teste).

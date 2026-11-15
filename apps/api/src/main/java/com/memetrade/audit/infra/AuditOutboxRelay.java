@@ -117,11 +117,14 @@ public class AuditOutboxRelay {
         return jdbc.sql("""
                         insert into audit_event
                           (event_id, tenant_id, actor, actor_type, action, target_ref, correlation_id, occurred_at,
-                           recorded_at, details, wallet_hmac)
+                           recorded_at, details, wallet_hmac, tx_signature, mint, bot_wallet_address)
                         values (:id, :tenant, :actor, :actorType, :action, :target, :correlation, :occurredAt,
-                                :recordedAt, cast(:details as jsonb), :walletHmac)
+                                :recordedAt, cast(:details as jsonb), :walletHmac, :txSignature, :mint, :botWallet)
                         on conflict (event_id) do nothing
                         """)
+                .param("txSignature", event.real() == null ? null : event.real().txSignature())
+                .param("mint", event.real() == null ? null : event.real().mint())
+                .param("botWallet", event.real() == null ? null : event.real().botWalletAddress())
                 .param("walletHmac", decoded.walletHmac().orElse(null))
                 .param("id", event.eventId())
                 .param("tenant", event.tenantId().orElse(null))

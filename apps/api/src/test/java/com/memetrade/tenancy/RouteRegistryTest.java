@@ -72,7 +72,26 @@ class RouteRegistryTest {
                         // u4-data-requests (P1): the data subject requests of the caller.
                         "GET /api/v1/privacy/requests",
                         "POST /api/v1/privacy/requests",
-                        "GET /api/v1/privacy/requests/{requestId}");
+                        "GET /api/v1/privacy/requests/{requestId}",
+                        // 261113-trading-real-bot U1 (R2): the bot wallet of the caller.
+                        "POST /api/v1/real/consents/challenge",
+                        "GET /api/v1/real/bot-wallet",
+                        "POST /api/v1/real/bot-wallet",
+                        "PATCH /api/v1/real/bot-wallet/preferences",
+                        "POST /api/v1/real/bot-wallet/resume",
+                        "GET /api/v1/real/bot-wallet/deposits",
+                        "GET /api/v1/real/bot-wallet/withdrawals",
+                        "POST /api/v1/real/bot-wallet/withdrawals",
+                        "GET /api/v1/real/bot-wallet/withdrawals/{withdrawalId}",
+                        // 261113-trading-real-bot U4 (R3): the REAL orders, mode, liquidation and P&L of the caller.
+                        "GET /api/v1/real/orders",
+                        "GET /api/v1/real/orders/{realOrderId}",
+                        "GET /api/v1/real/orders/{realOrderId}/signing-session",
+                        "POST /api/v1/real/orders/{realOrderId}/signing-session",
+                        "POST /api/v1/real/orders/{realOrderId}/reject",
+                        "PUT /api/v1/real/mode",
+                        "POST /api/v1/real/liquidations",
+                        "GET /api/v1/real/pnl");
         assertThat(registry.routes())
                 .extracting(RouteRegistry.Entry::scope)
                 .allMatch(s -> Set.of("GLOBAL", "SESSION", "ADMIN", "CLIENT").contains(s));

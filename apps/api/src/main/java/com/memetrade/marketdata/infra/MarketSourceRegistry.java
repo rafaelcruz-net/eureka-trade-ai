@@ -1,8 +1,14 @@
 package com.memetrade.marketdata.infra;
 
 import com.memetrade.marketdata.api.MarketSourceAdapter;
+import com.memetrade.marketdata.api.SourceRef;
 import com.memetrade.marketdata.domain.MarketStore;
+import com.memetrade.marketdata.infra.coingecko.CoinGeckoSource;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -27,12 +33,22 @@ public class MarketSourceRegistry {
         this.properties = properties;
     }
 
-    /** Registers every configured source; a database failure is logged and retried before the next collection. */
+    /**
+     * Registers every configured source; a database failure is logged and retried before the next collection. U2: the
+     * real source {@code coingecko} is registered by both processes (it starts PENDING), though only the worker has
+     * its adapter; a source stays enabled while {@code MARKET_SOURCES} names it, whichever process registers it.
+     */
     public void registerAll() {
         try {
-            adapters.forEach(this::register);
-            store.disableSourcesOtherThan(
-                    adapters.stream().map(a -> a.source().sourceId()).toList());
+            Map<String, SourceRef> refs = new LinkedHashMap<>();
+            adapters.forEach(adapter -> refs.put(adapter.source().sourceId(), adapter.source()));
+            if (properties.coingeckoConfigured()) {
+                refs.putIfAbsent(MarketDataProperties.COINGECKO, CoinGeckoSource.REF);
+            }
+            refs.values().forEach(ref -> store.registerSource(ref, properties.collectInterval()));
+            Set<String> enabled = new LinkedHashSet<>(refs.keySet());
+            enabled.addAll(properties.sources());
+            store.disableSourcesOtherThan(List.copyOf(enabled));
         } catch (DataAccessException unavailable) {
             log.error(
                     "Market sources could not be registered: {}",

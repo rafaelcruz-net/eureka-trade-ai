@@ -80,6 +80,10 @@
 
 - NEVER incluir o SDK Solana no código de produção; ele fica só no código de teste, e a produção confere a assinatura com Ed25519 nativo do Java e uma decodificação Base58 própria. (learned 2026-10-30) <!-- cid:261026-memetrade-saas-mvp:nfr-requirements:1f680480a2d9448ad50732994f56a261c1e8eee90fdea88e1ac5f163c77a5802 -->
 
+- NEVER deixar o navegador montar ou enviar transação no modo Assinada; o navegador só assina, e montagem, envio e acompanhamento ficam no servidor. (origem: ADR-008) (affirmed 2026-11-14)
+
+- NEVER deixar o TxSigner assinar transação fora da política de conteúdo (programas permitidos, destinos, saída mínima e teto autorizado) nem saque para endereço que não seja a carteira principal registrada. (origem: ADR-004, ADR-005) (affirmed 2026-11-14)
+
 ## Mandated
 
 <!-- Populated by practices-discovery affirmation gate. -->
@@ -105,6 +109,12 @@
 - ALWAYS versionar os lockfiles e instalar as dependências a partir deles na CI. (origem: cadeia de suprimentos, PRD §12) (affirmed 2026-10-26)
 
 - ALWAYS fixar pelo SHA do commit as ações de terceiros usadas na CI. (origem: integridade da CI) (affirmed 2026-10-26)
+
+- ALWAYS considerar, nesta fase, o gate G2 cumprido pelo modelo de ameaças da carteira do bot do ADR-005 e o gate G3 dispensado por decisão do fundador, que é o revisor único dos gates do REAL; com isso, o REAL automático pode ser liberado nos três modos por usuário, e só depois da liberação aprovada pelo fundador com quarentena de 24 horas. (origem: ADR-008, ADR-005) (affirmed 2026-11-14)
+
+- ALWAYS gerar e manter a chave da carteira do bot dentro do KMS, não exportável, e deixar só o serviço de assinatura isolado (TxSigner), com credencial própria, assinar com ela; nenhum código de produção gera, lê ou exporta essa chave. (origem: ADR-008, ADR-005, ADR-010) (affirmed 2026-11-14)
+
+- ALWAYS manter o saque para a carteira principal registrada disponível a qualquer momento, inclusive com o kill switch acionado, com o REAL desligado, sem a liberação vigente ou sem o novo aceite dos termos. (origem: ADR-008, ADR-005, contract-summary "Termos") (affirmed 2026-11-14)
 
 ## Corrections
 
