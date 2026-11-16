@@ -206,6 +206,7 @@
     { "path": "apps/api/src/main/java/com/memetrade/shared/config/RecordedSwapFixtureConfig.java" },
     { "path": "apps/api/src/main/resources/application-test.yml" },
     { "path": "apps/api/src/test/java/com/memetrade/bots/worker/RecordedSwapCycleIT.java" },
+    { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/LoadtestRiskSeedIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/bots/worker/RecordedSwapStrategyTest.java" },
     { "path": "apps/api/src/test/java/com/memetrade/marketdata/infra/RecordedSwapTokensTest.java" },
     { "path": "apps/api/src/test/java/com/memetrade/marketdata/infra/simulated/FrequentSignalsScenarioTest.java" },

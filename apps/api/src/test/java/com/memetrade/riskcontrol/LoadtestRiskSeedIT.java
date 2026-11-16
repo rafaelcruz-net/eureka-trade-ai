@@ -116,14 +116,40 @@ class LoadtestRiskSeedIT extends AbstractPostgresIT {
         }
     }
 
+    /**
+     * The seed waits until each seeded table carries at most the modifications that would make autovacuum analyze it
+     * again, whoever wrote them. The test base is shared: the cycle, risk and load suites before this one (and the
+     * preparation of the bots here) leave order_evaluation and order_rejection above that threshold until autovacuum
+     * passes, which happens once per {@code autovacuum_naptime} (60 s). Measured right after them, a seed of 3 rows
+     * waited for that pass (57 s in CI run 43794459747), which is the wait for the writes of OTHER tests, not of this
+     * seed. So the test first waits, untimed and bounded, for the shared tables to settle, and then times only the
+     * small seed: it must not wait at all.
+     */
     @Test
     void aSeedBelowTheAutovacuumThresholdReturnsWithoutWaiting() throws Exception {
         List<Bot> bots = preparedBots();
+        awaitSettled(connect(OWNER), java.time.Duration.ofMinutes(3));
         long started = System.nanoTime();
 
         seed.seed(bots, 0, 1, 2);
 
         assertThat((System.nanoTime() - started) / 1_000_000_000L).isLessThan(30);
+    }
+
+    /** Waits until autovacuum covered the modifications other tests left on the seeded tables (precondition). */
+    private static void awaitSettled(JdbcClient owner, java.time.Duration timeout) throws InterruptedException {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        // Two passing reads in a row: the cumulative counters reach the server about a second late.
+        int passing = 0;
+        while (passing < 2) {
+            boolean settled = SEEDED_TABLES.stream()
+                    .allMatch(table -> (Long) stats(owner, table).get("modified") <= threshold(owner, table));
+            passing = settled ? passing + 1 : 0;
+            assertThat(System.nanoTime() - deadline)
+                    .as("autovacuum did not analyze the seeded tables within %s", timeout)
+                    .isNegative();
+            Thread.sleep(1_000);
+        }
     }
 
     /** The modifications above which autovacuum analyzes {@code table} again (server settings, current reltuples). */

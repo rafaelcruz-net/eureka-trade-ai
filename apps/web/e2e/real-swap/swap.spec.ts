@@ -199,12 +199,17 @@ test.describe.serial('REAL swap on the local validator', () => {
    * keep cycling during the specs that run after this file and count in their limit of active bots.
    */
   test.afterAll(async ({ request }) => {
-    if (!recordedBotId) {
-      return;
+    test.setTimeout(LOGIN_WINDOW_MS + 30_000);
+    // The last access token of the spec is still valid (15 min; the whole spec takes less): no new login here.
+    if (recordedBotId) {
+      const stopped = await call(request, 'POST', `/api/v1/bots/${recordedBotId}/commands/stop`);
+      expect(stopped.status(), 'the REAL bot of the swap spec must be stopped').toBe(200);
     }
-    await signIn(request);
-    const stopped = await call(request, 'POST', `/api/v1/bots/${recordedBotId}/commands/stop`);
-    expect(stopped.status(), 'the REAL bot of the swap spec must be stopped').toBe(200);
+    // The login is limited per IP and minute (LoginRateLimiter, 10 per minute, ProfileDefaultsTest), and the specs
+    // after this file (u1, u2, ...) sign in from the same IP. This spec signs in twice (before the tests and before
+    // the liquidation): like the bot wallet spec, it leaves them a whole login window. Without it, u1 got 429 on the
+    // nonce replay and u2 never left the login screen (CI run 43794459747).
+    await new Promise((resolve) => setTimeout(resolve, LOGIN_WINDOW_MS));
   });
 
   test('raises the bot wallet to AUTO_FULL with the consent signed by the main wallet', async ({

@@ -75,10 +75,12 @@ class AnonymizationMigrationIT extends AbstractPostgresIT {
                     DatabaseFactory.getInstance().findCorrectDatabaseImplementation(new JdbcConnection(connection));
             Liquibase liquibase =
                     new Liquibase("db/changelog/db.changelog-master.yaml", new ClassLoaderResourceAccessor(), database);
-            // The 6 changesets of 0015 plus those of 261113-trading-real-bot that come after them (0016 and 0017: 13;
-            // 0018 of the U3: 8; 0019 of the U4: 10); this also exercises the rollback of 0019, 0018 and 0016 before
-            // the one of 0015.
-            assertThatCode(() -> liquibase.rollback(6 + 13 + 8 + 10, "")).doesNotThrowAnyException();
+            // Every changeset from 0015 to the last migration, counted from the files in the order of the master
+            // changelog, so a later migration never leaves part of 0015 applied (a fixed count went one short with
+            // 0017 and two with 0020). This also exercises the rollback of every later migration before 0015.
+            int changesets = changesetsFrom("0015-anonymization.sql");
+            assertThat(changesets).isGreaterThanOrEqualTo(6);
+            assertThatCode(() -> liquibase.rollback(changesets, "")).doesNotThrowAnyException();
         }
 
         assertThat(functionExists(owner)).isFalse();
@@ -97,6 +99,36 @@ class AnonymizationMigrationIT extends AbstractPostgresIT {
 
         assertThat(functionExists(owner)).isTrue();
         assertThat(nullable(owner, "address")).isEqualTo("YES");
+    }
+
+    /** The changesets of {@code first} and of every migration after it in the master changelog. */
+    static int changesetsFrom(String first) throws java.io.IOException {
+        Path changelog = Path.of("src", "main", "resources", "db", "changelog");
+        String master = Files.readString(changelog.resolve("db.changelog-master.yaml"), StandardCharsets.UTF_8);
+        Matcher includes =
+                Pattern.compile("file:\\s*db/changelog/changes/(\\S+\\.sql)").matcher(master);
+        int count = 0;
+        boolean counting = false;
+        while (includes.find()) {
+            counting = counting || includes.group(1).equals(first);
+            if (counting) {
+                String sql = Files.readString(changelog.resolve("changes").resolve(includes.group(1)));
+                count += (int) Pattern.compile("(?m)^--changeset ")
+                        .matcher(sql)
+                        .results()
+                        .count();
+            }
+        }
+        if (!counting) {
+            throw new IllegalStateException(first + " is not in the master changelog");
+        }
+        return count;
+    }
+
+    @Test
+    void theRollbackCountCoversEveryChangesetFromTheAnonymizationMigrationOn() throws Exception {
+        // 0015 (6), 0016 (13), 0017 (1), 0018 (8), 0019 (10) and 0020 (1) when this test was written; it only grows.
+        assertThat(changesetsFrom("0015-anonymization.sql")).isGreaterThanOrEqualTo(6 + 13 + 1 + 8 + 10 + 1);
     }
 
     @Test
