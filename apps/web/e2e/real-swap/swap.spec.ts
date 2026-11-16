@@ -71,6 +71,7 @@ test.describe.serial('REAL swap on the local validator', () => {
   let accessToken = '';
   let botAddress = '';
   let mint = '';
+  let recordedBotId = '';
 
   async function call(
     request: APIRequestContext,
@@ -178,6 +179,8 @@ test.describe.serial('REAL swap on the local validator', () => {
     }
     const started = await call(request, 'POST', `/api/v1/bots/${botId}/commands/start`);
     expect(started.status()).toBe(200);
+    // Only an ACTIVE bot cycles; from here on the afterAll stops it.
+    recordedBotId = botId;
     return botId;
   }
 
@@ -189,6 +192,19 @@ test.describe.serial('REAL swap on the local validator', () => {
     const wallet = await call(request, 'GET', '/api/v1/real/bot-wallet');
     botAddress = ((await wallet.json()) as { address: string }).address;
     expect(botAddress).toBe(recorded().RECORDED_BOT_WALLET);
+  });
+
+  /**
+   * The REAL bot of this spec is stopped whatever happened, so it never stays ACTIVE for the smoke account: it would
+   * keep cycling during the specs that run after this file and count in their limit of active bots.
+   */
+  test.afterAll(async ({ request }) => {
+    if (!recordedBotId) {
+      return;
+    }
+    await signIn(request);
+    const stopped = await call(request, 'POST', `/api/v1/bots/${recordedBotId}/commands/stop`);
+    expect(stopped.status(), 'the REAL bot of the swap spec must be stopped').toBe(200);
   });
 
   test('raises the bot wallet to AUTO_FULL with the consent signed by the main wallet', async ({

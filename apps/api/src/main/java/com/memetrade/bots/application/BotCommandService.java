@@ -287,12 +287,17 @@ public class BotCommandService {
                     BotStateMachine.stop(bot.status(), false);
                     int version = bot.currentLimitsVersion()
                             .orElseThrow(() -> new IllegalStateException("A started bot has a limits version"));
-                    CloseResult result = paper.closePositions(botId, version, "close:" + botId);
-                    if (!(result instanceof CloseResult.Closed closed)) {
-                        throw new BotTechnicalFailure("The positions could not be closed");
+                    int pendingPositions = 0;
+                    // 261113-trading-real-bot U4 (U4-NFR2.1, BR8.1): a REAL bot has no PAPER account and never writes
+                    // the PAPER ledger; its positions stay in the bot wallet and are sold by "vender tudo e sacar".
+                    if (!bot.real()) {
+                        CloseResult result = paper.closePositions(botId, version, "close:" + botId);
+                        if (!(result instanceof CloseResult.Closed closed)) {
+                            throw new BotTechnicalFailure("The positions could not be closed");
+                        }
+                        pendingPositions = closed.pending().size();
                     }
-                    Change change =
-                            BotStateMachine.stop(bot.status(), !closed.pending().isEmpty());
+                    Change change = BotStateMachine.stop(bot.status(), pendingPositions > 0);
                     Instant now = clock.instant();
                     Bot.Builder next = bot.toBuilder().status(change.after()).updatedAt(now);
                     boolean stopped = change.after().state() == com.memetrade.bots.api.BotState.STOPPED;
@@ -304,9 +309,7 @@ public class BotCommandService {
                     audit.byPerson(
                             ended.ref(),
                             stopped ? AuditActions.BOT_STOPPED : AuditActions.BOT_CLOSING_PENDING,
-                            Map.of(
-                                    "pendingPositions",
-                                    String.valueOf(closed.pending().size())));
+                            Map.of("pendingPositions", String.valueOf(pendingPositions)));
                     return ended;
                 });
     }

@@ -71,9 +71,17 @@ test('U8: administrator entry, status, invitations, kill switch and feedback', a
   await admin.getByTestId('kill-switch-dialog-reason').fill('Início do smoke U8');
   await admin.getByTestId('kill-switch-dialog-confirm').click();
   await expect(admin.getByTestId('kill-switch-banner')).toContainText('Kill switch ACIONADO');
+  // Each client navigation must finish before the next one starts. The banner is on every screen, so seeing it does not
+  // prove the feedback screen opened: in the CI (commit 605a8fb) the navigation to /feedback was still pending when
+  // the kill switch link was clicked, it finished last, the "Desligar" button was detached for good and the kill
+  // switch stayed ON, which also failed the next spec (u9: "Pausado pelo sistema").
   await admin.getByTestId('admin-nav-feedback').click();
+  await expect(admin).toHaveURL(/\/feedback$/);
+  await expect(admin.getByTestId('feedback-page')).toBeVisible();
   await expect(admin.getByTestId('kill-switch-banner')).toBeVisible();
   await admin.getByTestId('admin-nav-kill-switch').click();
+  await expect(admin).toHaveURL(/\/kill-switch$/);
+  await expect(admin.getByTestId('kill-switch-page')).toBeVisible();
   await admin.getByTestId('kill-switch-deactivate').click();
   await admin.getByTestId('kill-switch-dialog-reason').fill('Fim do smoke U8');
   await admin.getByTestId('kill-switch-dialog-confirm').click();
