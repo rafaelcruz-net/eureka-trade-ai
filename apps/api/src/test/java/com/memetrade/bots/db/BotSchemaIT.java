@@ -167,10 +167,15 @@ class BotSchemaIT extends AbstractU5IT {
         assertThatThrownBy(() -> insertDecision(bot, cycle, "PAPER", "NO_TRADE", "NO_SIGNAL"))
                 .isInstanceOf(DataIntegrityViolationException.class);
         UUID other = insertCycle(bot, Instant.parse("2026-10-28T12:10:00Z"));
-        assertThatThrownBy(() -> insertDecision(bot, other, "REAL", "NO_TRADE", "NO_SIGNAL"))
+        // 261113-trading-real-bot U5 (BR7.1, migration 0021): a REAL bot records its decision as REAL; any other
+        // mode is still refused.
+        insertDecision(bot, other, "REAL", "NO_TRADE", "NO_SIGNAL");
+        UUID third = insertCycle(bot, Instant.parse("2026-10-28T12:15:00Z"));
+        assertThatThrownBy(() -> insertDecision(bot, third, "LIVE", "NO_TRADE", "NO_SIGNAL"))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("decision_mode_ck");
-        assertThatThrownBy(() -> insertDecision(bot, other, "PAPER", "NO_TRADE", null))
+        UUID other2 = insertCycle(bot, Instant.parse("2026-10-28T12:20:00Z"));
+        assertThatThrownBy(() -> insertDecision(bot, other2, "PAPER", "NO_TRADE", null))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("decision_reason_ck");
     }
