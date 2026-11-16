@@ -21,4 +21,8 @@ paths = [
 # Only this exact value is allowed. Approved by the project owner on 2026-11-15; valid until 2027-02-13.
 regexes = [
   '''^ECC_NIST_EDWARDS25519$''',
+  # Exception (team.md "Segurança na CI"): the public address of the Raydium CP pool of the recorded REAL swap
+  # (infra/solana-fixtures/jupiter/__files, "ammKey" of the Jupiter quotes); the generic-api-key rule matches the
+  # field name. Only this exact value is allowed. Approved by the project owner on 2026-11-15; valid until 2027-02-13.
+  '''^Q2sPHPdUWFMg7M7wwrQKLrn619cAucfRsmhVJffodSp$''',
 ]

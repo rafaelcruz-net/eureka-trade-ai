@@ -23,6 +23,7 @@ import com.memetrade.riskcontrol.real.domain.DaySnapshot;
 import com.memetrade.riskcontrol.real.domain.LamportPrice;
 import com.memetrade.riskcontrol.real.domain.PricedPosition;
 import com.memetrade.riskcontrol.real.domain.RealRiskPolicy;
+import com.memetrade.shared.config.RecordedSwapFixture;
 import com.memetrade.shared.logging.LogMasking;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -61,6 +62,7 @@ public class RealGateInputsReader {
     private final MarketDataQuery market;
     private final RiskAssessmentQuery assessment;
     private final JdbcRealRiskStore store;
+    private final Optional<RecordedSwapFixture> recordedSwap;
 
     public RealGateInputsReader(
             RealStateQuery state,
@@ -68,11 +70,27 @@ public class RealGateInputsReader {
             MarketDataQuery market,
             RiskAssessmentQuery assessment,
             JdbcRealRiskStore store) {
+        this(state, ledger, market, assessment, store, Optional.empty());
+    }
+
+    /**
+     * @param recordedSwap the swap recorded for the local validator; present ONLY in the test profile with the
+     *     recordings ({@link com.memetrade.shared.config.RecordedSwapFixtureConfig}), empty everywhere else
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public RealGateInputsReader(
+            RealStateQuery state,
+            RealLedger ledger,
+            MarketDataQuery market,
+            RiskAssessmentQuery assessment,
+            JdbcRealRiskStore store,
+            Optional<RecordedSwapFixture> recordedSwap) {
         this.state = state;
         this.ledger = ledger;
         this.market = market;
         this.assessment = assessment;
         this.store = store;
+        this.recordedSwap = recordedSwap;
     }
 
     /**
@@ -90,6 +108,19 @@ public class RealGateInputsReader {
     /** M4: the kind of the active market source. */
     public SourceKind source() {
         return read(Dependency.MARKET, market::activeSourceKind);
+    }
+
+    /**
+     * M4: the kind of the active market source for this order. The same as {@link #source()}, except in the TEST
+     * profile with the recorded swap of the local validator: an order of the recorded mint (buy or sell) reads REAL, so
+     * the end-to-end proof of the swap can pass BR1.2 while {@code sim-a} publishes its data. Every other mint, and every
+     * order in any other profile, keeps the refusal of a simulated source.
+     */
+    public SourceKind source(OrderIntent intent) {
+        if (recordedSwap.isPresent() && recordedSwap.get().isRecordedMint(intent.mint())) {
+            return SourceKind.REAL;
+        }
+        return source();
     }
 
     /** Everything a buy needs after the state and the source, under the lock of the wallet. */

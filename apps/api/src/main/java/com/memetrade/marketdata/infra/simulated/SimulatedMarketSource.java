@@ -32,6 +32,11 @@ import java.util.Random;
  * base. A 15-minute window then sees about +15% of price and +75% of volume (momentum entries) and the drop at the end
  * of the phase reaches the stop loss (exits). Same values in sim-a and sim-b for common tokens; {@link
  * Scenario#STANDARD} keeps the behaviour of U1 and U4 unchanged.
+ *
+ * <p>261113-trading-real-bot U4 (test profile only, {@code MarketDataConfig}): a source may also carry {@link Pinned}
+ * tokens, appended AFTER the generated ones (so every index rule above is unchanged), each with the same fixed price,
+ * liquidity, 24 h volume, holders and creation time on every fetch, observed at the time of the fetch (always fresh).
+ * Used only to publish the mint of the recorded swap and the wrapped SOL in {@code sim-a}.
  */
 public class SimulatedMarketSource implements MarketSourceAdapter {
 
@@ -39,6 +44,36 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
     public enum Scenario {
         STANDARD,
         FREQUENT_SIGNALS
+    }
+
+    /**
+     * A token with fixed values, published on every fetch after the generated tokens (U4, test profile only).
+     *
+     * @param info the identity, symbol, name and decimals of the token
+     * @param price the dollar price of one whole token, above zero
+     * @param liquidity the liquidity in dollars
+     * @param volume24h the 24 h volume in dollars
+     * @param holders the holders
+     * @param age how long before the creation of the source the token was created
+     */
+    public record Pinned(
+            TokenInfo info,
+            BigDecimal price,
+            BigDecimal liquidity,
+            BigDecimal volume24h,
+            BigDecimal holders,
+            java.time.Duration age) {
+
+        public Pinned {
+            java.util.Objects.requireNonNull(info, "info");
+            java.util.Objects.requireNonNull(age, "age");
+            if (price == null || price.signum() <= 0) {
+                throw new IllegalArgumentException("A pinned token needs a price above zero");
+            }
+            if (liquidity == null || volume24h == null || holders == null) {
+                throw new IllegalArgumentException("A pinned token needs its liquidity, volume and holders");
+            }
+        }
     }
 
     static final int SIGNAL_PHASE_MINUTES = 30;
@@ -68,6 +103,8 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
     private final List<TokenInfo> tokens;
     private final List<Instant> creationTimes;
     private final Scenario scenario;
+    private final List<Pinned> pinned;
+    private final List<Instant> pinnedCreationTimes;
 
     /** U1 constructor: the sim-a source. */
     public SimulatedMarketSource(long seed, int tokenCount, Clock clock) {
@@ -79,6 +116,15 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
     }
 
     public SimulatedMarketSource(SourceRef source, long seed, int tokenCount, Clock clock, Scenario scenario) {
+        this(source, seed, tokenCount, clock, scenario, List.of());
+    }
+
+    /** U4 (test profile only): with {@code pinned} tokens after the generated ones. */
+    public SimulatedMarketSource(
+            SourceRef source, long seed, int tokenCount, Clock clock, Scenario scenario, List<Pinned> pinned) {
+        if (pinned == null) {
+            throw new IllegalArgumentException("The pinned tokens are a list, possibly empty");
+        }
         if (scenario == null) {
             throw new IllegalArgumentException("The simulated source needs a scenario");
         }
@@ -108,8 +154,18 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
                     new TokenId(CHAIN, SyntheticMintEncoder.encode(mint)), symbol, symbol + " (simulado)", 6));
             created.add(i == 2 ? null : anchor.minus(3L + 7L * i + random.nextInt(5), ChronoUnit.MINUTES));
         }
+        this.pinned = List.copyOf(pinned);
+        List<Instant> pinnedCreated = new ArrayList<>();
+        for (Pinned token : this.pinned) {
+            if (generated.stream().anyMatch(t -> t.token().equals(token.info().token()))) {
+                throw new IllegalArgumentException("A pinned token repeats a generated token");
+            }
+            generated.add(token.info());
+            pinnedCreated.add(anchor.minus(token.age()));
+        }
         this.tokens = List.copyOf(generated);
         this.creationTimes = created;
+        this.pinnedCreationTimes = List.copyOf(pinnedCreated);
     }
 
     public static SimulatedMarketSource forSource(String sourceId, long seed, int tokenCount, Clock clock) {
@@ -123,6 +179,16 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
             throw new IllegalArgumentException("Unknown simulated source " + sourceId);
         }
         return new SimulatedMarketSource(ref, seed, tokenCount, clock, scenario);
+    }
+
+    /** U4 (test profile only): {@link #forSource(String, long, int, Clock, Scenario)} with pinned tokens. */
+    public static SimulatedMarketSource forSource(
+            String sourceId, long seed, int tokenCount, Clock clock, Scenario scenario, List<Pinned> pinned) {
+        SourceRef ref = KNOWN.get(sourceId);
+        if (ref == null) {
+            throw new IllegalArgumentException("Unknown simulated source " + sourceId);
+        }
+        return new SimulatedMarketSource(ref, seed, tokenCount, clock, scenario, pinned);
     }
 
     /** Whether token {@code i} follows the saw of {@link Scenario#FREQUENT_SIGNALS}. */
@@ -140,14 +206,29 @@ public class SimulatedMarketSource implements MarketSourceAdapter {
     public FetchResult fetch(FetchRequest request) {
         Instant observedAt = request.requestedAt().truncatedTo(ChronoUnit.SECONDS);
         List<Observation> observations = new ArrayList<>();
-        int shared = Math.min(COMMON_TOKENS, tokens.size());
-        for (int i = 0; i < tokens.size(); i++) {
+        int generatedCount = creationTimes.size();
+        int shared = Math.min(COMMON_TOKENS, generatedCount);
+        for (int i = 0; i < generatedCount; i++) {
             boolean isCommon = i < shared;
             long salt = isCommon ? 0 : source.sourceId().hashCode();
             Random random = new Random(seed * 1_000_003L + observedAt.getEpochSecond() * 7_919L + i * 31L + salt);
             observations.addAll(observe(i, tokens.get(i).token(), random, observedAt, isCommon && isB));
         }
+        for (int p = 0; p < pinned.size(); p++) {
+            observations.addAll(observePinned(pinned.get(p), pinnedCreationTimes.get(p), observedAt));
+        }
         return new FetchResult(tokens, observations);
+    }
+
+    /** U4: the fixed values of a pinned token, observed now (always fresh). */
+    private List<Observation> observePinned(Pinned token, Instant created, Instant at) {
+        TokenId id = token.info().token();
+        return List.of(
+                known(id, MarketField.PRICE, token.price(), at),
+                known(id, MarketField.LIQUIDITY, token.liquidity(), at),
+                known(id, MarketField.VOLUME_24H, token.volume24h(), at),
+                known(id, MarketField.HOLDERS, token.holders(), at),
+                known(id, MarketField.CREATED_AT, BigDecimal.valueOf(created.getEpochSecond()), at));
     }
 
     private List<Observation> observe(int i, TokenId token, Random random, Instant at, boolean divergeAsB) {

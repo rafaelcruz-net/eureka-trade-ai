@@ -121,6 +121,23 @@ public class RealCycle {
         return "REAL_" + step.submit(candidate).result();
     }
 
+    /**
+     * A REAL buy of exactly {@code lamports} of {@code mint} (the test strategy of the recorded swap, whose quote is for
+     * one fixed amount); the same barrier and the same M6 as {@link #order}. The outcome of the cycle.
+     */
+    String buyExactly(Bot bot, UUID decisionId, String mint, long lamports, String reason) {
+        return "REAL_"
+                + step.submit(RealDecisionStep.Candidate.buy(
+                                bot.scope().tenantId(),
+                                bot.scope().ownerUserId(),
+                                bot.botId(),
+                                decisionId,
+                                mint,
+                                lamports,
+                                reason))
+                        .result();
+    }
+
     private static Optional<BigDecimal> known(MarketValue value) {
         return value instanceof MarketValue.Known known ? Optional.of(known.value()) : Optional.empty();
     }

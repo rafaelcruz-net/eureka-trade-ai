@@ -102,6 +102,13 @@ services:
     restart: unless-stopped
 
   api:
+    # U4 (infrastructure-specification.md "Decisão do bot"): RECORDED_MINT, RECORDED_DECIMALS, RECORDED_BUY_LAMPORTS and
+    # RECORDED_SELL_UNITS of the swap recorded once by infra/solana-fixtures/record.sh. Optional: without the file the
+    # variables do not exist, application-test.yml reads them as empty and nothing changes (no pinned token, no test
+    # strategy). Read only by the test profile; the api pins the recorded mint and the wrapped SOL in sim-a.
+    env_file:
+      - path: ./infra/solana-fixtures/recorded.env
+        required: false
     environment:
       MEMETRADE_REAL_ENABLED: 'true'
       MEMETRADE_REAL_SEED_TEST_RELEASE: 'true'
@@ -112,6 +119,11 @@ services:
         condition: service_healthy
 
   worker:
+    # U4: the same optional recordings; the worker runs the test strategy (one buy of exactly RECORDED_BUY_LAMPORTS of
+    # RECORDED_MINT) and lets the REAL barrier read the source as REAL for that mint only. Empty without the file.
+    env_file:
+      - path: ./infra/solana-fixtures/recorded.env
+        required: false
     environment:
       MEMETRADE_REAL_ENABLED: 'true'
       MEMETRADE_TXSIGNER_URL: http://txsigner:8443

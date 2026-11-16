@@ -113,11 +113,12 @@ class FrequentSignalsScenarioTest {
                 new MarketDataProperties.Simulated(42, 60, Scenario.FREQUENT_SIGNALS));
         MarketDataConfig config = new MarketDataConfig();
 
-        assertThatThrownBy(() -> config.configuredSources(properties, clock, new MockEnvironment()))
+        assertThatThrownBy(() ->
+                        config.configuredSources(properties, clock, new MockEnvironment(), java.util.Optional.empty()))
                 .hasMessageContaining("MARKET_SIMULATED_SCENARIO");
         MockEnvironment test = new MockEnvironment();
         test.setActiveProfiles("test");
-        ConfiguredSources sources = config.configuredSources(properties, clock, test);
+        ConfiguredSources sources = config.configuredSources(properties, clock, test, java.util.Optional.empty());
         assertThat(sources.adapters()).hasSize(1);
         assertThat(new MarketDataProperties.Simulated(42, 60, null).scenario()).isEqualTo(Scenario.STANDARD);
     }

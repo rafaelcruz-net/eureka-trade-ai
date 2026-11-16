@@ -127,10 +127,83 @@ A execução 43769144828 do GitHub Actions, no commit f394d48 (U1 a U4 em `main`
 | `sh apps/api/mvnw -B -ntp -q -f apps/api/pom.xml test -Dtest='com.memetrade.audit.AuditOutboxIT'` com o acúmulo e antes da correção | 8 testes, 1 falha (a mesma da CI) |
 | Depois das correções: `AuditOutboxIT`, `AuditPublisherIT`, `AuditRelayMeasureIT`, os dois testes de contexto, `config.*IT`, `botwallet.**.*IT`, `realexecution.infra.*IT` e `architecture.*Test` | 218 testes, 0 falhas |
 
+## Swap gravado
+
+O responsável do projeto gravou duas vezes. A primeira gravação (mint BONK, pool Scorch, slot 469925246) não roda no validador local (ver "Primeira gravação, descartada"). A gravação em uso é a segunda: mint `Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk` (USELESS, 6 casas), pool Raydium CP `Q2sPHPdUWFMg7M7wwrQKLrn619cAucfRsmhVJffodSp`, compra de 0,05 SOL, slot 469939807. Esta seção fecha o que faltava da Etapa 16.
+
+### O que mudou
+
+| Parte | Mudança |
+|---|---|
+| Gravação | `RecordedSwapFixture` (em `shared.config`): mint, casas decimais, lamports da compra e saída esperada. Só existe no perfil `test` e só com `RECORDED_MINT` preenchido (`RecordedSwapFixtureConfig`). Valores inválidos impedem a subida e o erro cita a variável. |
+| Variáveis | O `infra/docker-compose.real.yml` passa o `recorded.env` à API e ao worker por `env_file` opcional (`required: false`). Sem o arquivo, as variáveis não existem, o `application-test.yml` as lê vazias e nada muda. |
+| `recorded.env` | Ganhou `RECORDED_DECIMALS`, lido do byte 44 da conta do mint gravada (6 na gravação em uso). O `record.sh` passou a escrever essa linha. |
+| Dados de mercado | No perfil `test` com a gravação, o `sim-a` publica também o SOL embrulhado (US$ 72,558, a cotação de prova da primeira gravação; a segunda dá US$ 71,797, diferença que não muda nenhuma regra, porque a barreira compara lamports) e o mint gravado (preço que bate com a cotação gravada). Liquidez, volume e holders são fixos e frescos em cada coleta. Os tokens fixos ficam depois dos gerados, então as regras por posição não mudam. O `sim-b` e os outros perfis não mudam. A avaliação do scanner fica disponível: liquidez, holders e volume conhecidos dão 80% de cobertura, o mínimo da versão 1 dos pesos. |
+| Barreira (BR1.2) | Com o `sim-a` ativo, a barreira da U3 recusa toda ordem REAL (`SIMULATED_SOURCE_ACTIVE`). `RealGateInputsReader.source(intent)` passa a ler a fonte como REAL **só** no perfil `test` com a gravação e **só** para ordens do mint gravado (compra do bot e venda da liquidação). Qualquer outro mint e qualquer outro perfil continuam recusados. Ver "Desvio" abaixo. |
+| Estratégia de teste | `RecordedSwapStrategy` (worker, perfil `test`). Só age no bot REAL cuja seleção é exatamente o mint gravado. Na primeira vez, compra exatamente `RECORDED_BUY_LAMPORTS`, pela mesma barreira e pela mesma M6 de qualquer bot REAL (`RealCycle.buyExactly`). Com a posição aberta, mantém e nunca vende. Depois de um ciclo `REAL_RECORDED` (`JdbcCycleRepository.hasOutcome`), não compra de novo. Se a barreira recusar, por exemplo antes do depósito ser creditado, nada é gravado e o próximo slot tenta de novo. |
+| Spec `real-swap` | O spec agora: (1) sobe o modo para `AUTO_FULL` com o consentimento `RAISE_MODE` assinado pela carteira principal de teste; (2) deposita 1 SOL e espera o crédito; (3) cria e inicia, pelas rotas do assistente, o bot REAL do mint gravado; (4) espera a compra `CONFIRMED` (até 7 min, porque o ciclo roda uma vez por slot de 5 min), confere uma única compra de `RECORDED_BUY_LAMPORTS` e a posição de `RECORDED_SELL_UNITS` com custo e taxa; (5) pede "vender tudo e sacar" e confere a venda `CONFIRMED`, o saldo devolvido e a posição zerada. Faz login de novo antes da liquidação, porque o token dura 15 min. Continua pulado sem `RECORDED_FIXTURES`. |
+| `validator.sh` | Os programas gravados sobem com `--upgradeable-program <endereço> <arquivo> none`, o mesmo carregador da mainnet (conta do programa e `ProgramData`), sem autoridade de upgrade. Antes subiam com `--bpf-program`, o carregador antigo, sem `ProgramData`. |
+| Mapeamentos da Jupiter | **Defeito da gravação:** nos três mapeamentos de cotação, o `urlPath` saiu `C:/Program Files/Git/quote`, porque o Git Bash converte argumentos que parecem caminho antes de chamar o `jq.exe`. Com isso, o `jupiter-stub` nunca responderia à cotação. Os três foram corrigidos para `/quote`, e o `record.sh` desliga a conversão (`MSYS_NO_PATHCONV=1`). |
+| `record.sh` | Ganhou a opção `--dexes`, com padrão `Raydium CP` (pool de produto constante, como pede o design). Mostra o pool escolhido. Avisa quando um programa gravado usa SBPF v3 ou mais novo. |
+
+### Testes
+
+| Comando | Resultado |
+|---|---|
+| `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test -Dtest='com.memetrade.shared.config.RecordedSwapFixtureTest,com.memetrade.marketdata.infra.RecordedSwapTokensTest,com.memetrade.marketdata.infra.simulated.*Test,com.memetrade.riskcontrol.real.infra.RecordedSwapSourceKindTest,com.memetrade.riskcontrol.real.infra.RealGateInputsReaderTest,com.memetrade.bots.worker.*Test,com.memetrade.architecture.*Test' -Djacoco.skip=true` | 124 testes, 0 falhas (21 novos) |
+| `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test -Dtest='com.memetrade.bots.application.RealBotDecisionIT,com.memetrade.bots.worker.CycleIT,com.memetrade.config.ProcessRoleContextIT,com.memetrade.config.U4ContextIT,com.memetrade.riskcontrol.real.infra.TransactionalRealRiskGateIT,com.memetrade.riskcontrol.real.infra.RealGateInputsReaderIT,com.memetrade.marketdata.MarketCollectorIT' -Djacoco.skip=true` | 64 testes, 0 falhas |
+| `apps/web`: `prettier` e `eslint` de `e2e/real-swap` e `e2e/real-bot-wallet`, `tsc --noEmit` e `playwright test --list` dos dois specs | sem erros; 7 testes listados |
+| `docker compose ... config --no-interpolate` com as três sobreposições | válido; o `env_file` aponta para `infra/solana-fixtures/recorded.env` |
+| Primeira gravação (Scorch) no validador local (agave v2.2.20), compra simulada sem assinatura | A compra **falha** dentro do Scorch: `Program ojh19ojaKduoJZuaJADhcVGp4xt1TcdAvZmpVsCorch ... Program is not deployed` (`UnsupportedProgramId`). |
+| Gravação em uso (Raydium CP) no mesmo validador, compra e venda simuladas (ver abaixo) | compra e venda passam; a compra rende exatamente `RECORDED_SELL_UNITS` |
+
+O `scripts/verify.sh` não foi rodado aqui (falta memória; quem conduz roda).
+
+### Prova da gravação em uso no validador local
+
+Um validador descartável agave v2.2.20 subiu pelo `validator.sh` com as gravações. Jupiter v6 e `CPMMoo8L3F4NbTegBCKVNunggL7H1ZpdTHKxQB5qKP1C` são SBPF v0 e subiram pelo carregador upgradeable. A carteira do bot `2Nk2WvdpeY9iu7eHm9QTCDDqkfQK5eeEE7qUYyK6TGaQ` recebeu 1 SOL por airdrop. As transações foram montadas como o servidor monta: só chaves estáticas, com a ordem das instruções da Jupiter. Rodaram em `simulateTransaction` sem assinatura (`sigVerify: false`). O contêiner e o script de rascunho foram removidos depois.
+
+| Simulação | Resultado |
+|---|---|
+| Compra gravada (18 contas, 808 bytes) | sem erro, 99.268 unidades de computação; a conta de token da carteira do bot (`EiodpHwZ…`) termina com **35.728.672**, igual a `RECORDED_SELL_UNITS` e ao `outAmount` da cotação; a carteira paga 52.044.423 lamports (50.000.000 da troca, 2.039.280 de aluguel da conta de token e 5.143 de taxa, dos quais 143 são de prioridade) |
+| Compra seguida da venda gravada de exatamente 35.728.672 unidades, numa só transação | sem erro, 168.393 unidades; a conta do token termina em 0 |
+| A mesma, sem a instrução final que fecha a conta de SOL embrulhado | a venda rende **49.750.311** lamports, acima da cotação de venda (49.750.051) e do mínimo (48.755.050) |
+
+A saída da compra bate exatamente com a cotação: o pool de produto constante só depende das reservas gravadas. Então a cotação de venda gravada (entrada de 35.728.672) serve, e nenhuma regra de produção precisa ficar mais solta. O `JupiterClient` continua recusando cotação de outro valor. A venda rende um pouco mais que a cotação de venda porque, na simulação, ela vem logo depois da compra, que pôs SOL no pool. No e2e acontece o mesmo.
+
+Nenhuma conta falta. As contas não gravadas são nativas do validador (System, Token, Associated Token, Compute Budget) ou são criadas pela troca (`Cs1cNst6…` de SOL embrulhado e `EiodpHwZ…` do token, ambas da carteira do bot). A instrução da Jupiter é `route` (o discriminador que a política do TxSigner aceita), com derrapagem de 200 bps e sem taxa de plataforma. O teto de unidades é 1.400.000, a 102 microlamports, o que dá 143 lamports de prioridade, abaixo do teto de 1.000.000.
+
+### Primeira gravação, descartada
+
+1. **Programa SBPF v3.** O `ojh19ojaKduoJZuaJADhcVGp4xt1TcdAvZmpVsCorch.so`, que o Scorch chama, é um ELF SBPF v3 (`e_flags` 3). O validador do Compose (agave v2.2.20) não executa SBPF v3: o programa carrega, mas toda chamada falha. Jupiter v6 e Scorch são SBPF v0 e rodam.
+2. **Pool de preço por oráculo.** O Scorch não é um pool de produto constante. O preço vem de contas que o formador de mercado atualiza a cada slot (`7s5B…`, `85Et…` e `HLix…`, do `ojh19…`) e da conta de instruções do sistema. Um pool assim costuma recusar preço vencido pelo slot ou pelo horário. No validador, o relógio é o de agora e o slot recomeça do zero, então a troca tende a falhar mesmo com um validador mais novo.
+3. **Saída diferente da cotação.** As contas foram lidas alguns slots depois da cotação (cotação no slot 469925239, gravação no 469925246). Num pool de oráculo, a saída da compra pode não ser exatamente `154230000000`. Se não for, a venda gravada, que vale exatamente essa quantidade, não serve. O `JupiterClient` recusa a cotação de outro valor.
+4. **Simulação da Jupiter.** As instruções gravadas vieram com `simulationError` "Attempt to debit an account but found no record of a prior credit", porque a carteira do bot não tinha SOL na mainnet. A conferência do passo 4 do `record.sh` nunca aconteceu de fato.
+
+Nenhuma conta citada falta. Todas estão gravadas, são nativas do validador (System, Token, Associated Token, Compute Budget, Memo, `Sysvar1nstructions`) ou são criadas pela troca (as contas de token da carteira do bot `Cs1cNst6…` e `6qJBgsM7…`). A exceção é `9mYEd71VzXZoa8a3B3Zw5TG6C3N7qLRGnw2JdtocsrrS`: só leitura, também não existe na mainnet (o `record.sh` a pulou por `AccountNotFound`), e o programa aceita a conta vazia. A tabela de endereços `3soZX…` não é usada, porque o servidor monta a mensagem só com chaves estáticas (23 contas, 989 bytes).
+
+Por isso o responsável gravou de novo com `--dexes "Raydium CP"`, o novo padrão do `record.sh`. Os arquivos da primeira gravação foram substituídos.
+
+### Teste instável do depósito
+
+**Sintoma.** Na CI (job "e2e", execução 43777057925, commit `4240ba9`), o teste `e2e/real-bot-wallet/bot-wallet.spec.ts` "a deposit of 1 SOL from the main wallet appears in the balance" não achou `real-wallet-total` por 2 minutos depois de cada `page.reload()`. O worker, porém, já tinha registrado o depósito cerca de 26 s após o início do teste. O mesmo `verify.sh` passou no job "smoke".
+
+**Causa.** O token de acesso fica só na memória. Cada carga da página renova a sessão uma vez pelo cookie de renovação (`SessionProvider` → `refreshSession`). O servidor gira o cookie a cada renovação e detecta reuso (BR1.15, `SessionService.refresh`): um token de renovação já trocado **revoga a sessão inteira** (`REUSED`), sem tolerância. O teste fazia `page.goto` e logo em seguida `page.reload()`, e depois recarregava a cada tentativa com só 2 s de espera, sem esperar a tela chegar a um estado final.
+
+Quando uma recarga cai com a renovação ainda em andamento, o servidor já trocou o token, mas o navegador descarta a resposta que trazia o cookie novo. A carga seguinte manda o cookie antigo, o servidor detecta reuso e revoga a sessão, e a página passa a ir sempre para `/entrar`. Por isso o elemento "não existe" pelos 2 minutos. O job "smoke" passou porque, ali, a renovação terminou antes da recarga: é uma corrida de tempo.
+
+**Correção (só no teste; nenhuma regra de produção mudou).** O spec ganhou `settleWallet()`, usado por `openWallet()` e pelo novo `reloadWallet()`. Depois de cada navegação, ele espera até 30 s por um estado final da tela (saldo, ativação, erro ou a tela de entrada). Só então confere que a URL continua `/real/carteira` e que não há erro. Assim nenhuma navegação começa com a renovação anterior em andamento. Se a sessão se perder, o teste falha na hora com "the session was lost on the navigation", em vez de parecer saldo ausente. O laço de saldo do saque usa a mesma recarga. Essa conferência é a asserção de regressão.
+
+**Observação de produto, sem mudança.** Uma pessoa que recarregue a página enquanto a renovação está em andamento também perde a sessão e volta para a entrada. É o efeito da detecção de reuso sem tolerância (BR1.15). Dar tolerância afrouxaria uma regra de segurança, então fica para o responsável decidir.
+
+### Desvio
+
+- **Leitura da fonte como REAL para o mint gravado (BR1.2 da U3).** O design dizia para colocar o mint gravado no `sim-a`. Só que, com qualquer fonte simulada ativa, a barreira recusa toda ordem REAL, então a compra do e2e nunca passaria. A exceção vale só no perfil `test`, só com a gravação e só para o mint gravado. Ela está coberta por `RecordedSwapSourceKindTest` (outro mint e sem gravação continuam `SIMULATED`) e por `RecordedSwapFixtureTest` (nenhum outro perfil cria a gravação). O `MarketDataConfig` também se recusa a subir com a gravação fora do perfil `test`.
+- **Estratégia no worker, bot criado pelo spec.** O brief pedia a estratégia no `RealTestSeeder`. Só que o seeder roda na API, ao subir, e a decisão roda no worker. Um bot REAL também só pode ser criado com a carteira do bot ativa, o que acontece só durante o spec da carteira. Criar o bot antes faria ele comprar durante aquele spec, que deposita e saca tudo. Por isso a estratégia ficou no worker (`RecordedSwapStrategy`), e o spec do swap cria o bot pelas rotas do assistente, depois do depósito. O `RealTestSeeder` não mudou.
+
 ## Pendências
 
-- **Gravação do swap (mainnet):** `infra/solana-fixtures/record.sh` foi escrito e **não** foi executado. O spec `apps/web/e2e/real-swap/swap.spec.ts` fica pulado até existir `RECORDED_FIXTURES`. Nenhum outro teste depende dele.
-- **Mint gravado no `sim-a` e estratégia de teste no `RealTestSeeder`:** dependem do mint gravado e não foram feitos nesta Unit. Sem eles o bot REAL do e2e não decide comprar; o spec continua pulado.
+- **Swap no `verify.sh`:** a gravação em uso foi provada no validador local por simulação. A execução completa do spec `real-swap` (decisão do bot, TxSigner, envio e liquidação) depende da próxima rodada do `verify.sh`, que não foi rodado aqui.
 - **`BotDetail.market`** e a tela do app web para ordens, modo e P&L REAL (só os tipos foram gerados).
 - **Caminho das métricas até o CloudWatch** (pendência comum de U1 a U4) e o alarme do p95 (adiado).
 
@@ -189,4 +262,4 @@ bash infra/solana-fixtures/record.sh --mint <mint de um pool CPMM de um salto co
 # 3) confira que as duas pernas executam: RECORDED_FIXTURES=infra/solana-fixtures/recorded.env bash scripts/verify.sh
 ```
 
-Depois da gravação faltam o mint no `sim-a` e a estratégia de teste no `RealTestSeeder` (pendência acima).
+O mint no `sim-a` e a estratégia de teste já leem o `recorded.env` sozinhos (seção "Swap gravado"). Grave com o padrão `--dexes "Raydium CP"`.

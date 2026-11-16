@@ -16,3 +16,12 @@ memetrade:
       # U5 (cicd-pipeline.md): STANDARD by default; FREQUENT_SIGNALS only for the load scenario u5, and only here
       # (MarketDataConfig refuses it outside the test profile).
       scenario: ${MARKET_SIMULATED_SCENARIO:STANDARD}
+  real:
+    # 261113-trading-real-bot U4 (infrastructure-specification.md "Prova do swap no local"): the swap recorded once by
+    # infra/solana-fixtures/record.sh, passed by infra/docker-compose.real.yml from recorded.env (env_file, optional).
+    # Empty without the recordings: no RecordedSwapFixture exists and nothing changes. Declared ONLY in this profile.
+    test-swap:
+      mint: ${RECORDED_MINT:}
+      decimals: ${RECORDED_DECIMALS:0}
+      buy-lamports: ${RECORDED_BUY_LAMPORTS:0}
+      expected-out-units: ${RECORDED_SELL_UNITS:0}

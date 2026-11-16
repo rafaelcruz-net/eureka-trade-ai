@@ -101,6 +101,14 @@ public class CycleRunner {
         this.realCycle = realCycle;
     }
 
+    /** 261113-trading-real-bot U4: the test strategy of the recorded swap; exists only in the test profile. */
+    private RecordedSwapStrategy recordedSwap;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void useRecordedSwap(RecordedSwapStrategy recordedSwap) {
+        this.recordedSwap = recordedSwap;
+    }
+
     @SuppressWarnings("checkstyle:ParameterNumber")
     public CycleRunner(
             CycleAuthContext auth,
@@ -217,6 +225,19 @@ public class CycleRunner {
         DecisionRequest request = request(bot, version, limits, slotStart, now, stage, real);
         stage.at(CycleCause.OTHER);
         DecisionOutcome outcome = engine.decide(request);
+        // Test profile only (RecordedSwapStrategy): the test bot of the recorded swap decides by its own fixed rule.
+        Optional<RecordedSwapStrategy.Decision> recorded = Optional.empty();
+        if (real.isPresent() && recordedSwap != null) {
+            stage.at(CycleCause.DATABASE);
+            Optional<TokenId> mint = bot.selection().tokens().stream().findFirst();
+            boolean holds = mint.isPresent()
+                    && real.get().raw().stream()
+                            .anyMatch(p -> p.mint().equals(mint.get().mint()));
+            recorded = recordedSwap.decide(bot, holds, slotStart, outcome.factors());
+            if (recorded.isPresent()) {
+                outcome = recorded.get().outcome();
+            }
+        }
         stage.at(CycleCause.DATABASE);
         UUID decisionId = UUID.randomUUID();
         decisions.insert(new JdbcDecisionRepository.NewDecision(
@@ -237,7 +258,11 @@ public class CycleRunner {
             result = "NO_ORDER";
         } else if (real.isPresent()) {
             stage.at(CycleCause.RISK_GATE);
-            result = realCycle.order(bot, decisionId, outcome, request.tokens(), real.get());
+            Optional<Long> exact = recorded.flatMap(RecordedSwapStrategy.Decision::buyLamports);
+            result = exact.isPresent()
+                    ? realCycle.buyExactly(
+                            bot, decisionId, outcome.token().orElseThrow().mint(), exact.get(), outcome.summary())
+                    : realCycle.order(bot, decisionId, outcome, request.tokens(), real.get());
             if ("REAL_RECORDED".equals(result) && outcome.action() == DecisionAction.BUY) {
                 bots.openHolding(bot.botId(), outcome.token().orElseThrow(), now);
             }

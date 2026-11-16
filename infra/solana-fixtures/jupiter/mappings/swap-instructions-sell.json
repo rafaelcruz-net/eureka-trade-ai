@@ -1,0 +1,18 @@
+{
+  "request": {
+    "method": "POST",
+    "urlPath": "/swap-instructions",
+    "bodyPatterns": [
+      {
+        "matchesJsonPath": "$.quoteResponse[?(@.inputMint == \"Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk\")]"
+      }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "bodyFileName": "swap-instructions-sell.json"
+  }
+}

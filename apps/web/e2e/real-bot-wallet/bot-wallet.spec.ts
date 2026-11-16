@@ -73,8 +73,38 @@ test.describe.serial('REAL bot wallet on the local validator', () => {
     await new Promise((resolve) => setTimeout(resolve, LOGIN_WINDOW_MS));
   });
 
+  /**
+   * Every page load renews the session ONCE through the refresh cookie, and the server rotates that cookie with reuse
+   * detection (BR1.15): a refresh token used twice revokes the whole session. If the page is reloaded while that
+   * renewal is still in flight, the browser drops the answer with the new cookie, the next load sends the old one and
+   * the session is revoked: from then on every load lands on /entrar. That is how the deposit test failed in the CI
+   * (run 43777057925): it reloaded right after the navigation, and then every 2 s, without waiting for the screen. So
+   * no navigation here starts before the previous one reached a final state of the screen, and a lost session fails at
+   * once, by its URL, instead of looking like a missing balance.
+   */
+  async function settleWallet() {
+    await expect(
+      page
+        .getByTestId('real-wallet-total')
+        .or(page.getByTestId('real-wallet-activation'))
+        .or(page.getByTestId('real-wallet-error'))
+        .or(page.getByTestId('login-connect-phantom'))
+        .first(),
+    ).toBeVisible({ timeout: 30_000 });
+    expect(new URL(page.url()).pathname, 'the session was lost on the navigation').toBe(
+      '/real/carteira',
+    );
+    await expect(page.getByTestId('real-wallet-error')).toHaveCount(0);
+  }
+
   async function openWallet() {
     await page.goto('/real/carteira');
+    await settleWallet();
+  }
+
+  async function reloadWallet() {
+    await page.reload();
+    await settleWallet();
   }
 
   /** POST that waits out one 429 of the login rate limit before giving up. */
@@ -116,7 +146,7 @@ test.describe.serial('REAL bot wallet on the local validator', () => {
 
     await openWallet();
     await expect(async () => {
-      await page.reload();
+      await reloadWallet();
       await expect(page.getByTestId('real-wallet-total')).toHaveText('1 SOL', { timeout: 2_000 });
     }).toPass({ timeout: 120_000, intervals: [5_000] });
     await expect(page.getByTestId('real-wallet-fee-reserve')).toHaveText('0,03 SOL');
@@ -133,7 +163,7 @@ test.describe.serial('REAL bot wallet on the local validator', () => {
       expect(await balance(main.address)).toBeGreaterThan(before + LAMPORTS_PER_SOL - 10_000n);
     }).toPass({ timeout: 150_000, intervals: [5_000] });
     await expect(async () => {
-      await page.reload();
+      await reloadWallet();
       await expect(page.getByTestId('real-wallet-total')).toHaveText('0 SOL', { timeout: 2_000 });
     }).toPass({ timeout: 90_000, intervals: [5_000] });
     expect(await balance(botAddress)).toBe(0n);

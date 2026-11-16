@@ -101,7 +101,7 @@ public class TransactionalRealRiskGate implements RealRiskGate {
             }
             Instant now = clock.instant();
             Optional<RealStateView> wallet = reader.wallet(intent.tenantId(), intent.userId());
-            SourceKind source = reader.source();
+            SourceKind source = reader.source(intent);
             Optional<RealVerdict> refused = policy.stateAndSource(intent, wallet, source);
             RealVerdict verdict;
             if (refused.isPresent()) {

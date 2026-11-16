@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "GET",
+    "urlPath": "/quote",
+    "queryParameters": {
+      "inputMint": {
+        "equalTo": "So11111111111111111111111111111111111111112"
+      },
+      "outputMint": {
+        "equalTo": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "bodyFileName": "quote-buy.json"
+  }
+}
