@@ -140,8 +140,9 @@ class RecordedSwapCycleIT {
                 .update();
         Instant requested = clock.instant().minus(Duration.ofHours(25));
         jdbc.sql("""
-                        insert into real_release (release_id, user_id, network, requested_by, requested_at, effective_at)
-                        values (:id, :user, 'LOCALNET', :user, :requested, :effective)""")
+                        insert into real_release (release_id, user_id, network, requested_by, requested_at, effective_at,
+                          state)
+                        values (:id, :user, 'LOCALNET', :user, :requested, :effective, 'ACTIVE')""")
                 .param("id", UUID.randomUUID())
                 .param("user", seeded.userId())
                 .param("requested", Timestamp.from(requested))
@@ -256,6 +257,12 @@ class RecordedSwapCycleIT {
                 .containsEntry("outcome", "REAL_RECORDED");
         assertThat(first.kind()).isEqualTo(CycleResult.Kind.COMPLETED);
         assertThat(pendingBuys(botId)).isEqualTo(1);
+        // 261113-trading-real-bot U5 (BR7.1, S25): the decision of the REAL bot is recorded REAL.
+        assertThat(jdbc.sql("select distinct mode from decision where bot_id = :b")
+                        .param("b", botId)
+                        .query(String.class)
+                        .list())
+                .containsExactly("REAL");
 
         freshMarket();
         Instant next = slot.plus(Duration.ofMinutes(5));

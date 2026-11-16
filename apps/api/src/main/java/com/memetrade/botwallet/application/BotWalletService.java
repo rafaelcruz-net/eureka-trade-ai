@@ -20,13 +20,15 @@ import com.memetrade.botwallet.domain.OperationMode;
 import com.memetrade.botwallet.domain.PauseReason;
 import com.memetrade.botwallet.domain.Preferences;
 import com.memetrade.botwallet.domain.RealReleases;
+import com.memetrade.botwallet.domain.ReconciliationStore;
 import com.memetrade.botwallet.domain.TxSignerPort;
 import com.memetrade.botwallet.domain.Withdrawal;
 import com.memetrade.botwallet.domain.WithdrawalAmount;
-import com.memetrade.botwallet.domain.WithdrawalCalculator;
 import com.memetrade.botwallet.domain.WithdrawalFees;
+import com.memetrade.botwallet.domain.WithdrawalLimit;
 import com.memetrade.botwallet.domain.WithdrawalLimits;
 import com.memetrade.botwallet.domain.WithdrawalTransition;
+import com.memetrade.botwallet.infra.GlobalPauses;
 import com.memetrade.botwallet.infra.RealAudit;
 import com.memetrade.botwallet.infra.RealProperties;
 import com.memetrade.identity.api.IdempotencyGuard;
@@ -81,6 +83,8 @@ public class BotWalletService {
     private final Clock clock;
     private final ObjectMapper json;
     private final TransactionTemplate transactions;
+    private final ReconciliationStore reconciliations;
+    private final GlobalPauses globalPauses;
 
     public BotWalletService(
             BotWalletRepository repository,
@@ -92,7 +96,9 @@ public class BotWalletService {
             RealProperties properties,
             Clock clock,
             ObjectMapper json,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager,
+            ReconciliationStore reconciliations,
+            GlobalPauses globalPauses) {
         this.repository = repository;
         this.identity = identity;
         this.ledger = ledger;
@@ -103,6 +109,8 @@ public class BotWalletService {
         this.clock = clock;
         this.json = json;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.reconciliations = reconciliations;
+        this.globalPauses = globalPauses;
     }
 
     // ----- F1: challenge and activation -----
@@ -316,11 +324,13 @@ public class BotWalletService {
         BotWalletAccount wallet = repository
                 .activeWallet(person.tenantId(), person.userId())
                 .orElseThrow(() -> new BotWalletException(BotWalletError.NOT_FOUND));
+        // U5 (BR3.1, BR2.5): the global pauses (kill switch REAL, restore) show in the view of every person too.
         return BotWalletViews.of(
                 wallet,
                 repository.preferences(wallet.botWalletId()),
                 ledger.balance(person.tenantId(), wallet.botWalletId()),
-                clock.instant());
+                clock.instant(),
+                globalPauses.active().keySet());
     }
 
     /** BR4.2: no flag, kill switch, release, terms or pause blocks a withdrawal; BR4.8 common idempotency. */
@@ -356,9 +366,15 @@ public class BotWalletService {
                 properties.rentExemptMinimumLamports(),
                 Optional.empty(),
                 repository.hasAmbiguousWithdrawal(wallet.botWalletId()));
+        // 261113-trading-real-bot U5 (BR2.4): with a divergence or the restore open, the smaller of the ledger and the
+        // network limits the withdrawal; it is never blocked.
+        WithdrawalLimit.Context context = new WithdrawalLimit.Context(
+                reconciliations.openDivergence(wallet.botWalletId()).isPresent(),
+                globalPauses.openRestoreMarker().isPresent(),
+                reconciliations.lastChainLamports(wallet.botWalletId()));
         WithdrawalAmount amount = all
-                ? WithdrawalCalculator.total(balance, limits)
-                : WithdrawalCalculator.partial(balance, lamports, limits);
+                ? WithdrawalLimit.total(balance, limits, context)
+                : WithdrawalLimit.partial(balance, lamports, limits, context);
         WithdrawalTransition requested = Withdrawal.request(tenantId, wallet.botWalletId(), amount, key, now);
         repository.insertWithdrawal(requested.withdrawal());
         requested.entries().forEach(ledger::record);

@@ -50,6 +50,15 @@ public final class FakeTxSigner implements TxSignerPort {
         lowered.put(requestId, capLamports);
     }
 
+    /** 261113-trading-real-bot U5: the CLOSE of the DEACTIVATE commands, by requestId. */
+    public final Map<UUID, String> closed = new ConcurrentHashMap<>();
+
+    @Override
+    public void close(UUID requestId, String botWalletAddress) {
+        guard();
+        closed.put(requestId, botWalletAddress);
+    }
+
     @Override
     public void lowerMode(UUID requestId, String botWalletAddress, String mode) {
         guard();

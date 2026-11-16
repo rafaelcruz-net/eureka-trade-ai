@@ -17,13 +17,15 @@ import org.springframework.stereotype.Component;
  *       ({@code KillSwitchReconciler}) and the feedback purge ({@code FeedbackPurgeJob}); u2-retention (2) the login
  *       challenge purge and the session purge ({@code IdentityJobSchedule}); u4-data-requests (3) the timers and the
  *       purge of the data subject requests ({@code PrivacyJobSchedule}) and the refresher of their counts
- *       ({@code DataRequestCountsRefresher}). U8 also checks the origin of
+ *       ({@code DataRequestCountsRefresher}); the U5 of 261113-trading-real-bot (1) the purge of the REAL operations
+ *       ({@code RealOpsPurgeJob}). U8 also checks the origin of
  *       the administrator app ({@code ADMIN_APP_ORIGIN}): an http or https origin, never a wildcard.
- *   <li><b>worker</b>: one scheduler thread per {@code @Scheduled} method of the worker, 19 to 26 since the U4 of
- *       261113-trading-real-bot (nfr-design/logical-components.md "Pool do worker"): the bots (3: slot dispatch,
- *       midnight, decision purge), the bot wallet (3), CoinGecko (2), the REAL barrier (3 jobs and the reservation
- *       gauge) and the REAL execution (7: queue, driver, confirmation, ambiguous, signing deadline, upstream health,
- *       liquidation). Connection pool 27 to 40: 4 cycles, 4 reserve and one per scheduled job.
+ *   <li><b>worker</b>: one scheduler thread per {@code @Scheduled} method of the worker, 25 to 32 since the U5 of
+ *       261113-trading-real-bot (U5-NFR3.7): the bots (3: slot dispatch, midnight, decision purge), the bot wallet (3),
+ *       CoinGecko (2), the REAL barrier (3 jobs and the reservation gauge), the REAL execution (7: queue, driver,
+ *       confirmation, ambiguous, signing deadline, upstream health, liquidation) and the REAL operations (6: gates,
+ *       reconciliation, kill switch cancel, TxSigner resend, restore check, gauges). Connection pool 33 to 48: 4
+ *       cycles, 4 reserve (the reconciliation executor of 4 uses them) and one per scheduled job.
  * </ul>
  *
  * <p>{@code MEMETRADE_PROCESS} itself must be {@code api} or {@code worker}.
@@ -38,26 +40,26 @@ public class RuntimeSettingsGuard {
     static final String ADMIN_ORIGIN_PROPERTY = "memetrade.admin.app-origin";
 
     /**
-     * The smallest scheduler pool of the api: its 21 scheduled jobs (13 of U1 to U7, the U5 mark poller, the two jobs
-     * of U8, the login challenge and session purges of u2-retention and the timers, purge and count refresher of
-     * u4-data-requests).
+     * The smallest scheduler pool of the api: its 22 scheduled jobs (13 of U1 to U7, the U5 mark poller, the two jobs
+     * of U8, the login challenge and session purges of u2-retention, the timers, purge and count refresher of
+     * u4-data-requests and the purge of the REAL operations of the U5 of 261113-trading-real-bot).
      */
-    public static final int MIN_SCHEDULER_POOL = 21;
+    public static final int MIN_SCHEDULER_POOL = 22;
 
     /**
-     * The smallest scheduler pool of the worker: its 19 scheduled methods (U4 of 261113-trading-real-bot). The count
+     * The smallest scheduler pool of the worker: its 25 scheduled methods (U5 of 261113-trading-real-bot). The count
      * test ({@code RuntimeSettingsGuardWorkerCountTest}) fails when the worker gets a scheduled method more than this.
      */
-    public static final int MIN_WORKER_SCHEDULER_POOL = 19;
+    public static final int MIN_WORKER_SCHEDULER_POOL = 25;
 
     /** The largest scheduler pool of the worker. */
-    public static final int MAX_WORKER_SCHEDULER_POOL = 26;
+    public static final int MAX_WORKER_SCHEDULER_POOL = 32;
 
-    /** The smallest connection pool of the worker: 4 cycles + 4 reserve + 19 scheduled jobs. */
-    public static final int MIN_WORKER_POOL = 27;
+    /** The smallest connection pool of the worker: 4 cycles + 4 reserve + 25 scheduled jobs. */
+    public static final int MIN_WORKER_POOL = 33;
 
     /** The largest connection pool of the worker. */
-    public static final int MAX_WORKER_POOL = 40;
+    public static final int MAX_WORKER_POOL = 48;
 
     public RuntimeSettingsGuard(Environment environment) {
         ProcessRole.Kind process = ProcessRole.Kind.parse(environment.getProperty(ProcessRole.PROPERTY));

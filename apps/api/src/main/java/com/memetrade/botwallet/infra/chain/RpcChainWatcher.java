@@ -269,6 +269,89 @@ public class RpcChainWatcher implements ChainPort, com.memetrade.botwallet.domai
         return total;
     }
 
+    // ----- 261113-trading-real-bot U5 (performance-design.md "ChainPort ampliada") -----
+
+    /** The two token programs whose accounts hold the mints of a wallet. */
+    static final List<String> TOKEN_PROGRAMS =
+            List.of("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA", "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
+
+    @Override
+    public Map<String, Long> tokenBalances(String owner) {
+        Map<String, Long> balances = new java.util.TreeMap<>();
+        for (String program : TOKEN_PROGRAMS) {
+            JsonNode accounts = firstAnswering(Purpose.RECONCILIATION, provider -> provider.call(
+                            "getTokenAccountsByOwner",
+                            owner,
+                            Map.of("programId", program),
+                            Map.of("encoding", "jsonParsed", "commitment", "finalized"))
+                    .path("value"));
+            for (JsonNode account : accounts) {
+                JsonNode info =
+                        account.path("account").path("data").path("parsed").path("info");
+                String mint = info.path("mint").asText(null);
+                if (mint == null || mint.isBlank()) {
+                    continue;
+                }
+                long amount =
+                        Long.parseLong(info.path("tokenAmount").path("amount").asText("0"));
+                balances.merge(mint, amount, Math::addExact);
+            }
+        }
+        return balances;
+    }
+
+    @Override
+    public long finalizedSlot() {
+        return firstAnswering(Purpose.RECONCILIATION, provider -> provider.call("getSlot", FINALIZED)
+                .asLong());
+    }
+
+    @Override
+    public SignaturePage signaturesSince(Purpose purpose, String address, String until, String before, int limit) {
+        int bounded = Math.max(1, Math.min(1_000, limit));
+        return firstAnswering(purpose, provider -> {
+            Map<String, Object> options = new LinkedHashMap<>(FINALIZED);
+            options.put("limit", bounded);
+            if (until != null) {
+                options.put("until", until);
+            }
+            if (before != null) {
+                options.put("before", before);
+            }
+            List<SignatureInfo> page = new ArrayList<>();
+            for (JsonNode entry : provider.call("getSignaturesForAddress", address, options)) {
+                JsonNode error = entry.path("err");
+                page.add(new SignatureInfo(
+                        entry.path("signature").asText(), !(error.isNull() || error.isMissingNode())));
+            }
+            return new SignaturePage(page);
+        });
+    }
+
+    @Override
+    public List<String> transactionSigners(String signature) {
+        JsonNode transaction = firstAnswering(
+                Purpose.RESTORE_CHECK,
+                provider -> provider.call(
+                        "getTransaction",
+                        signature,
+                        Map.of("encoding", "json", "commitment", "finalized", "maxSupportedTransactionVersion", 0)));
+        JsonNode message =
+                transaction == null ? null : transaction.path("transaction").path("message");
+        if (message == null
+                || !message.path("header").path("numRequiredSignatures").isInt()) {
+            // A listed signature with no finalized transaction yet must keep the restore check pending, never fail open
+            throw new ChainUnavailableException("Transaction not available yet");
+        }
+        int required = message.path("header").path("numRequiredSignatures").asInt();
+        List<String> signers = new ArrayList<>();
+        JsonNode keys = message.path("accountKeys");
+        for (int i = 0; i < required && i < keys.size(); i++) {
+            signers.add(keys.get(i).asText());
+        }
+        return signers;
+    }
+
     private <T> T firstAnswering(Purpose purpose, Function<SolanaRpcProvider, T> call) {
         for (SolanaRpcProvider provider : providers) {
             if (!budget.tryAcquire(provider.name(), purpose)) {

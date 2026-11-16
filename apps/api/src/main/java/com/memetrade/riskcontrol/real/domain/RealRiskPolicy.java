@@ -44,18 +44,29 @@ public final class RealRiskPolicy {
 
     static final long BPS = 10_000;
 
-    /** BR1.1: the pause reported when several are active, the most severe first. */
+    /**
+     * BR1.1: the pause reported when several are active, the most severe first. 261113-trading-real-bot U5: the global
+     * pauses RESTORE and RESTORE_CHECK_PENDING come right after the kill switch (logical-components.md, iteration 2).
+     */
     static final List<RealPauseReason> SEVERITY = List.of(
             RealPauseReason.KILL_SWITCH,
+            RealPauseReason.RESTORE,
+            RealPauseReason.RESTORE_CHECK_PENDING,
             RealPauseReason.DIVERGENCE,
             RealPauseReason.ADMIN,
             RealPauseReason.DAILY_LOSS,
             RealPauseReason.UPSTREAM,
             RealPauseReason.USER);
 
-    /** BR1.1: the only pauses that also stop the liquidation asked by the person. */
-    static final Set<RealPauseReason> STOP_LIQUIDATION =
-            Set.of(RealPauseReason.KILL_SWITCH, RealPauseReason.DIVERGENCE);
+    /**
+     * BR1.1: the only pauses that also stop the liquidation asked by the person; since the U5 also the restore and its
+     * pending check (logical-components.md, iteration 2).
+     */
+    static final Set<RealPauseReason> STOP_LIQUIDATION = Set.of(
+            RealPauseReason.KILL_SWITCH,
+            RealPauseReason.DIVERGENCE,
+            RealPauseReason.RESTORE,
+            RealPauseReason.RESTORE_CHECK_PENDING);
 
     /** The full evaluation of one order. */
     public RealVerdict evaluate(RealGateInputs inputs) {

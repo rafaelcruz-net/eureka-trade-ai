@@ -922,6 +922,394 @@ paths:
         nunca é guardada
       tags:
       - admin-data-request-controller
+  /api/v1/admin/real/divergences:
+    get:
+      operationId: listRealDivergences
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminDivergencePage"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Divergências abertas ou compensadas, das mais novas para as mais antigas"
+      tags:
+      - real-admin-controller
+  /api/v1/admin/real/divergences/{divergenceId}/compensation:
+    post:
+      operationId: compensateRealDivergence
+      parameters:
+      - in: path
+        name: divergenceId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealAdminCompensationRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminDivergence"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Lançamento compensatório por ativo, igual à diferença medida; a nova\
+        \ reconciliação decide (BR2.3)"
+      tags:
+      - real-admin-controller
+  /api/v1/admin/real/kill-switch:
+    delete:
+      operationId: deactivateRealKillSwitch
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealAdminReasonRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminKillSwitch"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Desliga o kill switch das carteiras do bot; nenhum bot é religado (BR3.2)
+      tags:
+      - real-admin-controller
+    get:
+      operationId: getRealKillSwitch
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminKillSwitch"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Estado do kill switch das carteiras do bot
+      tags:
+      - real-admin-controller
+    put:
+      operationId: activateRealKillSwitch
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealAdminReasonRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminKillSwitch"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Liga o kill switch das carteiras do bot: ordens novas de todos recusadas\
+        \ na hora; as não enviadas são canceladas; o saque continua (BR3.1)"
+      tags:
+      - real-admin-controller
+  /api/v1/admin/real/restore/confirmation:
+    post:
+      operationId: confirmRealRestore
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealAdminReasonRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminRestore"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Confirma a restauração do banco depois que todas as carteiras vieram
+        limpas (BR2.5)
+      tags:
+      - real-admin-controller
+  /api/v1/admin/real/token-blocks:
+    get:
+      operationId: listRealTokenBlocks
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminTokenList"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Lista de bloqueio de tokens das carteiras do bot
+      tags:
+      - real-admin-controller
+    post:
+      operationId: blockRealToken
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealAdminTokenBlockRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminBlockedToken"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Bloqueia um token para todas as carteiras do bot a partir do registro
+        (BR4.2)
+      tags:
+      - real-admin-controller
+  /api/v1/admin/real/token-blocks/{mint}:
+    delete:
+      operationId: unblockRealToken
+      parameters:
+      - in: path
+        name: mint
+        required: true
+        schema:
+          type: string
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminUnblock"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Desbloqueia um token (BR4.2)
+      tags:
+      - real-admin-controller
+  /api/v1/admin/real/users:
+    get:
+      operationId: listRealUsers
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 50
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminUserPage"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Pessoas com carteira do bot: modo, teto, saldo, liberação e divergê\
+        ncias (BR5.1)"
+      tags:
+      - real-admin-controller
+  /api/v1/admin/real/users/{userId}:
+    get:
+      operationId: getRealUser
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminUser"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "A visão de uma pessoa, com as 20 ordens mais recentes; sem chave e\
+        \ com a carteira principal abreviada"
+      tags:
+      - real-admin-controller
+  /api/v1/admin/real/users/{userId}/cap:
+    put:
+      operationId: lowerRealCap
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealAdminCapRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminCap"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Baixa o teto na hora (nunca sobe); o TxSigner recebe LOWER_CAP até
+        confirmar (BR4.1)
+      tags:
+      - real-admin-controller
+  /api/v1/admin/real/users/{userId}/release:
+    delete:
+      operationId: revokeRealUser
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealAdminReasonRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminRevocation"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Revoga na hora; as ordens não enviadas são canceladas e o saque continua
+        (BR1.6)
+      tags:
+      - real-admin-controller
+    post:
+      operationId: releaseRealUser
+      parameters:
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: header
+        name: Idempotency-Key
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RealAdminReleaseRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAdminRelease"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Registra a liberação; vale depois de 24 h com os portões verdes (BR1.2
+        a BR1.4)
+      tags:
+      - real-admin-controller
   /api/v1/admin/system-status:
     get:
       operationId: getSystemStatus
@@ -1972,6 +2360,323 @@ components:
       - status
       - title
       - type
+    RealAdminBalance:
+      type: object
+      additionalProperties: false
+      properties:
+        aboveCapLamports:
+          type: string
+        freeLamports:
+          type: string
+        reservedLamports:
+          type: string
+        totalLamports:
+          type: string
+    RealAdminBlockedToken:
+      type: object
+      additionalProperties: false
+      properties:
+        blockedAt:
+          type: string
+          format: date-time
+        chain:
+          type: string
+        mint:
+          type: string
+        reason:
+          type: string
+    RealAdminCap:
+      type: object
+      additionalProperties: false
+      properties:
+        capLamports:
+          type: string
+        commandId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+    RealAdminCapRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        capLamports:
+          type: string
+          pattern: "^[0-9]{1,20}$"
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 1
+      required:
+      - capLamports
+      - reason
+    RealAdminCompensationItem:
+      type: object
+      additionalProperties: false
+      properties:
+        amount:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        asset:
+          type: string
+          description: SOL ou o mint
+      required:
+      - amount
+      - asset
+    RealAdminCompensationRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealAdminCompensationItem"
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 1
+      required:
+      - items
+      - reason
+    RealAdminDivergence:
+      type: object
+      additionalProperties: false
+      properties:
+        botWalletId:
+          type: string
+          format: uuid
+        divergenceId:
+          type: string
+          format: uuid
+        lamportsDiff:
+          type: string
+        lastRunId:
+          type: string
+          format: uuid
+        openedAt:
+          type: string
+          format: date-time
+        state:
+          type: string
+        tokenDiffs:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealAdminTokenDiff"
+    RealAdminDivergencePage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealAdminDivergence"
+        nextCursor:
+          type: string
+    RealAdminKillSwitch:
+      type: object
+      additionalProperties: false
+      properties:
+        activatedAt:
+          type: string
+          format: date-time
+        active:
+          type: boolean
+        cancelledOrders:
+          type: integer
+          format: int32
+        changed:
+          type: boolean
+        reason:
+          type: string
+        version:
+          type: integer
+          format: int64
+    RealAdminOrder:
+      type: object
+      additionalProperties: false
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        mint:
+          type: string
+        realOrderId:
+          type: string
+          format: uuid
+        side:
+          type: string
+        state:
+          type: string
+    RealAdminReasonRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 1
+      required:
+      - reason
+    RealAdminRelease:
+      type: object
+      additionalProperties: false
+      properties:
+        effectiveAt:
+          type: string
+          format: date-time
+        network:
+          type: string
+        releaseId:
+          type: string
+          format: uuid
+        state:
+          type: string
+        userId:
+          type: string
+          format: uuid
+    RealAdminReleaseRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        network:
+          type: string
+          enum:
+          - LOCALNET
+          - DEVNET
+          - MAINNET
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 1
+      required:
+      - network
+      - reason
+    RealAdminReleaseSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        blockedReason:
+          type: string
+        effectiveAt:
+          type: string
+          format: date-time
+        network:
+          type: string
+        state:
+          type: string
+    RealAdminRestore:
+      type: object
+      additionalProperties: false
+      properties:
+        detectedAt:
+          type: string
+          format: date-time
+        markerId:
+          type: string
+          format: uuid
+    RealAdminRevocation:
+      type: object
+      additionalProperties: false
+      properties:
+        cancelledOrders:
+          type: integer
+          format: int32
+        revoked:
+          type: boolean
+        userId:
+          type: string
+          format: uuid
+    RealAdminTokenBlockRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        mint:
+          type: string
+          pattern: "^[1-9A-HJ-NP-Za-km-z]{32,44}$"
+        reason:
+          type: string
+          maxLength: 500
+          minLength: 1
+      required:
+      - mint
+      - reason
+    RealAdminTokenDiff:
+      type: object
+      additionalProperties: false
+      properties:
+        chainBaseUnits:
+          type: string
+        diffBaseUnits:
+          type: string
+        ledgerBaseUnits:
+          type: string
+        mint:
+          type: string
+    RealAdminTokenList:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealAdminBlockedToken"
+    RealAdminUnblock:
+      type: object
+      additionalProperties: false
+      properties:
+        mint:
+          type: string
+        unblocked:
+          type: boolean
+    RealAdminUser:
+      type: object
+      additionalProperties: false
+      properties:
+        balance:
+          $ref: "#/components/schemas/RealAdminBalance"
+        botWalletAddress:
+          type: string
+        botWalletId:
+          type: string
+          format: uuid
+        capLamports:
+          type: string
+        mainWalletShort:
+          type: string
+          description: "Carteira principal abreviada: 4 primeiros … 4 últimos"
+        mode:
+          type: string
+        openDivergences:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealAdminDivergence"
+        pausedReasons:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+        recentOrders:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealAdminOrder"
+        release:
+          $ref: "#/components/schemas/RealAdminReleaseSummary"
+        userId:
+          type: string
+          format: uuid
+        walletStatus:
+          type: string
+    RealAdminUserPage:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealAdminUser"
+        nextCursor:
+          type: string
     RegisterEmailDataRequest:
       type: object
       additionalProperties: false

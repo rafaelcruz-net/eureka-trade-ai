@@ -48,7 +48,9 @@ import org.springframework.transaction.support.TransactionTemplate;
             // u4-data-requests (P2): the data subject requests of the administrator.
             com.memetrade.privacy.web.AdminDataRequestController.class,
             // u5-anonymization (P2): the anonymization of the account of a DELETION request.
-            com.memetrade.privacy.web.AdminAnonymizationController.class
+            com.memetrade.privacy.web.AdminAnonymizationController.class,
+            // 261113-trading-real-bot U5 (R4): the administration of the bot wallets.
+            com.memetrade.administration.web.RealAdminController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -179,6 +181,16 @@ public abstract class AdminOpenApiSlice {
 
     @MockitoBean
     com.memetrade.privacy.infra.PrivacyProperties privacyProperties;
+
+    /** 261113-trading-real-bot U5 (R4): the M1, the M7 and the M5 behind the administration of the bot wallets. */
+    @MockitoBean
+    com.memetrade.botwallet.api.RealAdministration realAdministration;
+
+    @MockitoBean
+    com.memetrade.botwallet.api.RealKillSwitchState realKillSwitchState;
+
+    @MockitoBean
+    com.memetrade.riskcontrol.api.RealRiskGate realRiskGate;
 
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/admin"))

@@ -59,6 +59,11 @@ class RealRiskArchitectureTest {
     static final ArchRule BOTWALLET_WITHOUT_RISKCONTROL = noClasses()
             .that()
             .resideInAPackage("com.memetrade.botwallet..")
+            // 261113-trading-real-bot U5 (U5-NFR3.9): the one named exception, the purge of the operations of the REAL,
+            // which receives only the retention pool of the module (RealOpsArchitectureTest checks it reaches nothing
+            // else of riskcontrol); no withdrawal path goes through it.
+            .and()
+            .doNotHaveFullyQualifiedName("com.memetrade.botwallet.infra.RealOpsPurgeJob")
             .should()
             .dependOnClassesThat()
             .resideInAPackage("com.memetrade.riskcontrol..")

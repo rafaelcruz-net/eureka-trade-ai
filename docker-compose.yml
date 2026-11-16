@@ -103,6 +103,10 @@ services:
   api:
     build:
       context: ./apps/api
+      # 261113-trading-real-bot U5 (infrastructure-specification.md "SHA do commit nas imagens"): the CI passes the
+      # commit (env BUILD_SHA); a local build leaves it empty and the gates of the REAL block CI_UNREACHABLE.
+      args:
+        BUILD_SHA: ${BUILD_SHA:-}
     image: memetrade-api:${IMAGE_TAG:-local}
     environment:
       DB_HOST: postgres
@@ -124,7 +128,7 @@ services:
       ADMIN_APP_ORIGIN: ${ADMIN_APP_ORIGIN:-http://localhost:3001}
       # U4 (infrastructure-specification.md): none is a secret; the api checks each range at start-up.
       DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-20}
-      SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-21}
+      SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-22}
       MARKET_SOURCES: ${MARKET_SOURCES:-sim-a,sim-b}
       MARKET_COLLECTION_INTERVAL: ${MARKET_COLLECTION_INTERVAL:-30s}
       MARKET_SIMULATED_TOKENS_PER_SOURCE: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}
@@ -168,9 +172,10 @@ services:
     # (8081 answers only the actuator, inside the network). It receives only what it uses: never the signing key, the
     # app origin, the trusted proxies, the administrator wallets nor the retention login.
     # Connections of PostgreSQL (max_connections 100 of postgres:17): api 20 + trail retention (U2) 1 + U6 retention 1
-    # + U8 apply lock 1 + U8 feedback retention 1 + worker 27 + db-bootstrap and db-migrate at start-up 2 + 3 reserved
-    # for the superuser = 56 (ComposeFilesTest). 261113-trading-real-bot U4: the worker has one connection per scheduled
-    # method (19) plus 4 cycles and 4 reserve; the REAL overlay adds the TxSigner (up to 10), 66 of 100.
+    # + U8 apply lock 1 + U8 feedback retention 1 + worker 33 + db-bootstrap and db-migrate at start-up 2 + 3 reserved
+    # for the superuser = 62 (ComposeFilesTest). 261113-trading-real-bot U5 (U5-NFR3.7): the worker has one connection
+    # per scheduled method (25) plus 4 cycles and 4 reserve (43 - 14 + 33 = 62 of 100); the REAL overlay adds the
+    # TxSigner (up to 10), 72 of 100.
     image: memetrade-api:${IMAGE_TAG:-local}
     environment:
       SPRING_PROFILES_ACTIVE: worker
@@ -182,8 +187,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
       # u2-retention (BR2.4, NFR6.1): the worker publishes audit events too and validates the same key.
       MEMETRADE_AUDIT_WALLET_HMAC_KEY: ${MEMETRADE_AUDIT_WALLET_HMAC_KEY:?}
-      DB_POOL_MAX_SIZE: '27'
-      SCHEDULER_POOL_SIZE: '19'
+      DB_POOL_MAX_SIZE: '33'
+      SCHEDULER_POOL_SIZE: '25'
       MARKET_SOURCES: ${MARKET_SOURCES:-sim-a,sim-b}
       MARKET_COLLECTION_INTERVAL: ${MARKET_COLLECTION_INTERVAL:-30s}
       MARKET_SIMULATED_TOKENS_PER_SOURCE: ${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}

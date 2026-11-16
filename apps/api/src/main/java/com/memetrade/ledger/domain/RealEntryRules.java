@@ -18,13 +18,27 @@ public final class RealEntryRules {
                 switch (entry.kind()) {
                     case DEPOSIT, RESERVE, RESERVE_RELEASE -> lamports > 0;
                     case WITHDRAWAL, NETWORK_FEE, RENT -> lamports < 0;
-                    case COMPENSATION -> lamports != 0;
+                    case COMPENSATION -> compensationIsValid(entry);
                     case SWAP_FILL_IN -> lamports < 0 && hasToken(entry);
                     case SWAP_FILL_OUT -> lamports > 0 && hasToken(entry);
                 };
         if (!valid) {
             throw new IllegalArgumentException("REAL entry " + entry.kind() + " breaks the sign convention");
         }
+    }
+
+    /**
+     * 261113-trading-real-bot U5 (BR2.3): SOL in lamports (no token) or one mint in base units with zero lamports, both
+     * with a sign and never zero.
+     */
+    private static boolean compensationIsValid(RealEntry entry) {
+        if (entry.mint() == null) {
+            return entry.lamports() != 0 && entry.tokenBaseUnits() == null;
+        }
+        return !entry.mint().isBlank()
+                && entry.lamports() == 0
+                && entry.tokenBaseUnits() != null
+                && entry.tokenBaseUnits() != 0;
     }
 
     private static boolean hasToken(RealEntry entry) {

@@ -66,6 +66,9 @@ class WithdrawalProcessorTest {
         public void lowerCap(UUID requestId, String botWalletAddress, long capLamports) {}
 
         @Override
+        public void close(UUID requestId, String botWalletAddress) {}
+
+        @Override
         public void raise(UUID id, String bot, ConsentKind kind, String message, String signature) {}
 
         @Override

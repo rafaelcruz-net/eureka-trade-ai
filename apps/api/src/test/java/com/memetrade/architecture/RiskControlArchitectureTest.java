@@ -87,6 +87,9 @@ class RiskControlArchitectureTest {
                 // U4 of 261113-trading-real-bot (U4-NFR3.9): the purge of the REAL execution receives the retention
                 // pool of U6 and nothing else of the module (RealExecutionArchitectureTest checks the rest).
                 .doNotHaveFullyQualifiedName(REAL_EXECUTION_PURGE_JOB)
+                .and()
+                // 261113-trading-real-bot U5 (U5-NFR3.9): the purge of the operations of the REAL, likewise.
+                .doNotHaveFullyQualifiedName(REAL_OPS_PURGE_JOB)
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
@@ -214,6 +217,9 @@ class RiskControlArchitectureTest {
     /** 261113-trading-real-bot U4 (U4-NFR3.9, scalability-design.md): the purge of the REAL execution at 04:30 UTC. */
     private static final String REAL_EXECUTION_PURGE_JOB = "com.memetrade.realexecution.infra.RealExecutionPurgeJob";
 
+    /** 261113-trading-real-bot U5 (U5-NFR3.9): the purge of the operations of the REAL at 05:00 UTC. */
+    private static final String REAL_OPS_PURGE_JOB = "com.memetrade.botwallet.infra.RealOpsPurgeJob";
+
     @Test
     void onlyThePurgeJobReceivesTheRetentionPoolOfU6() {
         noClasses()
@@ -227,6 +233,8 @@ class RiskControlArchitectureTest {
                 .doNotHaveFullyQualifiedName(REAL_PURGE_JOB)
                 .and()
                 .doNotHaveFullyQualifiedName(REAL_EXECUTION_PURGE_JOB)
+                .and()
+                .doNotHaveFullyQualifiedName(REAL_OPS_PURGE_JOB)
                 .should()
                 .dependOnClassesThat()
                 .areAssignableTo(RiskRetentionDataSource.class)
@@ -239,6 +247,8 @@ class RiskControlArchitectureTest {
                 .haveFullyQualifiedName(REAL_PURGE_JOB)
                 .or()
                 .haveFullyQualifiedName(REAL_EXECUTION_PURGE_JOB)
+                .or()
+                .haveFullyQualifiedName(REAL_OPS_PURGE_JOB)
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName("com.memetrade.audit.infra.AuditRetentionDataSource")

@@ -111,6 +111,33 @@ public enum ErrorCode {
     SIGNING_DEADLINE_EXPIRED(409, "signing", "Signing deadline expired"),
     SIGNED_MESSAGE_MISMATCH(422, "signing", "Signed message mismatch"),
     ORDER_ALREADY_IN_PROGRESS(409, "conflict", "A liquidation is already in progress"),
+    // 261113-trading-real-bot U5 (R4, contract addendum of the U5): the operations of the REAL.
+    /** BR1.2: the person already has a release not revoked on the network. */
+    RELEASE_EXISTS(409, "real", "Release already exists"),
+    /** BR1.3: on the MAINNET a guest needs the founder released first. */
+    FOUNDER_FIRST(409, "real", "The founder is released first"),
+    /** BR1.3: the MAINNET already has 20 guests released. */
+    PILOT_FULL(409, "real", "The pilot is full"),
+    /** BR1.2: the person has no ACTIVE bot wallet. */
+    NO_BOT_WALLET(422, "real", "No active bot wallet"),
+    /** BR1.2: the person did not accept the REAL terms (v3). */
+    TERMS_V3_MISSING(422, "real", "REAL terms not accepted"),
+    /** BR4.1: the administrator only lowers the cap. */
+    CAP_ONLY_LOWERED(422, "real", "The cap is only lowered"),
+    /** BR2.3: the divergence is not OPEN (COMPENSATED or RESOLVED). */
+    DIVERGENCE_NOT_OPEN(409, "conflict", "Divergence not open"),
+    /** BR2.3: an item of the compensation is not the difference measured by the last reconciliation. */
+    COMPENSATION_MISMATCH(422, "real", "Compensation does not match the measure"),
+    /** BR2.4: above the smaller balance while a divergence or the restore is open; the rest can be withdrawn. */
+    WITHDRAWAL_LIMITED_BY_DIVERGENCE(422, "withdrawal", "Withdrawal limited by a divergence"),
+    /** BR6.1: the bot wallet still holds a balance; withdraw it first. */
+    BALANCE(409, "real", "The bot wallet still holds a balance"),
+    /** BR6.1: the bot wallet still holds a position; sell it and withdraw first. */
+    POSITION(409, "real", "The bot wallet still holds a position"),
+    /** BR6.1: an order or a withdrawal of the bot wallet is in progress. */
+    ORDER_IN_PROGRESS(409, "real", "An order or a withdrawal is in progress"),
+    /** BR2.5: the restore is confirmed only when every wallet reconciled CLEAN after it. */
+    RESTORE_NOT_CLEAN(409, "real", "The restore is not clean yet"),
     UPSTREAM_UNAVAILABLE(503, "unavailable", "Upstream unavailable");
 
     private static final String TYPE_BASE = "https://memetrade.app/problems/";

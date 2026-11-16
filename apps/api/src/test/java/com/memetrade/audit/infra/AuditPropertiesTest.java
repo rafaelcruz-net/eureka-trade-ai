@@ -49,7 +49,7 @@ class AuditPropertiesTest {
         // raises the api default to 14 (U5SettingsTest), U8 to 16 (U8SettingsTest) and u2-retention to 18, the login
         // challenge and session purges.
         // u4-data-requests: 21, the request timers, the request purge and the count refresher.
-        assertThat(value(yml, "spring.task.scheduling.pool.size")).isEqualTo("${SCHEDULER_POOL_SIZE:21}");
+        assertThat(value(yml, "spring.task.scheduling.pool.size")).isEqualTo("${SCHEDULER_POOL_SIZE:22}");
     }
 
     @Test

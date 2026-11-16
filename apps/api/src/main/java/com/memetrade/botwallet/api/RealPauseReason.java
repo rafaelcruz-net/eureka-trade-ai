@@ -10,5 +10,9 @@ public enum RealPauseReason {
     DAILY_LOSS,
     KILL_SWITCH,
     ADMIN,
-    UPSTREAM
+    UPSTREAM,
+    /** 261113-trading-real-bot U5 (BR2.5): the database was restored; global until every wallet is clean. */
+    RESTORE,
+    /** U5 (BR2.5): the restore check at the start of the worker did not finish yet (the RPC did not answer). */
+    RESTORE_CHECK_PENDING
 }

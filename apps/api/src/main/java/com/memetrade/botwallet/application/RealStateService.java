@@ -11,6 +11,7 @@ import com.memetrade.botwallet.domain.BotWalletRepository;
 import com.memetrade.botwallet.domain.PauseReason;
 import com.memetrade.botwallet.domain.Preferences;
 import com.memetrade.botwallet.domain.RealReleases;
+import com.memetrade.botwallet.infra.GlobalPauses;
 import com.memetrade.botwallet.infra.RealAudit;
 import com.memetrade.botwallet.infra.RealProperties;
 import java.time.Clock;
@@ -30,6 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
  * of one reason. Tenant and person always filter the wallet (BR6.3). A pause or a resume joins the transaction of the
  * caller (the cycle of the bot, the job of the barrier), is one atomic statement on {@code real_preferences}, and is
  * audited ({@code REAL_PAUSED}, {@code REAL_RESUMED}, actor {@code system}) only when it changed something.
+ *
+ * <p>261113-trading-real-bot U5 (logical-components.md "Mudanças em outras Units", BR2.5, BR3.1, U5-NFR3.5): the state
+ * also carries the GLOBAL pauses read live ({@code KILL_SWITCH}, {@code RESTORE}, {@code RESTORE_CHECK_PENDING}) with
+ * their start, so the barrier of the U3 and the recheck of the U4 refuse a new order the moment one commits, for every
+ * wallet, even one created afterwards.
  */
 @Service
 public class RealStateService implements RealStateQuery, RealPauses {
@@ -37,12 +43,19 @@ public class RealStateService implements RealStateQuery, RealPauses {
     private final BotWalletRepository repository;
     private final RealAudit audit;
     private final RealProperties properties;
+    private final GlobalPauses global;
     private final Clock clock;
 
-    public RealStateService(BotWalletRepository repository, RealAudit audit, RealProperties properties, Clock clock) {
+    public RealStateService(
+            BotWalletRepository repository,
+            RealAudit audit,
+            RealProperties properties,
+            GlobalPauses global,
+            Clock clock) {
         this.repository = repository;
         this.audit = audit;
         this.properties = properties;
+        this.global = global;
         this.clock = clock;
     }
 
@@ -62,6 +75,11 @@ public class RealStateService implements RealStateQuery, RealPauses {
             reasons.add(exposed);
             since.put(exposed, recorded.getOrDefault(reason, preferences.updatedAt()));
         }
+        global.active().forEach((reason, start) -> {
+            RealPauseReason exposed = RealPauseReason.valueOf(reason.name());
+            reasons.add(exposed);
+            since.put(exposed, start);
+        });
         Instant now = clock.instant();
         return Optional.of(new RealStateView(
                 botWalletId,

@@ -121,13 +121,29 @@ class ActivationRulesTest {
                         .isEqualTo(BotWalletError.CAP_ABOVE_MAXIMUM));
     }
 
+    /**
+     * Since the U5 (BR1.1, BR1.4) the 24 hours only make the release due for the gates: it is in force once the gates job
+     * turned it ACTIVE, on its network and until revoked.
+     */
     @Test
     void aReleaseTakesEffect24HoursAfterItsRequestOnItsNetworkAndUntilRevoked() {
         UUID user = UUID.randomUUID();
-        RealRelease release = RealRelease.seeded(user, Network.LOCALNET, user, NOW);
+        RealRelease seeded = RealRelease.seeded(user, Network.LOCALNET, user, NOW);
+        RealRelease release = new RealRelease(
+                seeded.releaseId(),
+                user,
+                Network.LOCALNET,
+                user,
+                NOW,
+                seeded.effectiveAt(),
+                null,
+                ReleaseState.ACTIVE,
+                null,
+                NOW.plus(Duration.ofHours(24)),
+                null);
 
         assertThat(release.effectiveAt()).isEqualTo(NOW.plus(Duration.ofHours(24)));
-        assertThat(RealReleases.isEffective(List.of(release), Network.LOCALNET, NOW.plus(Duration.ofHours(23))))
+        assertThat(RealReleases.isEffective(List.of(seeded), Network.LOCALNET, NOW.plus(Duration.ofHours(25))))
                 .isFalse();
         assertThat(RealReleases.isEffective(List.of(release), Network.LOCALNET, NOW.plus(Duration.ofHours(24))))
                 .isTrue();

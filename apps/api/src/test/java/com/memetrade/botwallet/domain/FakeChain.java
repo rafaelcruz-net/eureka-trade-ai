@@ -54,6 +54,32 @@ final class FakeChain implements ChainPort {
         return 890_880L;
     }
 
+    // 261113-trading-real-bot U5: the reads of the reconciliation and of the restore check (not used by these tests).
+
+    @Override
+    public Map<String, Long> tokenBalances(String owner) {
+        failIfDown();
+        return Map.of();
+    }
+
+    @Override
+    public long finalizedSlot() {
+        failIfDown();
+        return 1L;
+    }
+
+    @Override
+    public SignaturePage signaturesSince(Purpose purpose, String address, String until, String before, int limit) {
+        failIfDown();
+        return new SignaturePage(List.of());
+    }
+
+    @Override
+    public List<String> transactionSigners(String signature) {
+        failIfDown();
+        return List.of();
+    }
+
     private void failIfDown() {
         if (down) {
             throw new ChainUnavailableException("fake chain down");

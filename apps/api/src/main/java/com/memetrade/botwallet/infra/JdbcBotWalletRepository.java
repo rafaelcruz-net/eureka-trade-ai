@@ -228,31 +228,26 @@ public class JdbcBotWalletRepository implements BotWalletRepository {
 
     @Override
     public List<RealRelease> releases(UUID userId) {
-        return jdbc.sql("select release_id, user_id, network, requested_by, requested_at, effective_at, revoked_at "
-                        + "from real_release where user_id = :user")
+        // 261113-trading-real-bot U5 (BR1.1): with the state of the release; only an ACTIVE one is in force.
+        return jdbc.sql("select " + JdbcRealOpsStore.RELEASE_COLUMNS + " from real_release where user_id = :user")
                 .param("user", userId)
-                .query((rs, row) -> new RealRelease(
-                        rs.getObject("release_id", UUID.class),
-                        rs.getObject("user_id", UUID.class),
-                        Network.valueOf(rs.getString("network")),
-                        rs.getObject("requested_by", UUID.class),
-                        instant(rs, "requested_at"),
-                        instant(rs, "effective_at"),
-                        instant(rs, "revoked_at")))
+                .query(JdbcRealOpsStore::release)
                 .list();
     }
 
     @Override
     public void insertRelease(RealRelease release) {
         jdbc.sql("""
-                        insert into real_release (release_id, user_id, network, requested_by, requested_at, effective_at)
-                        values (:id, :user, :network, :by, :requested, :effective)""")
+                        insert into real_release (release_id, user_id, network, requested_by, requested_at, effective_at,
+                          state)
+                        values (:id, :user, :network, :by, :requested, :effective, :state)""")
                 .param("id", release.releaseId())
                 .param("user", release.userId())
                 .param("network", release.network().name())
                 .param("by", release.requestedBy())
                 .param("requested", Timestamp.from(release.requestedAt()))
                 .param("effective", Timestamp.from(release.effectiveAt()))
+                .param("state", release.state().name())
                 .update();
     }
 
@@ -383,12 +378,12 @@ public class JdbcBotWalletRepository implements BotWalletRepository {
 
     @Override
     public List<BotWalletAccount> walletsWithReleaseInForce(Network network, Instant now) {
+        // 261113-trading-real-bot U5 (BR1.1): in force only with an ACTIVE release (the gates set it after 24 hours).
         return jdbc.sql("select " + prefixed("a") + " from bot_wallet_account a where a.status = 'ACTIVE' "
                         + "and exists (select 1 from real_release r where r.user_id = a.user_id "
-                        + "and r.network = :network and r.effective_at <= :now "
-                        + "and (r.revoked_at is null or r.revoked_at > :now)) order by a.bot_wallet_id")
+                        + "and r.network = :network and r.state = 'ACTIVE' and r.revoked_at is null) "
+                        + "order by a.bot_wallet_id")
                 .param("network", network.name())
-                .param("now", Timestamp.from(now))
                 .query(JdbcBotWalletRepository::account)
                 .list();
     }

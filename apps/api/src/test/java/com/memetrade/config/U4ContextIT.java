@@ -58,7 +58,7 @@ class U4ContextIT extends AbstractPostgresIT {
                 .isEqualTo("${SCANNER_RATE_LIMIT_PER_MINUTE:60}");
         // U6: one thread per scheduled job of U1 to U7 (RuntimeSettingsGuard); U5 adds the live channel poller and U8
         // its two jobs; u2-retention the login challenge and session purges.
-        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("21");
+        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("22");
         assertThat(((HikariDataSource) unwrap(dataSource)).getMaximumPoolSize()).isEqualTo(20);
     }
 

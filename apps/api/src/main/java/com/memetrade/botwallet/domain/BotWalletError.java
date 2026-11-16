@@ -14,6 +14,8 @@ public enum BotWalletError {
     CONSENT_EXPIRED(422),
     CAP_ABOVE_MAXIMUM(422),
     INSUFFICIENT_FREE_BALANCE(422),
+    /** 261113-trading-real-bot U5 (BR2.4): above the smaller balance while a divergence or the restore is open. */
+    WITHDRAWAL_LIMITED_BY_DIVERGENCE(422),
     WITHDRAWAL_DESTINATION_INVALID(422),
     SIGNING_POLICY_REFUSED(422),
     VALIDATION_FAILED(400),

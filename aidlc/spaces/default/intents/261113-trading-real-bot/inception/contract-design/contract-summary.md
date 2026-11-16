@@ -1089,3 +1089,79 @@ As oito rotas estão no `route-registry.yml` (escopo `CLIENT`, com os testes neg
 | `bot.market` | Coluna nova (`PAPER` ou `REAL`, padrão `PAPER`, imutável por gatilho), migração 0019. O campo `mode` continua `PAPER` para não quebrar o contrato de bots. |
 | `BotSummary` | Ganha `market` (obrigatório), que o painel e o canal ao vivo já leem. `BotDetail` ainda não traz o campo (pendência registrada no `code-summary.md` da U4). |
 | `POST /api/v1/bots` | Aceita `market` (padrão `PAPER`); `REAL` exige carteira do bot ativa (422 com o campo `market`). O bot REAL não recebe o saldo PAPER inicial. |
+
+## Adendo da U5 (Code Generation de `u5-real-operations`, 2026-11-16)
+
+Mudanças aplicadas no código no mesmo trabalho da U5. Os consumidores mudaram junto (administração, privacidade, barreira, execução, bots e ledger), como manda a regra das interfaces de módulo. As fontes são `construction/u5-real-operations/functional-design/`, `nfr-design/` e `infrastructure-design/`. O OpenAPI de referência é `apps/api/openapi/openapi-admin.yaml` (gerado do código) e os tipos do app administrativo foram regenerados dele.
+
+### R4 — Administração REAL (como construída)
+
+| Rota | Corpo | Resposta | Recusas |
+|---|---|---|---|
+| `GET /api/v1/admin/real/users?cursor&limit` | — | `RealAdminUserPage { items, nextCursor }` (sem ordens recentes na lista) | — |
+| `GET /api/v1/admin/real/users/{userId}` | — | `RealAdminUser` com as 20 ordens mais recentes | `404 NOT_FOUND` |
+| `POST /api/v1/admin/real/users/{userId}/release` | `{ network: LOCALNET \| DEVNET \| MAINNET, reason }` | `201 RealAdminRelease { releaseId, userId, network, state, effectiveAt }` | `NO_BOT_WALLET`, `TERMS_V3_MISSING` (422); `RELEASE_EXISTS`, `FOUNDER_FIRST`, `PILOT_FULL` (409); `VALIDATION_FAILED` |
+| `DELETE /api/v1/admin/real/users/{userId}/release` | `{ reason }` | `RealAdminRevocation { userId, revoked, cancelledOrders }` | `503` quando a trava da pessoa não é obtida (repetir com a mesma chave) |
+| `PUT /api/v1/admin/real/users/{userId}/cap` | `{ capLamports, reason }` | `RealAdminCap { userId, capLamports, commandId }` | `422 CAP_ONLY_LOWERED` |
+| `GET /api/v1/admin/real/token-blocks` | — | `RealAdminTokenList { items }` | — |
+| `POST /api/v1/admin/real/token-blocks` | `{ mint, reason }` | `201 RealAdminBlockedToken` | `VALIDATION_FAILED` |
+| `DELETE /api/v1/admin/real/token-blocks/{mint}` | — | `RealAdminUnblock { mint, unblocked }` | — |
+| `GET /api/v1/admin/real/kill-switch` | — | `RealAdminKillSwitch { active, activatedAt, reason, version, changed, cancelledOrders }` | — |
+| `PUT /api/v1/admin/real/kill-switch` | `{ reason }` | o mesmo, com `changed` e as ordens canceladas logo depois do registro | — |
+| `DELETE /api/v1/admin/real/kill-switch` | `{ reason }` | o mesmo | — |
+| `GET /api/v1/admin/real/divergences?cursor&limit` | — | `RealAdminDivergencePage { items, nextCursor }` (abertas ou compensadas, das mais novas) | — |
+| `POST /api/v1/admin/real/divergences/{divergenceId}/compensation` | `{ items: [{ asset: SOL \| <mint>, amount }], reason }` | `201 RealAdminDivergence` (`COMPENSATED`) | `409 DIVERGENCE_NOT_OPEN`; `422 COMPENSATION_MISMATCH` |
+| `POST /api/v1/admin/real/restore/confirmation` | `{ reason }` | `RealAdminRestore { markerId, detectedAt }` | `404` sem restauração aberta; `409 RESTORE_NOT_CLEAN` |
+
+Diferenças em relação à especificação original de R4, decididas no Functional Design e no plano da U5:
+
+| Item | Mudança |
+|---|---|
+| Papel e chave | Toda rota exige o papel ADMIN (entrada administrativa); toda mudança exige `Idempotency-Key` (mecanismo comum: mesma chave e corpo, mesma resposta; outro corpo, `409 IDEMPOTENCY_CONFLICT`; recusa nunca é guardada) e `reason` de 1 a 500 caracteres. O campo `confirmation` saiu: o motivo e a chave cumprem esse papel. |
+| Kill switch | `PUT` liga (antes `POST`), `DELETE` desliga, `GET` lê. O estado vive no `botwallet` (M7). |
+| Compensação | O caminho usa `divergenceId` (antes `runId`) e o corpo é uma lista de itens por ativo (SOL ou mint), cada um igual à diferença medida, com sinal. A divergência fica `COMPENSATED`; a reconciliação seguinte decide `RESOLVED`. |
+| Liberação | Estados `QUARANTINE`, `ACTIVE`, `BLOCKED` (com `blockedReason`: `CI_RED`, `CI_UNREACHABLE`, `DIVERGENCE_OPEN`, `KILL_SWITCH_ON`, `NETWORK_MISMATCH`) e `REVOKED`; `NONE` na visão quando não há. `LOCALNET` é aceita fora da produção. |
+| Teto | O código de recusa é `CAP_ONLY_LOWERED` (antes `CAP_INCREASE_NOT_ALLOWED`). |
+| Visão da pessoa | `mainWalletShort` (4 primeiros … 4 últimos) em vez da carteira principal; a carteira do bot aparece por extenso (endereço público, para conferir na rede); `pausedReasons` é um conjunto; `balance` ganha `aboveCapLamports`; 20 ordens recentes no detalhe. Nenhum campo traz chave nem referência de chave. Valores em lamports e unidades base trafegam como texto inteiro. |
+| Restauração | Rota nova `POST /restore/confirmation` (BR2.5). |
+
+### M1 — `botwallet.api`
+
+| Item | Mudança |
+|---|---|
+| `RealAdministration` | Nova, só para o `RealAdminController`: `adminRelease`, `adminRevoke`, `tenantOf`, `adminLowerCap`, `adminUserView`, `adminUsers`, `listDivergences`, `compensate`, `confirmRestore`. Recusas são `RealAdminRefused{ code, status }`. A revogação roda dentro de `RealRiskGate.withPersonLock`, que o controlador toma; o `botwallet` não depende do `riskcontrol`. |
+| `RealAnonymization` | Nova, para a privacidade: `closeForAnonymization(tenantId, userId)` → `Closed(hadBotWallet)` ou `Refused(ORDER_IN_PROGRESS \| POSITION \| BALANCE)`. Fecha a carteira, envia `DEACTIVATE` ao TxSigner, apaga os endereços e redige a trilha. |
+| `RealPauseReason` | Ganha `RESTORE` e `RESTORE_CHECK_PENDING`. `readRealState` junta as pausas globais (kill switch e restauração) às da carteira; a visão da própria pessoa (`GET /api/v1/real/bot-wallet`) também mostra a pausa global. |
+| Saque | Com divergência aberta, o saque fica limitado ao saldo medido na rede (`422 WITHDRAWAL_LIMITED_BY_DIVERGENCE` acima dele); nunca é bloqueado. |
+
+### M7 — `botwallet.api.RealKillSwitchState` (dono U5)
+
+```yaml
+M7_RealKillSwitchState:
+  current() -> KillSwitchView{ active, activatedAt, activatedBy, reason, version }   # leitura viva, sem cache
+  activate(adminId, reason) -> KillSwitchChange{ view, changed }                    # CAS na versão, auditado
+  deactivate(adminId, reason) -> KillSwitchChange{ view, changed }
+  cancelUnsentWhileActive() -> int                                                   # M6 cancelUnsent(ALL, KILL_SWITCH)
+```
+
+### `CiStatus` (porta do `botwallet`)
+
+`CiStatus.check(commitSha) -> CiResult{ status: GREEN | RED | UNREACHABLE, runRef? }`. Em produção, `GitHubCiStatus` lê os `workflow_runs` do `ci.yml` para o SHA da imagem (`MEMETRADE_BUILD_SHA`) (token só de leitura, 5 s de prazo; qualquer erro é `UNREACHABLE`). Fora da MAINNET, `MEMETRADE_REAL_OPS_CI=GREEN|RED` fixa o resultado (`ConfiguredCiStatus`); a MAINNET recusa esse valor na subida.
+
+### M2, M5 e M6
+
+| Interface | Mudança |
+|---|---|
+| M2 `RealLedger` | `tokenBalances(tenantId, botWalletId)` para a reconciliação; `RealEntry.compensation(...)` aceita lançamento compensatório de SOL ou de token (lamports 0 com unidades base do mint). |
+| M5 `RealRiskGate` | `blockedTokens()` (lista de bloqueio, a mais nova primeiro). `RealRejectionDetail` ganha `PAUSED_RESTORE` e `PAUSED_RESTORE_CHECK_PENDING`. |
+| M6 `RealExecutionPort` | `ordersInTransit(tenantId, userId)` (SENT e AMBIGUOUS, para adiar a reconciliação), `knownTransactions(signatures)` (para a conferência de restauração) e `unsentOrders()` (medidor do kill switch). |
+
+### R1 — API interna do TxSigner
+
+| Item | Mudança |
+|---|---|
+| `LOWER_CAP` e `DEACTIVATE` | Comandos com `commandId` estável, reenviados a cada minuto até confirmar (`real_pending_txsigner_command`). O `DEACTIVATE` vai como consentimento de política `CLOSE`; `WALLET_NOT_FOUND` conta como confirmado. O endereço é lido na hora do envio e nunca fica gravado no comando. |
+
+### Decisão
+
+`decision.mode` aceita `REAL` (migração 0021); o ciclo grava o modo do bot (`PAPER` ou `REAL`).

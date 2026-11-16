@@ -251,7 +251,8 @@ public class CycleRunner {
                 version,
                 outcome,
                 json.write(request, outcome),
-                now));
+                now,
+                decisionMode(bot.real())));
         timings.decision(Duration.ofNanos(System.nanoTime() - decideStarted));
         String result;
         if (!outcome.isOrder()) {
@@ -279,6 +280,11 @@ public class CycleRunner {
                 clock.instant());
         bots.renewMark(bot.botId());
         return CycleResult.completed(cycleId, outcome.action().name(), result);
+    }
+
+    /** 261113-trading-real-bot U5 (BR7.1, S25): the decision of a REAL bot is recorded REAL; every other one PAPER. */
+    static String decisionMode(boolean real) {
+        return real ? "REAL" : "PAPER";
     }
 
     /** BR4.1, BR3.7, BR4.8: the inputs of the decision, read inside the cycle transaction. */

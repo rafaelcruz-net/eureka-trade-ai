@@ -11,10 +11,47 @@ import java.util.Map;
  */
 public interface ChainPort {
 
+    /**
+     * What a call is for; each purpose has its own budget per provider (NFR3.7). 261113-trading-real-bot U5
+     * (performance-design.md): the reconciliation and the restore check have their own quota and never take the one of
+     * the withdrawals nor of the execution.
+     */
     enum Purpose {
         DEPOSITS,
-        WITHDRAWALS
+        WITHDRAWALS,
+        RECONCILIATION,
+        RESTORE_CHECK
     }
+
+    /** U5: one finalized signature of the history of an address, and whether its transaction failed. */
+    record SignatureInfo(String signature, boolean failed) {}
+
+    /** U5: a page of the finalized history of an address, newest first. */
+    record SignaturePage(List<SignatureInfo> signatures) {
+
+        public SignaturePage {
+            signatures = List.copyOf(signatures);
+        }
+    }
+
+    /**
+     * U5 (BR2.1): the base units of every mint held by {@code owner}, summed over all its token accounts of the Token
+     * and the Token-2022 programs (two getTokenAccountsByOwner), in commitment finalized; an empty account counts zero.
+     */
+    Map<String, Long> tokenBalances(String owner);
+
+    /** U5 (BR2.1): the last finalized slot (getSlot finalized). */
+    long finalizedSlot();
+
+    /**
+     * U5 (BR2.1, BR2.5): one page of the finalized history of {@code address}, newest first (getSignaturesForAddress):
+     * strictly newer than {@code until} when given, strictly older than {@code before} when given, at most {@code
+     * limit} (1 to 1.000).
+     */
+    SignaturePage signaturesSince(Purpose purpose, String address, String until, String before, int limit);
+
+    /** U5 (BR2.5): the signers of a finalized transaction (getTransaction), in the order of the message. */
+    List<String> transactionSigners(String signature);
 
     /** One finalized incoming SOL transfer to the bot wallet. */
     record IncomingTransfer(String txSignature, String sourceAddress, long lamports, Instant finalizedAt) {}

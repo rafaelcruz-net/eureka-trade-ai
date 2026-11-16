@@ -31,6 +31,24 @@ public interface RealExecutionPort {
      */
     int cancelUnsent(CancelScope scope, RealFailureCode reason);
 
+    /**
+     * 261113-trading-real-bot U5 (BR2.1): the orders of the person SENT or AMBIGUOUS, whose effect on the network may not
+     * be in the ledger yet; the reconciliation of the wallet waits for them (DEFERRED).
+     */
+    int ordersInTransit(UUID tenantId, UUID userId);
+
+    /**
+     * 261113-trading-real-bot U5 (U5-NFR5.4): the REAL orders of everybody not sent yet (PROPOSED, QUOTED or SIGNED),
+     * for the gauge {@code real_kill_switch_unsent_orders}.
+     */
+    int unsentOrders();
+
+    /**
+     * 261113-trading-real-bot U5 (BR2.5): which of these signatures are transactions of REAL orders recorded by the U4
+     * (the restore check never looks those up on the network).
+     */
+    java.util.Set<String> knownTransactions(java.util.Collection<String> signatures);
+
     /** The newest orders of the person, newest first, at most {@code limit} (1 to 50). */
     List<RealOrderView> recentOrders(UUID tenantId, UUID userId, int limit);
 

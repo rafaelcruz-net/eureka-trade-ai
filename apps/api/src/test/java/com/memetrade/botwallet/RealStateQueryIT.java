@@ -94,7 +94,8 @@ class RealStateQueryIT extends AbstractRealIT {
             Instant requested = now.minus(Duration.ofHours(25));
             jdbc.sql("""
                             insert into real_release (release_id, user_id, network, requested_by, requested_at,
-                              effective_at) values (:id, :user, 'LOCALNET', :user, :requested, :effective)""")
+                              effective_at, state) values (:id, :user, 'LOCALNET', :user, :requested, :effective,
+                              'ACTIVE')""")
                     .param("id", UUID.randomUUID())
                     .param("user", person.userId())
                     .param("requested", Timestamp.from(requested))

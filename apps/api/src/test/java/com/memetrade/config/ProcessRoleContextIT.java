@@ -52,7 +52,11 @@ class ProcessRoleContextIT extends AbstractU5IT {
             "RealRiskPurgeJob",
             // 261113-trading-real-bot U4: the purge of the REAL execution at 04:30 UTC, through the same retention
             // pool (api only); the seven jobs of RealExecutionSchedule run only in the worker.
-            "RealExecutionPurgeJob");
+            "RealExecutionPurgeJob",
+            // 261113-trading-real-bot U5: the purge of the operations of the REAL at 05:00 UTC, through the same
+            // retention pool (api only); the gates, reconciliation, kill switch, command and restore jobs run in the
+            // worker.
+            "RealOpsPurgeJob");
 
     @Autowired
     private ApplicationContext context;

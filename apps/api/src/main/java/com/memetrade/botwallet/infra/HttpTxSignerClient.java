@@ -79,6 +79,11 @@ public class HttpTxSignerClient implements TxSignerPort {
     }
 
     @Override
+    public void close(UUID requestId, String botWalletAddress) {
+        post("/internal/v1/wallets/" + botWalletAddress + "/consents", Map.of("requestId", requestId, "kind", "CLOSE"));
+    }
+
+    @Override
     public void raise(UUID requestId, String botWalletAddress, ConsentKind kind, String message, String signature) {
         post(
                 "/internal/v1/wallets/" + botWalletAddress + "/consents",

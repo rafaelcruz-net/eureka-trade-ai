@@ -39,4 +39,12 @@ public interface RealLedger {
      * another tenant.
      */
     RealLedgerView view(UUID tenantId, UUID botWalletId, java.util.Optional<Instant> flowsSince);
+
+    /**
+     * 261113-trading-real-bot U5 (BR2.1, BR2.3): the base units of every mint of the bot wallet of this tenant, from its
+     * swap fills (IN adds, OUT removes) and its COMPENSATION entries of a token (with their sign); a mint at zero is
+     * omitted; nothing for a wallet of another tenant. Compared by the reconciliation with the token accounts of the
+     * network.
+     */
+    java.util.Map<String, Long> tokenBalances(UUID tenantId, UUID botWalletId);
 }

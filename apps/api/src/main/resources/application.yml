@@ -29,10 +29,11 @@ spring:
       # U7 marking, pending close, reconciliation and the "check now" limiter eviction (4); U6 purge of the old approved
       # evaluations (1); U5 the live channel mark poller of the api (1); U8 the kill switch reconciliation and the
       # feedback purge (2); u2-retention the login challenge purge and the session purge (2); u4-data-requests the
-      # timers of the data subject requests, their purge and the refresher of their counts (3). RuntimeSettingsGuard
-      # refuses less than 21 in the api (SCHEDULER_POOL_SIZE); the worker (application-worker.yml) has its own 4.
+      # timers of the data subject requests, their purge and the refresher of their counts (3); 261113-trading-real-bot
+      # U5 the purge of the REAL operations (1, U5-NFR3.7). RuntimeSettingsGuard refuses less than 22 in the api
+      # (SCHEDULER_POOL_SIZE); the worker (application-worker.yml) has its own.
       pool:
-        size: ${SCHEDULER_POOL_SIZE:21}
+        size: ${SCHEDULER_POOL_SIZE:22}
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -110,6 +111,10 @@ springdoc:
 memetrade:
   # U5 (C20, NFR10.9): api (default) or worker; @ProcessRole beans exist only in their process.
   process: ${MEMETRADE_PROCESS:api}
+  # 261113-trading-real-bot U5 (BR1.4, security-design.md "CI"): the commit of this image, written by the Dockerfile
+  # (ARG BUILD_SHA). Empty in a local build: the gates read it as CI_UNREACHABLE and the MAINNET refuses to start.
+  build:
+    sha: ${MEMETRADE_BUILD_SHA:}
   real:
     # 261113-trading-real-bot (BR1.1, team.md "REAL desligado por padrão"): off by default in the api and the worker.
     # Off, the routes that open risk answer 403 REAL_DISABLED, no bot wallet is created and nothing is signed; reading
@@ -147,6 +152,29 @@ memetrade:
       withdrawal-batch-size: 20
       withdrawal-lease: 60s
       stuck-challenge-interval: 10s
+    # 261113-trading-real-bot U5 (BR1.3): the ordinary account (BETA_USER) of the founder, released first on the
+    # MAINNET. With MEMETRADE_REAL_NETWORK=MAINNET the api and the worker refuse to start without it (S28).
+    founder-user-id: ${MEMETRADE_REAL_FOUNDER_USER_ID:}
+    # 261113-trading-real-bot U5 (U5-NFR3.7, U5-NFR1.1, infrastructure-specification.md): the REAL operations. Fixed
+    # here; only the reconciliation interval (the e2e uses PT15S), the configured CI (GREEN or RED, refused with the
+    # MAINNET) and the GitHub repository and token (worker only, never logged) come from the environment.
+    ops:
+      reconciliation-threads: 4
+      gates-interval: 5m
+      reconciliation-interval: ${MEMETRADE_REAL_OPS_RECONCILIATION_INTERVAL:PT15M}
+      reconciliation-tick: 15s
+      deferred-alert-after: 2h
+      kill-switch-cancel-interval: 1m
+      txsigner-resend-interval: 1m
+      restore-check-interval: 1m
+      gauges-interval: 30s
+      ci: ${MEMETRADE_REAL_OPS_CI:}
+      github:
+        api-url: https://api.github.com
+        repository: ${MEMETRADE_GITHUB_REPOSITORY:}
+        workflow: ci.yml
+        token: ${MEMETRADE_GITHUB_ACTIONS_TOKEN:}
+        timeout: 5s
     # 261113-trading-real-bot U3 (U3-NFR8.3): limits of the REAL risk barrier. Fixed here; outside the profiles test
     # and local a looser value (higher percentage, more buys, longer age or reservation) refuses the start of the api
     # and of the worker, and a value out of range refuses it in every profile. Stricter values are accepted.

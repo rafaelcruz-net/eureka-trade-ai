@@ -34,8 +34,18 @@ public class RpcBudget {
         return true;
     }
 
+    /**
+     * The deposits keep 80% and the withdrawals (and the execution) 20% of {@code maxRps}. 261113-trading-real-bot U5
+     * (performance-design.md): the reconciliation (20%) and the restore check (10%) have a quota of their own, on top of
+     * those two, so they never take the budget of a withdrawal nor of an order.
+     */
     int share(Purpose purpose) {
         int deposits = Math.max(1, maxRps * 80 / 100);
-        return purpose == Purpose.DEPOSITS ? deposits : Math.max(1, maxRps - deposits);
+        return switch (purpose) {
+            case DEPOSITS -> deposits;
+            case WITHDRAWALS -> Math.max(1, maxRps - deposits);
+            case RECONCILIATION -> Math.max(1, maxRps * 20 / 100);
+            case RESTORE_CHECK -> Math.max(1, maxRps * 10 / 100);
+        };
     }
 }

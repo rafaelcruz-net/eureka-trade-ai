@@ -62,6 +62,16 @@ public final class BotWalletViews {
     public record Page<T>(List<T> items, String nextCursor, int total) {}
 
     static BotWalletView of(BotWalletAccount wallet, Preferences preferences, RealBalance balance, Instant now) {
+        return of(wallet, preferences, balance, now, java.util.Set.of());
+    }
+
+    /** 261113-trading-real-bot U5: the view with the global pauses of the REAL merged into its paused reason. */
+    static BotWalletView of(
+            BotWalletAccount wallet,
+            Preferences preferences,
+            RealBalance balance,
+            Instant now,
+            java.util.Set<PauseReason> globalPauses) {
         long cap = preferences.capLamports();
         long reserve = preferences.feeReserveLamports();
         return new BotWalletView(
@@ -80,14 +90,18 @@ public final class BotWalletViews {
                         Long.toString(balance.aboveCapLamports(cap, reserve)),
                         Long.toString(balance.operableLamports(cap, reserve)),
                         now),
-                pausedReason(preferences),
+                pausedReason(preferences, globalPauses),
                 wallet.network().name(),
                 wallet.policyResetRequired());
     }
 
     /** The most severe reason first; NONE when not paused (contract PausedReason). */
     static String pausedReason(Preferences preferences) {
-        return preferences.pausedReasons().stream()
+        return pausedReason(preferences, java.util.Set.of());
+    }
+
+    static String pausedReason(Preferences preferences, java.util.Set<PauseReason> globalPauses) {
+        return java.util.stream.Stream.concat(preferences.pausedReasons().stream(), globalPauses.stream())
                 .sorted(Comparator.comparingInt(PauseReason::ordinal).reversed())
                 .map(Enum::name)
                 .findFirst()

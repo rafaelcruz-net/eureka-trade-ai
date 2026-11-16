@@ -35,7 +35,10 @@ public class JdbcDecisionRepository {
         this.jdbc = jdbc;
     }
 
-    /** What the cycle records (BR4.10). */
+    /**
+     * What the cycle records (BR4.10). 261113-trading-real-bot U5 (BR7.1): {@code mode} is {@code REAL} for the cycle of a
+     * REAL bot and {@code PAPER} otherwise.
+     */
     public record NewDecision(
             UUID decisionId,
             UUID cycleId,
@@ -47,7 +50,37 @@ public class JdbcDecisionRepository {
             long limitsVersion,
             DecisionOutcome outcome,
             DecisionJson.Recorded recorded,
-            Instant createdAt) {}
+            Instant createdAt,
+            String mode) {
+
+        /** A PAPER decision, as every decision before the U5 of 261113-trading-real-bot. */
+        public NewDecision(
+                UUID decisionId,
+                UUID cycleId,
+                UUID botId,
+                UUID tenantId,
+                UUID ownerUserId,
+                StrategyId strategy,
+                String strategyVersion,
+                long limitsVersion,
+                DecisionOutcome outcome,
+                DecisionJson.Recorded recorded,
+                Instant createdAt) {
+            this(
+                    decisionId,
+                    cycleId,
+                    botId,
+                    tenantId,
+                    ownerUserId,
+                    strategy,
+                    strategyVersion,
+                    limitsVersion,
+                    outcome,
+                    recorded,
+                    createdAt,
+                    "PAPER");
+        }
+    }
 
     /** One recorded decision, as the routes and the summary read it. */
     public record StoredDecision(
@@ -77,12 +110,13 @@ public class JdbcDecisionRepository {
                             token_mint, action, no_trade_reason, exit_reason, requested_quantity,
                             strategy_template_id, strategy_version, parameters, limits_version, factors, inputs,
                             context, summary, valid_until, created_at)
-                        values (:decision, :bot, :cycle, :tenant, :owner, 'PAPER', :chain, :mint, :action, :reason,
+                        values (:decision, :bot, :cycle, :tenant, :owner, :mode, :chain, :mint, :action, :reason,
                                 :exit, :quantity, :strategy, :version, cast(:parameters as jsonb), :limits,
                                 cast(:factors as jsonb), cast(:inputs as jsonb), cast(:context as jsonb), :summary,
                                 :validUntil, :created)
                         """)
                 .param("decision", decision.decisionId())
+                .param("mode", decision.mode())
                 .param("bot", decision.botId())
                 .param("cycle", decision.cycleId())
                 .param("tenant", decision.tenantId())

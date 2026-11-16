@@ -117,6 +117,24 @@ public class JdbcRealLedger implements RealLedger {
                 .single();
     }
 
+    @Override
+    public java.util.Map<String, Long> tokenBalances(UUID tenantId, UUID botWalletId) {
+        java.util.Map<String, Long> balances = new java.util.TreeMap<>();
+        jdbc.sql("""
+                        select mint, sum(case entry_kind when 'SWAP_FILL_OUT' then -token_base_units
+                          else token_base_units end) as units
+                        from real_ledger_entry
+                        where tenant_id = :tenant and bot_wallet_id = :wallet and mode = 'REAL' and mint is not null
+                          and entry_kind in ('SWAP_FILL_IN', 'SWAP_FILL_OUT', 'COMPENSATION')
+                        group by mint""").param("tenant", tenantId).param("wallet", botWalletId).query(rs -> {
+            long units = rs.getBigDecimal("units").longValueExact();
+            if (units != 0) {
+                balances.put(rs.getString("mint"), units);
+            }
+        });
+        return balances;
+    }
+
     /** The balance rows (B), the fills in recording order (P) and, when asked, the flows (F), as one statement. */
     private static final String VIEW = """
             with entries as (

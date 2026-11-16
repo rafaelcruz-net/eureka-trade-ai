@@ -53,7 +53,10 @@ class RealStateServiceTest {
         RealProperties properties = mock(RealProperties.class);
         when(properties.enabled()).thenReturn(realEnabled);
         when(properties.network()).thenReturn(Network.LOCALNET);
-        return new RealStateService(repository, audit, properties, clock);
+        com.memetrade.botwallet.infra.GlobalPauses global =
+                org.mockito.Mockito.mock(com.memetrade.botwallet.infra.GlobalPauses.class);
+        when(global.active()).thenReturn(Map.of());
+        return new RealStateService(repository, audit, properties, global, clock);
     }
 
     private void wallet(Set<PauseReason> reasons, Map<PauseReason, Instant> since) {
@@ -83,6 +86,13 @@ class RealStateServiceTest {
                         USER,
                         requested,
                         requested.plus(RealRelease.QUARANTINE),
+                        null,
+                        // U5 (BR1.1): only ACTIVE is in force; the gates turn a release ACTIVE after its 24 hours.
+                        ago.compareTo(RealRelease.QUARANTINE) >= 0
+                                ? com.memetrade.botwallet.domain.ReleaseState.ACTIVE
+                                : com.memetrade.botwallet.domain.ReleaseState.QUARANTINE,
+                        null,
+                        null,
                         null)));
     }
 

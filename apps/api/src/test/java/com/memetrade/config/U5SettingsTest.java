@@ -28,34 +28,34 @@ class U5SettingsTest {
         // U8 (Passo 1): two more jobs in the api, the kill switch reconciliation and the feedback purge;
         // u2-retention (Passo 10): two more, the login challenge and session purges.
         // u4-data-requests: three more, the request timers, the request purge and the count refresher.
-        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(21);
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "21")))
+        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(22);
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "22")))
                 .doesNotThrowAnyException();
         assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "32")))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "20")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "21")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 21 and 32");
+                .hasMessageContaining("between 22 and 32");
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "4")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }
 
-    /** 261113-trading-real-bot U4 (logical-components.md "Pool do worker"): 19 to 26 threads, 27 to 40 connections. */
+    /** 261113-trading-real-bot U5 (U5-NFR3.7): 25 to 32 threads, 33 to 48 connections in the worker. */
     @Test
-    void theWorkerGuardAcceptsNineteenToTwentySixThreadsAndTwentySevenToFortyConnections() {
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "27", "19")))
+    void theWorkerGuardAcceptsTwentyFiveToThirtyTwoThreadsAndThirtyThreeToFortyEightConnections() {
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "33", "25")))
                 .doesNotThrowAnyException();
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "40", "26")))
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "48", "32")))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "26", "19")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "32", "25")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE")
-                .hasMessageContaining("between 27 and 40");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "41", "19")))
+                .hasMessageContaining("between 33 and 48");
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "49", "25")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "27", "18")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "33", "24")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 19 and 26");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "27", "27")))
+                .hasMessageContaining("between 25 and 32");
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "33", "33")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }
 
@@ -103,9 +103,9 @@ class U5SettingsTest {
         PropertySource<?> worker = yaml("application-worker.yml");
 
         assertThat(String.valueOf(worker.getProperty("spring.datasource.hikari.maximum-pool-size")))
-                .isEqualTo("${DB_POOL_MAX_SIZE:27}");
+                .isEqualTo("${DB_POOL_MAX_SIZE:33}");
         assertThat(String.valueOf(worker.getProperty("spring.task.scheduling.pool.size")))
-                .isEqualTo("${SCHEDULER_POOL_SIZE:19}");
+                .isEqualTo("${SCHEDULER_POOL_SIZE:25}");
         assertThat(String.valueOf(worker.getProperty("spring.datasource.hikari.connection-timeout")))
                 .isEqualTo("5000");
         assertThat(String.valueOf(worker.getProperty("memetrade.bots.scheduler.enabled")))

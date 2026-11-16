@@ -133,6 +133,11 @@ services:
       MEMETRADE_RPC_SECONDARY_URL: http://solana-validator:8899
       # U4: the recorded Jupiter (http is accepted only in the test and local profiles).
       MEMETRADE_JUPITER_BASE_URL: http://jupiter-stub:8080
+      # U5 (infrastructure-specification.md "Ponta a ponta"): the reconciliation every 15 s, so the divergence spec
+      # sees its divergence and its resolution in seconds, and the CI gate fixed GREEN (accepted on LOCALNET only;
+      # the start-up checks refuse a fixed CI result on MAINNET). Nothing calls GitHub in this run.
+      MEMETRADE_REAL_OPS_RECONCILIATION_INTERVAL: PT15S
+      MEMETRADE_REAL_OPS_CI: GREEN
     depends_on:
       solana-validator:
         condition: service_healthy

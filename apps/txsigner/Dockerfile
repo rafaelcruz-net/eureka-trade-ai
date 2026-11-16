@@ -11,6 +11,9 @@ COPY src src
 RUN sh ./mvnw -B -ntp -DskipTests -Djacoco.skip=true -Dspotless.check.skip=true package
 
 FROM eclipse-temurin:21-jre-alpine@sha256:b48e02e0ea88d7bfb305335df94923bdef394905f4147dccd52e873cf17b1088
+# 261113-trading-real-bot U5 (security-design.md "CI"): the commit of the image, the same marking as the api.
+ARG BUILD_SHA=
+ENV MEMETRADE_BUILD_SHA=$BUILD_SHA
 RUN addgroup -S txsigner && adduser -S -G txsigner -H -s /sbin/nologin txsigner
 WORKDIR /app
 COPY --from=build --chown=txsigner:txsigner /src/target/memetrade-txsigner.jar /app/app.jar

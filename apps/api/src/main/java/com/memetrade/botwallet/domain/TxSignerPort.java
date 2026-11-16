@@ -14,6 +14,12 @@ public interface TxSignerPort {
     /** LOWER_CAP: only restricts, no signature. */
     void lowerCap(UUID requestId, String botWalletAddress, long capLamports);
 
+    /**
+     * 261113-trading-real-bot U5 (BR6.2): CLOSE of the policy of a bot wallet closed by an anonymization; only restricts,
+     * no signature, idempotent by requestId (the commandId of the DEACTIVATE).
+     */
+    void close(UUID requestId, String botWalletAddress);
+
     /** RAISE_CAP or RAISE_MODE with the signed consent, which the TxSigner checks again. */
     void raise(UUID requestId, String botWalletAddress, ConsentKind kind, String consentMessage, String signature);
 

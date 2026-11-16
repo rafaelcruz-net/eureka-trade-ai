@@ -279,6 +279,180 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/admin/real/divergences': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Divergências abertas ou compensadas, das mais novas para as mais antigas */
+    get: operations['listRealDivergences'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/real/divergences/{divergenceId}/compensation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Lançamento compensatório por ativo, igual à diferença medida; a nova reconciliação decide (BR2.3) */
+    post: operations['compensateRealDivergence'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/real/kill-switch': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Estado do kill switch das carteiras do bot */
+    get: operations['getRealKillSwitch'];
+    /** Liga o kill switch das carteiras do bot: ordens novas de todos recusadas na hora; as não enviadas são canceladas; o saque continua (BR3.1) */
+    put: operations['activateRealKillSwitch'];
+    post?: never;
+    /** Desliga o kill switch das carteiras do bot; nenhum bot é religado (BR3.2) */
+    delete: operations['deactivateRealKillSwitch'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/real/restore/confirmation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Confirma a restauração do banco depois que todas as carteiras vieram limpas (BR2.5) */
+    post: operations['confirmRealRestore'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/real/token-blocks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Lista de bloqueio de tokens das carteiras do bot */
+    get: operations['listRealTokenBlocks'];
+    put?: never;
+    /** Bloqueia um token para todas as carteiras do bot a partir do registro (BR4.2) */
+    post: operations['blockRealToken'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/real/token-blocks/{mint}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Desbloqueia um token (BR4.2) */
+    delete: operations['unblockRealToken'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/real/users': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Pessoas com carteira do bot: modo, teto, saldo, liberação e divergências (BR5.1) */
+    get: operations['listRealUsers'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/real/users/{userId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** A visão de uma pessoa, com as 20 ordens mais recentes; sem chave e com a carteira principal abreviada */
+    get: operations['getRealUser'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/real/users/{userId}/cap': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Baixa o teto na hora (nunca sobe); o TxSigner recebe LOWER_CAP até confirmar (BR4.1) */
+    put: operations['lowerRealCap'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/admin/real/users/{userId}/release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Registra a liberação; vale depois de 24 h com os portões verdes (BR1.2 a BR1.4) */
+    post: operations['releaseRealUser'];
+    /** Revoga na hora; as ordens não enviadas são canceladas e o saque continua (BR1.6) */
+    delete: operations['revokeRealUser'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/admin/system-status': {
     parameters: {
       query?: never;
@@ -727,6 +901,152 @@ export interface components {
       title: string;
       /** Format: uri */
       type: string;
+    };
+    RealAdminBalance: {
+      aboveCapLamports?: string;
+      freeLamports?: string;
+      reservedLamports?: string;
+      totalLamports?: string;
+    };
+    RealAdminBlockedToken: {
+      /** Format: date-time */
+      blockedAt?: string;
+      chain?: string;
+      mint?: string;
+      reason?: string;
+    };
+    RealAdminCap: {
+      capLamports?: string;
+      /** Format: uuid */
+      commandId?: string;
+      /** Format: uuid */
+      userId?: string;
+    };
+    RealAdminCapRequest: {
+      capLamports: string;
+      reason: string;
+    };
+    RealAdminCompensationItem: {
+      amount: string;
+      /** @description SOL ou o mint */
+      asset: string;
+    };
+    RealAdminCompensationRequest: {
+      items: components['schemas']['RealAdminCompensationItem'][];
+      reason: string;
+    };
+    RealAdminDivergence: {
+      /** Format: uuid */
+      botWalletId?: string;
+      /** Format: uuid */
+      divergenceId?: string;
+      lamportsDiff?: string;
+      /** Format: uuid */
+      lastRunId?: string;
+      /** Format: date-time */
+      openedAt?: string;
+      state?: string;
+      tokenDiffs?: components['schemas']['RealAdminTokenDiff'][];
+    };
+    RealAdminDivergencePage: {
+      items?: components['schemas']['RealAdminDivergence'][];
+      nextCursor?: string;
+    };
+    RealAdminKillSwitch: {
+      /** Format: date-time */
+      activatedAt?: string;
+      active?: boolean;
+      /** Format: int32 */
+      cancelledOrders?: number;
+      changed?: boolean;
+      reason?: string;
+      /** Format: int64 */
+      version?: number;
+    };
+    RealAdminOrder: {
+      /** Format: date-time */
+      createdAt?: string;
+      mint?: string;
+      /** Format: uuid */
+      realOrderId?: string;
+      side?: string;
+      state?: string;
+    };
+    RealAdminReasonRequest: {
+      reason: string;
+    };
+    RealAdminRelease: {
+      /** Format: date-time */
+      effectiveAt?: string;
+      network?: string;
+      /** Format: uuid */
+      releaseId?: string;
+      state?: string;
+      /** Format: uuid */
+      userId?: string;
+    };
+    RealAdminReleaseRequest: {
+      /** @enum {string} */
+      network: 'LOCALNET' | 'DEVNET' | 'MAINNET';
+      reason: string;
+    };
+    RealAdminReleaseSummary: {
+      blockedReason?: string;
+      /** Format: date-time */
+      effectiveAt?: string;
+      network?: string;
+      state?: string;
+    };
+    RealAdminRestore: {
+      /** Format: date-time */
+      detectedAt?: string;
+      /** Format: uuid */
+      markerId?: string;
+    };
+    RealAdminRevocation: {
+      /** Format: int32 */
+      cancelledOrders?: number;
+      revoked?: boolean;
+      /** Format: uuid */
+      userId?: string;
+    };
+    RealAdminTokenBlockRequest: {
+      mint: string;
+      reason: string;
+    };
+    RealAdminTokenDiff: {
+      chainBaseUnits?: string;
+      diffBaseUnits?: string;
+      ledgerBaseUnits?: string;
+      mint?: string;
+    };
+    RealAdminTokenList: {
+      items?: components['schemas']['RealAdminBlockedToken'][];
+    };
+    RealAdminUnblock: {
+      mint?: string;
+      unblocked?: boolean;
+    };
+    RealAdminUser: {
+      balance?: components['schemas']['RealAdminBalance'];
+      botWalletAddress?: string;
+      /** Format: uuid */
+      botWalletId?: string;
+      capLamports?: string;
+      /** @description Carteira principal abreviada: 4 primeiros … 4 últimos */
+      mainWalletShort?: string;
+      mode?: string;
+      openDivergences?: components['schemas']['RealAdminDivergence'][];
+      pausedReasons?: string[];
+      recentOrders?: components['schemas']['RealAdminOrder'][];
+      release?: components['schemas']['RealAdminReleaseSummary'];
+      /** Format: uuid */
+      userId?: string;
+      walletStatus?: string;
+    };
+    RealAdminUserPage: {
+      items?: components['schemas']['RealAdminUser'][];
+      nextCursor?: string;
     };
     RegisterEmailDataRequest: {
       /** Format: email */
@@ -1792,6 +2112,354 @@ export interface operations {
         };
         content: {
           'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listRealDivergences: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminDivergencePage'];
+        };
+      };
+    };
+  };
+  compensateRealDivergence: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        divergenceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealAdminCompensationRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminDivergence'];
+        };
+      };
+    };
+  };
+  getRealKillSwitch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminKillSwitch'];
+        };
+      };
+    };
+  };
+  activateRealKillSwitch: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealAdminReasonRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminKillSwitch'];
+        };
+      };
+    };
+  };
+  deactivateRealKillSwitch: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealAdminReasonRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminKillSwitch'];
+        };
+      };
+    };
+  };
+  confirmRealRestore: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealAdminReasonRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminRestore'];
+        };
+      };
+    };
+  };
+  listRealTokenBlocks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminTokenList'];
+        };
+      };
+    };
+  };
+  blockRealToken: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealAdminTokenBlockRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminBlockedToken'];
+        };
+      };
+    };
+  };
+  unblockRealToken: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        mint: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminUnblock'];
+        };
+      };
+    };
+  };
+  listRealUsers: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminUserPage'];
+        };
+      };
+    };
+  };
+  getRealUser: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminUser'];
+        };
+      };
+    };
+  };
+  lowerRealCap: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealAdminCapRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminCap'];
+        };
+      };
+    };
+  };
+  releaseRealUser: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealAdminReleaseRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminRelease'];
+        };
+      };
+    };
+  };
+  revokeRealUser: {
+    parameters: {
+      query?: never;
+      header: {
+        'Idempotency-Key': string;
+      };
+      path: {
+        userId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RealAdminReasonRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAdminRevocation'];
         };
       };
     };

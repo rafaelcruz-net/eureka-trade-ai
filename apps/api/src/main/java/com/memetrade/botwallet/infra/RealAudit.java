@@ -42,6 +42,32 @@ public class RealAudit {
         publisher.publish(mainWallet == null ? command : command.withWallet(mainWallet));
     }
 
+    /**
+     * 261113-trading-real-bot U5 (BR7.2): an action of an administrator on the REAL of a person; the actor is the
+     * administrator, the tenant is the one of the person when known (no tenant for a global action such as the kill
+     * switch). Never the main wallet: only ids, states, amounts and the reason.
+     */
+    public void admin(
+            UUID adminId, Optional<UUID> tenantId, String action, String targetRef, Map<String, String> details) {
+        publisher.publish(new AuditEventCommand(
+                UUID.randomUUID(),
+                tenantId,
+                adminId.toString(),
+                ActorType.ADMIN,
+                action,
+                targetRef,
+                CorrelationId.current(),
+                clock.instant(),
+                details,
+                null));
+    }
+
+    /** 261113-trading-real-bot U5: an event of the worker that belongs to no tenant (the restore marker, a release). */
+    public void global(String action, String targetRef, Map<String, String> details) {
+        publisher.publish(
+                AuditEventCommand.system(action, targetRef, CorrelationId.current(), clock.instant(), details));
+    }
+
     /** An event of the worker about a wallet of the tenant. */
     public void system(
             UUID tenantId, String action, String targetRef, Map<String, String> details, RealReferences real) {

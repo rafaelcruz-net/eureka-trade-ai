@@ -57,9 +57,10 @@ class WorkerProcessRoleContextIT extends AbstractU5WorkerIT {
     @Test
     void theWorkerPoolsAreTheOnesOfTheScalabilityDesign() {
         assertThat(environment.getProperty("spring.datasource.hikari.maximum-pool-size"))
-                // 261113-trading-real-bot U4 (U4-NFR3.7): 27 connections and 19 scheduler threads in the worker.
-                .isEqualTo("27");
-        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("19");
+                // 261113-trading-real-bot U5 (U5-NFR3.7): 33 connections and 25 scheduler threads in the worker (27 and
+                // 19 in the U4, plus the gates, reconciliation, kill switch, command, restore and gauges jobs).
+                .isEqualTo("33");
+        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("25");
         assertThat(environment.getProperty("spring.datasource.hikari.connection-timeout"))
                 .isEqualTo("5000");
     }

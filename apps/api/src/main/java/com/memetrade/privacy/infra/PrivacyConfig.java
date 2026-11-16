@@ -96,9 +96,20 @@ public class PrivacyConfig {
             DataRequestEvents requestEvents,
             AnonymizationOutcomes outcomes,
             AnonymizationTimeouts timeouts,
-            Clock clock) {
+            Clock clock,
+            com.memetrade.botwallet.api.RealAnonymization realWallets) {
         return new AnonymizationService(
-                store, idempotency, accounts, bots, feedback, events, requestEvents, outcomes, timeouts, clock);
+                store,
+                idempotency,
+                accounts,
+                bots,
+                feedback,
+                events,
+                requestEvents,
+                outcomes,
+                timeouts,
+                clock,
+                realWallets);
     }
 
     @Bean

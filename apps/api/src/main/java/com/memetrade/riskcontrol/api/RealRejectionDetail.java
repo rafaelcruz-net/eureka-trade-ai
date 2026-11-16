@@ -15,6 +15,10 @@ public enum RealRejectionDetail {
     PAUSED_DIVERGENCE,
     PAUSED_KILL_SWITCH,
     PAUSED_UPSTREAM,
+    /** 261113-trading-real-bot U5 (BR2.5): the database was restored; global until the administrator confirms. */
+    PAUSED_RESTORE,
+    /** U5 (BR2.5): the restore check of the worker did not finish yet. */
+    PAUSED_RESTORE_CHECK_PENDING,
     NO_ASSESSMENT,
     BLOCKED,
     SIGNAL_STALE,

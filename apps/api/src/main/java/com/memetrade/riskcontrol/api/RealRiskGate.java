@@ -61,4 +61,7 @@ public interface RealRiskGate {
 
     /** BR2.3: removes a token from the block list; audited ({@code REAL_TOKEN_UNBLOCKED}) only when it was blocked. */
     UnblockResult unblockToken(String chain, String mint, UUID adminId);
+
+    /** 261113-trading-real-bot U5 (R4, BR4.2): the block list, newest block first (for the administrator). */
+    java.util.List<BlockedToken> blockedTokens();
 }

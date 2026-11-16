@@ -222,6 +222,14 @@ public class JdbcRealRiskStore {
                         .single());
     }
 
+    /** 261113-trading-real-bot U5 (R4): every blocked token, newest first. */
+    public java.util.List<BlockedToken> blockedTokens() {
+        return jdbc.sql("select chain, mint, reason, blocked_by, blocked_at from real_blocked_token "
+                        + "order by blocked_at desc, mint")
+                .query(JdbcRealRiskStore::blockedToken)
+                .list();
+    }
+
     public Optional<BlockedToken> blocked(String chain, String mint) {
         return jdbc.sql("select chain, mint, reason, blocked_by, blocked_at from real_blocked_token "
                         + "where chain = :chain and mint = :mint")

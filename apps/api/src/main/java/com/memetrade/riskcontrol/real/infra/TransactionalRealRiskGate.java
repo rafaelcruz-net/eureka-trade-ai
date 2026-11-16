@@ -264,6 +264,12 @@ public class TransactionalRealRiskGate implements RealRiskGate {
         return removed.isPresent() ? UnblockResult.UNBLOCKED : UnblockResult.NOT_BLOCKED;
     }
 
+    /** 261113-trading-real-bot U5 (R4): the block list for the administrator. */
+    @Override
+    public java.util.List<BlockedToken> blockedTokens() {
+        return store.blockedTokens();
+    }
+
     private static void requireToken(String chain, String mint) {
         if (chain == null
                 || chain.isBlank()

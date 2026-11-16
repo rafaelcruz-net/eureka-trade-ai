@@ -72,21 +72,21 @@ class RuntimeSettingsGuardWorkerCountTest {
         String pool = resolve(String.valueOf(worker.getProperty("spring.datasource.hikari.maximum-pool-size")));
         String scheduler = resolve(String.valueOf(worker.getProperty("spring.task.scheduling.pool.size")));
 
-        assertThat(pool).isEqualTo("27");
-        assertThat(scheduler).isEqualTo("19");
+        assertThat(pool).isEqualTo("33");
+        assertThat(scheduler).isEqualTo("25");
         assertThatCode(() -> new RuntimeSettingsGuard(environment(pool, scheduler)))
                 .doesNotThrowAnyException();
     }
 
     @Test
     void theOldWorkerDefaultsAreRefusedWithTheVariableNamed() {
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("14", "19")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("27", "25")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE")
-                .hasMessageContaining("between 27 and 40");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("27", "4")))
+                .hasMessageContaining("between 33 and 48");
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("33", "19")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 19 and 26");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("27", "nineteen")))
+                .hasMessageContaining("between 25 and 32");
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("33", "twenty-five")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }
 

@@ -1,0 +1,15 @@
+# Requisitos de segurança e isolamento — U5 `u5-real-operations`
+
+Conversa: português (Brasil). Fontes: `construction/u5-real-operations/functional-design/rules.md` (BR1.3, BR1.4, BR5.1, BR6.2, BR7.2), `inception/requirements-analysis/requirements.md` (NFR1, NFR2, NFR6), `project.md`, `team.md` e `nfr-requirements-questions.md` (Q2).
+
+| ID | Requisito | Verificação |
+|---|---|---|
+| U5-NFR6.1 | As rotas R4 exigem o papel `ADMIN` pela entrada administrativa (correção do `project.md`); um BETA_USER recebe 403 | teste por rota |
+| U5-NFR6.2 | As mudanças exigem `Idempotency-Key` (mecanismo comum) e motivo onde a regra pede; cada uma gera evento de auditoria com o administrador como ator | teste de repetição e do evento |
+| U5-NFR6.3 | A visão do administrador nunca mostra chave nem a carteira principal inteira (só os 4 primeiros e os 4 últimos caracteres) | teste do conteúdo da resposta |
+| U5-NFR1.1 | O token do GitHub é um token fino só de leitura de Actions do repositório, com validade de 90 dias e troca pelo runbook. Ele fica num segredo próprio do worker; a API não o recebe. Nunca vai para log nem resposta e é usado só pelo adaptador `CiStatus`. Na mainnet a fonte tem de ser o GitHub. Uma CI inacessível bloqueia com `CI_UNREACHABLE`, separado de `CI_RED` | teste de que a configuração da API não tem o token; teste do mascaramento, inclusive do log do `RestClient` (cabeçalho `Authorization`); teste de subida |
+| U5-NFR1.2 | A U5 só lê a rede (saldos, contas, assinaturas) e nunca pede assinatura, a não ser os comandos ao TxSigner (`LOWER_CAP`, `DEACTIVATE`), que nunca levam endereço | regra ArchUnit: a U5 não usa `signSwap` nem `signWithdrawal`; teste do payload |
+| U5-NFR1.3 | A anonimização não deixa a carteira principal nem a do bot em nenhuma tabela nem log consultável. A trilha só muda pela função auditada de redação, com estas regras: `SECURITY DEFINER`, dona do esquema, `search_path` fixo, `EXECUTE` só para o papel da aplicação; ela age só nas linhas do usuário anonimizado; põe NULL em `audit_event.bot_wallet_address`, tira a chave `botWalletAddress` de `audit_event.details` e de `audit_outbox.payload`, e não muda nada mais. O endereço do bot fica em `bot_wallet_account.public_address` só até o TxSigner confirmar o `DEACTIVATE`; isso pode levar até 15 min, com alerta passado esse tempo | teste que percorre o esquema inteiro (todas as colunas de texto e JSON de todas as tabelas, pelo `information_schema`) e confirma que nenhum dos dois endereços aparece, depois da confirmação do `DEACTIVATE`; teste do estado intermediário (só `public_address`, e por até 15 min); varredura dos logs dos contêineres no `verify.sh`, como já existe |
+| U5-NFR8.1 | A rede só é usada no adaptador do GitHub (`administration.infra.github`) e no RPC que já existe | regra ArchUnit com teste que comprova a falha |
+| U5-NFR8.2 | Fora do perfil de produção a rede MAINNET não sobe; com MAINNET, `founder-user-id` é obrigatório | teste de subida |
+| U5-NFR2.1 | A reconciliação compara só o ledger REAL e a carteira do bot; nada do PAPER entra | teste de separação |

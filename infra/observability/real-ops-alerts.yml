@@ -1,0 +1,143 @@
+# Alert rules of the operations of the REAL (261113-trading-real-bot U5, observability-requirements.md U5-NFR5.7 to
+# U5-NFR5.13, monitoring-design.md), in the Prometheus format, for the metrics the worker (gauges, gates, reconciliation,
+# kill switch, commands, restore check) and the api (purge) expose on /actuator/prometheus. Checked by
+# `promtool check rules infra/observability/real-ops-alerts.yml`. Labels never carry a mint, an address, a signature nor
+# a person: only job, phase, kind, state, reason and result, all closed. Every alarm goes to the one SNS topic of the
+# pilot; the severity is in the label.
+#
+# Each alert carries the annotations `threshold` and `window_seconds` (and `job` when the alarm has that dimension);
+# RealOpsAlarmParityTest compares them with the expression below and with the CloudWatch alarm of the same name in
+# infra/terraform/modules/observability/real-ops.tf.
+#
+# The gauges use max_over_time (or min_over_time for the kill switch on for 30 minutes) over the window, the same as the
+# CloudWatch statistic Maximum over the period. When the gauges stop arriving, the stalled ops-gauges alert (with its
+# absent()) is the one that warns; the gauge alerts do not repeat that role.
+groups:
+  - name: real-ops
+    rules:
+      - alert: RealOpsDivergenceOpen
+        # U5-NFR5.7: a divergence OPEN or COMPENSATED: the ledger does not match the network for a wallet.
+        expr: max(max_over_time(real_divergences_open[1m])) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: A REAL bot wallet has an open divergence; follow docs/runbooks/real-operations.md "Divergência".
+          threshold: "0"
+          window_seconds: "60"
+      - alert: RealOpsRestorePause
+        # U5-NFR5.8: the restore pause is active for everybody, in the phase CHECK_PENDING or RESTORE.
+        expr: max by (phase) (max_over_time(real_restore_pause_active[1m])) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: The REAL of everybody is paused by a restore (phase {{ $labels.phase }}); follow the runbook.
+          threshold: "0"
+          window_seconds: "60"
+      - alert: RealOpsKillSwitchOn
+        # U5-NFR5.9: the kill switch REAL is on for 30 minutes, so it is not forgotten.
+        expr: max(min_over_time(real_kill_switch_active[30m])) >= 1
+        labels: { severity: high }
+        annotations:
+          summary: The kill switch REAL is on for 30 minutes; switch it off when the incident is over.
+          threshold: "1"
+          window_seconds: "1800"
+      - alert: RealOpsReconciliationDeferred
+        # U5-NFR5.10: a wallet without a measured reconciliation for more than 2 hours.
+        expr: max(max_over_time(real_reconciliation_deferred_over_2h[5m])) > 0
+        labels: { severity: high }
+        annotations:
+          summary: A REAL bot wallet has been DEFERRED or UNAVAILABLE for more than 2 hours.
+          threshold: "0"
+          window_seconds: "300"
+      - alert: RealOpsTxsignerCommandPending
+        # U5-NFR5.11: a LOWER_CAP or DEACTIVATE not confirmed by the TxSigner for more than 15 minutes.
+        expr: max(max_over_time(real_pending_txsigner_oldest_seconds[1m])) > 900
+        labels: { severity: high }
+        annotations:
+          summary: A command to the TxSigner has been unconfirmed for more than 900 seconds.
+          threshold: "900"
+          window_seconds: "60"
+      - alert: RealOpsReleaseBlocked
+        # U5-NFR5.12: a release BLOCKED by a red gate for more than 1 hour.
+        expr: max(max_over_time(real_release_blocked_oldest_seconds[5m])) > 3600
+        labels: { severity: warning }
+        annotations:
+          summary: A REAL release has been BLOCKED for more than 3600 seconds; see the reason on the release.
+          threshold: "3600"
+          window_seconds: "300"
+      - alert: RealOpsJobStalledGates
+        # U5-NFR5.13: no successful run of the gates in 10 minutes, or the job never published.
+        expr: >
+          sum(increase(real_ops_job_runs_total{job="gates"}[10m])) < 1
+          or absent(real_ops_job_runs_total{job="gates"})
+        labels: { severity: critical }
+        annotations:
+          summary: The gates of the REAL releases did not run in 10 minutes; releases wait in quarantine.
+          threshold: "1"
+          window_seconds: "600"
+          job: gates
+      - alert: RealOpsJobStalledReconciliation
+        # U5-NFR5.13: no successful run of the reconciliation in 30 minutes, or the job never published.
+        expr: >
+          sum(increase(real_ops_job_runs_total{job="reconciliation"}[30m])) < 1
+          or absent(real_ops_job_runs_total{job="reconciliation"})
+        labels: { severity: critical }
+        annotations:
+          summary: The reconciliation of the REAL bot wallets did not run in 30 minutes.
+          threshold: "1"
+          window_seconds: "1800"
+          job: reconciliation
+      - alert: RealOpsJobStalledKillSwitchCancel
+        # U5-NFR5.13: no successful run of the cancellation of the kill switch in 3 minutes.
+        expr: >
+          sum(increase(real_ops_job_runs_total{job="kill-switch-cancel"}[3m])) < 1
+          or absent(real_ops_job_runs_total{job="kill-switch-cancel"})
+        labels: { severity: critical }
+        annotations:
+          summary: The cancellation job of the kill switch REAL did not run in 3 minutes.
+          threshold: "1"
+          window_seconds: "180"
+          job: kill-switch-cancel
+      - alert: RealOpsJobStalledTxsignerResend
+        # U5-NFR5.13: no successful run of the resend of the commands to the TxSigner in 3 minutes.
+        expr: >
+          sum(increase(real_ops_job_runs_total{job="txsigner-resend"}[3m])) < 1
+          or absent(real_ops_job_runs_total{job="txsigner-resend"})
+        labels: { severity: critical }
+        annotations:
+          summary: The resend of the commands to the TxSigner did not run in 3 minutes.
+          threshold: "1"
+          window_seconds: "180"
+          job: txsigner-resend
+      - alert: RealOpsJobStalledOpsGauges
+        # U5-NFR5.13: no successful run of the gauges in 2 minutes: every gauge alert is blind.
+        expr: >
+          sum(increase(real_ops_job_runs_total{job="ops-gauges"}[2m])) < 1
+          or absent(real_ops_job_runs_total{job="ops-gauges"})
+        labels: { severity: critical }
+        annotations:
+          summary: The gauges of the REAL operations did not run in 2 minutes; the other alerts of the U5 are blind.
+          threshold: "1"
+          window_seconds: "120"
+          job: ops-gauges
+      - alert: RealOpsJobStalledPurge
+        # U5-NFR5.13: no successful run of the purge of the api in 26 hours.
+        expr: >
+          sum(increase(real_ops_job_runs_total{job="purge"}[1560m])) < 1
+          or absent(real_ops_job_runs_total{job="purge"})
+        labels: { severity: critical }
+        annotations:
+          summary: The purge of the REAL operations did not succeed in 26 hours.
+          threshold: "1"
+          window_seconds: "93600"
+          job: purge
+      - alert: RealOpsJobStalledRestoreCheck
+        # U5-NFR5.13: no successful run of the restore check in 3 minutes while a check is pending.
+        expr: >
+          (sum(increase(real_ops_job_runs_total{job="restore-check"}[3m])) < 1
+          or absent(real_ops_job_runs_total{job="restore-check"}))
+          and on() max(real_restore_pause_active{phase="CHECK_PENDING"}) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: The restore check did not run in 3 minutes while the REAL of everybody waits for it.
+          threshold: "1"
+          window_seconds: "180"
+          job: restore-check

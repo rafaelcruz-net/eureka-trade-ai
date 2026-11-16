@@ -1,6 +1,7 @@
 package com.memetrade.privacy.domain.anonymization;
 
 import com.memetrade.bots.api.BotOwnerDataPort;
+import com.memetrade.botwallet.api.RealAnonymization;
 import com.memetrade.feedback.api.FeedbackOwnerDataPort;
 import com.memetrade.identity.api.AccountAnonymizationPort;
 import com.memetrade.identity.api.AccountAnonymizationPort.AccountAnonymization;
@@ -85,6 +86,7 @@ public class AnonymizationService {
     private final AnonymizationOutcomes outcomes;
     private final AnonymizationTimeouts timeouts;
     private final Clock clock;
+    private final RealAnonymization realWallets;
 
     public AnonymizationService(
             DataRequestStore requests,
@@ -97,6 +99,37 @@ public class AnonymizationService {
             AnonymizationOutcomes outcomes,
             AnonymizationTimeouts timeouts,
             Clock clock) {
+        this(
+                requests,
+                idempotency,
+                accounts,
+                bots,
+                feedback,
+                events,
+                requestEvents,
+                outcomes,
+                timeouts,
+                clock,
+                (tenantId, userId) -> new RealAnonymization.CloseOutcome.Closed(false));
+    }
+
+    /**
+     * 261113-trading-real-bot U5 (BR6.1, BR6.2): with the M1 {@code closeForAnonymization}, called first, so a bot wallet
+     * with a balance, a position or something in progress refuses the anonymization before anything is written.
+     */
+    public AnonymizationService(
+            DataRequestStore requests,
+            IdempotencyGuard idempotency,
+            AccountAnonymizationPort accounts,
+            BotOwnerDataPort bots,
+            FeedbackOwnerDataPort feedback,
+            AnonymizationEvents events,
+            DataRequestEvents requestEvents,
+            AnonymizationOutcomes outcomes,
+            AnonymizationTimeouts timeouts,
+            Clock clock,
+            RealAnonymization realWallets) {
+        this.realWallets = Objects.requireNonNull(realWallets, "realWallets");
         this.requests = Objects.requireNonNull(requests, "requests");
         this.idempotency = Objects.requireNonNull(idempotency, "idempotency");
         this.accounts = Objects.requireNonNull(accounts, "accounts");
@@ -217,6 +250,15 @@ public class AnonymizationService {
         UUID tenantId = account.tenantId();
         UUID userId = account.userId();
         Instant now = clock.instant();
+        // 261113-trading-real-bot U5 (BR6.1, BR6.2): the bot wallet first; a refusal writes nothing and is never
+        // stored.
+        if (realWallets.closeForAnonymization(tenantId, userId)
+                instanceof RealAnonymization.CloseOutcome.Refused refused) {
+            throw new ApiException(
+                    ErrorCode.valueOf(refused.reason()),
+                    "Withdraw the balance of the bot wallet to the main wallet (selling any position first) and wait"
+                            + " for every order and withdrawal to end before the anonymization.");
+        }
         int stopped = bots.anonymizeOwnerBots(tenantId, userId);
         int erased = feedback.deleteByUser(tenantId, userId);
         AccountAnonymization anonymized = accounts.anonymizeAccount(tenantId, userId, now);

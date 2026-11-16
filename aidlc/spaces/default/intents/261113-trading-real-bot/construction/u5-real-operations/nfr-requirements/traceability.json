@@ -1,0 +1,23 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "u5-real-operations",
+  "upstream_ids": ["NFR1", "NFR2", "NFR3", "NFR4", "NFR5", "NFR6", "NFR7", "NFR8", "NFR9", "NFR10", "FR7.2", "FR7.3", "FR8", "FR10.3", "FR12", "FR14"],
+  "coverage": [
+    {"id": "NFR1", "status": "OK", "target": "U5-NFR1.1, U5-NFR1.2, U5-NFR1.3"},
+    {"id": "NFR2", "status": "OK", "target": "U5-NFR2.1"},
+    {"id": "NFR3", "status": "OK", "target": "desempenho U5-NFR3.1 a U5-NFR3.5; escala e retenção U5-NFR3.6 a U5-NFR3.9"},
+    {"id": "NFR4", "status": "OK", "target": "U5-NFR4.1 a U5-NFR4.6"},
+    {"id": "NFR5", "status": "OK", "target": "U5-NFR5.1 a U5-NFR5.13, rótulos fechados"},
+    {"id": "NFR6", "status": "OK", "target": "U5-NFR6.1, U5-NFR6.2, U5-NFR6.3"},
+    {"id": "NFR7", "status": "N/A", "target": "as telas do administrador ficam na u6-real-modes-ui"},
+    {"id": "NFR8", "status": "OK", "target": "U5-NFR8.1 a U5-NFR8.8"},
+    {"id": "NFR9", "status": "N/A", "target": "a leitura da API do GitHub é gratuita; o RPC soma cerca de 6 mil chamadas por dia (21 carteiras, 96 reconciliações, até 3 chamadas), dentro do orçamento de RPC da u1-bot-wallet"},
+    {"id": "NFR10", "status": "OK", "target": "U5-NFR10.1"},
+    {"id": "FR7.2", "status": "OK", "target": "U5-NFR3.1, U5-NFR3.2 (reconciliação depois de cada ordem e a cada 15 min)"},
+    {"id": "FR7.3", "status": "OK", "target": "U5-NFR5.7, U5-NFR4.6 (alerta e correção por lançamento compensatório)"},
+    {"id": "FR8", "status": "OK", "target": "U5-NFR3.5 (kill switch imediato e convergente)"},
+    {"id": "FR10.3", "status": "OK", "target": "U5-NFR4.1 (limite de 20 sob corrida), U5-NFR8.2 (fundador obrigatório na mainnet)"},
+    {"id": "FR12", "status": "OK", "target": "U5-NFR1.3 (prova da anonimização pelo esquema inteiro)"},
+    {"id": "FR14", "status": "N/A", "target": "a exportação fiscal fica na u7-exits-and-fiscal"}
+  ]
+}

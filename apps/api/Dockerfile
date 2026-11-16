@@ -11,6 +11,10 @@ COPY src src
 RUN sh ./mvnw -B -ntp -DskipTests -Djacoco.skip=true -Dspotless.check.skip=true package
 
 FROM eclipse-temurin:21-jre-alpine@sha256:b48e02e0ea88d7bfb305335df94923bdef394905f4147dccd52e873cf17b1088
+# 261113-trading-real-bot U5 (BR1.4, security-design.md "CI"): the commit of the image; the gates of the REAL read the
+# CI of exactly this commit. Without the argument it stays empty (local build): the gates block CI_UNREACHABLE.
+ARG BUILD_SHA=
+ENV MEMETRADE_BUILD_SHA=$BUILD_SHA
 RUN addgroup -S memetrade && adduser -S -G memetrade -H -s /sbin/nologin memetrade
 WORKDIR /app
 COPY --from=build --chown=memetrade:memetrade /src/target/memetrade-api.jar /app/app.jar

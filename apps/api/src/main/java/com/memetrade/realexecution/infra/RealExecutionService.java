@@ -82,6 +82,21 @@ public class RealExecutionService implements RealExecutionPort {
     }
 
     @Override
+    public java.util.Set<String> knownTransactions(java.util.Collection<String> signatures) {
+        return store.knownSignatures(signatures);
+    }
+
+    @Override
+    public int unsentOrders() {
+        return store.countUnsent();
+    }
+
+    @Override
+    public int ordersInTransit(UUID tenantId, UUID userId) {
+        return store.countInTransit(tenantId, userId);
+    }
+
+    @Override
     public List<RealOrderView> recentOrders(UUID tenantId, UUID userId, int limit) {
         int bounded = Math.max(1, Math.min(50, limit));
         return store

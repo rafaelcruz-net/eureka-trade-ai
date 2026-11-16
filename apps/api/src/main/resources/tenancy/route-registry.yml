@@ -35,6 +35,22 @@ routes:
   - { method: POST, path: '/api/v1/admin/privacy/requests/{requestId}/verification/confirm', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
   - { method: POST, path: '/api/v1/admin/privacy/requests/{requestId}/reply-sent', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
   - { method: POST, path: '/api/v1/admin/privacy/requests/{requestId}/anonymization', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  # 261113-trading-real-bot U5 (R4): the administration of the REAL. Only ADMIN through the administrative entry, across
+  # tenants by design (BR5.1); a guest token is 403 FORBIDDEN_ROLE with one REQUEST_FORBIDDEN on every one of them.
+  - { method: GET, path: /api/v1/admin/real/users, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: GET, path: '/api/v1/admin/real/users/{userId}', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: '/api/v1/admin/real/users/{userId}/release', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: DELETE, path: '/api/v1/admin/real/users/{userId}/release', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: PUT, path: '/api/v1/admin/real/users/{userId}/cap', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: GET, path: /api/v1/admin/real/token-blocks, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: /api/v1/admin/real/token-blocks, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: DELETE, path: '/api/v1/admin/real/token-blocks/{mint}', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: GET, path: /api/v1/admin/real/kill-switch, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: PUT, path: /api/v1/admin/real/kill-switch, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: DELETE, path: /api/v1/admin/real/kill-switch, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: GET, path: /api/v1/admin/real/divergences, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: '/api/v1/admin/real/divergences/{divergenceId}/compensation', scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
+  - { method: POST, path: /api/v1/admin/real/restore/confirmation, scope: ADMIN, negativeTest: com.memetrade.identity.AdminGuestRoutesIT#aGuestTokenOnEveryAdministrativeRouteIsForbiddenAndAuditedOnce }
   # u4-data-requests (P1, BR4.4, NFR2.1): the data subject requests of the caller; tenant and person from the token
   # only, every query filters by both, and a request of another person or tenant is the same 404 as an unknown one.
   - { method: GET, path: /api/v1/privacy/requests, scope: CLIENT, negativeTest: com.memetrade.privacy.DataRequestIT#anotherPersonsRequestIsNotFoundOnEveryRoute }
@@ -172,3 +188,19 @@ jobs:
   # U4 (U4-NFR3.9): daily purge of the REAL orders, sends and liquidations older than 5 years and of the closed decisions
   # older than 13 months, through the retention pool; reads no tenant input and logs only totals.
   - { name: RealExecutionPurgeJob, scope: GLOBAL }
+  # 261113-trading-real-bot U5 (logical-components.md): the jobs of the REAL operations. The gates read every due release
+  # (no tenant input; the person and the wallet come from the rows) and change only its state; the reconciliation reads
+  # each due ACTIVE wallet and writes the run and the divergence with the tenant recorded on the wallet row; the kill
+  # switch cancellation acts on every unsent order by design (M6 cancelUnsent ALL); none returns a row of a person
+  # (ReconciliationIT, ReleaseAndGatesIT, KillSwitchIT).
+  - { name: GatesJob, scope: GLOBAL }
+  - { name: RealReconciliationJob, scope: GLOBAL }
+  - { name: KillSwitchCancelJob, scope: GLOBAL }
+  # U5 (BR2.5): the restore check reads the history of every bot wallet on the network and the signatures recorded by
+  # the bot wallet and the M6; it writes only the global marker (RestoreIT).
+  - { name: RestoreDetector, scope: GLOBAL }
+  # U5 (BR4.1, BR6.2): the commands to the TxSigner read every unconfirmed row and the address of its wallet; they carry
+  # only ids and values and return nothing of a person (CapAndCommandsIT).
+  - { name: TxSignerCommandJob, scope: GLOBAL }
+  - { name: RealOpsPurgeJob, scope: GLOBAL }
+  - { name: RealOpsGaugesJob, scope: GLOBAL }

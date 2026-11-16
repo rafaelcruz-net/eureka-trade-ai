@@ -505,6 +505,34 @@ public class JdbcRealExecutionStore {
     }
 
     /** The mark of the live channel of the person: the newest update of their orders, in milliseconds (or 0). */
+    /** 261113-trading-real-bot U5 (BR2.5): which of these signatures are transactions of recorded orders. */
+    public java.util.Set<String> knownSignatures(java.util.Collection<String> signatures) {
+        if (signatures.isEmpty()) {
+            return java.util.Set.of();
+        }
+        return new java.util.HashSet<>(jdbc.sql("select tx_signature from real_order where tx_signature in (:sigs)")
+                .param("sigs", java.util.List.copyOf(signatures))
+                .query(String.class)
+                .list());
+    }
+
+    /** 261113-trading-real-bot U5 (BR2.1): the orders of the person SENT or AMBIGUOUS. */
+    /** 261113-trading-real-bot U5 (U5-NFR5.4): the unsent REAL orders of everybody. */
+    public int countUnsent() {
+        return jdbc.sql("select count(*) from real_order where state in ('PROPOSED', 'QUOTED', 'SIGNED')")
+                .query(Integer.class)
+                .single();
+    }
+
+    public int countInTransit(UUID tenantId, UUID userId) {
+        return jdbc.sql("select count(*) from real_order where tenant_id = :tenant and user_id = :user"
+                        + " and state in ('SENT', 'AMBIGUOUS')")
+                .param("tenant", tenantId)
+                .param("user", userId)
+                .query(Integer.class)
+                .single();
+    }
+
     public long markFor(UUID tenantId, UUID userId) {
         return jdbc.sql("select coalesce(max(updated_at), 'epoch'::timestamptz) from real_order"
                         + " where tenant_id = :tenant and user_id = :user")

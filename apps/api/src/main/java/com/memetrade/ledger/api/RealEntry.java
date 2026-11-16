@@ -43,6 +43,30 @@ public record RealEntry(
         this(tenantId, botWalletId, kind, lamports, txSignature, reference, idempotencyKey, null, null);
     }
 
+    /**
+     * 261113-trading-real-bot U5 (BR2.3): one COMPENSATION of a divergence: lamports (signed, no mint) or the base units
+     * of a mint (signed, zero lamports). Only appended, never an edit of another entry.
+     */
+    public static RealEntry compensation(
+            UUID tenantId,
+            UUID botWalletId,
+            long lamports,
+            String mint,
+            Long tokenBaseUnits,
+            String reference,
+            String idempotencyKey) {
+        return new RealEntry(
+                tenantId,
+                botWalletId,
+                RealEntryKind.COMPENSATION,
+                lamports,
+                null,
+                reference,
+                idempotencyKey,
+                mint,
+                tokenBaseUnits);
+    }
+
     /** A swap fill of an order (U4): the SOL leg in lamports and the token leg in base units. */
     public static RealEntry swapFill(
             UUID tenantId,

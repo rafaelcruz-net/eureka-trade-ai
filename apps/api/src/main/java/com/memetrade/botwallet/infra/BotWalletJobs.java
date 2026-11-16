@@ -32,18 +32,30 @@ public class BotWalletJobs {
     private final WithdrawalProcessor withdrawals;
     private final BotWalletRepository repository;
     private final Clock clock;
+    private final GlobalPauses pauses;
 
     public BotWalletJobs(
-            DepositScanner deposits, WithdrawalProcessor withdrawals, BotWalletRepository repository, Clock clock) {
+            DepositScanner deposits,
+            WithdrawalProcessor withdrawals,
+            BotWalletRepository repository,
+            Clock clock,
+            GlobalPauses pauses) {
         this.deposits = deposits;
         this.withdrawals = withdrawals;
         this.repository = repository;
         this.clock = clock;
+        this.pauses = pauses;
     }
 
     @Scheduled(fixedDelayString = "${memetrade.real.jobs.deposit-scan-interval}")
     @SchedulerLock(name = "realDepositScan", lockAtMostFor = "2m", lockAtLeastFor = "5s")
     public void scanDeposits() {
+        // 261113-trading-real-bot U5 (BR2.5, reliability-design.md "Restauração"): while the restore check is pending
+        // the
+        // scan waits, so its cursor never passes a signature the check did not see yet.
+        if (pauses.openRestoreMarker().filter(marker -> !marker.restore()).isPresent()) {
+            return;
+        }
         CorrelationId.runWithNew(() -> {
             int recorded = deposits.scan();
             if (recorded > 0) {

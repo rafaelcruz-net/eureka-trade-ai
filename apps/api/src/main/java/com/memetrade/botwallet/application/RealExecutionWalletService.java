@@ -3,6 +3,9 @@ package com.memetrade.botwallet.application;
 import com.memetrade.botwallet.api.RealConsentRefused;
 import com.memetrade.botwallet.api.RealExecutionWallet;
 import com.memetrade.botwallet.api.RealOperationMode;
+import com.memetrade.botwallet.api.RealPauseReason;
+import com.memetrade.botwallet.api.RealStateQuery;
+import com.memetrade.botwallet.api.RealStateView;
 import com.memetrade.botwallet.api.RealUpstreamUnavailable;
 import com.memetrade.botwallet.api.RealWalletInfo;
 import com.memetrade.botwallet.api.SwapSigningRequest;
@@ -10,7 +13,6 @@ import com.memetrade.botwallet.domain.BotWalletAccount;
 import com.memetrade.botwallet.domain.BotWalletException;
 import com.memetrade.botwallet.domain.BotWalletRepository;
 import com.memetrade.botwallet.domain.OperationMode;
-import com.memetrade.botwallet.domain.PauseReason;
 import com.memetrade.botwallet.domain.Preferences;
 import com.memetrade.botwallet.domain.TxSignerPort;
 import com.memetrade.botwallet.infra.RealProperties;
@@ -29,21 +31,33 @@ import org.springframework.stereotype.Service;
 @Service
 public class RealExecutionWalletService implements RealExecutionWallet {
 
-    /** BR1.1 of the U3: the liquidation of the person passes every pause except these. */
-    private static final Set<PauseReason> STOP_LIQUIDATION =
-            EnumSet.of(PauseReason.KILL_SWITCH, PauseReason.DIVERGENCE);
+    /**
+     * BR1.1 of the U3: the liquidation of the person passes every pause except these; since the U5 also the restore and
+     * its pending check (logical-components.md, iteration 2).
+     */
+    private static final Set<RealPauseReason> STOP_LIQUIDATION = EnumSet.of(
+            RealPauseReason.KILL_SWITCH,
+            RealPauseReason.DIVERGENCE,
+            RealPauseReason.RESTORE,
+            RealPauseReason.RESTORE_CHECK_PENDING);
 
     private final BotWalletRepository repository;
     private final TxSignerPort signer;
     private final BotWalletService wallets;
     private final RealProperties properties;
+    private final RealStateQuery state;
 
     public RealExecutionWalletService(
-            BotWalletRepository repository, TxSignerPort signer, BotWalletService wallets, RealProperties properties) {
+            BotWalletRepository repository,
+            TxSignerPort signer,
+            BotWalletService wallets,
+            RealProperties properties,
+            RealStateQuery state) {
         this.repository = repository;
         this.signer = signer;
         this.wallets = wallets;
         this.properties = properties;
+        this.state = state;
     }
 
     @Override
@@ -60,26 +74,30 @@ public class RealExecutionWalletService implements RealExecutionWallet {
         });
     }
 
+    /**
+     * BR3.3 of the U4, through the M1 {@code readRealState} since the U5 (logical-components.md "Mudanças em outras
+     * Units"): the state carries the global pauses read live, so the kill switch and the restore cancel an order before
+     * signing and before sending even when they committed while it was in flight (U5-NFR3.5).
+     */
     @Override
     public Recheck recheckBeforeSend(UUID tenantId, UUID userId, RealOperationMode orderMode, boolean liquidation) {
         if (!properties.enabled()) {
             return new Recheck.Cancelled(RecheckReason.REAL_DISABLED);
         }
-        Optional<BotWalletAccount> wallet = repository.activeWallet(tenantId, userId);
-        if (wallet.isEmpty()) {
+        Optional<RealStateView> current = state.readRealState(tenantId, userId);
+        if (current.isEmpty()) {
             return new Recheck.Cancelled(RecheckReason.REAL_DISABLED);
         }
-        Preferences preferences = repository.preferences(wallet.get().botWalletId());
-        Set<PauseReason> paused = preferences.pausedReasons();
-        if (paused.contains(PauseReason.KILL_SWITCH)) {
+        Set<RealPauseReason> paused = current.get().pausedReasons();
+        if (paused.contains(RealPauseReason.KILL_SWITCH)) {
             return new Recheck.Cancelled(RecheckReason.KILL_SWITCH);
         }
         boolean stops = liquidation ? paused.stream().anyMatch(STOP_LIQUIDATION::contains) : !paused.isEmpty();
         if (stops) {
             return new Recheck.Cancelled(RecheckReason.PAUSED);
         }
-        OperationMode current = preferences.operationMode();
-        if (OperationMode.valueOf(orderMode.name()).isMorePermissiveThan(current)) {
+        if (OperationMode.valueOf(orderMode.name())
+                .isMorePermissiveThan(OperationMode.valueOf(current.get().mode().name()))) {
             return new Recheck.Cancelled(RecheckReason.MODE_LOWERED);
         }
         return Recheck.allowed();

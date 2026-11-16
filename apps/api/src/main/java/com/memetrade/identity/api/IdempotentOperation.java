@@ -86,7 +86,21 @@ public enum IdempotentOperation {
     /** U4 (R3): the person refuses to sign. */
     REAL_SIGNING_REJECT("real.signing.reject", Retention.DEFAULT),
     /** U4 (R3): "vender tudo e sacar". */
-    REAL_LIQUIDATION("real.liquidation", Retention.DEFAULT);
+    REAL_LIQUIDATION("real.liquidation", Retention.DEFAULT),
+    /** 261113-trading-real-bot U5 (R4, BR7.2): the release of a person by the administrator. */
+    REAL_ADMIN_RELEASE("real.admin.release", Retention.DEFAULT),
+    /** U5 (R4, BR1.6): the revocation of a person. */
+    REAL_ADMIN_REVOKE("real.admin.revoke", Retention.DEFAULT),
+    /** U5 (R4, BR4.1): the cap lowered by the administrator. */
+    REAL_ADMIN_CAP("real.admin.cap", Retention.DEFAULT),
+    /** U5 (R4, BR4.2): a token blocked or unblocked. */
+    REAL_ADMIN_TOKEN_BLOCK("real.admin.token-block", Retention.DEFAULT),
+    /** U5 (R4, BR3.1, BR3.2): the kill switch REAL switched on or off. */
+    REAL_ADMIN_KILL_SWITCH("real.admin.kill-switch", Retention.DEFAULT),
+    /** U5 (R4, BR2.3): the compensation of a divergence. */
+    REAL_ADMIN_COMPENSATE("real.admin.compensate", Retention.DEFAULT),
+    /** U5 (R4, BR2.5): the confirmation of a restore. */
+    REAL_ADMIN_RESTORE("real.admin.restore", Retention.DEFAULT);
 
     public enum Retention {
         DEFAULT,

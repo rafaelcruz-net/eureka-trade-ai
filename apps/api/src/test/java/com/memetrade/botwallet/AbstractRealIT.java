@@ -58,12 +58,16 @@ public abstract class AbstractRealIT extends AbstractPostgresIT {
         return new Person("Bearer " + auth.accessToken(auth.login(wallet)), seeded.tenantId(), seeded.userId(), wallet);
     }
 
-    /** BR7.1: a release requested 25 hours ago (in force) on the network of the environment. */
+    /**
+     * BR7.1: a release requested 25 hours ago on the network of the environment, ACTIVE since the U5 (the gates turn a
+     * release ACTIVE after its quarantine; only an ACTIVE one is in force).
+     */
     protected void release(UUID userId) {
         var requested = clock.instant().minus(Duration.ofHours(25));
         jdbc.sql("""
-                        insert into real_release (release_id, user_id, network, requested_by, requested_at, effective_at)
-                        values (:id, :user, 'LOCALNET', :user, :requested, :effective)""")
+                        insert into real_release (release_id, user_id, network, requested_by, requested_at, effective_at,
+                          state)
+                        values (:id, :user, 'LOCALNET', :user, :requested, :effective, 'ACTIVE')""")
                 .param("id", UUID.randomUUID())
                 .param("user", userId)
                 .param("requested", Timestamp.from(requested))

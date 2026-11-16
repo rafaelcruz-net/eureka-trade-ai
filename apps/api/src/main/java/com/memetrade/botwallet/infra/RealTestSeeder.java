@@ -22,7 +22,9 @@ import org.springframework.stereotype.Component;
  * BR7.1, functional-spec.md F6: ONLY in the test profile and only with {@code memetrade.real.seed-test-release=true}
  * (the REAL overlay of the e2e run), the test founder (the smoke account) gets a release on the network of the
  * environment requested 25 hours ago, already past its quarantine, and the acceptance of the REAL terms (v3). No
- * production profile ever writes a release in the U1. Waits up to 30 s for the smoke account seeded by the identity.
+ * production profile ever writes a release this way. Since the U5 (logical-components.md, iteration 2) the seed writes
+ * the state ACTIVE directly; everywhere else only the gates job turns a release ACTIVE. Waits up to 30 s for the smoke
+ * account seeded by the identity.
  */
 @Component
 @Profile("test")
@@ -87,8 +89,9 @@ public class RealTestSeeder {
     private void release(Person person) {
         Instant requested = clock.instant().minus(QUARANTINE_PASSED);
         jdbc.sql("""
-                        insert into real_release (release_id, user_id, network, requested_by, requested_at, effective_at)
-                        select :id, :user, :network, :user, :requested, :effective
+                        insert into real_release (release_id, user_id, network, requested_by, requested_at, effective_at,
+                          state)
+                        select :id, :user, :network, :user, :requested, :effective, 'ACTIVE'
                         where not exists (select 1 from real_release where user_id = :user and network = :network)""")
                 .param("id", UUID.randomUUID())
                 .param("user", person.userId())
