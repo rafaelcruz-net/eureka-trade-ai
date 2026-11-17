@@ -496,8 +496,9 @@ describe('SigningDialog', () => {
 
     screen.getByTestId('real-signing-view').focus();
     await user.keyboard('{Enter}');
-    await flush();
 
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    // The dialog opens after the signing session is read: wait for it instead of one flush, which was not always
+    // enough on the slower CI runner (regression of the flaky run 44007384143).
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 });
