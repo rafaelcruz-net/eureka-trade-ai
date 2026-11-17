@@ -13,6 +13,7 @@ import {
   fakeFetch,
   response,
   settle,
+  sourceStatus,
   sseBlock,
   startFakeClock,
 } from '@/features/dashboard/test-support';
@@ -110,6 +111,37 @@ describe('LiveChannelProvider', () => {
     expect(screen.getByTestId('probe-state')).toHaveTextContent('OPEN');
     expect(signing).toHaveBeenCalledWith(SIGNING);
     expect(bots).not.toHaveBeenCalled();
+  });
+
+  it('a data.status subscriber that arrives after the channel opened gets the last snapshot at once (regression of run 44009850490)', async () => {
+    tokenStore.set('access-token-value');
+    const channel = fakeChannel();
+    const net = fakeFetch();
+    net.respond(channel.response);
+    const late = jest.fn();
+    function Page() {
+      const [dashboardOn, setDashboardOn] = useState(false);
+      return (
+        <>
+          {dashboardOn && <Subscriber kind="data.status" onEvent={late} />}
+          <button type="button" onClick={() => setDashboardOn(true)}>
+            abrir o painel
+          </button>
+        </>
+      );
+    }
+    renderChannel(<Page />, net);
+    await act(async () => settle());
+    const snapshot = { items: [sourceStatus()] };
+    await act(async () => channel.push(sseBlock('data.status', snapshot)));
+    expect(late).not.toHaveBeenCalled();
+
+    await act(async () => screen.getByRole('button', { name: 'abrir o painel' }).click());
+    await act(async () => settle());
+
+    expect(late).toHaveBeenCalledTimes(1);
+    expect(late).toHaveBeenCalledWith(snapshot);
+    expect(net.requests).toHaveLength(1);
   });
 
   it('never opens without a session', async () => {

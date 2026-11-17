@@ -127,7 +127,15 @@ export function LiveChannelProvider({
     }
   }, [session]);
 
+  // `data.status` is a snapshot sent when the channel opens and when a source changes. A screen that subscribes after
+  // the channel is already open (the dashboard reached from another screen) gets the last one at once, as it did when
+  // the dashboard opened its own channel.
+  const lastSnapshot = useRef<DashboardEvent | null>(null);
+
   const deliver = useCallback((event: DashboardEvent) => {
+    if (event.kind === 'data.status') {
+      lastSnapshot.current = event;
+    }
     handlers.current.get(event.kind)?.forEach((handler) => handler(event));
   }, []);
 
@@ -171,6 +179,7 @@ export function LiveChannelProvider({
     return () => {
       stream.close();
       client.current = null;
+      lastSnapshot.current = null;
       setStatus(CLOSED);
     };
   }, [shouldOpen, api, apiOrigin, expire, fetchImpl, deliver, onStatus]);
@@ -181,6 +190,14 @@ export function LiveChannelProvider({
       handlers.current.set(kind, set);
       const wrapped = handler as Handler;
       set.add(wrapped);
+      const snapshot = lastSnapshot.current;
+      if (kind === 'data.status' && snapshot !== null) {
+        queueMicrotask(() => {
+          if (set.has(wrapped)) {
+            wrapped(snapshot);
+          }
+        });
+      }
       return () => {
         set.delete(wrapped);
       };
