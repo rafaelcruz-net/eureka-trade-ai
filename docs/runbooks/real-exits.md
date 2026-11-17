@@ -108,4 +108,4 @@ A proteção de preço tem três camadas:
 
 ## 8. Limite do ambiente local (lacuna aceita)
 
-Até a gravação real, o **preenchimento** de uma condicional (BR5) só tem prova em testes de integração (`FillPostingIT`, `ConditionalCancelJobIT`) com respostas e transações simuladas, sem teste de ponta a ponta. O spec `e2e/real-exits` cobre criar pela tela, cancelar pelo `DELETE` e cancelar pelo kill switch, com o adaptador simulado; ele é sempre o último do `scripts/verify.sh`. Com a gravação, o spec passa a usar a transação real.
+Até a gravação real, o **preenchimento** de uma condicional (BR5) só tem prova em testes de integração (`FillPostingIT`, `ConditionalCancelJobIT`) com respostas e transações simuladas, sem teste de ponta a ponta. O spec `e2e/real-v2-exits` cobre criar pela tela, cancelar pelo `DELETE` e cancelar pelo kill switch, com o adaptador simulado; ele é sempre o último: o Playwright roda os arquivos na ordem alfabética do caminho, por isso a pasta se chama `real-v2-exits`. Com a gravação, o spec passa a usar a transação real.

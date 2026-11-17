@@ -11,7 +11,7 @@ import {
   postWithinLoginLimit,
   signInWithinLoginLimit,
 } from '../support/login-limit';
-import { encode } from '../real-bot-wallet/local-validator';
+import { LAMPORTS_PER_SOL, balance, encode } from '../real-bot-wallet/local-validator';
 
 const API = process.env.API_BASE_URL ?? 'http://localhost:8080';
 /** The read and cancel jobs of the worker run every 30 s and 1 min; a final state comes within a few runs. */
@@ -21,6 +21,7 @@ type BotWallet = { mode: string; status: string };
 type Position = { mint: string; baseUnits: string };
 type Quote = { priceStatus: 'KNOWN' | 'UNKNOWN'; priceUsd?: string };
 type Conditional = { conditionalOrderId: string; state: string };
+type Order = { side: string; state: string; input: { mint: string } };
 
 /**
  * 261113-trading-real-bot U7 (infrastructure-specification.md "Spec `apps/web/e2e/real-exits/`", U7-NFR8.5; BR4, BR6.1,
@@ -29,14 +30,19 @@ type Conditional = { conditionalOrderId: string; state: string };
  * outside LOCALNET). The simulated adapter never signs with the bot key nor calls the TxSigner, and nothing goes to
  * the network: the consent is signed by the test main wallet with signMessage.
  *
- * THIS SPEC IS ALWAYS THE LAST ONE of scripts/verify.sh: no spec depends on the state it leaves (new rows in
- * real_conditional_order and the audit). The position of real-swap is NOT sold: there is no simulated fill (the fill
- * has no e2e until the real recording, the gap accepted in code-summary.md).
+ * THIS SPEC IS ALWAYS THE LAST ONE: Playwright (workers: 1) runs the spec files in the alphabetical order of their
+ * paths, not in the order of the list in scripts/verify.sh, so the folder is named real-v2-exits to come after
+ * real-ui and real-v1-exports (regression of the CI run 44113862674, where real-exits ran before real-swap). No spec
+ * depends on the state it leaves (new rows in
+ * real_conditional_order and the audit). There is no simulated fill (the fill has no e2e until the real recording, the
+ * gap accepted in code-summary.md); the position of real-swap is sold at the end by "vender tudo e sacar" (test 4,
+ * moved here from e2e/real-swap).
  * - Entry state (from real-ui): bot wallet ACTIVE in AUTO_FULL, kill switch REAL off, a position of real-swap. Checked
  *   in `beforeAll`, never fixed.
  * - Scenarios: the mode to "Automática nas saídas"; an OCO by the screen, OPEN in the tab "Condicionais"; the
  *   cancellation by DELETE, CANCELLED; another one cancelled by the kill switch REAL, inside try/finally.
- * - Exit state: AUTO_FULL again (with the consent RAISE_MODE) and the kill switch off, also when a step fails.
+ * - Exit state: AUTO_FULL again (with the consent RAISE_MODE), the kill switch off, the position sold and the balance
+ *   back in the test main wallet.
  */
 test.describe.serial('REAL conditional exits on the local validator (always the last spec)', () => {
   test.setTimeout(300_000);
@@ -299,5 +305,65 @@ test.describe.serial('REAL conditional exits on the local validator (always the 
     await expect(page.getByTestId(`real-exits-state-${id}`)).toContainText('Cancelada', {
       timeout: 30_000,
     });
+  });
+
+  /**
+   * Moved from e2e/real-swap (U4): the position of the recorded buy stays open until here. A conditional left OPEN is
+   * cancelled by the way back to AUTO_FULL (BR6.2), and only then "vender tudo e sacar" sells the position and returns
+   * the balance to the test main wallet.
+   */
+  test('4. back to AUTO_FULL cancels the open conditional (BR6.2), then selling everything returns the balance', async ({
+    request,
+  }) => {
+    test.setTimeout(LOGIN_WINDOW_MS + FINAL_WITHIN_MS * 3);
+    // A fresh token: the spec can take longer than the 15 minutes of one.
+    guestToken = await signIn(request, main, '/api/v1/auth');
+    const quote = await guest(
+      request,
+      'GET',
+      `/api/v1/real/conditional-orders/quote?positionMint=${encodeURIComponent(mint)}`,
+    );
+    const { priceUsd } = (await quote.json()) as Quote;
+    const created = await guest(request, 'POST', '/api/v1/real/conditional-orders', {
+      positionMint: mint,
+      kind: 'STOP',
+      stopPriceUsd: times(priceUsd!, 7n, 10n),
+    });
+    expect(created.status(), 'the conditional left open').toBe(201);
+    const { conditionalOrderId: id, signingSession } = (await created.json()) as {
+      conditionalOrderId: string;
+      signingSession: { message: string };
+    };
+    const signed = await guest(request, 'POST', `/api/v1/real/conditional-orders/${id}/signature`, {
+      signature: encode(signWith(main, signingSession.message)),
+    });
+    expect(signed.ok()).toBe(true);
+
+    await backToAutoFull(request);
+    await expect
+      .poll(async () => (await conditional(request, id)).state, { timeout: FINAL_WITHIN_MS })
+      .toBe('CANCELLED');
+
+    const before = await balance(main.address);
+    const liquidation = await guest(request, 'POST', '/api/v1/real/liquidations');
+    expect(liquidation.status()).toBe(202);
+    await expect(async () => {
+      const response = await guest(request, 'GET', '/api/v1/real/orders');
+      const sells = ((await response.json()) as { items: Order[] }).items.filter(
+        (o) => o.side === 'SELL' && o.input.mint === mint,
+      );
+      expect(
+        sells.filter((o) => o.state === 'FAILED' || o.state === 'CANCELLED'),
+        'the recorded sell must not fail',
+      ).toEqual([]);
+      expect(sells.map((o) => o.state)).toContain('CONFIRMED');
+    }).toPass({ timeout: FINAL_WITHIN_MS, intervals: [5_000] });
+    await expect(async () => {
+      expect(await balance(main.address)).toBeGreaterThan(before + LAMPORTS_PER_SOL / 2n);
+    }).toPass({ timeout: FINAL_WITHIN_MS, intervals: [5_000] });
+    const pnl = (await (await guest(request, 'GET', '/api/v1/real/pnl')).json()) as {
+      positions: Position[];
+    };
+    expect(pnl.positions.find((p) => p.mint === mint)?.baseUnits ?? '0').toBe('0');
   });
 });

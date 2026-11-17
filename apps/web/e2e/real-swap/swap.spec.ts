@@ -2,21 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
 import { loadSmokeWallet, signWith, type SmokeWallet } from '../support/test-wallet';
-import {
-  LAMPORTS_PER_SOL,
-  airdrop,
-  balance,
-  encode,
-  transfer,
-} from '../real-bot-wallet/local-validator';
+import { LAMPORTS_PER_SOL, airdrop, encode, transfer } from '../real-bot-wallet/local-validator';
 
 const API = process.env.API_BASE_URL ?? 'http://localhost:8080';
 
 /**
  * REAL swap on the local validator (261113-trading-real-bot U4, infrastructure-specification.md "Ponta a ponta"):
  * raises the bot wallet to AUTO_FULL with the consent signed by the test main wallet, deposits, creates and starts the
- * REAL bot of the recorded mint, waits for its buy to reach CONFIRMED with the ledger entry and the position, asks
- * "vender tudo e sacar" and checks the balance back in the test main wallet. The Jupiter answers come from the
+ * REAL bot of the recorded mint and waits for its buy to reach CONFIRMED with the ledger entry and the position. The
+ * position stays open: "vender tudo e sacar" runs at the end of e2e/real-v2-exits, the last spec (U7). The Jupiter answers come from the
  * jupiter-stub and the pool accounts from the validator, both recorded ONCE by infra/solana-fixtures/record.sh; the
  * recorded mint and the wrapped SOL are published by the simulated source sim-a, and the worker decides with the
  * test-only strategy of the recorded swap (one buy of exactly RECORDED_BUY_LAMPORTS), all in the test profile only.
@@ -206,8 +200,7 @@ test.describe.serial('REAL swap on the local validator', () => {
       expect(stopped.status(), 'the REAL bot of the swap spec must be stopped').toBe(200);
     }
     // The login is limited per IP and minute (LoginRateLimiter, 10 per minute, ProfileDefaultsTest), and the specs
-    // after this file (u1, u2, ...) sign in from the same IP. This spec signs in twice (before the tests and before
-    // the liquidation): like the bot wallet spec, it leaves them a whole login window. Without it, u1 got 429 on the
+    // after this file (u1, u2, ...) sign in from the same IP. This spec signs in before the tests: like the bot wallet spec, it leaves them a whole login window. Without it, u1 got 429 on the
     // nonce replay and u2 never left the login screen (CI run 43794459747).
     await new Promise((resolve) => setTimeout(resolve, LOGIN_WINDOW_MS));
   });
@@ -283,32 +276,7 @@ test.describe.serial('REAL swap on the local validator', () => {
     }).toPass({ timeout: 60_000, intervals: [5_000] });
   });
 
-  test('selling everything and withdrawing returns the balance to the main wallet', async ({
-    request,
-  }) => {
-    await signIn(request);
-    const before = await balance(main.address);
-
-    const liquidation = await call(request, 'POST', '/api/v1/real/liquidations');
-    expect(liquidation.status()).toBe(202);
-
-    await expect(async () => {
-      const sells = (await orders(request)).items.filter(
-        (o) => o.side === 'SELL' && o.input.mint === mint,
-      );
-      expect(
-        sells.filter((o) => o.state === 'FAILED' || o.state === 'CANCELLED'),
-        'the recorded sell must not fail',
-      ).toEqual([]);
-      expect(sells.map((o) => o.state)).toContain('CONFIRMED');
-    }).toPass({ timeout: 180_000, intervals: [5_000] });
-
-    await expect(async () => {
-      expect(await balance(main.address)).toBeGreaterThan(before + LAMPORTS_PER_SOL / 2n);
-    }).toPass({ timeout: 180_000, intervals: [5_000] });
-    const pnl = (await (await call(request, 'GET', '/api/v1/real/pnl')).json()) as {
-      positions: { mint: string; baseUnits: string }[];
-    };
-    expect(pnl.positions.find((p) => p.mint === mint)?.baseUnits ?? '0').toBe('0');
-  });
+  // U7: "vender tudo e sacar" moved to the end of e2e/real-v2-exits, the last spec, so the position of the recorded buy
+  // stays open for real-ui, real-v1-exports and the conditional exits (Playwright runs the files in the alphabetical
+  // order of their paths; CI run 44113862674).
 });

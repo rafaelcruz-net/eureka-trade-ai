@@ -23,7 +23,7 @@ Intent `261113-trading-real-bot`. Plano: `code-generation-plan.md` (Steps 1 a 17
 | 13. Métricas, alertas e Terraform | `RealExitsMetrics` com contadores, resumo do atraso e medidores, e o `RealExitsGaugesJob`. Há 7 regras em `real-exits-alerts.yml` e os alarmes iguais em `real-exits.tf` (`Eureka/RealExits`). A paridade é conferida pelo `RealExitsAlarmParityTest`. | `realexits/infra/RealExitsMetrics.java`, `infra/observability/real-exits-alerts.yml`, `infra/terraform/modules/observability/real-exits.tf` |
 | 14. Telas | O modo "Automática nas saídas" passa a depender de `exitsEnabled`. Os outros itens: o diálogo "Definir stop e alvo", ao lado de cada posição do P&L REAL; a aba "Condicionais", com os estados em texto, o aviso de cancelamento parado e o cancelamento com confirmação; e o painel "Exportar histórico (CSV)", com o período. O evento entrou em `warn.ts` e `envelopes.ts`, e o cliente HTTP aceita `DELETE` e respostas em arquivo. Os preços são texto decimal e `bigint`, nunca `number`. | `apps/web/src/features/real/components/ConditionalDialog.tsx`, `ConditionalsTab.tsx`, `FiscalExportPanel.tsx`, `conditionals.ts`, `screens/*` |
 | 15. Gravação | O `record.sh --trigger --mint --maker [--rpc]` pede só transações sem assinatura e grava tudo em `infra/solana-fixtures/trigger/`. Ele não assina nem envia nada, e para com código 3 se a Jupiter exigir chave. **Não foi rodado** (`bash -n` OK). | `infra/solana-fixtures/record.sh` |
-| 16. Ponta a ponta | Dois specs novos. O `e2e/real-exports` só lê. O `e2e/real-exits` é sempre o último: tem comentário dizendo isso, faz o kill switch dentro de `try/finally` e, na saída, volta para AUTO_FULL e desliga o kill switch. O perfil de teste local ganhou as variáveis do flag e do adaptador simulado na API e no worker. **Não foram rodados** (`verify.sh` fica com o responsável). O `playwright test --list` lista os 6 testes. | `apps/web/e2e/real-exports/real-exports.spec.ts`, `apps/web/e2e/real-exits/real-exits.spec.ts`, `infra/docker-compose.real.yml` |
+| 16. Ponta a ponta | Dois specs novos. O `e2e/real-exports` só lê. O `e2e/real-exits` é sempre o último: tem comentário dizendo isso, faz o kill switch dentro de `try/finally` e, na saída, volta para AUTO_FULL e desliga o kill switch. O perfil de teste local ganhou as variáveis do flag e do adaptador simulado na API e no worker. **Não foram rodados** (`verify.sh` fica com o responsável). O `playwright test --list` lista os 6 testes. | `apps/web/e2e/real-v1-exports/real-exports.spec.ts`, `apps/web/e2e/real-v2-exits/real-exits.spec.ts`, `infra/docker-compose.real.yml` |
 | 17. Documentação e rastreabilidade | Runbook novo, adendo da U7 no `contract-summary.md`, este resumo, `traceability.json` e `source-manifest.json`. | `docs/runbooks/real-exits.md`, `inception/contract-design/contract-summary.md` |
 
 ## Testes
@@ -93,13 +93,13 @@ O `ci.yml` e o `verify.sh` não foram editados. Os textos abaixo estão prontos 
 O `real-exits` fica sempre por último. Ele deixa linhas novas em `real_conditional_order` e na auditoria, e nenhum spec depende desse estado.
 
 ```
-    e2e/reacceptance e2e/data-requests e2e/anonymization e2e/real-bot-wallet e2e/real-swap e2e/real-ops e2e/real-ui e2e/real-exports e2e/real-exits
+    e2e/reacceptance e2e/data-requests e2e/anonymization e2e/real-bot-wallet e2e/real-swap e2e/real-ops e2e/real-ui e2e/real-v1-exports e2e/real-v2-exits
 ```
 
 Comentário sugerido logo acima da lista:
 
 ```
-# e2e/real-exits is always the LAST spec: it leaves new conditional exits and audit rows behind (U7).
+# Playwright runs the spec files in the alphabetical order of their paths: e2e/real-v2-exits is the LAST one (U7).
 ```
 
 O `infra/docker-compose.real.yml` já liga as saídas com o adaptador simulado na API e no worker, só nessa execução. Nada muda no `verify.sh` para isso.
@@ -114,6 +114,14 @@ bash infra/solana-fixtures/record.sh --trigger --mint <mint com saldo> --maker <
 - Ele grava em `infra/solana-fixtures/trigger/` as respostas, os vetores, o `trigger-program.json`, o `.sha256` e os clones do programa e das contas.
 - Se a Jupiter exigir chave de API ou recusar (401/403), o script para com código 3, e a decisão volta para você antes de qualquer gasto.
 - Depois da gravação, a `TriggerPolicy` completa e o adaptador real entram numa entrega própria, com os testes de ataque escritos antes do código. O hash vai em `TXSIGNER_TRIGGER_PROGRAM_SHA256`.
+
+## Correção depois da primeira CI (execução 44113862674)
+
+O Playwright (com `workers: 1`) roda os arquivos na ordem alfabética do caminho, não na ordem da lista do `verify.sh`. Por isso os specs da U7 rodaram antes do `real-swap`, e quatro testes falharam em cascata.
+
+- **Pastas renomeadas:** `e2e/real-v1-exports` e `e2e/real-v2-exits`, para virem depois do `real-ui`.
+- **Venda total movida:** o "vender tudo e sacar" saiu do `real-swap` e virou o teste 4 do `real-v2-exits`. Assim a posição da compra gravada fica aberta para o `real-ui`, a exportação e as condicionais. O teste 4 também prova que voltar para AUTO_FULL cancela a condicional aberta (BR6.2) antes da venda.
+- **Lista do `verify.sh`:** precisa usar os nomes novos (texto acima).
 
 ## Lacuna aceita
 

@@ -28,7 +28,8 @@ type Order = {
 
 /**
  * 261113-trading-real-bot U7 (infrastructure-specification.md "Spec `apps/web/e2e/real-exports/`", U7-NFR8.5; BR7):
- * the fiscal CSV of the smoke account on the local validator, after real-swap, real-ops and real-ui. It ONLY READS:
+ * the fiscal CSV of the smoke account on the local validator, after real-swap, real-ops and real-ui (the folder is
+ * named real-v1-exports because Playwright runs the spec files in the alphabetical order of their paths). It ONLY READS:
  * - exports the current year (1 January to today, in the zone of the person) by the API and checks the BOM, the `;`,
  *   the decimal comma, the line breaks CRLF and the header;
  * - finds the line COMPRA of the confirmed buy of real-swap by its signature and checks it against the order;
