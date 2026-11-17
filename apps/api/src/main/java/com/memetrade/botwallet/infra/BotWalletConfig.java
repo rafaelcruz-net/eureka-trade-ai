@@ -1,5 +1,8 @@
 package com.memetrade.botwallet.infra;
 
+import com.memetrade.botwallet.api.EscrowBalances;
+import com.memetrade.botwallet.api.ExitsAvailability;
+import com.memetrade.botwallet.api.OpenExitsCheck;
 import com.memetrade.botwallet.domain.ChainPort;
 import com.memetrade.botwallet.domain.ChainUnavailableException;
 import com.memetrade.botwallet.domain.DepositScanner;
@@ -17,6 +20,7 @@ import java.net.http.HttpClient;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -33,6 +37,29 @@ public class BotWalletConfig {
                 URI.create(properties.txsigner().url()),
                 properties.txsigner().token(),
                 properties.txsigner().timeout());
+    }
+
+    /**
+     * 261113-trading-real-bot U7 (logical-components.md "Ajustes menores"): the empty implementations of the extension
+     * interfaces of the M1, used only when the module {@code realexits} is not in the context (its components are
+     * scanned before these methods are read, so they win): no custody, no open conditional, exits off.
+     */
+    @Bean
+    @ConditionalOnMissingBean(EscrowBalances.class)
+    EscrowBalances noEscrowBalances() {
+        return (tenantId, botWalletId) -> List.of();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(OpenExitsCheck.class)
+    OpenExitsCheck noOpenExits() {
+        return (tenantId, userId) -> false;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ExitsAvailability.class)
+    ExitsAvailability exitsOff() {
+        return () -> false;
     }
 
     /** Only the worker calls the RPC; without a configured provider every call is "unavailable" (the worker waits). */

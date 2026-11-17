@@ -100,7 +100,13 @@ public enum IdempotentOperation {
     /** U5 (R4, BR2.3): the compensation of a divergence. */
     REAL_ADMIN_COMPENSATE("real.admin.compensate", Retention.DEFAULT),
     /** U5 (R4, BR2.5): the confirmation of a restore. */
-    REAL_ADMIN_RESTORE("real.admin.restore", Retention.DEFAULT);
+    REAL_ADMIN_RESTORE("real.admin.restore", Retention.DEFAULT),
+    /** 261113-trading-real-bot U7 (R5, BR4.4): the creation of a conditional exit; the same key gives the same one. */
+    REAL_CONDITIONAL_CREATE("real.conditional.create", Retention.DEFAULT),
+    /** U7 (R5): the authorization of the main wallet for a conditional. */
+    REAL_CONDITIONAL_SIGN("real.conditional.sign", Retention.DEFAULT),
+    /** U7 (R5, S48): the cancellation of a conditional by the person. */
+    REAL_CONDITIONAL_CANCEL("real.conditional.cancel", Retention.DEFAULT);
 
     public enum Retention {
         DEFAULT,

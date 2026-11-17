@@ -1,5 +1,6 @@
 package com.memetrade.botwallet.infra;
 
+import com.memetrade.botwallet.api.EscrowBalances;
 import com.memetrade.botwallet.domain.ChainPort;
 import com.memetrade.botwallet.domain.ChainReading;
 import com.memetrade.botwallet.domain.ChainSnapshot;
@@ -41,6 +42,37 @@ public class ReconciliationReader {
         } catch (RuntimeException unavailable) {
             log.warn(
                     "The network was not read for a reconciliation: {}",
+                    unavailable.getClass().getSimpleName());
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * 261113-trading-real-bot U7 (BR5.3b, U7-NFR4.8): the base units held by the custody accounts of the conditionals
+     * of the Jupiter OPEN or CANCELLING, by mint, read on the network through the account recorded at the creation.
+     * Empty (unreadable) when an account was not recorded, belongs to another mint, or the RPC failed: the
+     * reconciliation is then UNAVAILABLE, never DIVERGENT. Logs never carry the account.
+     */
+    public Optional<Map<String, Long>> readEscrows(List<EscrowBalances.Escrow> escrows) {
+        Map<String, Long> held = new java.util.TreeMap<>();
+        try {
+            for (EscrowBalances.Escrow escrow : escrows) {
+                if (escrow.account().isEmpty()) {
+                    log.warn("A custody account of an open conditional was not recorded; the wallet is not compared");
+                    return Optional.empty();
+                }
+                ChainPort.TokenAccountBalance balance =
+                        chain.tokenAccountBalance(escrow.account().get());
+                if (!balance.mint().equals(escrow.mint())) {
+                    log.warn("A custody account holds another mint than its conditional; the wallet is not compared");
+                    return Optional.empty();
+                }
+                held.merge(escrow.mint(), balance.baseUnits(), Math::addExact);
+            }
+            return Optional.of(held);
+        } catch (RuntimeException unavailable) {
+            log.warn(
+                    "A custody account was not read for a reconciliation: {}",
                     unavailable.getClass().getSimpleName());
             return Optional.empty();
         }

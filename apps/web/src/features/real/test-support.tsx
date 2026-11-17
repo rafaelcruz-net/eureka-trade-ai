@@ -136,6 +136,7 @@ export function realApi(overrides: Partial<GuestApi> = {}): jest.Mocked<GuestApi
     getRealRelease: jest.fn(async () => ({
       network: 'LOCALNET',
       release: { state: 'ACTIVE' as const, effectiveAt: '2026-11-10T12:00:00Z' },
+      exitsEnabled: false,
     })),
     getBotWallet: jest.fn(async () => walletDto()),
     getRealPnl: jest.fn(async () => pnlDto()),

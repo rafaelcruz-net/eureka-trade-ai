@@ -1200,3 +1200,55 @@ Mudanças só de leitura e de transporte, aplicadas no código no mesmo trabalho
 ### Canal ao vivo (R6)
 
 Sem mudança no servidor. O navegador passou a tratar `real.signing.requested` (`RealSigningSessionOpened`) e `real.order.state` (`RealOrderStateChanged`), que antes descartava como evento desconhecido, e o canal agora é um só por pessoa, aberto no layout raiz.
+
+## Adendo da U7 (Code Generation de `u7-exits-and-fiscal`, 2026-11-17)
+
+Mudanças aplicadas no código no mesmo trabalho da U7. As fontes são `construction/u7-exits-and-fiscal/functional-design/rules.md` (BR0 a BR9, seção "Mudança de contrato"), `nfr-design/` e `infrastructure-design/infrastructure-specification.md`. O OpenAPI de referência é `apps/api/openapi/openapi-guest.yaml` (gerado do código) e os tipos de `apps/web` foram regenerados dele; o `openapi-admin.yaml` não mudou. Até a gravação real (BR0), as rotas de condicionais rodam só com o adaptador simulado no perfil de teste local; em qualquer outro ambiente o flag fica desligado e a criação devolve `403 EXITS_DISABLED`.
+
+### R5 — Saídas automáticas (como construída)
+
+| Item | Mudança em relação ao R5 original |
+|---|---|
+| `POST /api/v1/real/conditional-orders` | Corpo `{ positionMint, kind: STOP \| TAKE_PROFIT \| OCO, stopPriceUsd?, takeProfitPriceUsd? }`, preços em USD como `DecimalString` (no máximo 18 casas), em vez de `triggerPrice`. `201` com `{ conditionalOrderId, conditionalOrder, signingSession, stopNotGuaranteed: true }`. `signingSession` é `{ kind: MESSAGE \| TRANSACTION, message?, transactionBase64?, deadline, serverTime }`: antes da gravação só existe `MESSAGE` (consentimento montado pelo servidor e assinado com `signMessage` pela carteira principal, sem alteração), janela de 60 s. `Idempotency-Key` obrigatório. Recusas: `403 REAL_DISABLED`, `403 EXITS_DISABLED`, `403 EXITS_MODE_REQUIRED` (modo diferente de `AUTO_EXITS`), `409 CONDITIONAL_ALREADY_OPEN` (BR3.1), `409 NOTHING_TO_SELL`, `422 PRICE_UNKNOWN`, `422 TP_NOT_ABOVE_SL`, `422 TRIGGER_ON_WRONG_SIDE`, `422 TRIGGER_OUT_OF_BOUNDS`, `422 TOKEN_BLOCKED`, `422 VALIDATION_FAILED`. |
+| `GET /api/v1/real/conditional-orders` | `{ items: ConditionalOrder[], nextCursor?, total }`, mais novas primeiro, por cursor. |
+| `GET /api/v1/real/conditional-orders/quote?positionMint=` (rota nova) | Só leitura, para o diálogo "Definir stop e alvo": `ConditionalQuote { positionMint, positionBaseUnits, priceStatus: KNOWN \| UNKNOWN, priceUsd?, source?, observedAt?, minStopPriceUsd?, maxTakeProfitPriceUsd? }`. Preço ausente é `UNKNOWN`, nunca zero; os limites são os de BR2.6 (50% e 10 vezes). |
+| `POST /api/v1/real/conditional-orders/{conditionalOrderId}/signature` | Corpo `{ signature }` (Base58 da assinatura do consentimento) no caminho `MESSAGE`. `202` com o `ConditionalOrder` (`OPEN`, ou `FAILED` com o motivo da Jupiter em `TRIGGER_REJECTED`). Recusas: `409 SIGNING_DEADLINE_EXPIRED`, `422 SIGNED_MESSAGE_MISMATCH`. |
+| `DELETE /api/v1/real/conditional-orders/{conditionalOrderId}` (rota nova) | Cancelamento pela pessoa, com `Idempotency-Key`. `202` com o `ConditionalOrder` em `CANCELLED` (de `PENDING_SIGNATURE`, sem transação) ou `CANCELLING`. Repetir com a condicional já em `CANCELLING` devolve a mesma condicional; uma condicional final devolve `409 INVALID_TRANSITION`. Outra pessoa recebe `404`. |
+| `ConditionalOrder` | `{ conditionalOrderId, positionMint, kind, stopPriceUsd?, takeProfitPriceUsd?, amountBaseUnits, state: PENDING_SIGNATURE \| OPEN \| CANCELLING \| FILLED \| CANCELLED \| EXPIRED \| FAILED, filledSide?: STOP \| TAKE_PROFIT, filledAt?, needsUserCancellation, txSignature?, createdAt }`. Substitui `triggerPrice` e ganha `CANCELLING` e `FAILED`. |
+| `needsUserCancellation` | Muda de sentido (BR6.7): verdadeiro só quando o cancelamento automático está parado há mais de 15 minutos. O servidor cancela sozinho nos gatilhos de BR6 (kill switch REAL, liberação revogada ou ausente, saída do modo `AUTO_EXITS`, expiração da assinatura). |
+| `GET /api/v1/real/exports/fiscal` | Novo parâmetro `tz` (zona IANA, padrão `America/Sao_Paulo`) para a coluna `data_local`, porque a pessoa não tem fuso guardado. Período de no máximo 365 dias, nunca invertido (`422 UNPROCESSABLE_FIELDS`); sem datas, os 365 dias até hoje. `200 text/csv` em fluxo (UTF-8 com BOM, `;`, vírgula decimal, CRLF), `Content-Disposition: attachment; filename="historico-real-<de>-<até>.csv"`, `Cache-Control: no-store`. Limite de 10 por pessoa por hora (`429 RATE_LIMITED` com `Retry-After`). Colunas: `data_utc;data_local;tipo;mint;simbolo;quantidade;preco_sol;valor_sol;taxa_sol;assinatura`. |
+
+Todas as rotas acima entraram no `route-registry.yml` (`scope: CLIENT`), com o tenant e a pessoa do token.
+
+### R2 — Carteira do bot
+
+| Item | Mudança |
+|---|---|
+| `RealReleaseView` (`GET /api/v1/real/release`) | Campo novo `exitsEnabled` (o flag `memetrade.real.exits.enabled`). A tela habilita o modo "Automática nas saídas" e "Definir stop e alvo" só com ele verdadeiro. |
+| `PUT /api/v1/real/mode` | Subir para `AUTO_EXITS` com o flag desligado devolve `403 EXITS_DISABLED`; quem já está no modo continua nele. |
+| Anonimização (U5) | Recusa nova `409 OPEN_CONDITIONALS` com condicional não terminal (BR6.9). |
+| Venda da pessoa no modo `SIGNED`/`AUTO_EXITS` (R3) | A assinatura de uma venda com condicional aberta na posição devolve `409 EXIT_CANCELLING` enquanto o cancelamento não confirma, e `409 NOTHING_TO_SELL` quando não sobra posição. |
+
+### Canal ao vivo (R6)
+
+Evento novo `real.conditional.state` (`RealConditionalStateChanged { type: REAL_CONDITIONAL_STATE, conditionalOrderId, positionMint, state, filledSide?, at }`), emitido pelo mesmo `DashboardMarkPoller` dos eventos REAL anteriores, a cada mudança de estado.
+
+### M1, M2 e portas novas
+
+| Item | Mudança |
+|---|---|
+| `RealStateQuery.botWalletIds(tenantId, userId)` | Novo, só de leitura. |
+| `RealLedger.streamEntries(tenantId, botWalletIds, from, to, consumer)` | Novo, só de leitura, em fluxo (`fetchSize` 500) e em transação só de leitura, para a exportação fiscal. Recebe as carteiras do bot porque o ledger não tem coluna de pessoa. |
+| `MarketDataQuery.symbolsOf(tokens)` | Novo, só de leitura (coluna `simbolo` do CSV). |
+| `realexecution.api.PositionExitGuard`, `RealExitChanges`; `botwallet.api.EscrowBalances`, `OpenExitsCheck`, `ExitsAvailability` | Interfaces de extensão sem ciclo; a U7 implementa, e cada módulo dono tem um padrão neutro quando a U7 não está no contexto. A reconciliação (U5) soma o token na custódia da Jupiter ao saldo de token da rede. |
+
+### R1 — API interna do TxSigner
+
+| Item | Mudança |
+|---|---|
+| `operationKind` | Valores novos `TRIGGER_CREATE` e `TRIGGER_CANCEL`. Até a gravação (BR0) são sempre recusados com `reason: POLICY_NOT_RECORDED`, sem registro de assinatura e sem chamar o KMS; a métrica é `txsigner_trigger_refusals_total{reason}`. |
+| `trigger-program.json` | Carregado do classpath com o `.sha256` ao lado e o hash configurado em `txsigner.trigger.program-sha256` (obrigatório no perfil de produção); hash diferente falha a subida. Sem o arquivo, o TxSigner sobe e recusa como acima. |
+
+### Decisão
+
+O caminho simulado (adaptador `SimulatedTriggerAdapter`, perfil `test`, só na `LOCALNET`) não chama o TxSigner nem assina com a chave do bot. A `TriggerPolicy` completa e o adaptador real ficam para depois da gravação real, numa entrega própria.

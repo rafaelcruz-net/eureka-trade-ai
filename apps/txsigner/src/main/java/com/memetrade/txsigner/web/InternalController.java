@@ -113,6 +113,14 @@ public class InternalController {
             if (outcome.signed()) {
                 return ResponseEntity.ok(new SignatureResponse(outcome.signature(), outcome.signedTransactionBase64()));
             }
+            if (body.operationKind().isTrigger()) {
+                // 261113-trading-real-bot U7 (U7-NFR5.4, alert U7-NFR5.9): a server out of the trigger policy.
+                meters.counter(
+                                "txsigner_trigger_refusals",
+                                "reason",
+                                outcome.refusal().name())
+                        .increment();
+            }
             return refusal(outcome.refusal());
         } finally {
             sample.stop(Timer.builder("txsigner_latency")

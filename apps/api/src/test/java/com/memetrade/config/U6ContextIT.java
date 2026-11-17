@@ -35,7 +35,7 @@ class U6ContextIT extends AbstractU6IT {
     void theContextStartsWithTheU6DoublesAndThirteenSchedulerThreads() {
         // U5: 14 since the live channel poller of the api; U8: 16; u2-retention: 18; u4-data-requests: 21
         // (RuntimeSettingsGuard).
-        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("22");
+        assertThat(environment.getProperty("spring.task.scheduling.pool.size")).isEqualTo("23");
         assertThat(marketData).isInstanceOf(ControllableMarketData.class);
         assertThat(auth).isInstanceOf(CycleAuthContext.class);
     }

@@ -28,34 +28,34 @@ class U5SettingsTest {
         // U8 (Passo 1): two more jobs in the api, the kill switch reconciliation and the feedback purge;
         // u2-retention (Passo 10): two more, the login challenge and session purges.
         // u4-data-requests: three more, the request timers, the request purge and the count refresher.
-        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(22);
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "22")))
+        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(23);
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "23")))
                 .doesNotThrowAnyException();
         assertThatCode(() -> new RuntimeSettingsGuard(environment("api", "20", "32")))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "21")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "22")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 22 and 32");
+                .hasMessageContaining("between 23 and 32");
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("api", "20", "4")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }
 
-    /** 261113-trading-real-bot U5 (U5-NFR3.7): 25 to 32 threads, 33 to 48 connections in the worker. */
+    /** 261113-trading-real-bot U5 (U5-NFR3.7) and U7: 28 to 32 threads, 36 to 48 connections in the worker. */
     @Test
     void theWorkerGuardAcceptsTwentyFiveToThirtyTwoThreadsAndThirtyThreeToFortyEightConnections() {
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "33", "25")))
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "36", "28")))
                 .doesNotThrowAnyException();
         assertThatCode(() -> new RuntimeSettingsGuard(environment("worker", "48", "32")))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "32", "25")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "35", "28")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE")
-                .hasMessageContaining("between 33 and 48");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "49", "25")))
+                .hasMessageContaining("between 36 and 48");
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "49", "28")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "33", "24")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "36", "27")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 25 and 32");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "33", "33")))
+                .hasMessageContaining("between 28 and 32");
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("worker", "36", "33")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");
     }
 
@@ -103,9 +103,9 @@ class U5SettingsTest {
         PropertySource<?> worker = yaml("application-worker.yml");
 
         assertThat(String.valueOf(worker.getProperty("spring.datasource.hikari.maximum-pool-size")))
-                .isEqualTo("${DB_POOL_MAX_SIZE:33}");
+                .isEqualTo("${DB_POOL_MAX_SIZE:36}");
         assertThat(String.valueOf(worker.getProperty("spring.task.scheduling.pool.size")))
-                .isEqualTo("${SCHEDULER_POOL_SIZE:25}");
+                .isEqualTo("${SCHEDULER_POOL_SIZE:28}");
         assertThat(String.valueOf(worker.getProperty("spring.datasource.hikari.connection-timeout")))
                 .isEqualTo("5000");
         assertThat(String.valueOf(worker.getProperty("memetrade.bots.scheduler.enabled")))

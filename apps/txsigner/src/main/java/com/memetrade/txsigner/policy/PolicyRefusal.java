@@ -39,7 +39,15 @@ public enum PolicyRefusal {
     AUTHORITY_CHANGE,
     CLOSE_NOT_ALLOWED,
     CAP_EXCEEDED,
-    MODE_NOT_ALLOWED;
+    MODE_NOT_ALLOWED,
+    /**
+     * 261113-trading-real-bot U7 (BR0.3, U7-NFR1.2): {@code TRIGGER_CREATE} and {@code TRIGGER_CANCEL} until the
+     * {@code TriggerPolicy} exists, written only after the real recording of the Jupiter Trigger API.
+     */
+    POLICY_NOT_RECORDED;
+
+    /** U7 (U7-NFR5.4): the closed label set of {@code txsigner_trigger_refusals_total}; grows with the TriggerPolicy. */
+    public static final java.util.Set<PolicyRefusal> TRIGGER_REASONS = java.util.EnumSet.of(POLICY_NOT_RECORDED);
 
     /** The reasons a SWAP can be refused with: the closed label set of {@code txsigner_swap_decisions_total}. */
     public static final java.util.Set<PolicyRefusal> SWAP_REASONS = java.util.EnumSet.of(

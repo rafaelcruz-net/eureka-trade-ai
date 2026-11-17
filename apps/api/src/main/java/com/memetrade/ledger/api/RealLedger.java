@@ -47,4 +47,19 @@ public interface RealLedger {
      * network.
      */
     java.util.Map<String, Long> tokenBalances(UUID tenantId, UUID botWalletId);
+
+    /**
+     * 261113-trading-real-bot U7 (BR7, U7-NFR3.3, U7-NFR3.8, logical-components.md "streamEntries"): the entries of
+     * these bot wallets of this tenant created in {@code [from, to)}, handed one by one to {@code consumer} in a
+     * read-only transaction with a fetch size of 500, never as a list in memory. Ordered so the entries of one
+     * reference are adjacent: by the first instant of the reference in the period, then the reference, then the entry.
+     * The query uses the index {@code (tenant_id, created_at)}; the wallets of the person are filtered after it.
+     * Nothing for an empty set of wallets or a wallet of another tenant; never PAPER.
+     */
+    void streamEntries(
+            UUID tenantId,
+            java.util.Collection<UUID> botWalletIds,
+            Instant from,
+            Instant to,
+            java.util.function.Consumer<RealEntryRecord> consumer);
 }

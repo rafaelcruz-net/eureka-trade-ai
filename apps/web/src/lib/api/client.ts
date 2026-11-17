@@ -39,9 +39,9 @@ export class ApiError extends Error {
 export interface RequestOptions {
   /**
    * U5 adds PUT for the steps of the bot wizard (C4 {@code PUT /bots/{botId}/draft}); 261113-trading-real-bot U6 adds
-   * PATCH for the REAL preferences.
+   * PATCH for the REAL preferences; the U7 adds DELETE for the cancellation of a conditional exit.
    */
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   /** Adds a fresh Idempotency-Key (UUID); such requests may be retried. */
   idempotent?: boolean;
@@ -59,6 +59,11 @@ export interface RequestOptions {
    * for 300 s; after a 409 the screen needs the new version at once).
    */
   revalidate?: boolean;
+  /**
+   * 261113-trading-real-bot U7 (BR8.4): `blob` reads the body as a file (the fiscal CSV); the default is JSON. The file
+   * stays in memory only until the browser saves it; nothing is kept by the app.
+   */
+  responseType?: 'json' | 'blob';
 }
 
 export interface ClientSettings {
@@ -99,7 +104,7 @@ export function createApiClient(settings: ClientSettings) {
     const method = options.method ?? 'GET';
     const headers: Record<string, string> = {
       'X-Correlation-Id': newId(),
-      Accept: 'application/json',
+      Accept: options.responseType === 'blob' ? 'text/csv, application/json' : 'application/json',
     };
     if (options.body !== undefined) {
       headers['Content-Type'] = 'application/json';
@@ -139,14 +144,17 @@ export function createApiClient(settings: ClientSettings) {
         await sleep(backoffMs * 2 ** tries);
         continue;
       }
-      return parse<T>(response);
+      return parse<T>(response, options.responseType ?? 'json');
     }
   }
 
   return { request };
 }
 
-async function parse<T>(response: Response): Promise<T> {
+async function parse<T>(response: Response, responseType: 'json' | 'blob'): Promise<T> {
+  if (response.ok && responseType === 'blob') {
+    return (await response.blob()) as T;
+  }
   if (response.ok) {
     return (response.status === 204 ? undefined : await response.json()) as T;
   }

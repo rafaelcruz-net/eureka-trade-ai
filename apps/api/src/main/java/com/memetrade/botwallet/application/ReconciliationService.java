@@ -1,5 +1,6 @@
 package com.memetrade.botwallet.application;
 
+import com.memetrade.botwallet.api.EscrowBalances;
 import com.memetrade.botwallet.domain.ChainReading;
 import com.memetrade.botwallet.domain.LedgerSnapshot;
 import com.memetrade.botwallet.domain.ReconciliationInputs;
@@ -50,7 +51,9 @@ public class ReconciliationService {
     private final GlobalPauses pauses;
     private final TransactionTemplate transactions;
     private final Clock clock;
+    private final EscrowBalances escrows;
 
+    /** The reconciliation of the U5, without custody accounts (the tests of the U5 build it so). */
     public ReconciliationService(
             ReconciliationStore store,
             ReconciliationReader reader,
@@ -62,6 +65,38 @@ public class ReconciliationService {
             GlobalPauses pauses,
             TransactionTemplate transactions,
             Clock clock) {
+        this(
+                store,
+                reader,
+                ledger,
+                execution,
+                divergences,
+                metrics,
+                ops,
+                pauses,
+                transactions,
+                clock,
+                (t, w) -> List.of());
+    }
+
+    /**
+     * 261113-trading-real-bot U7 (BR5.3b): with the custody accounts of the open conditionals of the Jupiter
+     * ({@link EscrowBalances}, implemented by the conditional exits; none without them).
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public ReconciliationService(
+            ReconciliationStore store,
+            ReconciliationReader reader,
+            RealLedger ledger,
+            RealExecutionPort execution,
+            DivergenceService divergences,
+            RealOpsMetrics metrics,
+            RealOpsProperties ops,
+            GlobalPauses pauses,
+            TransactionTemplate transactions,
+            Clock clock,
+            EscrowBalances escrows) {
+        this.escrows = escrows;
         this.store = store;
         this.reader = reader;
         this.ledger = ledger;
@@ -88,8 +123,13 @@ public class ReconciliationService {
         LedgerSnapshot snapshot = new LedgerSnapshot(
                 ledger.balance(wallet.tenantId(), botWalletId).totalLamports(),
                 ledger.tokenBalances(wallet.tenantId(), botWalletId));
+        // U7 (BR5.3b): the custody accounts of the open conditionals of the Jupiter, read only when the wallet was
+        // read.
+        Optional<java.util.Map<String, Long>> custody = chain.isEmpty()
+                ? Optional.of(java.util.Map.of())
+                : reader.readEscrows(escrows.openEscrows(wallet.tenantId(), botWalletId));
         ReconciliationOutcome outcome =
-                ReconciliationPolicy.decide(new ReconciliationInputs(orders, withdrawals, chain, snapshot));
+                ReconciliationPolicy.decide(new ReconciliationInputs(orders, withdrawals, chain, snapshot, custody));
         RunRecord run = new RunRecord(
                 UUID.randomUUID(), wallet.tenantId(), botWalletId, trigger, outcome, startedAt, clock.instant());
         transactions.executeWithoutResult(status -> {

@@ -151,7 +151,7 @@ class ComposeFilesTest {
             assertThat(String.valueOf(environment(services, "api").get("ADMIN_APP_ORIGIN")))
                     .isEqualTo("${ADMIN_APP_ORIGIN:-http://localhost:3001}");
             assertThat(String.valueOf(environment(services, "api").get("SCHEDULER_POOL_SIZE")))
-                    .isEqualTo("${SCHEDULER_POOL_SIZE:-22}");
+                    .isEqualTo("${SCHEDULER_POOL_SIZE:-23}");
         }
         assertThat(String.valueOf(environment(services(true), "api").get("ADMIN_WALLET_ADDRESSES")))
                 .isEqualTo("${ADMIN_WALLET_ADDRESSES:-}");
@@ -327,8 +327,10 @@ class ComposeFilesTest {
         // U7 (Passo 1): 11 since the four U7 jobs; U6 (Passo 1): 13, one per scheduled job plus the purge; U5: 14;
         // U8 (Passo 1): 16, the kill switch reconciliation and the feedback purge; u2-retention (Passo 10): 18, the
         // login challenge and session purges; u4-data-requests (Passo 1): 21, the request timers, the request purge
-        // and the refresher of the request counts; 261113-trading-real-bot U5: 22, the purge of the REAL operations.
-        defaults.put("SCHEDULER_POOL_SIZE", "22");
+        // and the refresher of the request counts; 261113-trading-real-bot U5: 22, the purge of the REAL operations;
+        // U7: 23,
+        // the purge of the REAL exits.
+        defaults.put("SCHEDULER_POOL_SIZE", "23");
         defaults.put("MARKET_SOURCES", "sim-a,sim-b");
         defaults.put("MARKET_COLLECTION_INTERVAL", "30s");
         defaults.put("MARKET_SIMULATED_TOKENS_PER_SOURCE", "200");
@@ -443,7 +445,7 @@ class ComposeFilesTest {
             }
         }
         String example = read(".env.example");
-        assertThat(example).contains("\nMEMETRADE_AUDIT_WALLET_HMAC_KEY=\n").contains("22 to 32 [22]");
+        assertThat(example).contains("\nMEMETRADE_AUDIT_WALLET_HMAC_KEY=\n").contains("23 to 32 [23]");
         assertThat(read("apps/api/src/main/resources/application.yml"))
                 .contains("wallet-hmac-key: ${MEMETRADE_AUDIT_WALLET_HMAC_KEY:}");
     }
@@ -485,8 +487,8 @@ class ComposeFilesTest {
                             "POSTGRES_PASSWORD")
                     .containsKeys("DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD", "MARKET_SOURCES");
             assertThat(String.valueOf(environment.get("MEMETRADE_PROCESS"))).isEqualTo("worker");
-            assertThat(String.valueOf(environment.get("DB_POOL_MAX_SIZE"))).isEqualTo("33");
-            assertThat(String.valueOf(environment.get("SCHEDULER_POOL_SIZE"))).isEqualTo("25");
+            assertThat(String.valueOf(environment.get("DB_POOL_MAX_SIZE"))).isEqualTo("36");
+            assertThat(String.valueOf(environment.get("SCHEDULER_POOL_SIZE"))).isEqualTo("28");
             assertThat(String.valueOf(environment.get("SPRING_PROFILES_ACTIVE")))
                     .endsWith("worker");
             assertThat(dependsOn(services, "worker"))
@@ -532,8 +534,8 @@ class ComposeFilesTest {
         // feedback retention, 1 connection each.
         int applyLock = 1;
         int feedbackRetention = 1;
-        // 261113-trading-real-bot U5 (U5-NFR3.7): 4 cycles + 4 reserve + 25 jobs.
-        int worker = 33;
+        // 261113-trading-real-bot U5 (U5-NFR3.7): 4 cycles + 4 reserve + one per job; U7: 28 jobs.
+        int worker = 36;
         int startUp = 2;
         int superuserReserved = 3;
         int total = api
@@ -545,13 +547,13 @@ class ComposeFilesTest {
                 + startUp
                 + superuserReserved;
 
-        assertThat(total).isEqualTo(62).isLessThanOrEqualTo(100);
-        assertThat(total + 10).as("with the TxSigner of the REAL overlay").isEqualTo(72);
+        assertThat(total).isEqualTo(65).isLessThanOrEqualTo(100);
+        assertThat(total + 10).as("with the TxSigner of the REAL overlay").isEqualTo(75);
         assertThat(read("docker-compose.yml"))
                 .contains("api 20 + trail retention (U2) 1 + U6 retention 1")
-                .contains("+ U8 apply lock 1 + U8 feedback retention 1 + worker 33")
+                .contains("+ U8 apply lock 1 + U8 feedback retention 1 + worker 36")
                 .contains("+ db-bootstrap and db-migrate at start-up 2 + 3 reserved")
-                .contains("for the superuser = 62");
+                .contains("for the superuser = 65");
     }
 
     // ----- u1-legal-documents (infrastructure-specification.md "Rede" and "Configuração nova da api", NFR6.3) -----

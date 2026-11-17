@@ -109,7 +109,8 @@ public class DashboardStreamController {
                                                             DashboardEvents.Heartbeat.class,
                                                             DashboardEvents.AuthExpired.class,
                                                             DashboardEvents.RealOrderStateChanged.class,
-                                                            DashboardEvents.RealSigningSessionOpened.class
+                                                            DashboardEvents.RealSigningSessionOpened.class,
+                                                            DashboardEvents.RealConditionalStateChanged.class
                                                         }))),
                 @ApiResponse(responseCode = "401", description = "UNAUTHENTICATED"),
                 @ApiResponse(

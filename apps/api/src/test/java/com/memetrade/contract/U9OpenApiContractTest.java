@@ -29,7 +29,9 @@ class U9OpenApiContractTest {
             "DashboardAuthExpiredEvent",
             // 261113-trading-real-bot U4 (R3): the state of a REAL order and the signing session opened.
             "RealOrderStateChanged",
-            "RealSigningSessionOpened");
+            "RealSigningSessionOpened",
+            // 261113-trading-real-bot U7 (R6 addendum): the state of a conditional exit.
+            "RealConditionalStateChanged");
 
     private Map<String, Object> spec;
 

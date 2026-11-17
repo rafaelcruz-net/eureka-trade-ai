@@ -75,6 +75,14 @@ public class DashboardMarkPoller {
         this.realExecution = realExecution;
     }
 
+    /** 261113-trading-real-bot U7 (BR5.5): the conditional exits of the person, pulled like the REAL orders. */
+    private com.memetrade.realexecution.api.RealExitChanges realExits;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void useRealExits(com.memetrade.realexecution.api.RealExitChanges realExits) {
+        this.realExits = realExits;
+    }
+
     /**
      * @param ledgerMarks the C18 mark of U7; U7 declared the interface without a bean, so until it provides one the mark
      *     is derived from its public read model (the instant of the newest order of the person's bots), registered as
@@ -255,6 +263,9 @@ public class DashboardMarkPoller {
                 if (realExecution != null) {
                     sendRealChanges(channel, now);
                 }
+                if (realExits != null) {
+                    sendRealExitChanges(channel);
+                }
                 if (polling && Duration.between(channel.lastHeartbeat, now).compareTo(heartbeat) >= 0) {
                     send(channel, "heartbeat", new DashboardEvents.Heartbeat(now.toString()));
                     channel.lastHeartbeat = now;
@@ -304,6 +315,38 @@ public class DashboardMarkPoller {
             latest = order.updatedAt().isAfter(latest) ? order.updatedAt() : latest;
         }
         channel.realSince = latest;
+    }
+
+    /**
+     * 261113-trading-real-bot U7 (BR5.5, logical-components.md "Evento real.conditional.state"): the conditionals of THIS
+     * person changed since the last mark the channel saw, one {@code real.conditional.state} per change. At the opening
+     * of the channel only the mark is taken (the app reads the conditionals through REST).
+     */
+    private void sendRealExitChanges(Channel channel) throws IOException {
+        TenantScope scope = TenantScope.of(channel.person);
+        long mark = realExits.changeMark(scope.tenantId(), scope.ownerUserId());
+        if (channel.exitsSince == null) {
+            channel.exitsSince = Instant.ofEpochMilli(mark);
+            return;
+        }
+        if (mark <= channel.exitsSince.toEpochMilli()) {
+            return;
+        }
+        Instant latest = channel.exitsSince;
+        for (var change : realExits.changedSince(scope.tenantId(), scope.ownerUserId(), channel.exitsSince, 50)) {
+            send(
+                    channel,
+                    "real.conditional.state",
+                    new DashboardEvents.RealConditionalStateChanged(
+                            "REAL_CONDITIONAL_STATE",
+                            change.conditionalOrderId(),
+                            change.positionMint(),
+                            change.state(),
+                            change.filledSide().orElse(null),
+                            change.at().toString()));
+            latest = change.at().isAfter(latest) ? change.at() : latest;
+        }
+        channel.exitsSince = latest;
     }
 
     /** The ledger mark of the person: C18 of U7 when it exists, else the newest order instant (milliseconds). */
@@ -375,6 +418,9 @@ public class DashboardMarkPoller {
         private Instant lastHeartbeat;
         private Instant lastTradeAt;
         private Instant realSince;
+        /** 261113-trading-real-bot U7: the last change of a conditional this channel announced. */
+        private Instant exitsSince;
+
         private final AtomicBoolean closed = new AtomicBoolean();
 
         private Channel(UUID id, Principal person, SseEmitter emitter, Instant expiresAt, Instant openedAt) {

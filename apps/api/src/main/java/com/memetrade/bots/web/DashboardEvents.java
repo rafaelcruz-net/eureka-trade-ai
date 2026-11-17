@@ -130,6 +130,43 @@ public final class DashboardEvents {
             @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
             String deadline) {}
 
+    /**
+     * 261113-trading-real-bot U7 (BR5.5, contract R6 addendum): {@code real.conditional.state}, a conditional exit of
+     * the person changed its state; the app reads {@code GET /api/v1/real/conditional-orders} (the source of truth).
+     */
+    @Schema(
+            name = "RealConditionalStateChanged",
+            description = "data do evento real.conditional.state (R6, adendo da U7)")
+    public record RealConditionalStateChanged(
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {"REAL_CONDITIONAL_STATE"})
+            String type,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "uuid")
+            UUID conditionalOrderId,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED) String positionMint,
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {
+                        "PENDING_SIGNATURE",
+                        "OPEN",
+                        "CANCELLING",
+                        "FILLED",
+                        "CANCELLED",
+                        "EXPIRED",
+                        "FAILED"
+                    })
+            String state,
+
+            @Schema(allowableValues = {"STOP", "TAKE_PROFIT"})
+            String filledSide,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
+            String at) {}
+
     /** {@code auth.expired}: the access token expired; the channel closes right after. */
     @Schema(name = "DashboardAuthExpiredEvent", description = "data do evento auth.expired")
     public record AuthExpired(

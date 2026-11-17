@@ -21,6 +21,8 @@ export type AuthExpiredEnvelope = Schemas['DashboardAuthExpiredEvent'];
 // 261113-trading-real-bot U6 (BR3.5): the REAL events of the channel (R6 of the U4).
 export type RealSigningRequestedEnvelope = Schemas['RealSigningSessionOpened'];
 export type RealOrderStateEnvelope = Schemas['RealOrderStateChanged'];
+// 261113-trading-real-bot U7 (BR5.5): the conditional exits of the person.
+export type RealConditionalStateEnvelope = Schemas['RealConditionalStateChanged'];
 
 export type DashboardEvent =
   | { kind: 'bot.state'; data: BotStateEnvelope }
@@ -30,7 +32,8 @@ export type DashboardEvent =
   | { kind: 'heartbeat'; data: HeartbeatEnvelope }
   | { kind: 'auth.expired'; data: AuthExpiredEnvelope }
   | { kind: 'real.signing.requested'; data: RealSigningRequestedEnvelope }
-  | { kind: 'real.order.state'; data: RealOrderStateEnvelope };
+  | { kind: 'real.order.state'; data: RealOrderStateEnvelope }
+  | { kind: 'real.conditional.state'; data: RealConditionalStateEnvelope };
 
 const BOT_STATES: readonly BotSummary['state'][] = [
   'DRAFT',
@@ -65,6 +68,20 @@ const REAL_ORDER_STATES: readonly RealOrderStateEnvelope['state'][] = [
   'FAILED',
   'AMBIGUOUS',
   'CANCELLED',
+];
+
+const REAL_CONDITIONAL_STATES: readonly RealConditionalStateEnvelope['state'][] = [
+  'PENDING_SIGNATURE',
+  'OPEN',
+  'CANCELLING',
+  'FILLED',
+  'CANCELLED',
+  'EXPIRED',
+  'FAILED',
+];
+const EXIT_SIDES: readonly NonNullable<RealConditionalStateEnvelope['filledSide']>[] = [
+  'STOP',
+  'TAKE_PROFIT',
 ];
 
 /** Raised inside the check; the caller turns it into a discarded event. */
@@ -202,6 +219,23 @@ function check(kind: EventKind, raw: Json): DashboardEvent {
           at: text(raw.at),
         },
       };
+    case 'real.conditional.state': {
+      const filledSide =
+        raw.filledSide === undefined || raw.filledSide === null
+          ? undefined
+          : oneOf(raw.filledSide, EXIT_SIDES);
+      return {
+        kind,
+        data: {
+          type: oneOf(raw.type, ['REAL_CONDITIONAL_STATE'] as const),
+          conditionalOrderId: text(raw.conditionalOrderId),
+          positionMint: text(raw.positionMint),
+          state: oneOf(raw.state, REAL_CONDITIONAL_STATES),
+          ...(filledSide ? { filledSide } : {}),
+          at: text(raw.at),
+        },
+      };
+    }
   }
 }
 

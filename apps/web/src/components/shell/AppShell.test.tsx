@@ -198,6 +198,7 @@ describe('AppShell with the REAL', () => {
   const release = jest.fn(async () => ({
     network: 'LOCALNET',
     release: { state: 'ACTIVE' as const, effectiveAt: '2026-11-10T12:00:00Z' },
+    exitsEnabled: false,
   }));
 
   it('shows "Carteira do bot" with the REAL label before "Conta" when the REAL is on', async () => {

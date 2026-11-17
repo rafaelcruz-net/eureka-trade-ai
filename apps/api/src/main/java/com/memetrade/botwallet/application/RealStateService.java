@@ -109,6 +109,11 @@ public class RealStateService implements RealStateQuery, RealPauses {
     }
 
     @Override
+    public List<UUID> botWalletIds(UUID tenantId, UUID userId) {
+        return repository.walletIdsOf(tenantId, userId);
+    }
+
+    @Override
     public List<RealWalletRef> walletsInForce() {
         if (!properties.enabled()) {
             return List.of();

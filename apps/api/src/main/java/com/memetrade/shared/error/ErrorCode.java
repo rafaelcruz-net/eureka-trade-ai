@@ -138,6 +138,31 @@ public enum ErrorCode {
     ORDER_IN_PROGRESS(409, "real", "An order or a withdrawal is in progress"),
     /** BR2.5: the restore is confirmed only when every wallet reconciled CLEAN after it. */
     RESTORE_NOT_CLEAN(409, "real", "The restore is not clean yet"),
+    // 261113-trading-real-bot U7 (contract addendum of the U7, R5): the conditional exits and the fiscal export.
+    /** BR9.3, BR8.1: the conditional exits are switched off in this environment (creation and the AUTO_EXITS mode). */
+    EXITS_DISABLED(403, "real", "Conditional exits are disabled"),
+    /** BR4.1: a conditional is created only in the mode "Automática nas saídas" (AUTO_EXITS). */
+    EXITS_MODE_REQUIRED(403, "real", "The AUTO_EXITS mode is required"),
+    /** BR3.1: the position already has a conditional that is not final. */
+    CONDITIONAL_ALREADY_OPEN(409, "conflict", "A conditional is already open on the position"),
+    /** BR3.3: the position has no current price in USD (unknown in the U2). */
+    PRICE_UNKNOWN(422, "real", "The current price is unknown"),
+    /** BR3.4: in an OCO the take-profit must be above the stop. */
+    TP_NOT_ABOVE_SL(422, "real", "The take-profit is not above the stop"),
+    /** BR3.4: the stop must be below the current price and the take-profit above it. */
+    TRIGGER_ON_WRONG_SIDE(422, "real", "A trigger price is on the wrong side of the current price"),
+    /** BR2.6: a stop below 50% of the current price or a take-profit above 10 times it. */
+    TRIGGER_OUT_OF_BOUNDS(422, "real", "A trigger price is out of bounds"),
+    /** BR3.5: the Jupiter refused the conditional (its own minimum distance, for example). */
+    TRIGGER_REJECTED(422, "real", "The conditional was refused by the provider"),
+    /** BR4.1: the token is on the block list of the REAL. */
+    TOKEN_BLOCKED(422, "real", "The token is blocked"),
+    /** BR4.3: the position is already zero (the conditional filled); nothing is sent. */
+    NOTHING_TO_SELL(409, "conflict", "Nothing to sell"),
+    /** logical-components.md: the automatic exit of the position is being cancelled; try again in a moment. */
+    EXIT_CANCELLING(409, "conflict", "The automatic exit is being cancelled"),
+    /** BR6.9: the anonymization is refused while a conditional is not final. */
+    OPEN_CONDITIONALS(409, "real", "Conditional exits are still open"),
     UPSTREAM_UNAVAILABLE(503, "unavailable", "Upstream unavailable");
 
     private static final String TYPE_BASE = "https://memetrade.app/problems/";

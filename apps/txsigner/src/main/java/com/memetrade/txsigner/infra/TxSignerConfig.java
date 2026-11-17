@@ -89,6 +89,49 @@ public class TxSignerConfig {
         return new SigningService(settings, clock, kms, store, events, recovery);
     }
 
+    /**
+     * 261113-trading-real-bot U7 (BR0.3, U7-NFR1.2): the program of the Jupiter Trigger recorded by
+     * {@code record.sh --trigger}, from the resources {@code trigger-program.json} and {@code trigger-program.json.sha256};
+     * a file that does not match its hash (or {@code txsigner.trigger.program-sha256}) stops the start. Without the
+     * recording the TxSigner starts as before and refuses the trigger operations with {@code POLICY_NOT_RECORDED}.
+     */
+    @Bean
+    com.memetrade.txsigner.policy.TriggerProgram triggerProgram(org.springframework.core.env.Environment environment) {
+        com.memetrade.txsigner.policy.TriggerProgram program = TriggerProgramLoader.load(
+                resource("trigger-program.json"),
+                resource("trigger-program.json.sha256")
+                        .map(bytes -> new String(bytes, java.nio.charset.StandardCharsets.UTF_8)),
+                environment.getProperty("txsigner.trigger.program-sha256", ""),
+                environment.acceptsProfiles(org.springframework.core.env.Profiles.of("production")));
+        org.slf4j.LoggerFactory.getLogger(TxSignerConfig.class)
+                .info("Trigger program recorded: {}", program.recorded());
+        return program;
+    }
+
+    private static java.util.Optional<byte[]> resource(String name) {
+        org.springframework.core.io.ClassPathResource resource =
+                new org.springframework.core.io.ClassPathResource(name);
+        if (!resource.exists()) {
+            return java.util.Optional.empty();
+        }
+        try (java.io.InputStream in = resource.getInputStream()) {
+            return java.util.Optional.of(in.readAllBytes());
+        } catch (java.io.IOException unreadable) {
+            throw new IllegalStateException(name + " could not be read", unreadable);
+        }
+    }
+
+    /** U7 (U7-NFR5.4): {@code txsigner_trigger_refusals_total{reason}}, registered with zero at the start. */
+    @Bean
+    java.util.List<io.micrometer.core.instrument.Counter> triggerRefusalCounters(MeterRegistry meters) {
+        return com.memetrade.txsigner.policy.PolicyRefusal.TRIGGER_REASONS.stream()
+                .map(reason -> io.micrometer.core.instrument.Counter.builder("txsigner_trigger_refusals")
+                        .tag("reason", reason.name())
+                        .description("Trigger operations refused by the TxSigner, by reason")
+                        .register(meters))
+                .toList();
+    }
+
     @Bean
     Gauge credentialAge(ServiceCredentials credentials, MeterRegistry meters) {
         return Gauge.builder("txsigner_credential_age_days", credentials, ServiceCredentials::currentAgeDays)

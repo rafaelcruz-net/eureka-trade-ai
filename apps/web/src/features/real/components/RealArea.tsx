@@ -17,7 +17,7 @@ export const ACTIVATION_PATH = '/real/ativacao';
 
 export interface RealAreaContext {
   wallet: BotWallet;
-  release: { network: string; release: Release } | null;
+  release: { network: string; release: Release; exitsEnabled?: boolean } | null;
   api: GuestApi;
   reads: RealReads;
   reloadWallet(): void;

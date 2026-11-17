@@ -236,6 +236,16 @@ public class JdbcBotWalletRepository implements BotWalletRepository {
     }
 
     @Override
+    public List<UUID> walletIdsOf(UUID tenantId, UUID userId) {
+        return jdbc.sql("select bot_wallet_id from bot_wallet_account where tenant_id = :tenant and user_id = :user"
+                        + " order by created_at")
+                .param("tenant", tenantId)
+                .param("user", userId)
+                .query(UUID.class)
+                .list();
+    }
+
+    @Override
     public Optional<Long> lastCapLoweredByAdmin(UUID botWalletId) {
         // 261113-trading-real-bot U6 (BR5.4): only the administrator enqueues LOWER_CAP (CapService); the person's own
         // lowering goes straight to the TxSigner.

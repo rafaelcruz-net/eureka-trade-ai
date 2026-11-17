@@ -34,6 +34,36 @@ public class RealExecutionConfig {
         return CrashPoints.NONE;
     }
 
+    /**
+     * 261113-trading-real-bot U7 (logical-components.md "Ajustes menores"): the empty implementations of the extension
+     * interfaces of the M6, used only when the module {@code realexits} is not in the context: every position is free to
+     * sell and no conditional is ever announced.
+     */
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(
+            com.memetrade.realexecution.api.PositionExitGuard.class)
+    public com.memetrade.realexecution.api.PositionExitGuard noExitGuard() {
+        return (tenantId, userId, mint) -> com.memetrade.realexecution.api.PositionExitGuard.ExitRelease.READY;
+    }
+
+    @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean(
+            com.memetrade.realexecution.api.RealExitChanges.class)
+    public com.memetrade.realexecution.api.RealExitChanges noExitChanges() {
+        return new com.memetrade.realexecution.api.RealExitChanges() {
+            @Override
+            public long changeMark(java.util.UUID tenantId, java.util.UUID userId) {
+                return 0;
+            }
+
+            @Override
+            public List<com.memetrade.realexecution.api.RealExitChanges.ConditionalChange> changedSince(
+                    java.util.UUID tenantId, java.util.UUID userId, java.time.Instant since, int limit) {
+                return List.of();
+            }
+        };
+    }
+
     /** The settings after the start-up check. */
     public record CheckedSettings(RealExecutionProperties properties) {}
 }

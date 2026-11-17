@@ -93,7 +93,14 @@ class RouteRegistryTest {
                         "POST /api/v1/real/orders/{realOrderId}/reject",
                         "PUT /api/v1/real/mode",
                         "POST /api/v1/real/liquidations",
-                        "GET /api/v1/real/pnl");
+                        "GET /api/v1/real/pnl",
+                        // 261113-trading-real-bot U7 (R5): the conditional exits and the fiscal export of the caller.
+                        "POST /api/v1/real/conditional-orders",
+                        "GET /api/v1/real/conditional-orders",
+                        "GET /api/v1/real/conditional-orders/quote",
+                        "POST /api/v1/real/conditional-orders/{conditionalOrderId}/signature",
+                        "DELETE /api/v1/real/conditional-orders/{conditionalOrderId}",
+                        "GET /api/v1/real/exports/fiscal");
         assertThat(registry.routes())
                 .extracting(RouteRegistry.Entry::scope)
                 .allMatch(s -> Set.of("GLOBAL", "SESSION", "ADMIN", "CLIENT").contains(s));

@@ -220,6 +220,26 @@ public class JdbcMarketDataQuery implements MarketDataQuery, MarketRiskInputs, S
         return decimals;
     }
 
+    @Override
+    public Map<TokenId, String> symbolsOf(Set<TokenId> tokens) {
+        Map<TokenId, String> symbols = new LinkedHashMap<>();
+        if (tokens.isEmpty()) {
+            return symbols;
+        }
+        try {
+            keys(jdbc.sql("""
+                                    select t.chain, t.mint, t.symbol from token t
+                                    join unnest(string_to_array(:chains, ','), string_to_array(:mints, ','))
+                                      as k(chain, mint) on k.chain = t.chain and k.mint = t.mint
+                                    """), tokens).query(rs -> {
+                symbols.put(new TokenId(rs.getString("chain"), rs.getString("mint")), rs.getString("symbol"));
+            });
+        } catch (DataAccessException failure) {
+            logFailure("symbolsOf", failure);
+        }
+        return symbols;
+    }
+
     /** Joins the observations with the set of tokens; chains and mints never contain a comma (Base58, ids). */
     private static final String BATCH = " join unnest(string_to_array(:chains, ','), string_to_array(:mints, ','))"
             + " as k(chain, mint) on k.chain = o.chain and k.mint = o.mint";

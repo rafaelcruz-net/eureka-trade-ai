@@ -40,6 +40,19 @@ public interface ChainPort {
      */
     Map<String, Long> tokenBalances(String owner);
 
+    /**
+     * 261113-trading-real-bot U7 (BR5.3b): the base units held by ONE token account (the custody account of a
+     * conditional of the Jupiter, recorded at its creation), with its mint, in commitment finalized
+     * (getTokenAccountBalance). An adapter without it fails as unavailable, so the reconciliation is UNAVAILABLE and
+     * never a divergence.
+     */
+    default TokenAccountBalance tokenAccountBalance(String tokenAccount) {
+        throw new ChainUnavailableException("The token account balance is not readable through this chain port");
+    }
+
+    /** U7: the balance of one token account and its mint. */
+    record TokenAccountBalance(String mint, long baseUnits) {}
+
     /** U5 (BR2.1): the last finalized slot (getSlot finalized). */
     long finalizedSlot();
 

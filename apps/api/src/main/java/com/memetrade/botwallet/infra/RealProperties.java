@@ -27,7 +27,20 @@ public record RealProperties(
         TxSigner txsigner,
         Rpc rpc,
         Jobs jobs,
-        String founderUserId) {
+        String founderUserId,
+        Exits exits) {
+
+    /**
+     * 261113-trading-real-bot U7 (BR0.3, BR9.3, U7-NFR4.10, infrastructure-specification.md "Caminho simulado"): the
+     * conditional exits are OFF by default in every profile; the simulated adapter is accepted only on the LOCALNET.
+     */
+    public RealProperties {
+        exits = exits == null ? Exits.OFF : exits;
+        if (Exits.SIMULATED.equals(exits.adapter()) && network != Network.LOCALNET) {
+            throw new IllegalArgumentException(
+                    "memetrade.real.exits.adapter=simulated is accepted only on the LOCALNET network");
+        }
+    }
 
     /** U5 (BR1.3): the founder, or empty when the property is blank. */
     public java.util.Optional<java.util.UUID> founder() {
@@ -46,4 +59,32 @@ public record RealProperties(
             int withdrawalBatchSize,
             Duration withdrawalLease,
             Duration stuckChallengeInterval) {}
+
+    /**
+     * 261113-trading-real-bot U7: {@code memetrade.real.exits}. {@code adapter} is {@code jupiter} (the real Trigger API,
+     * built only after the recording of BR0) or {@code simulated} (LOCALNET and the test profile only, never a
+     * transaction). The optional Jupiter API key is never printed (BR9.4, U7-NFR1.5).
+     */
+    public record Exits(boolean enabled, String adapter, String jupiterApiKey) {
+
+        public static final String SIMULATED = "simulated";
+        public static final String JUPITER = "jupiter";
+
+        /** The default: off, with the real adapter (which does not exist until the recording). */
+        public static final Exits OFF = new Exits(false, JUPITER, "");
+
+        public Exits {
+            adapter = adapter == null || adapter.isBlank() ? JUPITER : adapter.trim();
+            if (!SIMULATED.equals(adapter) && !JUPITER.equals(adapter)) {
+                throw new IllegalArgumentException("memetrade.real.exits.adapter must be jupiter or simulated");
+            }
+            jupiterApiKey = jupiterApiKey == null ? "" : jupiterApiKey;
+        }
+
+        @Override
+        public String toString() {
+            return "Exits[enabled=" + enabled + ", adapter=" + adapter + ", jupiterApiKey="
+                    + (jupiterApiKey.isEmpty() ? "<none>" : "<masked>") + "]";
+        }
+    }
 }

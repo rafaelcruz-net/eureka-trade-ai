@@ -107,6 +107,7 @@ describe('R1 activation', () => {
         getRealRelease: jest.fn(async () => ({
           network: 'LOCALNET',
           release: { state: state as 'NONE', effectiveAt, blockedReason: reason },
+          exitsEnabled: false,
         })),
       });
       await renderActivation(api);
@@ -164,7 +165,7 @@ describe('R1 activation', () => {
       if (!accepted) {
         throw problem(403, 'TERMS_REACCEPTANCE_REQUIRED');
       }
-      return { network: 'LOCALNET', release: { state: 'ACTIVE' as const } };
+      return { network: 'LOCALNET', release: { state: 'ACTIVE' as const }, exitsEnabled: false };
     });
     const acceptTerms = jest.fn(async () => {
       accepted = true;

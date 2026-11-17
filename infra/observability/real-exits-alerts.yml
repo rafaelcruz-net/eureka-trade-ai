@@ -1,0 +1,84 @@
+# Alert rules of the conditional exits of the REAL (261113-trading-real-bot U7, observability-requirements.md
+# U7-NFR5.7 to U7-NFR5.10, monitoring-design.md), in the Prometheus format, for the metrics the worker (read,
+# cancellation and gauges of the conditionals), the api (purge) and the TxSigner (refusals of the trigger policy)
+# expose on /actuator/prometheus. Checked by `promtool check rules infra/observability/real-exits-alerts.yml`. Labels
+# never carry a mint, an address, a signature nor a person: only job, state, side, reason and result, all closed. Every
+# alarm goes to the one SNS topic of the pilot; the severity is in the label.
+#
+# Each alert carries the annotations `threshold` and `window_seconds` (and `job` when the alarm has that dimension);
+# RealExitsAlarmParityTest compares them with the expression below and with the CloudWatch alarm of the same name in
+# infra/terraform/modules/observability/real-exits.tf.
+#
+# The gauges use max_over_time over the window, the same as the CloudWatch statistic Maximum over the period. When the
+# gauges stop arriving, the stalled exits-gauges alert (with its absent()) is the one that warns.
+groups:
+  - name: real-exits
+    rules:
+      - alert: RealExitsCancellingStalled
+        # U7-NFR5.7 (BR6.4, BR6.7): a conditional in CANCELLING for 15 minutes; the person is told to call the support.
+        expr: max(max_over_time(real_conditional_cancelling_oldest_seconds[1m])) > 900
+        labels: { severity: critical }
+        annotations:
+          summary: An automatic cancellation of a conditional has been stalled for 900 seconds; follow docs/runbooks/real-exits.md.
+          threshold: "900"
+          window_seconds: "60"
+      - alert: RealExitsConditionalUnread
+        # U7-NFR5.8 (BR5.6): an OPEN conditional without a successful read of the provider for 2 hours.
+        expr: max(max_over_time(real_conditional_unread_oldest_seconds[5m])) > 7200
+        labels: { severity: high }
+        annotations:
+          summary: An OPEN conditional has not been read from the Jupiter for more than 7200 seconds.
+          threshold: "7200"
+          window_seconds: "300"
+      - alert: RealExitsTriggerPolicyRefused
+        # U7-NFR5.9: the TxSigner refused a trigger operation: the server asked something outside the policy.
+        expr: sum(increase(txsigner_trigger_refusals_total[5m])) > 0
+        labels: { severity: high }
+        annotations:
+          summary: The TxSigner refused a trigger operation (reason in the metric); the api or the worker is out of the policy.
+          threshold: "0"
+          window_seconds: "300"
+      - alert: RealExitsJobStalledRead
+        # U7-NFR5.10: no successful read of the conditionals in 2 minutes, or the job never published.
+        expr: >
+          sum(increase(real_exits_job_runs_total{job="read"}[2m])) < 1
+          or absent(real_exits_job_runs_total{job="read"})
+        labels: { severity: critical }
+        annotations:
+          summary: The read of the conditional exits did not run in 2 minutes; fills are not entering the ledger.
+          threshold: "1"
+          window_seconds: "120"
+          job: read
+      - alert: RealExitsJobStalledCancel
+        # U7-NFR5.10: no successful run of the automatic cancellation in 3 minutes.
+        expr: >
+          sum(increase(real_exits_job_runs_total{job="cancel"}[3m])) < 1
+          or absent(real_exits_job_runs_total{job="cancel"})
+        labels: { severity: critical }
+        annotations:
+          summary: The automatic cancellation of the conditionals did not run in 3 minutes (kill switch, mode, revocation).
+          threshold: "1"
+          window_seconds: "180"
+          job: cancel
+      - alert: RealExitsJobStalledExitsGauges
+        # U7-NFR5.10: no successful run of the gauges in 2 minutes: the gauge alerts of the U7 are blind.
+        expr: >
+          sum(increase(real_exits_job_runs_total{job="exits-gauges"}[2m])) < 1
+          or absent(real_exits_job_runs_total{job="exits-gauges"})
+        labels: { severity: critical }
+        annotations:
+          summary: The gauges of the conditional exits did not run in 2 minutes; the other alerts of the U7 are blind.
+          threshold: "1"
+          window_seconds: "120"
+          job: exits-gauges
+      - alert: RealExitsJobStalledPurge
+        # U7-NFR5.10: no successful run of the purge of the api in 26 hours.
+        expr: >
+          sum(increase(real_exits_job_runs_total{job="purge"}[1560m])) < 1
+          or absent(real_exits_job_runs_total{job="purge"})
+        labels: { severity: critical }
+        annotations:
+          summary: The purge of the conditional exits did not succeed in 26 hours.
+          threshold: "1"
+          window_seconds: "93600"
+          job: purge

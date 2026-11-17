@@ -1,0 +1,224 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u7-exits-and-fiscal",
+  "upstream_ids": [
+    "U7-NFR1.2",
+    "U7-NFR1.5",
+    "U7-NFR3.5",
+    "U7-NFR3.6",
+    "U7-NFR3.7",
+    "U7-NFR4.10",
+    "U7-NFR5.1",
+    "U7-NFR5.2",
+    "U7-NFR5.3",
+    "U7-NFR5.4",
+    "U7-NFR5.5",
+    "U7-NFR5.6",
+    "U7-NFR5.6b",
+    "U7-NFR5.7",
+    "U7-NFR5.8",
+    "U7-NFR5.9",
+    "U7-NFR5.10",
+    "U7-NFR5.11",
+    "U7-NFR8.2",
+    "U7-NFR8.5",
+    "U7-NFR8.6",
+    "U7-NFR3.1",
+    "U7-NFR3.2",
+    "U7-NFR3.3",
+    "U7-NFR3.4",
+    "U7-NFR3.8",
+    "U7-NFR3.9",
+    "U7-NFR4.1",
+    "U7-NFR4.3",
+    "U7-NFR4.4",
+    "U7-NFR4.5",
+    "U7-NFR4.7",
+    "U7-NFR4.8",
+    "U7-NFR4.11",
+    "U7-NFR4.12",
+    "U7-NFR1.8"
+  ],
+  "coverage": [
+    {
+      "id": "U7-NFR1.2",
+      "status": "OK",
+      "target": "infrastructure-specification: TxSigner sem o arquivo recusa; cicd-pipeline: job txsigner"
+    },
+    {
+      "id": "U7-NFR1.5",
+      "status": "OK",
+      "target": "infrastructure-specification: segredo jupiter-api-key, sem segredo na CI"
+    },
+    {
+      "id": "U7-NFR3.5",
+      "status": "OK",
+      "target": "infrastructure-specification: índice único parcial na 0022"
+    },
+    {
+      "id": "U7-NFR3.6",
+      "status": "OK",
+      "target": "infrastructure-specification: índices da 0022"
+    },
+    {
+      "id": "U7-NFR3.7",
+      "status": "OK",
+      "target": "infrastructure-specification: gatilho de idade de 5 anos e matriz de privilégios"
+    },
+    {
+      "id": "U7-NFR4.10",
+      "status": "OK",
+      "target": "infrastructure-specification: flag desligado fora do perfil de teste local; adaptador simulado recusado fora da LOCALNET"
+    },
+    {
+      "id": "U7-NFR5.1",
+      "status": "OK",
+      "target": "monitoring-design"
+    },
+    {
+      "id": "U7-NFR5.2",
+      "status": "OK",
+      "target": "monitoring-design"
+    },
+    {
+      "id": "U7-NFR5.3",
+      "status": "OK",
+      "target": "monitoring-design"
+    },
+    {
+      "id": "U7-NFR5.4",
+      "status": "OK",
+      "target": "monitoring-design"
+    },
+    {
+      "id": "U7-NFR5.5",
+      "status": "OK",
+      "target": "monitoring-design"
+    },
+    {
+      "id": "U7-NFR5.6",
+      "status": "OK",
+      "target": "monitoring-design"
+    },
+    {
+      "id": "U7-NFR5.6b",
+      "status": "OK",
+      "target": "monitoring-design"
+    },
+    {
+      "id": "U7-NFR5.7",
+      "status": "OK",
+      "target": "monitoring-design: regra e alarme"
+    },
+    {
+      "id": "U7-NFR5.8",
+      "status": "OK",
+      "target": "monitoring-design: regra e alarme"
+    },
+    {
+      "id": "U7-NFR5.9",
+      "status": "OK",
+      "target": "monitoring-design: regra e alarme"
+    },
+    {
+      "id": "U7-NFR5.10",
+      "status": "OK",
+      "target": "monitoring-design: uma regra e um alarme por trabalho"
+    },
+    {
+      "id": "U7-NFR5.11",
+      "status": "OK",
+      "target": "monitoring-design: logs"
+    },
+    {
+      "id": "U7-NFR8.2",
+      "status": "OK",
+      "target": "infrastructure-specification: record.sh --trigger sem chave e sem envio"
+    },
+    {
+      "id": "U7-NFR8.5",
+      "status": "OK",
+      "target": "infrastructure-specification: e2e/real-exports e e2e/real-exits (último), caminho simulado sem TxSigner nem ledger"
+    },
+    {
+      "id": "U7-NFR8.6",
+      "status": "OK",
+      "target": "cicd-pipeline: jobs com o piso"
+    },
+    {
+      "id": "U7-NFR3.1",
+      "status": "OK",
+      "target": "monitoring-design: fill_lag; ITs com RPC gravado (caminho simulado não preenche)"
+    },
+    {
+      "id": "U7-NFR3.2",
+      "status": "OK",
+      "target": "infrastructure-specification: trabalho de cancelamento no worker; rollback espera até 5 min"
+    },
+    {
+      "id": "U7-NFR3.3",
+      "status": "OK",
+      "target": "infrastructure-specification: e2e/real-exports"
+    },
+    {
+      "id": "U7-NFR3.4",
+      "status": "OK",
+      "target": "infrastructure-specification: e2e/real-exits (criação)"
+    },
+    {
+      "id": "U7-NFR3.8",
+      "status": "OK",
+      "target": "infrastructure-specification: período no e2e/real-exports"
+    },
+    {
+      "id": "U7-NFR3.9",
+      "status": "OK",
+      "target": "cicd-pipeline: job backend (limitador)"
+    },
+    {
+      "id": "U7-NFR4.1",
+      "status": "OK",
+      "target": "infrastructure-specification: 0022 e trabalhos com ShedLock"
+    },
+    {
+      "id": "U7-NFR4.3",
+      "status": "OK",
+      "target": "infrastructure-specification: colunas not_before e attempts na 0022"
+    },
+    {
+      "id": "U7-NFR4.4",
+      "status": "OK",
+      "target": "infrastructure-specification: worker 28/36"
+    },
+    {
+      "id": "U7-NFR4.5",
+      "status": "OK",
+      "target": "infrastructure-specification: rollback espera o cancelamento"
+    },
+    {
+      "id": "U7-NFR4.7",
+      "status": "OK",
+      "target": "infrastructure-specification: saque sempre disponível, inclusive no rollback"
+    },
+    {
+      "id": "U7-NFR4.8",
+      "status": "OK",
+      "target": "infrastructure-specification: EscrowBalances zero no simulado, reconciliação limpa"
+    },
+    {
+      "id": "U7-NFR4.11",
+      "status": "OK",
+      "target": "monitoring-design: alerta de 15 min"
+    },
+    {
+      "id": "U7-NFR4.12",
+      "status": "OK",
+      "target": "infrastructure-specification: e2e/real-exports"
+    },
+    {
+      "id": "U7-NFR1.8",
+      "status": "OK",
+      "target": "infrastructure-specification: caminho simulado só no perfil de teste e na LOCALNET; ArchUnit e teste do contexto de produção"
+    }
+  ]
+}

@@ -41,3 +41,5 @@ databaseChangeLog:
       file: db/changelog/changes/0020-real-bot-cycle.sql
   - include:
       file: db/changelog/changes/0021-real-operations.sql
+  - include:
+      file: db/changelog/changes/0022-real-exits.sql

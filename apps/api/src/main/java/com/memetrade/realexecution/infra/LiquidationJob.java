@@ -6,6 +6,7 @@ import com.memetrade.botwallet.api.RealExecutionWallet;
 import com.memetrade.botwallet.api.RealWalletInfo;
 import com.memetrade.ledger.api.RealLedger;
 import com.memetrade.ledger.api.RealPosition;
+import com.memetrade.realexecution.api.PositionExitGuard;
 import com.memetrade.realexecution.api.RealFailureCode;
 import com.memetrade.realexecution.api.RealOrderState;
 import com.memetrade.realexecution.api.RealSide;
@@ -52,6 +53,7 @@ public class LiquidationJob {
     private final RealExecutionProperties properties;
     private final Clock clock;
     private final TransactionTemplate transactions;
+    private final PositionExitGuard exits;
 
     public LiquidationJob(
             JdbcRealExecutionStore store,
@@ -62,7 +64,9 @@ public class LiquidationJob {
             RealExecutionMetrics metrics,
             RealExecutionConfig.CheckedSettings settings,
             Clock clock,
-            PlatformTransactionManager manager) {
+            PlatformTransactionManager manager,
+            PositionExitGuard exits) {
+        this.exits = exits;
         this.store = store;
         this.wallets = wallets;
         this.ledger = ledger;
@@ -109,18 +113,54 @@ public class LiquidationJob {
         }
         Set<String> skip = new HashSet<>(store.ambiguousMints(liquidation.tenantId(), liquidation.userId()));
         store.salesOf(liquidation.liquidationId()).forEach(sale -> skip.add(sale.mint()));
-        Optional<RealPosition> next = ledger
+        List<RealPosition> candidates = ledger
                 .positions(liquidation.tenantId(), wallet.get().botWalletId())
                 .stream()
                 .filter(position -> !skip.contains(position.mint()))
-                .findFirst();
-        if (next.isPresent()) {
-            transactions.executeWithoutResult(status -> createSale(liquidation, wallet.get(), next.get()));
+                .toList();
+        boolean waiting = false;
+        for (RealPosition candidate : candidates) {
+            Boolean created = transactions.execute(status -> saleOf(liquidation, wallet.get(), candidate));
+            if (Boolean.TRUE.equals(created)) {
+                return;
+            }
+            waiting = waiting || created == null;
+        }
+        if (waiting) {
+            // 261113-trading-real-bot U7: a position still held by a conditional waits for the next round.
             return;
         }
         if (store.moveLiquidation(liquidation.liquidationId(), "SELLING", "WITHDRAWING", null, "[]", clock.instant())) {
             withdraw(new LiquidationRow(
                     liquidation.liquidationId(), liquidation.tenantId(), liquidation.userId(), "WITHDRAWING", null));
+        }
+    }
+
+    /**
+     * 261113-trading-real-bot U7 (BR4.3, BR6.8, logical-components.md "Liquidação (U4)"): under the person lock, the
+     * guard of the conditional exits answers first; WAIT leaves the position for the next round (the other positions of
+     * the round go on), READY reads the position again from the REAL ledger and creates its sale.
+     *
+     * @return TRUE when a sale was created, FALSE when nothing is left of the position, null when it waits
+     */
+    private Boolean saleOf(LiquidationRow liquidation, RealWalletInfo wallet, RealPosition candidate) {
+        try {
+            return gate.withPersonLock(liquidation.tenantId(), liquidation.userId(), () -> {
+                if (exits.releaseForSale(liquidation.tenantId(), liquidation.userId(), candidate.mint())
+                        == PositionExitGuard.ExitRelease.WAIT) {
+                    return null;
+                }
+                Optional<RealPosition> fresh = ledger.positions(liquidation.tenantId(), wallet.botWalletId()).stream()
+                        .filter(position -> position.mint().equals(candidate.mint()))
+                        .findFirst();
+                if (fresh.isEmpty()) {
+                    return Boolean.FALSE;
+                }
+                createSale(liquidation, wallet, fresh.get());
+                return Boolean.TRUE;
+            });
+        } catch (com.memetrade.riskcontrol.api.RealGateUnavailable noLock) {
+            return null;
         }
     }
 

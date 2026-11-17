@@ -159,7 +159,7 @@ SMOKE_WALLET_FILE="$KEY_FILE" \
   SOLANA_RPC_URL="http://127.0.0.1:8899" \
   DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:5432/${POSTGRES_DB:-memetrade}" \
   "${PNPM[@]}" --dir apps/web exec playwright test e2e/u1-walking-skeleton e2e/u2-audit-trail e2e/u4-discovery e2e/u7-ledger-pnl e2e/u5-bots-decision e2e/u8-admin-feedback e2e/u9-dashboard e2e/u3-identity-access e2e/legal-documents \
-    e2e/reacceptance e2e/data-requests e2e/anonymization e2e/real-bot-wallet e2e/real-swap e2e/real-ops e2e/real-ui
+    e2e/reacceptance e2e/data-requests e2e/anonymization e2e/real-bot-wallet e2e/real-swap e2e/real-ops e2e/real-ui e2e/real-exports e2e/real-exits
 
 log "scanning the api, worker and admin logs for full wallet addresses and the feedback text (NFR7.3)"
 SERVICE_LOGS="$("${COMPOSE[@]}" logs --no-color api worker admin txsigner jupiter-stub)"

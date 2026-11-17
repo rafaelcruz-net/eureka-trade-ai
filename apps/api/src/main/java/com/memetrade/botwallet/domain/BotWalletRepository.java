@@ -41,6 +41,12 @@ public interface BotWalletRepository {
     List<RealRelease> releases(UUID userId);
 
     /**
+     * 261113-trading-real-bot U7 (BR7.8): every bot wallet the person had in this tenant (ACTIVE or CLOSED), for the
+     * fiscal export of the REAL ledger.
+     */
+    List<UUID> walletIdsOf(UUID tenantId, UUID userId);
+
+    /**
      * 261113-trading-real-bot U6 (BR5.4): the cap of the most recent LOWER_CAP command of the administrator for this
      * wallet (U5 BR4.1); empty when the administrator never lowered it.
      */

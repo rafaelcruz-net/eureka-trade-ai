@@ -63,7 +63,10 @@ import org.springframework.transaction.support.TransactionTemplate;
             com.memetrade.botwallet.web.BotWalletController.class,
             // 261113-trading-real-bot U4 (R3): the REAL orders, mode, liquidation and P&L of the guest.
             com.memetrade.realexecution.web.RealOrderController.class,
-            com.memetrade.pnl.web.RealPnlController.class
+            com.memetrade.pnl.web.RealPnlController.class,
+            // 261113-trading-real-bot U7 (R5 of the addendum): the conditional exits and the fiscal export.
+            com.memetrade.realexits.web.ConditionalController.class,
+            com.memetrade.realexits.fiscal.FiscalExportController.class
         })
 @Import({OpenApiConfig.class, ProblemWriter.class})
 @ImportAutoConfiguration({
@@ -86,6 +89,22 @@ public abstract class GuestOpenApiSlice {
     /** 261113-trading-real-bot U6: the read of the release goes through the M1. */
     @MockitoBean
     com.memetrade.botwallet.api.RealStateQuery realStateQuery;
+
+    /** 261113-trading-real-bot U7: the exits flag of the release, the conditional exits and the fiscal export. */
+    @MockitoBean
+    com.memetrade.botwallet.api.ExitsAvailability exitsAvailability;
+
+    @MockitoBean
+    com.memetrade.realexits.application.ConditionalService conditionalService;
+
+    @MockitoBean
+    com.memetrade.realexits.fiscal.FiscalExportService fiscalExportService;
+
+    @MockitoBean
+    com.memetrade.realexits.fiscal.FiscalExportLimiter fiscalExportLimiter;
+
+    @MockitoBean
+    com.memetrade.realexits.infra.RealExitsMetrics realExitsMetrics;
 
     @MockitoBean
     LoginVerificationService loginVerificationService;

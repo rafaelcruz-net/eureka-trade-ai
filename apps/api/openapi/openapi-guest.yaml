@@ -1134,6 +1134,128 @@ paths:
       summary: Um saque
       tags:
       - REAL — carteira do bot
+  /api/v1/real/conditional-orders:
+    get:
+      operationId: listRealConditionalOrders
+      parameters:
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConditionalOrderPage"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Saídas automáticas da pessoa, mais recentes primeiro"
+      tags:
+      - REAL — saídas automáticas
+    post:
+      operationId: createRealConditionalOrder
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConditionalOrderRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedConditionalOrder"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Cria stop, alvo ou OCO de uma posição REAL e abre a sessão de assinatura"
+      tags:
+      - REAL — saídas automáticas
+  /api/v1/real/conditional-orders/quote:
+    get:
+      operationId: quoteRealConditionalOrder
+      parameters:
+      - in: query
+        name: positionMint
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConditionalQuote"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Posição e preço atual em USD (com fonte e horário) para definir stop
+        e alvo
+      tags:
+      - REAL — saídas automáticas
+  /api/v1/real/conditional-orders/{conditionalOrderId}:
+    delete:
+      operationId: cancelRealConditionalOrder
+      parameters:
+      - in: path
+        name: conditionalOrderId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConditionalOrder"
+          description: OK
+      security:
+      - accessToken: []
+      summary: "Cancela a saída automática: CANCELLED sem assinatura pendente, CANCELLING\
+        \ se já aberta"
+      tags:
+      - REAL — saídas automáticas
+  /api/v1/real/conditional-orders/{conditionalOrderId}/signature:
+    post:
+      operationId: signRealConditionalOrder
+      parameters:
+      - in: path
+        name: conditionalOrderId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConditionalSignatureRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConditionalOrder"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Recebe a assinatura da carteira principal; o servidor confere e abre
+        a condicional
+      tags:
+      - REAL — saídas automáticas
   /api/v1/real/consents/challenge:
     post:
       operationId: issueRealConsentChallenge
@@ -1155,6 +1277,38 @@ paths:
       summary: Emite o desafio de consentimento
       tags:
       - REAL — carteira do bot
+  /api/v1/real/exports/fiscal:
+    get:
+      operationId: exportRealFiscalCsv
+      parameters:
+      - in: query
+        name: from
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: to
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: tz
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            text/csv:
+              schema:
+                type: string
+          description: "O arquivo CSV, gerado na hora e não guardado"
+      security:
+      - accessToken: []
+      summary: "Histórico REAL da pessoa em CSV (UTF-8 com BOM, ponto e vírgula, ví\
+        rgula decimal)"
+      tags:
+      - REAL — exportação fiscal
   /api/v1/real/liquidations:
     post:
       operationId: startRealLiquidation
@@ -1565,6 +1719,7 @@ paths:
                 - $ref: "#/components/schemas/DashboardAuthExpiredEvent"
                 - $ref: "#/components/schemas/RealOrderStateChanged"
                 - $ref: "#/components/schemas/RealSigningSessionOpened"
+                - $ref: "#/components/schemas/RealConditionalStateChanged"
           description: "Fluxo de eventos do painel. Cada evento tem id (b<marca>.l<marca>.s<marca>,\
             \ só para Last-Event-ID), event (o nome) e data: o JSON de um destes envelopes,\
             \ conforme o nome: bot.state DashboardBotStateEvent, trade.recorded DashboardTradeRecordedEvent,\
@@ -2220,6 +2375,156 @@ components:
       - issuedAt
       - message
       - nonce
+    ConditionalOrder:
+      type: object
+      additionalProperties: false
+      description: "Uma saída automática (stop, alvo ou OCO) de uma posição REAL"
+      properties:
+        amountBaseUnits:
+          type: string
+          description: "Quantidade em unidades base, como texto"
+        conditionalOrderId:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        filledAt:
+          type: string
+          format: date-time
+        filledSide:
+          type: string
+          enum:
+          - STOP
+          - TAKE_PROFIT
+        kind:
+          type: string
+          enum:
+          - STOP
+          - TAKE_PROFIT
+          - OCO
+        needsUserCancellation:
+          type: boolean
+          description: Cancelamento automático parado há 15 minutos ou mais (BR6.7)
+        positionMint:
+          type: string
+        state:
+          type: string
+          enum:
+          - PENDING_SIGNATURE
+          - OPEN
+          - CANCELLING
+          - FILLED
+          - CANCELLED
+          - EXPIRED
+          - FAILED
+        stopPriceUsd:
+          type: string
+          description: DecimalString em USD
+        takeProfitPriceUsd:
+          type: string
+          description: DecimalString em USD
+        txSignature:
+          type: string
+          description: "Assinatura do preenchimento ou, antes dele, da criação"
+      required:
+      - amountBaseUnits
+      - conditionalOrderId
+      - createdAt
+      - kind
+      - needsUserCancellation
+      - positionMint
+      - state
+    ConditionalOrderPage:
+      type: object
+      additionalProperties: false
+      description: "Condicionais da pessoa, mais recentes primeiro"
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConditionalOrder"
+        nextCursor:
+          type: string
+        total:
+          type: integer
+          format: int64
+      required:
+      - items
+      - total
+    ConditionalQuote:
+      type: object
+      additionalProperties: false
+      description: "Posição e preço atual em USD para o diálogo \"Definir stop e alvo\"\
+        \ (BR8.2, BR2.6)"
+      properties:
+        maxTakeProfitPriceUsd:
+          type: string
+          description: "Maior alvo aceito (10 vezes o preço atual), DecimalString"
+        minStopPriceUsd:
+          type: string
+          description: "Menor stop aceito (50% do preço atual), DecimalString"
+        observedAt:
+          type: string
+          format: date-time
+        positionBaseUnits:
+          type: string
+          description: "Posição inteira em unidades base, como texto"
+        positionMint:
+          type: string
+        priceStatus:
+          type: string
+          enum:
+          - KNOWN
+          - UNKNOWN
+        priceUsd:
+          type: string
+          description: DecimalString em USD; ausente quando desconhecido
+        source:
+          type: string
+          description: Fonte do preço
+      required:
+      - positionBaseUnits
+      - positionMint
+      - priceStatus
+    ConditionalSignatureRequest:
+      type: object
+      additionalProperties: false
+      description: "A assinatura da carteira principal: do consentimento (caminho\
+        \ simulado) ou da transação"
+      properties:
+        signature:
+          type: string
+          description: Assinatura Base58 da mensagem de consentimento (signMessage)
+        signedTransactionBase64:
+          type: string
+          description: Transação assinada pela carteira principal (Base64)
+    ConditionalSigningSession:
+      type: object
+      additionalProperties: false
+      description: "O que a carteira principal assina, e até quando"
+      properties:
+        deadline:
+          type: string
+          format: date-time
+        kind:
+          type: string
+          enum:
+          - MESSAGE
+          - TRANSACTION
+        message:
+          type: string
+          description: Mensagem de consentimento montada pelo servidor (kind MESSAGE)
+        serverTime:
+          type: string
+          format: date-time
+        transactionBase64:
+          type: string
+          description: "Transação montada pelo servidor (kind TRANSACTION), em Base64"
+      required:
+      - deadline
+      - kind
+      - serverTime
     Coverage:
       type: object
       additionalProperties: false
@@ -2253,6 +2558,31 @@ components:
       required:
       - name
       - templateId
+    CreateConditionalOrderRequest:
+      type: object
+      additionalProperties: false
+      description: "Pedido de stop, alvo ou OCO de uma posição REAL"
+      properties:
+        kind:
+          type: string
+          enum:
+          - STOP
+          - TAKE_PROFIT
+          - OCO
+        positionMint:
+          type: string
+          description: Mint da posição (Base58)
+        stopPriceUsd:
+          type: string
+          description: DecimalString em USD; obrigatório em STOP e OCO
+          example: "0.00008"
+        takeProfitPriceUsd:
+          type: string
+          description: DecimalString em USD; obrigatório em TAKE_PROFIT e OCO
+          example: "0.00015"
+      required:
+      - kind
+      - positionMint
     CreateDataRequest:
       type: object
       additionalProperties: false
@@ -2272,6 +2602,26 @@ components:
       required:
       - details
       - type
+    CreatedConditionalOrder:
+      type: object
+      additionalProperties: false
+      description: A condicional criada e a sessão de assinatura aberta
+      properties:
+        conditionalOrder:
+          $ref: "#/components/schemas/ConditionalOrder"
+        conditionalOrderId:
+          type: string
+          format: uuid
+        signingSession:
+          $ref: "#/components/schemas/ConditionalSigningSession"
+        stopNotGuaranteed:
+          type: boolean
+          description: "BR3.8: o stop não tem execução garantida (sempre verdadeiro)"
+      required:
+      - conditionalOrder
+      - conditionalOrderId
+      - signingSession
+      - stopNotGuaranteed
     DashboardAuthExpiredEvent:
       type: object
       additionalProperties: false
@@ -3389,6 +3739,44 @@ components:
           type: string
         nonce:
           type: string
+    RealConditionalStateChanged:
+      type: object
+      additionalProperties: false
+      description: "data do evento real.conditional.state (R6, adendo da U7)"
+      properties:
+        at:
+          type: string
+          format: date-time
+        conditionalOrderId:
+          type: string
+          format: uuid
+        filledSide:
+          type: string
+          enum:
+          - STOP
+          - TAKE_PROFIT
+        positionMint:
+          type: string
+        state:
+          type: string
+          enum:
+          - PENDING_SIGNATURE
+          - OPEN
+          - CANCELLING
+          - FILLED
+          - CANCELLED
+          - EXPIRED
+          - FAILED
+        type:
+          type: string
+          enum:
+          - REAL_CONDITIONAL_STATE
+      required:
+      - at
+      - conditionalOrderId
+      - positionMint
+      - state
+      - type
     RealLiquidationView:
       type: object
       additionalProperties: false
@@ -3664,11 +4052,15 @@ components:
       type: object
       additionalProperties: false
       properties:
+        exitsEnabled:
+          type: boolean
+          description: "Saídas automáticas (stop, alvo e OCO) habilitadas neste ambiente"
         network:
           type: string
         release:
           $ref: "#/components/schemas/RealReleaseStatus"
       required:
+      - exitsEnabled
       - network
       - release
     RealSignedTransactionRequest:

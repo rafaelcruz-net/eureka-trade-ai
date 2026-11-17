@@ -1,5 +1,6 @@
 package com.memetrade.botwallet.application;
 
+import com.memetrade.botwallet.api.OpenExitsCheck;
 import com.memetrade.botwallet.api.RealAnonymization;
 import com.memetrade.botwallet.domain.AnonymizationStore;
 import com.memetrade.botwallet.domain.AnonymizationStore.WalletToClose;
@@ -24,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
  * anonymization, under the lock of the wallet:
  *
  * <ol>
+ *   <li>261113-trading-real-bot U7 (BR6.9): refused with {@code OPEN_CONDITIONALS}, before anything else, while a
+ *       conditional exit of the person is not final;
  *   <li>refused, with nothing written, while an order or a withdrawal is in progress ({@code ORDER_IN_PROGRESS}), while
  *       a token is held ({@code POSITION}) or while the ledger holds lamports ({@code BALANCE}): the person withdraws
  *       first, and the withdrawal is always available;
@@ -47,6 +50,7 @@ public class BotWalletAnonymizationService implements RealAnonymization {
     private final TxSignerCommandService commands;
     private final RealAudit audit;
     private final Clock clock;
+    private final OpenExitsCheck openExits;
 
     public BotWalletAnonymizationService(
             AnonymizationStore store,
@@ -55,7 +59,9 @@ public class BotWalletAnonymizationService implements RealAnonymization {
             RealExecutionPort execution,
             TxSignerCommandService commands,
             RealAudit audit,
-            Clock clock) {
+            Clock clock,
+            OpenExitsCheck openExits) {
+        this.openExits = openExits;
         this.store = store;
         this.releases = releases;
         this.ledger = ledger;
@@ -69,6 +75,12 @@ public class BotWalletAnonymizationService implements RealAnonymization {
     @Transactional(propagation = Propagation.MANDATORY)
     public CloseOutcome closeForAnonymization(UUID tenantId, UUID userId) {
         Instant now = clock.instant();
+        // 261113-trading-real-bot U7 (BR6.9, U7-NFR4.9): before any write, a conditional that is not final refuses it;
+        // the anonymization never cancels a conditional by itself.
+        if (openExits.hasOpenExits(tenantId, userId)) {
+            log.info("REAL bot wallet not closed for the anonymization: reason=OPEN_CONDITIONALS");
+            return new CloseOutcome.Refused("OPEN_CONDITIONALS");
+        }
         Optional<WalletToClose> wallet = store.lockActiveWallet(tenantId, userId);
         if (wallet.isEmpty()) {
             store.clearPersonalData(tenantId, userId, now);

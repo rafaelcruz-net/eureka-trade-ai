@@ -38,12 +38,13 @@ export function ModeScreen({
 }) {
   return (
     <RealArea origin="/real/modo" title={text.mode.title} titleId="real-mode-title">
-      {({ wallet, api, setWallet }) => (
+      {({ wallet, api, setWallet, release }) => (
         <>
           <PauseBanner reason={wallet.pausedReason} />
           <ModeForm
             wallet={wallet}
             api={api}
+            exitsEnabled={release?.exitsEnabled === true}
             pickWallet={pickWallet}
             newKey={newKey}
             onSaved={setWallet}
@@ -57,12 +58,14 @@ export function ModeScreen({
 function ModeForm({
   wallet,
   api,
+  exitsEnabled,
   pickWallet,
   newKey,
   onSaved,
 }: {
   wallet: BotWallet;
   api: GuestApi;
+  exitsEnabled: boolean;
   pickWallet: () => Promise<WalletPort | null>;
   newKey?: () => string;
   onSaved: (wallet: BotWallet) => void;
@@ -131,6 +134,7 @@ function ModeForm({
     <section data-testid="real-mode-form">
       <ModeSelector
         current={wallet.mode}
+        exitsEnabled={exitsEnabled}
         value={choice}
         onChange={(mode) => {
           setChoice(mode);

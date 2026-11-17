@@ -277,6 +277,18 @@ export function toRealError(failure: unknown, context: { maxCap?: bigint } = {})
     SIGNING_POLICY_REFUSED: errors.SIGNING_POLICY_REFUSED,
     IDEMPOTENCY_CONFLICT: errors.IDEMPOTENCY_CONFLICT,
     UPSTREAM_UNAVAILABLE: errors.UPSTREAM_UNAVAILABLE,
+    EXITS_DISABLED: errors.EXITS_DISABLED,
+    EXITS_MODE_REQUIRED: errors.EXITS_MODE_REQUIRED,
+    CONDITIONAL_ALREADY_OPEN: errors.CONDITIONAL_ALREADY_OPEN,
+    PRICE_UNKNOWN: errors.PRICE_UNKNOWN,
+    TP_NOT_ABOVE_SL: errors.TP_NOT_ABOVE_SL,
+    TRIGGER_ON_WRONG_SIDE: errors.TRIGGER_ON_WRONG_SIDE,
+    TRIGGER_OUT_OF_BOUNDS: errors.TRIGGER_OUT_OF_BOUNDS,
+    TRIGGER_REJECTED: errors.TRIGGER_REJECTED,
+    TOKEN_BLOCKED: errors.TOKEN_BLOCKED,
+    EXIT_CANCELLING: errors.EXIT_CANCELLING,
+    NOTHING_TO_SELL: errors.NOTHING_TO_SELL,
+    RATE_LIMITED: errors.RATE_LIMITED,
     NETWORK: errors.NETWORK,
     TIMEOUT: errors.TIMEOUT,
   };
@@ -301,7 +313,12 @@ export function realReads(api: GuestApi) {
   return {
     async release() {
       const view = await realCall(() => api.getRealRelease());
-      return { network: view.network, release: release(view.release) as Release };
+      return {
+        network: view.network,
+        release: release(view.release) as Release,
+        // 261113-trading-real-bot U7 (BR8.1): an older API without the field has the exits off.
+        exitsEnabled: view.exitsEnabled === true,
+      };
     },
     async wallet() {
       return toBotWallet(await realCall(() => api.getBotWallet()));

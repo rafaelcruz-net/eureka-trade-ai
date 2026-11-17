@@ -2,6 +2,7 @@ package com.memetrade.botwallet.domain;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.TreeSet;
 
 /**
@@ -12,6 +13,7 @@ import java.util.TreeSet;
  *   <li>an order or a withdrawal in transit: DEFERRED (the network is not even read);
  *   <li>the network did not answer: UNAVAILABLE (never a divergence nor a pause, U5-NFR4.3);
  *   <li>an entry of the network newer than the cursor of the deposit scan: DEFERRED (not yet registered);
+ *   <li>261113-trading-real-bot U7 (U7-NFR4.8): a custody account of an open conditional not read: UNAVAILABLE;
  *   <li>otherwise the lamports and every mint against the REAL ledger with ZERO tolerance: CLEAN or DIVERGENT.
  * </ol>
  *
@@ -34,7 +36,11 @@ public final class ReconciliationPolicy {
         if (reading.unreadIncoming()) {
             return ReconciliationOutcome.notCompared(ReconciliationResult.DEFERRED, 0);
         }
-        ChainSnapshot chain = reading.snapshot();
+        if (in.escrows().isEmpty()) {
+            // U7 (U7-NFR4.8): a custody account of an open conditional could not be read: the network was not read.
+            return ReconciliationOutcome.notCompared(ReconciliationResult.UNAVAILABLE, 0);
+        }
+        ChainSnapshot chain = withEscrows(reading.snapshot(), in.escrows().get());
         List<TokenDiff> diffs = tokenDiffs(chain, in.ledger());
         boolean equal = chain.lamports() == in.ledger().lamports() && diffs.isEmpty();
         return new ReconciliationOutcome(
@@ -44,6 +50,19 @@ public final class ReconciliationPolicy {
                 in.ledger().lamports(),
                 diffs,
                 0);
+    }
+
+    /**
+     * 261113-trading-real-bot U7 (BR5.3b): the token of an open conditional of the Jupiter is in the custody account of
+     * the order; it still belongs to the bot wallet, so it is added to the mint read in the wallet.
+     */
+    private static ChainSnapshot withEscrows(ChainSnapshot chain, Map<String, Long> escrows) {
+        if (escrows.isEmpty()) {
+            return chain;
+        }
+        Map<String, Long> tokens = new java.util.TreeMap<>(chain.tokens());
+        escrows.forEach((mint, units) -> tokens.merge(mint, units, Math::addExact));
+        return new ChainSnapshot(chain.slot(), chain.lamports(), tokens);
     }
 
     private static List<TokenDiff> tokenDiffs(ChainSnapshot chain, LedgerSnapshot ledger) {

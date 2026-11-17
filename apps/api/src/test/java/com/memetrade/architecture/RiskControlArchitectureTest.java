@@ -90,6 +90,9 @@ class RiskControlArchitectureTest {
                 .and()
                 // 261113-trading-real-bot U5 (U5-NFR3.9): the purge of the operations of the REAL, likewise.
                 .doNotHaveFullyQualifiedName(REAL_OPS_PURGE_JOB)
+                .and()
+                // 261113-trading-real-bot U7 (U7-NFR3.9): the purge of the conditional exits, likewise.
+                .doNotHaveFullyQualifiedName(REAL_EXITS_PURGE_JOB)
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
@@ -220,6 +223,9 @@ class RiskControlArchitectureTest {
     /** 261113-trading-real-bot U5 (U5-NFR3.9): the purge of the operations of the REAL at 05:00 UTC. */
     private static final String REAL_OPS_PURGE_JOB = "com.memetrade.botwallet.infra.RealOpsPurgeJob";
 
+    /** 261113-trading-real-bot U7 (U7-NFR3.9): the purge of the final conditional exits at 05:30 UTC. */
+    private static final String REAL_EXITS_PURGE_JOB = "com.memetrade.realexits.infra.RealExitsPurgeJob";
+
     @Test
     void onlyThePurgeJobReceivesTheRetentionPoolOfU6() {
         noClasses()
@@ -235,6 +241,8 @@ class RiskControlArchitectureTest {
                 .doNotHaveFullyQualifiedName(REAL_EXECUTION_PURGE_JOB)
                 .and()
                 .doNotHaveFullyQualifiedName(REAL_OPS_PURGE_JOB)
+                .and()
+                .doNotHaveFullyQualifiedName(REAL_EXITS_PURGE_JOB)
                 .should()
                 .dependOnClassesThat()
                 .areAssignableTo(RiskRetentionDataSource.class)
@@ -249,6 +257,8 @@ class RiskControlArchitectureTest {
                 .haveFullyQualifiedName(REAL_EXECUTION_PURGE_JOB)
                 .or()
                 .haveFullyQualifiedName(REAL_OPS_PURGE_JOB)
+                .or()
+                .haveFullyQualifiedName(REAL_EXITS_PURGE_JOB)
                 .should()
                 .dependOnClassesThat()
                 .haveFullyQualifiedName("com.memetrade.audit.infra.AuditRetentionDataSource")

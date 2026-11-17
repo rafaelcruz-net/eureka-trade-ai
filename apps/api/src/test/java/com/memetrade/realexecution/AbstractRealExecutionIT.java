@@ -102,7 +102,7 @@ public abstract class AbstractRealExecutionIT extends AbstractRealRiskIT {
     }
 
     /** A person with a REAL bot, its ACTIVE bot wallet (test keys), money, and a token with a fresh price. */
-    protected record Setup(
+    public record Setup(
             UUID tenantId, UUID userId, UUID botWalletId, UUID botId, TestWallet bot, TestWallet main, String mint) {}
 
     protected Setup realBot(String mode) {

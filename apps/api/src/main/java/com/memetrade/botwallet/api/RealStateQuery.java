@@ -28,6 +28,12 @@ public interface RealStateQuery {
      */
     RealReleaseInfo readRelease(UUID tenantId, UUID userId);
 
+    /**
+     * 261113-trading-real-bot U7 (BR7.8): every bot wallet the person had in this tenant (ACTIVE or CLOSED), whatever the
+     * REAL switch; the fiscal export reads their REAL ledger. A wallet of another tenant is never listed.
+     */
+    List<UUID> botWalletIds(UUID tenantId, UUID userId);
+
     /** BR4.5: every ACTIVE wallet paused for {@code reason}, with the start of that pause. */
     List<PausedWallet> pausedWallets(RealPauseReason reason);
 

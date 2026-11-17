@@ -83,6 +83,12 @@ txsigner:
     enabled: ${TXSIGNER_RECOVERY:false}
     # 150 blocks counted as wall clock time: the TxSigner never talks to the RPC (infrastructure-specification.md).
     wait-duration: 5m
+  # 261113-trading-real-bot U7 (BR0.3, U7-NFR1.2): the program of the Jupiter Trigger is recorded once by
+  # infra/solana-fixtures/record.sh --trigger into the resources trigger-program.json and trigger-program.json.sha256.
+  # Without them the TxSigner starts and refuses TRIGGER_CREATE and TRIGGER_CANCEL with POLICY_NOT_RECORDED; with them
+  # the SHA-256 must match the .sha256 and, when set (required by the production profile), this property.
+  trigger:
+    program-sha256: ${TXSIGNER_TRIGGER_PROGRAM_SHA256:}
   # security-design.md "Limites de criação": at most 30 keys per hour in the application.
   max-keys-per-hour: 30
   # NFR1.5: service credential. Locally two environment variables (current and previous, for the 24 h overlap of a

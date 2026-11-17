@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { abbreviateMint, formatInstant } from '@/lib/format/format';
 import type { Order, RealError, RealReads } from '@/features/real/api';
 import { toRealError } from '@/features/real/api';
@@ -9,6 +9,8 @@ import { realMessages as text } from '@/features/real/messages';
 import { OrderStateBadge } from '@/features/real/components/OrderStateBadge';
 import { RealArea } from '@/features/real/components/RealArea';
 import { RealErrorNotice } from '@/features/real/components/RealErrorNotice';
+import { ConditionalsTab } from '@/features/real/components/ConditionalsTab';
+import { FiscalExportPanel } from '@/features/real/components/FiscalExportPanel';
 
 const copy = text.orders;
 /** U6-NFR3.6: pages of 20 by cursor (the contract would give 50 by default). */
@@ -55,13 +57,67 @@ function amountText(amount: {
  * explorer of the network (none on the local network), the dates in the time zone of the browser and the amounts with
  * the decimals of their mint. Below 768 px the table becomes cards.
  */
-export function OrdersScreen({ timeZone }: { timeZone?: string }) {
+export function OrdersScreen({ timeZone, newKey }: { timeZone?: string; newKey?: () => string }) {
   return (
     <RealArea origin="/real/ordens" title={copy.title} titleId="real-orders-title">
-      {({ wallet, reads }) => (
-        <OrdersList reads={reads} network={wallet.network} timeZone={timeZone} />
+      {({ wallet, reads, api }) => (
+        <>
+          <OrdersTabs
+            orders={<OrdersList reads={reads} network={wallet.network} timeZone={timeZone} />}
+            conditionals={<ConditionalsTab api={api} timeZone={timeZone} newKey={newKey} />}
+          />
+          <FiscalExportPanel api={api} timeZone={timeZone} />
+        </>
       )}
     </RealArea>
+  );
+}
+
+type Tab = 'orders' | 'conditionals';
+
+/**
+ * 261113-trading-real-bot U7 (BR8.3): the tabs "Ordens" and "Condicionais"; the arrows move between them, the selected
+ * one is said in text (aria-selected) and the other panel is not rendered.
+ */
+function OrdersTabs({ orders, conditionals }: { orders: ReactNode; conditionals: ReactNode }) {
+  const [tab, setTab] = useState<Tab>('orders');
+  const tabs: Array<[Tab, string]> = [
+    ['orders', text.exits.ordersTab],
+    ['conditionals', text.exits.tab],
+  ];
+  return (
+    <>
+      <div role="tablist" aria-label={copy.title} data-testid="real-orders-tabs">
+        {tabs.map(([id, label]) => (
+          <button
+            key={id}
+            id={`real-orders-tab-${id}`}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            aria-controls={`real-orders-panel-${id}`}
+            tabIndex={tab === id ? 0 : -1}
+            onClick={() => setTab(id)}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                setTab(tab === 'orders' ? 'conditionals' : 'orders');
+              }
+            }}
+            data-testid={`real-orders-tab-${id}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div
+        role="tabpanel"
+        id={`real-orders-panel-${tab}`}
+        aria-labelledby={`real-orders-tab-${tab}`}
+        data-testid={`real-orders-panel-${tab}`}
+      >
+        {tab === 'orders' ? orders : conditionals}
+      </div>
+    </>
   );
 }
 

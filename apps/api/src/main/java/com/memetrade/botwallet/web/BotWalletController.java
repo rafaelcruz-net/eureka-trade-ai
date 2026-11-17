@@ -2,6 +2,7 @@ package com.memetrade.botwallet.web;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.memetrade.botwallet.api.ExitsAvailability;
 import com.memetrade.botwallet.api.RealReleaseInfo;
 import com.memetrade.botwallet.api.RealStateQuery;
 import com.memetrade.botwallet.application.BotWalletService;
@@ -49,7 +50,16 @@ public class BotWalletController {
     private final AuthContext auth;
     private final ObjectMapper json;
 
-    public BotWalletController(BotWalletService service, RealStateQuery state, AuthContext auth, ObjectMapper json) {
+    /** 261113-trading-real-bot U7 (BR8.1): whether the conditional exits are enabled in this environment. */
+    private final ExitsAvailability exits;
+
+    public BotWalletController(
+            BotWalletService service,
+            RealStateQuery state,
+            AuthContext auth,
+            ObjectMapper json,
+            ExitsAvailability exits) {
+        this.exits = exits;
         this.service = service;
         this.state = state;
         this.auth = auth;
@@ -116,7 +126,8 @@ public class BotWalletController {
                 .cacheControl(CacheControl.noStore())
                 .body(new BotWalletViews.ReleaseView(
                         info.network(),
-                        new BotWalletViews.ReleaseStatus(info.state(), info.effectiveAt(), info.blockedReason())));
+                        new BotWalletViews.ReleaseStatus(info.state(), info.effectiveAt(), info.blockedReason()),
+                        exits.exitsEnabled()));
     }
 
     @Operation(

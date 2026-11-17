@@ -300,6 +300,26 @@ public class RpcChainWatcher implements ChainPort, com.memetrade.botwallet.domai
         return balances;
     }
 
+    /**
+     * 261113-trading-real-bot U7 (BR5.3b): the custody account of a conditional, read in commitment finalized through
+     * the reconciliation quota (getAccountInfo jsonParsed: the mint and the amount of the token account).
+     */
+    @Override
+    public TokenAccountBalance tokenAccountBalance(String tokenAccount) {
+        JsonNode info = firstAnswering(Purpose.RECONCILIATION, provider -> provider.call(
+                        "getAccountInfo", tokenAccount, Map.of("encoding", "jsonParsed", "commitment", "finalized"))
+                .path("value")
+                .path("data")
+                .path("parsed")
+                .path("info"));
+        String mint = info.path("mint").asText("");
+        String amount = info.path("tokenAmount").path("amount").asText("");
+        if (mint.isBlank() || amount.isBlank()) {
+            throw new ChainUnavailableException("The custody account is not a token account on the network");
+        }
+        return new TokenAccountBalance(mint, Long.parseLong(amount));
+    }
+
     @Override
     public long finalizedSlot() {
         return firstAnswering(Purpose.RECONCILIATION, provider -> provider.call("getSlot", FINALIZED)

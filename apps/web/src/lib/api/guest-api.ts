@@ -628,6 +628,66 @@ export function guestApi(
         client.request<RealPnl>('/api/v1/real/pnl', { authenticated: true }),
       );
     },
+    /** U7 (R5, BR8.2): the position and the current price in USD with its source, for the dialog of the exits. */
+    quoteRealConditional(positionMint: string) {
+      return withRenewal(() =>
+        client.request<RealConditionalQuote>(
+          `/api/v1/real/conditional-orders/quote${query({ positionMint })}`,
+          { authenticated: true },
+        ),
+      );
+    },
+    /** U7 (R5, BR4.4): a stop, a take-profit or an OCO; the key is the one of the confirmation of the dialog. */
+    createRealConditional(body: RealConditionalRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealConditionalCreated>('/api/v1/real/conditional-orders', {
+          method: 'POST',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U7 (R5): the conditional exits of the person, newest first, by cursor. */
+    listRealConditionals(request: { cursor?: string | null; limit?: number } = {}) {
+      return withRenewal(() =>
+        client.request<RealConditionalPage>(
+          `/api/v1/real/conditional-orders${query({ cursor: request.cursor, limit: request.limit })}`,
+          { authenticated: true },
+        ),
+      );
+    },
+    /** U7 (R5, BR1.2): the signature of the main wallet (the consent of the simulated path, or the transaction). */
+    signRealConditional(
+      conditionalOrderId: string,
+      body: RealConditionalSignature,
+      idempotencyKey: string,
+    ) {
+      return withRenewal(() =>
+        client.request<RealConditional>(
+          `/api/v1/real/conditional-orders/${encodeURIComponent(conditionalOrderId)}/signature`,
+          { method: 'POST', body, idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** U7 (R5, S48): the cancellation by the person; CANCELLING or CANCELLED. */
+    cancelRealConditional(conditionalOrderId: string, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealConditional>(
+          `/api/v1/real/conditional-orders/${encodeURIComponent(conditionalOrderId)}`,
+          { method: 'DELETE', idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** U7 (R5, BR7, BR8.4): the fiscal CSV of the period, as a file kept only until the browser saves it. */
+    exportRealFiscal(request: { from?: string; to?: string; tz?: string } = {}) {
+      return withRenewal(() =>
+        client.request<Blob>(
+          `/api/v1/real/exports/fiscal${query({ from: request.from, to: request.to, tz: request.tz })}`,
+          { authenticated: true, responseType: 'blob' },
+        ),
+      );
+    },
   };
 }
 
@@ -653,6 +713,13 @@ export type RealSignedTransactionRequest = components['schemas']['RealSignedTran
 export type RealLiquidation = components['schemas']['RealLiquidationView'];
 export type RealPnl = components['schemas']['RealPnl'];
 export type RealPnlPosition = components['schemas']['RealPnlPosition'];
+// 261113-trading-real-bot U7 (R5): the conditional exits and the fiscal export.
+export type RealConditional = components['schemas']['ConditionalOrder'];
+export type RealConditionalPage = components['schemas']['ConditionalOrderPage'];
+export type RealConditionalRequest = components['schemas']['CreateConditionalOrderRequest'];
+export type RealConditionalCreated = components['schemas']['CreatedConditionalOrder'];
+export type RealConditionalSignature = components['schemas']['ConditionalSignatureRequest'];
+export type RealConditionalQuote = components['schemas']['ConditionalQuote'];
 
 // U5 (C4): bots, wizard, commands and decisions; U6 (C21): refused orders.
 export type RejectionPage = components['schemas']['RejectionPage'];

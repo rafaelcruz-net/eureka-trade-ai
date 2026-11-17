@@ -126,6 +126,14 @@ routes:
   - { method: PUT, path: /api/v1/real/mode, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
   - { method: POST, path: /api/v1/real/liquidations, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
   - { method: GET, path: /api/v1/real/pnl, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#theListAndThePnlShowOnlyThePersonOfTheToken }
+  # 261113-trading-real-bot U7 (R5 of the addendum): the conditional exits and the fiscal export of the caller; another
+  # person's conditional is 404 on every route and the export reads only the REAL ledger of the person of the token.
+  - { method: POST, path: /api/v1/real/conditional-orders, scope: CLIENT, negativeTest: com.memetrade.realexits.web.ConditionalCreationIT#anotherPersonNeverReachesTheConditional }
+  - { method: GET, path: /api/v1/real/conditional-orders, scope: CLIENT, negativeTest: com.memetrade.realexits.web.ConditionalCreationIT#anotherPersonNeverReachesTheConditional }
+  - { method: GET, path: /api/v1/real/conditional-orders/quote, scope: CLIENT, negativeTest: com.memetrade.realexits.web.ConditionalCreationIT#theQuoteShowsOnlyThePositionOfThePersonOfTheToken }
+  - { method: POST, path: '/api/v1/real/conditional-orders/{conditionalOrderId}/signature', scope: CLIENT, negativeTest: com.memetrade.realexits.web.ConditionalCreationIT#anotherPersonNeverReachesTheConditional }
+  - { method: DELETE, path: '/api/v1/real/conditional-orders/{conditionalOrderId}', scope: CLIENT, negativeTest: com.memetrade.realexits.web.ConditionalCreationIT#anotherPersonNeverReachesTheConditional }
+  - { method: GET, path: /api/v1/real/exports/fiscal, scope: CLIENT, negativeTest: com.memetrade.realexits.fiscal.FiscalExportIT#s30AndS33OnlyTheRealLedgerOfThePersonAndNoAddress }
 jobs:
   - { name: AuditRelayJob, scope: GLOBAL }
   # U2 retention purge and outbox cleanup: system jobs over the whole trail, no tenant input (BR3.1 to BR3.4).
@@ -206,3 +214,11 @@ jobs:
   - { name: TxSignerCommandJob, scope: GLOBAL }
   - { name: RealOpsPurgeJob, scope: GLOBAL }
   - { name: RealOpsGaugesJob, scope: GLOBAL }
+  # 261113-trading-real-bot U7 (logical-components.md): the read, the cancellation and the gauges of the conditional
+  # exits in the worker. Each conditional is handled with the tenant and the person recorded on its row, every write
+  # filters by its id and state, and the kill switch cancels every conditional by design (ConditionalCancelJobIT); the
+  # gauges return only counts and ages.
+  - { name: RealExitsSchedule, scope: GLOBAL }
+  # U7 (U7-NFR3.7): daily purge of the conditionals ended more than 5 years ago, through the retention pool; reads no
+  # tenant input and logs only totals.
+  - { name: RealExitsPurgeJob, scope: GLOBAL }

@@ -1,5 +1,6 @@
 package com.memetrade.realexecution.infra;
 
+import com.memetrade.botwallet.api.ExitsAvailability;
 import com.memetrade.botwallet.api.RealConsentRefused;
 import com.memetrade.botwallet.api.RealExecutionWallet;
 import com.memetrade.botwallet.api.RealOperationMode;
@@ -22,6 +23,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * the PROPOSED and QUOTED orders of the person with MODE_LOWERED and their reservation released; SIGNED orders are
  * cancelled by the recheck before the send; SENT and AMBIGUOUS ones are followed to the end. BR7.2: raising needs the
  * consent of the main wallet (M1 applyConsent, checked again by the TxSigner) and is refused with an AMBIGUOUS order.
+ * 261113-trading-real-bot U7 (BR8.1, BR6.2): raising to AUTO_EXITS needs the exits flag ({@code EXITS_DISABLED});
+ * leaving AUTO_EXITS is immediate and the cancellation job cancels the conditionals of the person right after.
  */
 @Service
 public class RealModeService {
@@ -31,13 +34,16 @@ public class RealModeService {
     private final JdbcRealExecutionStore store;
     private final Environment environment;
     private final TransactionTemplate transactions;
+    private final ExitsAvailability exits;
 
     public RealModeService(
             RealExecutionWallet wallets,
             RealExecutionPort port,
             JdbcRealExecutionStore store,
             Environment environment,
-            PlatformTransactionManager manager) {
+            PlatformTransactionManager manager,
+            ExitsAvailability exits) {
+        this.exits = exits;
         this.wallets = wallets;
         this.port = port;
         this.store = store;
@@ -64,6 +70,10 @@ public class RealModeService {
                 port.cancelUnsent(CancelScope.user(person.tenantId(), person.userId()), RealFailureCode.MODE_LOWERED);
             });
             return wanted.name();
+        }
+        if (wanted == RealOperationMode.AUTO_EXITS && !exits.exitsEnabled()) {
+            // 261113-trading-real-bot U7 (BR8.1, U7-NFR4.10): nothing reaches the TxSigner with the exits switched off.
+            throw new ApiException(ErrorCode.EXITS_DISABLED, "The conditional exits are disabled in this environment.");
         }
         if (store.hasAmbiguous(person.tenantId(), person.userId())) {
             throw new ApiException(ErrorCode.ORDER_AMBIGUOUS, "An ambiguous order is still being checked.");

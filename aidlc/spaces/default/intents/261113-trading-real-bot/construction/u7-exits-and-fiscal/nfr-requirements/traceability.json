@@ -1,0 +1,152 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "u7-exits-and-fiscal",
+  "upstream_ids": [
+    "BR0.3",
+    "BR1.3",
+    "BR2.4",
+    "BR2.6",
+    "BR4.3",
+    "BR4.4",
+    "BR5.1",
+    "BR5.2",
+    "BR5.3",
+    "BR5.3b",
+    "BR6.1",
+    "BR6.4",
+    "BR6.5",
+    "BR6.7",
+    "BR6.9",
+    "BR7.5",
+    "BR7.6",
+    "BR7.8",
+    "BR7.9",
+    "BR7.10",
+    "BR7.11",
+    "BR8.1",
+    "BR9.3",
+    "BR9.4"
+  ],
+  "coverage": [
+    {
+      "id": "BR0.3",
+      "status": "OK",
+      "target": "U7-NFR1.2"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "U7-NFR1.3"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "U7-NFR1.1, U7-NFR5.4, U7-NFR5.9"
+    },
+    {
+      "id": "BR2.6",
+      "status": "OK",
+      "target": "U7-NFR1.4"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "U7-NFR4.3"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "U7-NFR1.9"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "U7-NFR3.1, U7-NFR4.4, U7-NFR4.6, U7-NFR5.6b, U7-NFR5.8"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "U7-NFR3.1 (conferência finalized)"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "U7-NFR4.2 (um SWAP_FILL_OUT e NETWORK_FEE só quando pago, chaves :fill e :fee, sem tipo novo nem CHECK novo), U7-NFR5.2"
+    },
+    {
+      "id": "BR5.3b",
+      "status": "OK",
+      "target": "U7-NFR4.8"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "U7-NFR3.2, U7-NFR5.3"
+    },
+    {
+      "id": "BR6.4",
+      "status": "OK",
+      "target": "U7-NFR4.5, U7-NFR5.7"
+    },
+    {
+      "id": "BR6.5",
+      "status": "OK",
+      "target": "U7-NFR4.1 (PENDING_SIGNATURE para CANCELLED por compare-and-set)"
+    },
+    {
+      "id": "BR6.7",
+      "status": "OK",
+      "target": "U7-NFR4.11, U7-NFR5.7"
+    },
+    {
+      "id": "BR6.9",
+      "status": "OK",
+      "target": "U7-NFR4.9"
+    },
+    {
+      "id": "BR7.5",
+      "status": "OK",
+      "target": "U7-NFR1.7"
+    },
+    {
+      "id": "BR7.6",
+      "status": "OK",
+      "target": "U7-NFR8.3"
+    },
+    {
+      "id": "BR7.8",
+      "status": "OK",
+      "target": "U7-NFR1.6, U7-NFR2.1"
+    },
+    {
+      "id": "BR7.9",
+      "status": "OK",
+      "target": "U7-NFR3.9, U7-NFR5.5"
+    },
+    {
+      "id": "BR7.10",
+      "status": "OK",
+      "target": "U7-NFR3.3 (em fluxo, sem guardar), U7-NFR5.11 (sem conteúdo no log)"
+    },
+    {
+      "id": "BR7.11",
+      "status": "OK",
+      "target": "U7-NFR4.10, U7-NFR4.12, U7-NFR4.7"
+    },
+    {
+      "id": "BR8.1",
+      "status": "OK",
+      "target": "U7-NFR4.10"
+    },
+    {
+      "id": "BR9.3",
+      "status": "OK",
+      "target": "U7-NFR4.10"
+    },
+    {
+      "id": "BR9.4",
+      "status": "OK",
+      "target": "U7-NFR1.5, U7-NFR5.11"
+    }
+  ]
+}

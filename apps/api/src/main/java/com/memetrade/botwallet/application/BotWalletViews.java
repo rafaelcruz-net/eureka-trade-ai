@@ -77,7 +77,13 @@ public final class BotWalletViews {
 
             @io.swagger.v3.oas.annotations.media.Schema(
                     requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
-            ReleaseStatus release) {}
+            ReleaseStatus release,
+
+            // 261113-trading-real-bot U7 (BR8.1, BR9.3): the mode "Automática nas saídas" is offered only when true.
+            @io.swagger.v3.oas.annotations.media.Schema(
+                    requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED,
+                    description = "Saídas automáticas (stop, alvo e OCO) habilitadas neste ambiente")
+            boolean exitsEnabled) {}
 
     /** Who set the cap (U6, BR5.4). */
     public static final String SET_BY_USER = "USER";

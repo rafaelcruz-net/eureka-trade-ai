@@ -31,11 +31,11 @@ class U6SettingsTest {
         // U5 (Passo 1): the api has one more scheduled job, the live channel poller; U8 two more; u2-retention two
         // more.
         // u4-data-requests: 21 with the request timers, the request purge and the count refresher.
-        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(22);
+        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(23);
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("13")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 22 and 32");
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("22"))).doesNotThrowAnyException();
+                .hasMessageContaining("between 23 and 32");
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("23"))).doesNotThrowAnyException();
         assertThatCode(() -> new RuntimeSettingsGuard(environment("32"))).doesNotThrowAnyException();
     }
 
@@ -46,7 +46,7 @@ class U6SettingsTest {
                 .getFirst();
 
         assertThat(String.valueOf(yml.getProperty("spring.task.scheduling.pool.size")))
-                .isEqualTo("${SCHEDULER_POOL_SIZE:22}");
+                .isEqualTo("${SCHEDULER_POOL_SIZE:23}");
         assertThat(String.valueOf(yml.getProperty("memetrade.riskcontrol.freshness-max-age")))
                 .isEqualTo("60s");
         assertThat(String.valueOf(yml.getProperty("memetrade.riskcontrol.purge.cron")))
@@ -77,8 +77,8 @@ class U6SettingsTest {
         String example = Files.readString(Path.of("..", "..", ".env.example"), StandardCharsets.UTF_8);
 
         // U5: 14 in the api since the live channel poller; U8: 16; u2-retention: 18; u4-data-requests: 21.
-        assertThat(compose).contains("SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-22}");
-        assertThat(example).contains("Scheduler threads of the api, 22 to 32 [22]");
+        assertThat(compose).contains("SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-23}");
+        assertThat(example).contains("Scheduler threads of the api, 23 to 32 [23]");
         assertThat(compose).doesNotContain("RISKCONTROL").doesNotContain("RISK_PURGE");
     }
 

@@ -13,6 +13,8 @@ export const EVENT_KINDS = [
   // for the signing banner; they used to be discarded as UNKNOWN_EVENT.
   'real.signing.requested',
   'real.order.state',
+  // 261113-trading-real-bot U7 (BR5.5): a conditional exit of the person changed its state.
+  'real.conditional.state',
 ] as const;
 
 export type EventKind = (typeof EVENT_KINDS)[number];

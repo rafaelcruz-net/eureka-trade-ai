@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { Pnl } from '@/features/real/api';
 import type { Load } from '@/features/real/hooks/useLoad';
 import { formatSignedSol, formatSolAmount, formatToken, isUnknown } from '@/features/real/money';
@@ -13,7 +14,16 @@ import { abbreviateMint } from '@/lib/format/format';
  * OWN card with the REAL label. It receives only the P&L REAL; the PAPER card receives only the PAPER one, and nothing
  * adds them. A position without a price shows its cost of purchase with "sem preço", never zero.
  */
-export function RealPnlCard({ load, onRetry }: { load: Load<Pnl>; onRetry: () => void }) {
+export function RealPnlCard({
+  load,
+  onRetry,
+  positionAction,
+}: {
+  load: Load<Pnl>;
+  onRetry: () => void;
+  /** 261113-trading-real-bot U7 (BR8.2): an action next to each position ("Definir stop e alvo"). */
+  positionAction?: (mint: string) => ReactNode;
+}) {
   return (
     <section
       className="real-card"
@@ -38,12 +48,18 @@ export function RealPnlCard({ load, onRetry }: { load: Load<Pnl>; onRetry: () =>
           testId="real-pnl-error"
         />
       )}
-      {load.kind === 'ready' && <PnlValues pnl={load.data} />}
+      {load.kind === 'ready' && <PnlValues pnl={load.data} positionAction={positionAction} />}
     </section>
   );
 }
 
-function PnlValues({ pnl }: { pnl: Pnl }) {
+function PnlValues({
+  pnl,
+  positionAction,
+}: {
+  pnl: Pnl;
+  positionAction?: (mint: string) => ReactNode;
+}) {
   return (
     <>
       <dl>
@@ -68,6 +84,7 @@ function PnlValues({ pnl }: { pnl: Pnl }) {
               <span data-testid={`real-pnl-position-value-${position.mint}`}>
                 {formatSolAmount(position.value, text.noPrice)}
               </span>
+              {positionAction && <> {positionAction(position.mint)}</>}
             </li>
           ))}
         </ul>

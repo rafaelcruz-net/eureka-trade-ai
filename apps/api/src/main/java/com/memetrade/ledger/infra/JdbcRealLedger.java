@@ -30,12 +30,57 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class JdbcRealLedger implements RealLedger {
 
+    /** U7 (U7-NFR3.3): the rows of the fiscal export reach the writer 500 at a time. */
+    static final int STREAM_FETCH_SIZE = 500;
+
     private final JdbcClient jdbc;
     private final Clock clock;
+    private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate named;
 
-    public JdbcRealLedger(JdbcClient jdbc, Clock clock) {
+    public JdbcRealLedger(JdbcClient jdbc, Clock clock, javax.sql.DataSource dataSource) {
         this.jdbc = jdbc;
         this.clock = clock;
+        org.springframework.jdbc.core.JdbcTemplate template =
+                new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        template.setFetchSize(STREAM_FETCH_SIZE);
+        this.named = new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(template);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public void streamEntries(
+            UUID tenantId,
+            java.util.Collection<UUID> botWalletIds,
+            Instant from,
+            Instant to,
+            java.util.function.Consumer<com.memetrade.ledger.api.RealEntryRecord> consumer) {
+        if (botWalletIds.isEmpty()) {
+            return;
+        }
+        java.util.Map<String, Object> params = new java.util.HashMap<>();
+        params.put("tenant", tenantId);
+        params.put("wallets", List.copyOf(botWalletIds));
+        params.put("from", Timestamp.from(from));
+        params.put("to", Timestamp.from(to));
+        named.query("""
+                select entry_kind, lamports, mint, token_base_units, tx_signature, reference, created_at
+                from (
+                  select e.*, min(e.created_at) over (partition by e.reference) as reference_at
+                  from real_ledger_entry e
+                  where e.tenant_id = :tenant and e.created_at >= :from and e.created_at < :to and e.mode = 'REAL'
+                ) entries
+                where bot_wallet_id in (:wallets)
+                order by reference_at, reference, created_at, entry_id""", params, rs -> {
+            BigDecimal units = rs.getBigDecimal("token_base_units");
+            consumer.accept(new com.memetrade.ledger.api.RealEntryRecord(
+                    RealEntryKind.valueOf(rs.getString("entry_kind")),
+                    rs.getLong("lamports"),
+                    Optional.ofNullable(rs.getString("mint")),
+                    Optional.ofNullable(units).map(BigDecimal::longValueExact),
+                    Optional.ofNullable(rs.getString("tx_signature")),
+                    rs.getString("reference"),
+                    rs.getTimestamp("created_at").toInstant()));
+        });
     }
 
     @Override

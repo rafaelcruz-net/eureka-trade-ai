@@ -75,15 +75,15 @@ class U4SettingsTest {
 
     @Test
     void thePoolSizesAreCheckedAtStartUpNamingTheVariable() {
-        // U8: the api scheduler minimum was 16; u2-retention: 18; u4-data-requests: 21
+        // U8: the api scheduler minimum was 16; u2-retention: 18; u4-data-requests: 21; 261113-trading-real-bot U7: 23
         // (RuntimeSettingsGuard.MIN_SCHEDULER_POOL).
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("20", "22"))).doesNotThrowAnyException();
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("20", "23"))).doesNotThrowAnyException();
         assertThatCode(() -> new RuntimeSettingsGuard(new MockEnvironment())).doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("9", "22")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("9", "23")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("51", "22")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("51", "23")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE");
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("twenty", "22")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("twenty", "23")))
                 .hasMessageContaining("DB_POOL_MAX_SIZE");
         assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("20", "6")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE");

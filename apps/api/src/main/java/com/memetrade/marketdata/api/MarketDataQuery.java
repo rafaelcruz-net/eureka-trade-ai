@@ -83,4 +83,13 @@ public interface MarketDataQuery {
     default MarketValue volume24h(TokenId token) {
         return new MarketValue.Unknown(UnknownReason.NOT_PROVIDED, java.util.Optional.empty());
     }
+
+    /**
+     * 261113-trading-real-bot U7 (BR7.2, column {@code simbolo} of the fiscal export): the symbol of every token of the
+     * set that was ever observed; a token never observed has no entry (the export leaves the field empty). The symbol is
+     * text from a provider, never an identity (BR3.2): the export escapes it. The default knows none.
+     */
+    default java.util.Map<TokenId, String> symbolsOf(java.util.Set<TokenId> tokens) {
+        return java.util.Map.of();
+    }
 }

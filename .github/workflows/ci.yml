@@ -47,7 +47,7 @@ jobs:
         run: sh apps/api/mvnw -B -ntp -f apps/api/pom.xml verify
       - name: Alert rules (promtool)
         run: |
-          for rules in real-alerts marketdata-alerts real-risk-alerts real-execution-alerts real-ops-alerts; do
+          for rules in real-alerts marketdata-alerts real-risk-alerts real-execution-alerts real-ops-alerts real-exits-alerts; do
             docker run --rm -v "$PWD/infra/observability:/rules" --entrypoint promtool \
               prom/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
               check rules "/rules/${rules}.yml"

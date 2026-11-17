@@ -14,7 +14,10 @@ public interface RealAnonymization {
 
     CloseOutcome closeForAnonymization(UUID tenantId, UUID userId);
 
-    /** Closed (with or without a bot wallet), or refused with {@code BALANCE}, {@code POSITION} or {@code ORDER_IN_PROGRESS}. */
+    /**
+     * Closed (with or without a bot wallet), or refused with {@code BALANCE}, {@code POSITION}, {@code ORDER_IN_PROGRESS}
+     * or, since the U7, {@code OPEN_CONDITIONALS}.
+     */
     sealed interface CloseOutcome permits CloseOutcome.Closed, CloseOutcome.Refused {
 
         /** @param hadBotWallet the person had a bot wallet that is now closed */

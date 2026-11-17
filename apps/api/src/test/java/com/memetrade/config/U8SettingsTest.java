@@ -32,17 +32,17 @@ class U8SettingsTest {
     void theApiNeedsEighteenSchedulerThreads() {
         // U8: 16 with its two jobs; u2-retention: 18 with the login challenge and session purges; u4-data-requests: 21
         // with the request timers, the request purge and the count refresher.
-        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(22);
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("22", "http://localhost:3001")))
+        assertThat(RuntimeSettingsGuard.MIN_SCHEDULER_POOL).isEqualTo(23);
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("23", "http://localhost:3001")))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("21", "http://localhost:3001")))
+        assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("22", "http://localhost:3001")))
                 .hasMessageContaining("SCHEDULER_POOL_SIZE")
-                .hasMessageContaining("between 22 and 32");
+                .hasMessageContaining("between 23 and 32");
     }
 
     @Test
     void theAdminOriginIsOneHttpOriginAndNeverAWildcard() {
-        assertThatCode(() -> new RuntimeSettingsGuard(environment("22", "https://admin.example.org")))
+        assertThatCode(() -> new RuntimeSettingsGuard(environment("23", "https://admin.example.org")))
                 .doesNotThrowAnyException();
         for (String invalid : new String[] {
             "*",
@@ -53,7 +53,7 @@ class U8SettingsTest {
             "localhost:3001",
             "http://user@localhost:3001"
         }) {
-            assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("22", invalid)))
+            assertThatThrownBy(() -> new RuntimeSettingsGuard(environment("23", invalid)))
                     .as(invalid)
                     .hasMessageContaining("ADMIN_APP_ORIGIN");
         }
@@ -82,7 +82,7 @@ class U8SettingsTest {
                 .getFirst();
 
         assertThat(String.valueOf(yml.getProperty("spring.task.scheduling.pool.size")))
-                .isEqualTo("${SCHEDULER_POOL_SIZE:22}");
+                .isEqualTo("${SCHEDULER_POOL_SIZE:23}");
         assertThat(String.valueOf(yml.getProperty("memetrade.admin.app-origin")))
                 .isEqualTo("${ADMIN_APP_ORIGIN:http://localhost:3001}");
         assertThat(String.valueOf(yml.getProperty("memetrade.admin.kill-switch.reconcile-interval")))
@@ -112,11 +112,11 @@ class U8SettingsTest {
         String example = Files.readString(Path.of("..", "..", ".env.example"), StandardCharsets.UTF_8);
 
         assertThat(compose)
-                .contains("SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-22}")
+                .contains("SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE:-23}")
                 .contains("ADMIN_APP_ORIGIN: ${ADMIN_APP_ORIGIN:-http://localhost:3001}");
         // u2-retention raised the default from 16 to 18 (the login challenge and session purges); u4-data-requests to
         // 21.
-        assertThat(example).contains("\nADMIN_APP_ORIGIN=\n").contains("Scheduler threads of the api, 22 to 32 [22]");
+        assertThat(example).contains("\nADMIN_APP_ORIGIN=\n").contains("Scheduler threads of the api, 23 to 32 [23]");
     }
 
     @Test

@@ -63,6 +63,11 @@ public final class SigningService {
         if (recovery.phase() == RecoveryPhase.WAITING) {
             return SigningOutcome.refused(PolicyRefusal.RECOVERY_IN_PROGRESS);
         }
+        if (command.operationKind().isTrigger()) {
+            // 261113-trading-real-bot U7 (BR0.3, U7-NFR1.2): no TriggerPolicy before the real recording; nothing is
+            // recorded nor signed, the KMS is never called, and the same request keeps this answer until then.
+            return SigningOutcome.refused(PolicyRefusal.POLICY_NOT_RECORDED);
+        }
         if (command.operationKind() == OperationKind.SWAP) {
             return signSwap(command, digest);
         }

@@ -97,6 +97,36 @@ public class JdbcRealExecutionStore {
                 .list();
     }
 
+    /**
+     * 261113-trading-real-bot U7 (logical-components.md "DEFERRED"): the PENDING decisions due at {@code now}, oldest
+     * first. A decision never deferred is always due; a deferred one only from its {@code not_before}.
+     */
+    public List<UUID> pendingDecisions(int limit, Instant now) {
+        return jdbc.sql("select decision_request_id from real_decision_request where state = 'PENDING'"
+                        + " and (attempts = 0 or not_before <= :now) order by created_at limit :limit")
+                .param("limit", limit)
+                .param("now", Timestamp.from(now))
+                .query(UUID.class)
+                .list();
+    }
+
+    /** U7: how many times the decision was deferred while the conditional of its position was being cancelled. */
+    public int decisionAttempts(UUID decisionRequestId) {
+        return jdbc.sql("select attempts from real_decision_request where decision_request_id = :id")
+                .param("id", decisionRequestId)
+                .query(Integer.class)
+                .single();
+    }
+
+    /** U7: the decision stays PENDING until {@code notBefore}, one attempt more (the trigger of 0022 allows only this). */
+    public void deferDecision(UUID decisionRequestId, Instant notBefore) {
+        jdbc.sql("update real_decision_request set not_before = :next, attempts = attempts + 1"
+                        + " where decision_request_id = :id and state = 'PENDING'")
+                .param("id", decisionRequestId)
+                .param("next", Timestamp.from(notBefore))
+                .update();
+    }
+
     /** Locks one PENDING decision for the rest of the transaction; empty when another consumer holds or closed it. */
     public Optional<DecisionRow> lockPendingDecision(UUID decisionRequestId) {
         return jdbc.sql("""

@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { GuestApi } from '@/lib/api/guest-api';
 import { encodeBase58 } from '@/lib/base58';
-import { formatInstant } from '@/lib/format/format';
+import { abbreviateMint, formatInstant } from '@/lib/format/format';
 import type { WalletPort } from '@/features/auth/wallets';
 import { realCall, realReads, toBotWallet, toRealError, type BotWallet } from '@/features/real/api';
 import { useLoad } from '@/features/real/hooks/useLoad';
@@ -16,6 +16,7 @@ import { PauseBanner } from '@/features/real/components/PauseBanner';
 import { RealArea } from '@/features/real/components/RealArea';
 import { RealErrorNotice } from '@/features/real/components/RealErrorNotice';
 import { RealPnlCard } from '@/features/real/components/RealPnlCard';
+import { ConditionalDialog } from '@/features/real/components/ConditionalDialog';
 import { ReleaseStatus } from '@/features/real/components/ReleaseStatus';
 import { SolAmountInput } from '@/features/real/components/SolAmountInput';
 import { firstWallet } from '@/features/real/components/SigningBanner';
@@ -58,7 +59,15 @@ export function OverviewScreen({
             newKey={newKey}
             onSaved={setWallet}
           />
-          <PnlPart reads={reads} />
+          <PnlPart
+            reads={reads}
+            api={api}
+            mode={wallet.mode}
+            exitsEnabled={release?.exitsEnabled === true}
+            pickWallet={pickWallet}
+            timeZone={timeZone}
+            newKey={newKey}
+          />
           <p>
             <Link href="/real/deposito-saque" data-testid="real-overview-deposit-link">
               {copy.deposit}
@@ -103,9 +112,89 @@ function BalanceGrid({ wallet, timeZone }: { wallet: BotWallet; timeZone?: strin
   );
 }
 
-function PnlPart({ reads }: { reads: ReturnType<typeof realReads> }) {
+/**
+ * 261113-trading-real-bot U7 (BR8.1, BR8.2): each position gets "Definir stop e alvo"; it opens the dialog in the mode
+ * "Automática nas saídas" with the exits on, and otherwise stays disabled saying why ("Em breve" or the mode).
+ */
+function PnlPart({
+  reads,
+  api,
+  mode,
+  exitsEnabled,
+  pickWallet,
+  timeZone,
+  newKey,
+}: {
+  reads: ReturnType<typeof realReads>;
+  api: GuestApi;
+  mode: BotWallet['mode'];
+  exitsEnabled: boolean;
+  pickWallet: () => Promise<WalletPort | null>;
+  timeZone?: string;
+  newKey?: () => string;
+}) {
   const pnl = useLoad(reads.pnl);
-  return <RealPnlCard load={pnl.load} onRetry={pnl.reload} />;
+  const [open, setOpen] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const reason = !exitsEnabled
+    ? text.exits.soon
+    : mode !== 'AUTO_EXITS'
+      ? text.exits.needsMode
+      : null;
+  return (
+    <>
+      <RealPnlCard
+        load={pnl.load}
+        onRetry={pnl.reload}
+        positionAction={(mint) => (
+          <span>
+            <button
+              type="button"
+              disabled={reason !== null}
+              aria-label={text.exits.defineLabel(abbreviateMint(mint))}
+              aria-describedby={reason ? `real-exits-reason-${mint}` : undefined}
+              onClick={(event) => {
+                opener.current = event.currentTarget;
+                setNotice(null);
+                setOpen(mint);
+              }}
+              data-testid={`real-exits-define-${mint}`}
+            >
+              {text.exits.define}
+            </button>
+            {reason && (
+              <span id={`real-exits-reason-${mint}`} className="muted">
+                {' '}
+                {reason}
+              </span>
+            )}
+          </span>
+        )}
+      />
+      {notice && (
+        <p role="status" data-testid="real-exits-created">
+          {notice}
+        </p>
+      )}
+      {open && (
+        <ConditionalDialog
+          api={api}
+          mint={open}
+          tokenLabel={abbreviateMint(open)}
+          pickWallet={pickWallet}
+          timeZone={timeZone}
+          newKey={newKey}
+          returnFocusTo={opener.current}
+          onClose={() => setOpen(null)}
+          onCreated={() => {
+            setOpen(null);
+            setNotice(text.exits.created);
+          }}
+        />
+      )}
+    </>
+  );
 }
 
 type CapBody = { capLamports: string; challengeId?: string; signature?: string };

@@ -67,6 +67,20 @@ export const realMessages = {
     SIGNING_POLICY_REFUSED: 'A proposta foi recusada pela política de segurança. Nada foi enviado.',
     IDEMPOTENCY_CONFLICT: 'Este pedido já foi enviado com outros dados; tente de novo',
     UPSTREAM_UNAVAILABLE: 'O serviço de assinatura não respondeu. Tente de novo em instantes.',
+    // 261113-trading-real-bot U7 (contract addendum of the U7): the conditional exits and the fiscal export.
+    EXITS_DISABLED: 'As saídas automáticas ainda não estão disponíveis neste ambiente.',
+    EXITS_MODE_REQUIRED: 'Mude para o modo Automática nas saídas para definir stop e alvo.',
+    CONDITIONAL_ALREADY_OPEN: 'Esta posição já tem uma saída automática. Cancele a atual antes.',
+    PRICE_UNKNOWN: 'Sem preço atual deste token; tente de novo quando houver preço.',
+    TP_NOT_ABOVE_SL: 'O alvo precisa ser maior que o stop.',
+    TRIGGER_ON_WRONG_SIDE: 'O stop precisa ficar abaixo do preço atual e o alvo acima.',
+    TRIGGER_OUT_OF_BOUNDS:
+      'O stop precisa ser de pelo menos 50% do preço atual e o alvo de no máximo 10 vezes o preço atual.',
+    TRIGGER_REJECTED: 'A Jupiter recusou a saída automática. Nada foi criado.',
+    TOKEN_BLOCKED: 'Este token está bloqueado no REAL.',
+    EXIT_CANCELLING: 'Cancelando a saída automática; tente em instantes.',
+    NOTHING_TO_SELL: 'A saída automática já vendeu esta posição.',
+    RATE_LIMITED: 'Você chegou ao limite de 10 exportações por hora. Tente mais tarde.',
     NETWORK: 'Sem conexão com o servidor. Tente de novo.',
     TIMEOUT: 'O servidor demorou a responder. Tente de novo.',
   },
@@ -150,7 +164,11 @@ export const realMessages = {
     current: '(atual)',
     options: {
       SIGNED: { name: 'Assinada', description: 'Você assina cada ordem na sua carteira.' },
-      AUTO_EXITS: { name: 'Automática nas saídas', description: 'Em breve.' },
+      AUTO_EXITS: {
+        name: 'Automática nas saídas',
+        description:
+          'Você assina cada ordem a mercado; o stop e o alvo que você definir saem sozinhos pela carteira do bot.',
+      },
       AUTO_FULL: {
         name: 'Automática total',
         description: 'O bot opera sozinho pela carteira do bot, dentro do teto.',
@@ -275,5 +293,80 @@ export const realMessages = {
     amount: 'Valor',
     destination: 'Destino',
     effect: 'Efeito',
+  },
+  /** 261113-trading-real-bot U7 (BR8.2, BR8.3, BR3.8, BR6.7): the conditional exits. */
+  exits: {
+    define: 'Definir stop e alvo',
+    defineLabel: (token: string) => `Definir stop e alvo da posição ${token}`,
+    needsMode: 'Disponível no modo Automática nas saídas',
+    soon: 'Em breve',
+    dialogTitle: 'Definir stop e alvo',
+    currentPrice: 'Preço atual (USD)',
+    priceFrom: (source: string, time: string) => `Fonte: ${source} · ${time}`,
+    noPrice: 'Sem preço atual',
+    position: (amount: string) => `Posição inteira: ${amount}`,
+    kind: 'Tipo de saída',
+    kinds: {
+      OCO: 'Stop e alvo (um cancela o outro)',
+      STOP: 'Só stop',
+      TAKE_PROFIT: 'Só alvo',
+    } as Record<string, string>,
+    stop: 'Stop (USD)',
+    takeProfit: 'Alvo (USD)',
+    bounds: (minStop: string, maxTakeProfit: string) =>
+      `O stop pode ir até ${minStop} USD (50% do preço atual) e o alvo até ${maxTakeProfit} USD (10 vezes).`,
+    stopWarning:
+      'O stop não tem execução garantida: num movimento rápido a venda pode sair abaixo do preço definido, ou não sair.',
+    invalid: {
+      empty: 'Informe o preço.',
+      format: 'Use um número decimal, por exemplo 0,00008.',
+      decimals: 'Use no máximo 18 casas decimais.',
+    } as Record<string, string>,
+    confirm: 'Assinar e criar',
+    consent:
+      'Você assina na sua carteira o consentimento da saída automática. Nada é enviado da sua carteira principal.',
+    created: 'Saída automática criada.',
+    walletSigning: 'Aguardando a carteira…',
+    transactionNotYet: 'A assinatura desta saída ainda não está disponível neste ambiente.',
+    tab: 'Condicionais',
+    ordersTab: 'Ordens',
+    empty: 'Nenhuma saída automática ainda',
+    loading: 'Carregando as saídas automáticas…',
+    error: 'Não foi possível carregar as saídas automáticas.',
+    columns: {
+      date: 'Criada em (seu fuso)',
+      token: 'Token',
+      kind: 'Tipo',
+      prices: 'Stop / alvo (USD)',
+      state: 'Estado',
+    },
+    cancel: 'Cancelar saída',
+    cancelTitle: 'Cancelar a saída automática',
+    cancelEffect:
+      'O cancelamento é enviado pela carteira do bot. Se a saída for executada antes, a venda vale.',
+    stalled:
+      'O cancelamento automático está demorando; o suporte foi avisado. Você continua podendo sacar o SOL livre',
+    filledSides: { STOP: 'pelo stop', TAKE_PROFIT: 'pelo alvo' } as Record<string, string>,
+    states: {
+      PENDING_SIGNATURE: 'Aguardando assinatura',
+      OPEN: 'Aberta',
+      FILLED: 'Preenchida',
+      CANCELLING: 'Cancelando',
+      CANCELLED: 'Cancelada',
+      EXPIRED: 'Expirada',
+      FAILED: 'Falhou',
+    } as Record<string, string>,
+  },
+  /** 261113-trading-real-bot U7 (BR7, BR8.4): the fiscal CSV export. */
+  fiscal: {
+    title: 'Exportar histórico (CSV)',
+    from: 'De',
+    to: 'Até',
+    export: 'Exportar histórico (CSV)',
+    exporting: 'Gerando o arquivo…',
+    done: 'Arquivo gerado. Ele não fica guardado no servidor.',
+    hint: 'Um arquivo por período de até 1 ano, com as datas no seu fuso.',
+    tooLong: 'O período passa de 1 ano; exporte em partes.',
+    inverted: 'A data final vem antes da inicial.',
   },
 } as const;

@@ -501,6 +501,75 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/real/conditional-orders': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Saídas automáticas da pessoa, mais recentes primeiro */
+    get: operations['listRealConditionalOrders'];
+    put?: never;
+    /** Cria stop, alvo ou OCO de uma posição REAL e abre a sessão de assinatura */
+    post: operations['createRealConditionalOrder'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/conditional-orders/quote': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Posição e preço atual em USD (com fonte e horário) para definir stop e alvo */
+    get: operations['quoteRealConditionalOrder'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/conditional-orders/{conditionalOrderId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Cancela a saída automática: CANCELLED sem assinatura pendente, CANCELLING se já aberta */
+    delete: operations['cancelRealConditionalOrder'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/conditional-orders/{conditionalOrderId}/signature': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Recebe a assinatura da carteira principal; o servidor confere e abre a condicional */
+    post: operations['signRealConditionalOrder'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/real/consents/challenge': {
     parameters: {
       query?: never;
@@ -512,6 +581,23 @@ export interface paths {
     put?: never;
     /** Emite o desafio de consentimento */
     post: operations['issueRealConsentChallenge'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/exports/fiscal': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Histórico REAL da pessoa em CSV (UTF-8 com BOM, ponto e vírgula, vírgula decimal) */
+    get: operations['exportRealFiscalCsv'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1012,6 +1098,84 @@ export interface components {
       message: string;
       nonce: string;
     };
+    /** @description Uma saída automática (stop, alvo ou OCO) de uma posição REAL */
+    ConditionalOrder: {
+      /** @description Quantidade em unidades base, como texto */
+      amountBaseUnits: string;
+      /** Format: uuid */
+      conditionalOrderId: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      filledAt?: string;
+      /** @enum {string} */
+      filledSide?: 'STOP' | 'TAKE_PROFIT';
+      /** @enum {string} */
+      kind: 'STOP' | 'TAKE_PROFIT' | 'OCO';
+      /** @description Cancelamento automático parado há 15 minutos ou mais (BR6.7) */
+      needsUserCancellation: boolean;
+      positionMint: string;
+      /** @enum {string} */
+      state:
+        | 'PENDING_SIGNATURE'
+        | 'OPEN'
+        | 'CANCELLING'
+        | 'FILLED'
+        | 'CANCELLED'
+        | 'EXPIRED'
+        | 'FAILED';
+      /** @description DecimalString em USD */
+      stopPriceUsd?: string;
+      /** @description DecimalString em USD */
+      takeProfitPriceUsd?: string;
+      /** @description Assinatura do preenchimento ou, antes dele, da criação */
+      txSignature?: string;
+    };
+    /** @description Condicionais da pessoa, mais recentes primeiro */
+    ConditionalOrderPage: {
+      items: components['schemas']['ConditionalOrder'][];
+      nextCursor?: string;
+      /** Format: int64 */
+      total: number;
+    };
+    /** @description Posição e preço atual em USD para o diálogo "Definir stop e alvo" (BR8.2, BR2.6) */
+    ConditionalQuote: {
+      /** @description Maior alvo aceito (10 vezes o preço atual), DecimalString */
+      maxTakeProfitPriceUsd?: string;
+      /** @description Menor stop aceito (50% do preço atual), DecimalString */
+      minStopPriceUsd?: string;
+      /** Format: date-time */
+      observedAt?: string;
+      /** @description Posição inteira em unidades base, como texto */
+      positionBaseUnits: string;
+      positionMint: string;
+      /** @enum {string} */
+      priceStatus: 'KNOWN' | 'UNKNOWN';
+      /** @description DecimalString em USD; ausente quando desconhecido */
+      priceUsd?: string;
+      /** @description Fonte do preço */
+      source?: string;
+    };
+    /** @description A assinatura da carteira principal: do consentimento (caminho simulado) ou da transação */
+    ConditionalSignatureRequest: {
+      /** @description Assinatura Base58 da mensagem de consentimento (signMessage) */
+      signature?: string;
+      /** @description Transação assinada pela carteira principal (Base64) */
+      signedTransactionBase64?: string;
+    };
+    /** @description O que a carteira principal assina, e até quando */
+    ConditionalSigningSession: {
+      /** Format: date-time */
+      deadline: string;
+      /** @enum {string} */
+      kind: 'MESSAGE' | 'TRANSACTION';
+      /** @description Mensagem de consentimento montada pelo servidor (kind MESSAGE) */
+      message?: string;
+      /** Format: date-time */
+      serverTime: string;
+      /** @description Transação montada pelo servidor (kind TRANSACTION), em Base64 */
+      transactionBase64?: string;
+    };
     Coverage: {
       /** Format: int32 */
       informed: number;
@@ -1027,11 +1191,37 @@ export interface components {
       name: string;
       templateId: string;
     };
+    /** @description Pedido de stop, alvo ou OCO de uma posição REAL */
+    CreateConditionalOrderRequest: {
+      /** @enum {string} */
+      kind: 'STOP' | 'TAKE_PROFIT' | 'OCO';
+      /** @description Mint da posição (Base58) */
+      positionMint: string;
+      /**
+       * @description DecimalString em USD; obrigatório em STOP e OCO
+       * @example 0.00008
+       */
+      stopPriceUsd?: string;
+      /**
+       * @description DecimalString em USD; obrigatório em TAKE_PROFIT e OCO
+       * @example 0.00015
+       */
+      takeProfitPriceUsd?: string;
+    };
     CreateDataRequest: {
       /** @description Texto do pedido, de 1 a 1.000 caracteres (pontos de código) */
       details: string;
       /** @enum {string} */
       type: 'ACCESS' | 'CORRECTION' | 'DELETION' | 'OTHER';
+    };
+    /** @description A condicional criada e a sessão de assinatura aberta */
+    CreatedConditionalOrder: {
+      conditionalOrder: components['schemas']['ConditionalOrder'];
+      /** Format: uuid */
+      conditionalOrderId: string;
+      signingSession: components['schemas']['ConditionalSigningSession'];
+      /** @description BR3.8: o stop não tem execução garantida (sempre verdadeiro) */
+      stopNotGuaranteed: boolean;
     };
     /** @description data do evento auth.expired */
     DashboardAuthExpiredEvent: {
@@ -1515,6 +1705,27 @@ export interface components {
       message?: string;
       nonce?: string;
     };
+    /** @description data do evento real.conditional.state (R6, adendo da U7) */
+    RealConditionalStateChanged: {
+      /** Format: date-time */
+      at: string;
+      /** Format: uuid */
+      conditionalOrderId: string;
+      /** @enum {string} */
+      filledSide?: 'STOP' | 'TAKE_PROFIT';
+      positionMint: string;
+      /** @enum {string} */
+      state:
+        | 'PENDING_SIGNATURE'
+        | 'OPEN'
+        | 'CANCELLING'
+        | 'FILLED'
+        | 'CANCELLED'
+        | 'EXPIRED'
+        | 'FAILED';
+      /** @enum {string} */
+      type: 'REAL_CONDITIONAL_STATE';
+    };
     RealLiquidationView: {
       /** Format: uuid */
       liquidationId: string;
@@ -1643,6 +1854,8 @@ export interface components {
       state: 'NONE' | 'QUARANTINE' | 'ACTIVE' | 'BLOCKED' | 'REVOKED';
     };
     RealReleaseView: {
+      /** @description Saídas automáticas (stop, alvo e OCO) habilitadas neste ambiente */
+      exitsEnabled: boolean;
       network: string;
       release: components['schemas']['RealReleaseStatus'];
     };
@@ -3126,6 +3339,123 @@ export interface operations {
       };
     };
   };
+  listRealConditionalOrders: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConditionalOrderPage'];
+        };
+      };
+    };
+  };
+  createRealConditionalOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateConditionalOrderRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CreatedConditionalOrder'];
+        };
+      };
+    };
+  };
+  quoteRealConditionalOrder: {
+    parameters: {
+      query: {
+        positionMint: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConditionalQuote'];
+        };
+      };
+    };
+  };
+  cancelRealConditionalOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conditionalOrderId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConditionalOrder'];
+        };
+      };
+    };
+  };
+  signRealConditionalOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conditionalOrderId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ConditionalSignatureRequest'];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ConditionalOrder'];
+        };
+      };
+    };
+  };
   issueRealConsentChallenge: {
     parameters: {
       query?: never;
@@ -3146,6 +3476,30 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['RealChallengeView'];
+        };
+      };
+    };
+  };
+  exportRealFiscalCsv: {
+    parameters: {
+      query?: {
+        from?: string;
+        to?: string;
+        tz?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description O arquivo CSV, gerado na hora e não guardado */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/csv': string;
         };
       };
     };
@@ -3526,7 +3880,8 @@ export interface operations {
             | components['schemas']['DashboardHeartbeatEvent']
             | components['schemas']['DashboardAuthExpiredEvent']
             | components['schemas']['RealOrderStateChanged']
-            | components['schemas']['RealSigningSessionOpened'];
+            | components['schemas']['RealSigningSessionOpened']
+            | components['schemas']['RealConditionalStateChanged'];
         };
       };
       /** @description UNAUTHENTICATED */

@@ -532,10 +532,7 @@ class RealOpsMigrationIT extends AbstractPostgresIT {
         migrate(url);
         JdbcClient ownDb = connect(OWNER, url);
         JdbcClient ownApp = connect(APP, url);
-        int changesets = (int) Pattern.compile("(?m)^--changeset ")
-                .matcher(Files.readString(MIGRATION, StandardCharsets.UTF_8))
-                .results()
-                .count();
+        int changesets = changesetsFromThisMigrationOn();
         rollback(url, changesets);
         assertThat(columnExists(ownDb, "real_release", "state")).isFalse();
         assertThat(ownDb.sql("select count(*) from pg_proc where proname = 'redact_real_wallet_audit'")
@@ -591,10 +588,7 @@ class RealOpsMigrationIT extends AbstractPostgresIT {
                 .param("t", person.tenantId())
                 .param("w", wallet)
                 .update();
-        int changesets = (int) Pattern.compile("(?m)^--changeset ")
-                .matcher(Files.readString(MIGRATION, StandardCharsets.UTF_8))
-                .results()
-                .count();
+        int changesets = changesetsFromThisMigrationOn();
 
         assertThat(catchThrowable(() -> rollback(url, changesets)))
                 .hasStackTraceContaining("withdrawal rows were redacted");
@@ -628,6 +622,30 @@ class RealOpsMigrationIT extends AbstractPostgresIT {
                         .query(Long.class)
                         .single()
                 > 0;
+    }
+
+    /**
+     * 261113-trading-real-bot U7: the changesets of 0021 and of every later migration of the master changelog, so the
+     * rollback reaches 0021 whatever came after it (0022 of the U7 is rolled back first, on an empty table).
+     */
+    private static int changesetsFromThisMigrationOn() throws java.io.IOException {
+        Path changelog = Path.of("src", "main", "resources", "db", "changelog");
+        String master = Files.readString(changelog.resolve("db.changelog-master.yaml"), StandardCharsets.UTF_8);
+        Matcher includes =
+                Pattern.compile("file:\\s*db/changelog/changes/(\\S+\\.sql)").matcher(master);
+        int count = 0;
+        boolean counting = false;
+        while (includes.find()) {
+            counting =
+                    counting || includes.group(1).equals(MIGRATION.getFileName().toString());
+            if (counting) {
+                count += (int) Pattern.compile("(?m)^--changeset ")
+                        .matcher(Files.readString(changelog.resolve("changes").resolve(includes.group(1))))
+                        .results()
+                        .count();
+            }
+        }
+        return count;
     }
 
     @SuppressWarnings("deprecation")

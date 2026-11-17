@@ -33,7 +33,7 @@ spring:
       # U5 the purge of the REAL operations (1, U5-NFR3.7). RuntimeSettingsGuard refuses less than 22 in the api
       # (SCHEDULER_POOL_SIZE); the worker (application-worker.yml) has its own.
       pool:
-        size: ${SCHEDULER_POOL_SIZE:22}
+        size: ${SCHEDULER_POOL_SIZE:23}
   jackson:
     time-zone: UTC
     default-property-inclusion: non_null
@@ -155,6 +155,19 @@ memetrade:
     # 261113-trading-real-bot U5 (BR1.3): the ordinary account (BETA_USER) of the founder, released first on the
     # MAINNET. With MEMETRADE_REAL_NETWORK=MAINNET the api and the worker refuse to start without it (S28).
     founder-user-id: ${MEMETRADE_REAL_FOUNDER_USER_ID:}
+    # 261113-trading-real-bot U7 (BR0.3, BR9.3, U7-NFR4.10): the conditional exits (stop, take-profit, OCO) are OFF in
+    # every network until the real recording of the Jupiter Trigger API (BR0) and, on the MAINNET, the decision of the
+    # founder. Only the test profile of the local run (infra/docker-compose.real.yml) turns them on, with the simulated
+    # adapter, which RealProperties refuses outside the LOCALNET. The Jupiter API key, when the recording shows it is
+    # required, comes from a secret of the api and the worker only and is never logged nor sent to the browser.
+    exits:
+      enabled: ${MEMETRADE_REAL_EXITS_ENABLED:false}
+      adapter: ${MEMETRADE_REAL_EXITS_ADAPTER:jupiter}
+      jupiter-api-key: ${MEMETRADE_JUPITER_API_KEY:}
+      # BR5.1, BR6.1: the read of the open conditionals every 30 s and the automatic cancellation every minute.
+      read-interval: 30s
+      cancel-interval: 1m
+      gauges-interval: 30s
     # 261113-trading-real-bot U5 (U5-NFR3.7, U5-NFR1.1, infrastructure-specification.md): the REAL operations. Fixed
     # here; only the reconciliation interval (the e2e uses PT15S), the configured CI (GREEN or RED, refused with the
     # MAINNET) and the GitHub repository and token (worker only, never logged) come from the environment.

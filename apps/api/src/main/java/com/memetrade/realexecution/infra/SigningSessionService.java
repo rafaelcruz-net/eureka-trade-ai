@@ -5,12 +5,15 @@ import com.memetrade.botwallet.api.RealUpstreamUnavailable;
 import com.memetrade.botwallet.api.RealWalletInfo;
 import com.memetrade.botwallet.api.SwapSigningRequest;
 import com.memetrade.identity.api.Principal;
+import com.memetrade.ledger.api.RealLedger;
+import com.memetrade.realexecution.api.PositionExitGuard;
 import com.memetrade.realexecution.api.RealFailureCode;
 import com.memetrade.realexecution.api.RealOrderState;
 import com.memetrade.realexecution.api.RealOrderView;
 import com.memetrade.realexecution.domain.solana.Ed25519Check;
 import com.memetrade.realexecution.domain.solana.WireTransaction;
 import com.memetrade.realexecution.infra.JdbcRealExecutionStore.OrderRow;
+import com.memetrade.riskcontrol.api.RealRiskGate;
 import com.memetrade.shared.error.ApiException;
 import com.memetrade.shared.error.ErrorCode;
 import com.memetrade.shared.solana.Base58Codec;
@@ -43,6 +46,9 @@ public class SigningSessionService {
     private final RealExecutionProperties properties;
     private final Clock clock;
     private final TransactionTemplate transactions;
+    private final PositionExitGuard exits;
+    private final RealRiskGate gate;
+    private final RealLedger ledger;
 
     public SigningSessionService(
             JdbcRealExecutionStore store,
@@ -52,7 +58,13 @@ public class SigningSessionService {
             CrashPoints crashes,
             RealExecutionConfig.CheckedSettings settings,
             Clock clock,
-            PlatformTransactionManager manager) {
+            PlatformTransactionManager manager,
+            PositionExitGuard exits,
+            RealRiskGate gate,
+            RealLedger ledger) {
+        this.exits = exits;
+        this.gate = gate;
+        this.ledger = ledger;
         this.store = store;
         this.transitions = transitions;
         this.driver = driver;
@@ -118,6 +130,9 @@ public class SigningSessionService {
         if (!now.isBefore(order.signingDeadline())) {
             throw new ApiException(ErrorCode.SIGNING_DEADLINE_EXPIRED, "The signing window is over.");
         }
+        if (order.side() == com.memetrade.realexecution.api.RealSide.SELL) {
+            releaseForSale(order);
+        }
         checkSignedByMainWallet(order, signedTransactionBase64);
         boolean claimed = Boolean.TRUE.equals(
                 transactions.execute(status -> store.claimSession(realOrderId, now, signedTransactionBase64)));
@@ -150,6 +165,41 @@ public class SigningSessionService {
             throw new ApiException(ErrorCode.UPSTREAM_UNAVAILABLE, "The signing service did not answer.");
         }
         return view(realOrderId);
+    }
+
+    /**
+     * 261113-trading-real-bot U7 (BR4.3, logical-components.md "Venda pedida pela pessoa"): the sale the person signs
+     * waits while a conditional holds the position ({@code 409 EXIT_CANCELLING}, the conditional is marked CANCELLING
+     * by the guard and the session stays open until its deadline), and ends without anything sent when the conditional
+     * already sold the position ({@code 409 NOTHING_TO_SELL}). Under the person lock, as the queue and the liquidation.
+     */
+    private void releaseForSale(OrderRow order) {
+        PositionExitGuard.ExitRelease release;
+        long position;
+        try {
+            long[] held = new long[1];
+            release = transactions.execute(status -> gate.withPersonLock(order.tenantId(), order.userId(), () -> {
+                PositionExitGuard.ExitRelease answer =
+                        exits.releaseForSale(order.tenantId(), order.userId(), order.mint());
+                held[0] = transitions
+                        .botWalletOf(order)
+                        .map(wallet -> ledger.positions(order.tenantId(), wallet).stream()
+                                .filter(open -> open.mint().equals(order.mint()))
+                                .mapToLong(com.memetrade.ledger.api.RealPosition::tokenBaseUnits)
+                                .sum())
+                        .orElse(0L);
+                return answer;
+            }));
+            position = held[0];
+        } catch (com.memetrade.riskcontrol.api.RealGateUnavailable noLock) {
+            throw new ApiException(ErrorCode.SERVICE_UNAVAILABLE, "Try again in a moment.");
+        }
+        if (release == PositionExitGuard.ExitRelease.WAIT) {
+            throw new ApiException(ErrorCode.EXIT_CANCELLING, "Cancelando a saída automática; tente em instantes.");
+        }
+        if (position < order.input()) {
+            throw new ApiException(ErrorCode.NOTHING_TO_SELL, "A saída automática já vendeu esta posição.");
+        }
     }
 
     /** AC3.2.4: the person refused in the wallet; an unclaimed session is cancelled USER_REJECTED. */
