@@ -126,7 +126,15 @@ export function listQuery(request: ListRequest): string {
  * check on load all share the same promise through `refreshSession()`. A call whose 401 arrives after another caller
  * already renewed the token (the token in memory changed) just repeats once with the new token, without a new refresh.
  */
-export function guestApi(client: ApiClient) {
+export function guestApi(
+  client: ApiClient,
+  /**
+   * 261113-trading-real-bot U6 (logical-components.md "Ajustes menores", BR1.4, BR3.5, U6-NFR4.5): a second instance
+   * shares the single-flight renewal of the first one (two parallel refreshes would revoke the session), but has no
+   * handler of the reacceptance lock (the ApiProvider never registers one on it).
+   */
+  shared?: { renewSession: () => Promise<GuestSession> },
+) {
   let renewal: Promise<GuestSession> | null = null;
   let termsHandler: TermsReacceptanceHandler | null = null;
 
@@ -136,6 +144,9 @@ export function guestApi(client: ApiClient) {
   }
 
   function renewSession(): Promise<GuestSession> {
+    if (shared) {
+      return shared.renewSession();
+    }
     if (renewal === null) {
       renewal = client
         .request<GuestSession>('/api/v1/auth/refresh', { method: 'POST', credentials: true })
@@ -482,13 +493,16 @@ export function guestApi(client: ApiClient) {
         }),
       );
     },
-    /** R2: activation with the signed challenge; the key is created by the signing service, never in the browser. */
-    activateBotWallet(body: RealActivationRequest) {
+    /**
+     * R2: activation with the signed challenge; the key is created by the signing service, never in the browser. U6
+     * (BR6.2): the Idempotency-Key is the one of the exact body (challenge and signature).
+     */
+    activateBotWallet(body: RealActivationRequest, idempotencyKey: string) {
       return withRenewal(() =>
         client.request<RealBotWallet>('/api/v1/real/bot-wallet', {
           method: 'POST',
           body,
-          idempotent: true,
+          idempotencyKey,
           authenticated: true,
         }),
       );
@@ -507,6 +521,113 @@ export function guestApi(client: ApiClient) {
         }),
       );
     },
+    /** U6 (rules.md "Mudança de contrato" item 1): the release of the person; 403 REAL_DISABLED with the REAL off. */
+    getRealRelease() {
+      return withRenewal(() =>
+        client.request<RealReleaseView>('/api/v1/real/release', { authenticated: true }),
+      );
+    },
+    /** U6 (R6): one withdrawal of the person, for the tracking of its state. */
+    getRealWithdrawal(withdrawalId: string) {
+      return withRenewal(() =>
+        client.request<RealWithdrawal>(
+          `/api/v1/real/bot-wallet/withdrawals/${encodeURIComponent(withdrawalId)}`,
+          { authenticated: true },
+        ),
+      );
+    },
+    /** U6 (R6): the withdrawals of the person, newest first. */
+    listRealWithdrawals() {
+      return withRenewal(() =>
+        client.request<RealWithdrawalPage>('/api/v1/real/bot-wallet/withdrawals', {
+          authenticated: true,
+        }),
+      );
+    },
+    /**
+     * U6 (BR5.2b): the cap (lowering goes straight; raising carries the signed RAISE_CAP challenge). The key is the one
+     * of the exact body (BR6.2).
+     */
+    changeRealPreferences(body: RealPreferencesRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealBotWallet>('/api/v1/real/bot-wallet/preferences', {
+          method: 'PATCH',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U6 (R3, BR4.2, BR4.3): the mode; raising carries the signed RAISE_MODE challenge. */
+    changeRealMode(body: RealModeRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealModeView>('/api/v1/real/mode', {
+          method: 'PUT',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U6 (R5): the REAL orders of the person, newest first, by cursor. */
+    listRealOrders(
+      request: { state?: RealOrder['state']; cursor?: string | null; limit?: number } = {},
+    ) {
+      return withRenewal(() =>
+        client.request<RealOrderPage>(
+          `/api/v1/real/orders${query({ state: request.state, cursor: request.cursor, limit: request.limit })}`,
+          { authenticated: true },
+        ),
+      );
+    },
+    /** U6 (R4): the signing session of an order of the SIGNED mode; 404 or 409 when it no longer waits. */
+    getRealSigningSession(realOrderId: string) {
+      return withRenewal(() =>
+        client.request<RealSigningSession>(
+          `/api/v1/real/orders/${encodeURIComponent(realOrderId)}/signing-session`,
+          { authenticated: true },
+        ),
+      );
+    },
+    /** U6 (R4, BR3.1): the transaction signed by the main wallet, unchanged otherwise. */
+    submitRealSignedTransaction(
+      realOrderId: string,
+      body: RealSignedTransactionRequest,
+      idempotencyKey: string,
+    ) {
+      return withRenewal(() =>
+        client.request<RealOrder>(
+          `/api/v1/real/orders/${encodeURIComponent(realOrderId)}/signing-session`,
+          { method: 'POST', body, idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** U6 (R4, BR3.4): the person refuses the proposal; nothing is sent. */
+    rejectRealSigning(realOrderId: string, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealOrder>(`/api/v1/real/orders/${encodeURIComponent(realOrderId)}/reject`, {
+          method: 'POST',
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U6 (R6, US5.2): sell everything and withdraw; the key is the one of the confirmation (BR6.2). */
+    startRealLiquidation(idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealLiquidation>('/api/v1/real/liquidations', {
+          method: 'POST',
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U6 (R2, US4.2): the P&L REAL with fees, never mixed with the PAPER one. */
+    getRealPnl() {
+      return withRenewal(() =>
+        client.request<RealPnl>('/api/v1/real/pnl', { authenticated: true }),
+      );
+    },
   };
 }
 
@@ -517,6 +638,21 @@ export type RealChallenge = components['schemas']['RealChallengeView'];
 export type RealActivationRequest = components['schemas']['RealActivationRequest'];
 export type RealWithdrawalRequest = components['schemas']['RealWithdrawalRequest'];
 export type RealWithdrawal = components['schemas']['RealWithdrawalView'];
+// 261113-trading-real-bot U6: the screens of the REAL.
+export type RealWithdrawalPage = components['schemas']['RealPage'];
+export type RealReleaseView = components['schemas']['RealReleaseView'];
+export type RealReleaseStatus = components['schemas']['RealReleaseStatus'];
+export type RealPreferencesRequest = components['schemas']['RealPreferencesRequest'];
+export type RealModeRequest = components['schemas']['RealModeRequest'];
+export type RealModeView = components['schemas']['RealModeView'];
+export type RealOrder = components['schemas']['RealOrder'];
+export type RealOrderPage = components['schemas']['RealOrderPage'];
+export type RealTokenAmount = components['schemas']['RealTokenAmount'];
+export type RealSigningSession = components['schemas']['RealSigningSession'];
+export type RealSignedTransactionRequest = components['schemas']['RealSignedTransactionRequest'];
+export type RealLiquidation = components['schemas']['RealLiquidationView'];
+export type RealPnl = components['schemas']['RealPnl'];
+export type RealPnlPosition = components['schemas']['RealPnlPosition'];
 
 // U5 (C4): bots, wizard, commands and decisions; U6 (C21): refused orders.
 export type RejectionPage = components['schemas']['RejectionPage'];

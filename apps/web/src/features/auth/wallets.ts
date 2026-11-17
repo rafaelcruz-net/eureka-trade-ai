@@ -1,7 +1,10 @@
 import { getWallets } from '@wallet-standard/app';
 import type { Wallet, WalletAccount } from '@wallet-standard/base';
 import type { StandardConnectFeature } from '@wallet-standard/features';
-import type { SolanaSignMessageFeature } from '@solana/wallet-standard-features';
+import type {
+  SolanaSignMessageFeature,
+  SolanaSignTransactionFeature,
+} from '@solana/wallet-standard-features';
 
 export type WalletProvider = 'PHANTOM' | 'SOLFLARE';
 
@@ -15,6 +18,24 @@ export interface WalletPort {
   icon?: string;
   connect(): Promise<{ address: string }>;
   signMessage(message: Uint8Array): Promise<Uint8Array>;
+  /**
+   * 261113-trading-real-bot U6 (BR3.6, U6-NFR8.2): the wallet has `solana:signTransaction` for legacy or version 0
+   * transactions. Without it the signing dialog never opens.
+   */
+  canSignTransaction: boolean;
+  /**
+   * U6 (BR3.1, U6-NFR1.1): hands the serialized transaction built by the server, unchanged, to the wallet and returns
+   * the signed serialized transaction it gave back. The app never builds, changes or sends a transaction.
+   */
+  signTransaction(transaction: Uint8Array): Promise<Uint8Array>;
+}
+
+/** U6 (BR3.6): the wallet has no `solana:signTransaction`; nothing is handed to it. */
+export class WalletCannotSignTransaction extends Error {
+  constructor() {
+    super('The wallet does not sign transactions');
+    this.name = 'WalletCannotSignTransaction';
+  }
 }
 
 type StandardRegistry = Pick<ReturnType<typeof getWallets>, 'get' | 'on'>;
@@ -42,6 +63,14 @@ export function toWalletPort(wallet: Wallet): WalletPort | null {
   if (!provider || !connectFeature || !signFeature) {
     return null;
   }
+  const transactionFeature = wallet.features['solana:signTransaction'] as
+    | SolanaSignTransactionFeature['solana:signTransaction']
+    | undefined;
+  const canSignTransaction = Boolean(
+    transactionFeature?.supportedTransactionVersions.some(
+      (version) => version === 'legacy' || version === 0,
+    ),
+  );
   let account: WalletAccount | undefined;
   return {
     name: wallet.name,
@@ -64,6 +93,20 @@ export function toWalletPort(wallet: Wallet): WalletPort | null {
         throw new Error('The wallet returned no signature');
       }
       return output.signature;
+    },
+    canSignTransaction,
+    async signTransaction(transaction: Uint8Array) {
+      if (!account) {
+        throw new Error('Connect the wallet before signing');
+      }
+      if (!transactionFeature || !canSignTransaction) {
+        throw new WalletCannotSignTransaction();
+      }
+      const [output] = await transactionFeature.signTransaction({ account, transaction });
+      if (!output) {
+        throw new Error('The wallet returned no signed transaction');
+      }
+      return output.signedTransaction;
     },
   };
 }

@@ -1,0 +1,854 @@
+{
+  "stage": "code-generation",
+  "unit": "u6-real-modes-ui",
+  "upstream_ids": [
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR1.4",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR2.4",
+    "BR2.5",
+    "BR3.1",
+    "BR3.2",
+    "BR3.3",
+    "BR3.4",
+    "BR3.5",
+    "BR3.6",
+    "BR3.7",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR4.4",
+    "BR5.1",
+    "BR5.2",
+    "BR5.2b",
+    "BR5.3",
+    "BR5.4",
+    "BR6.1",
+    "BR6.2",
+    "BR6.3",
+    "BR6.4",
+    "BR6.5",
+    "BR7.1",
+    "BR7.2",
+    "BR8.1",
+    "BR8.2",
+    "BR8.3",
+    "BR8.4",
+    "BR8.5",
+    "BR8.6",
+    "BR8.7",
+    "BR8.8",
+    "BR9.1",
+    "BR9.2",
+    "BR9.3",
+    "BR9.4",
+    "BR9.5",
+    "BR9.6",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6",
+    "S7",
+    "S8",
+    "S9",
+    "S10",
+    "S11",
+    "S12",
+    "S13",
+    "S14",
+    "S15",
+    "S16",
+    "S17",
+    "S18",
+    "S19",
+    "S20",
+    "S21",
+    "S22",
+    "S23",
+    "S24",
+    "S25",
+    "S26",
+    "S27",
+    "S28",
+    "S29",
+    "S30",
+    "S31",
+    "S32",
+    "S33",
+    "S34",
+    "S35",
+    "S36",
+    "S37",
+    "S38",
+    "S39",
+    "S40",
+    "S41",
+    "S42",
+    "S43",
+    "S44",
+    "U6-NFR1.1",
+    "U6-NFR1.1b",
+    "U6-NFR1.2",
+    "U6-NFR1.3",
+    "U6-NFR1.4",
+    "U6-NFR1.5",
+    "U6-NFR1.6",
+    "U6-NFR1.7",
+    "U6-NFR1.8",
+    "U6-NFR1.9",
+    "U6-NFR1.10",
+    "U6-NFR1.11",
+    "U6-NFR2.1",
+    "U6-NFR3.1",
+    "U6-NFR3.2",
+    "U6-NFR3.3",
+    "U6-NFR3.4",
+    "U6-NFR3.5",
+    "U6-NFR3.5b",
+    "U6-NFR3.6",
+    "U6-NFR4.1",
+    "U6-NFR4.2",
+    "U6-NFR4.3",
+    "U6-NFR4.4",
+    "U6-NFR4.5",
+    "U6-NFR4.6",
+    "U6-NFR4.7",
+    "U6-NFR5.1",
+    "U6-NFR5.2",
+    "U6-NFR6.1",
+    "U6-NFR6.2",
+    "U6-NFR6.3",
+    "U6-NFR6.4",
+    "U6-NFR6.5",
+    "U6-NFR6.6",
+    "U6-NFR7.1",
+    "U6-NFR7.2",
+    "U6-NFR7.3",
+    "U6-NFR7.4",
+    "U6-NFR7.5",
+    "U6-NFR7.6",
+    "U6-NFR8.1",
+    "U6-NFR8.2",
+    "U6-NFR8.3",
+    "U6-NFR8.4",
+    "U6-NFR8.5",
+    "U6-NFR8.6",
+    "U6-NFR8.7",
+    "U6-NFR10.1"
+  ],
+  "coverage": [
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "GET /api/v1/real/release (BotWalletController.release, RealStateQuery.readRelease); apps/web/src/features/real/session-real.ts, components/shell/PrimaryNav.tsx (REAL_NAV_ITEM), apps/web/src/features/real/components/RealArea.tsx (isRealUnavailable); RealReleaseRouteIT, RealReleaseRouteOffIT, AppShell.test.tsx, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/RealArea.tsx (404 -> /real/ativacao), apps/web/src/features/real/screens/ActivationScreen.tsx (carteira ativa -> /real); OverviewScreen.test.tsx, ActivationScreen.test.tsx"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "apps/web/src/app/real/carteira/page.tsx (redirect /real); OverviewScreen.test.tsx"
+    },
+    {
+      "id": "BR1.4",
+      "status": "OK",
+      "target": "apps/web/src/lib/api/ApiProvider.tsx (useQuietApi, segunda instância), lib/api/guest-api.ts (shared renewSession), apps/web/src/features/real/screens/DepositWithdrawScreen.tsx, features/live/LiveChannelProvider.tsx (WITHDRAWAL_PATH); quiet-api.test.ts, DepositWithdrawScreen.test.tsx, LiveChannelProvider.test.tsx"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/ActivationScreen.tsx (TermsStep); ActivationScreen.test.tsx"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/ActivationScreen.tsx (acceptTerms com chave por envio); ActivationScreen.test.tsx"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/ActivationScreen.tsx (release ACTIVE -> passo 2); ActivationScreen.test.tsx"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/ActivationScreen.tsx (ConsentStep: ACTIVATE, signMessage, activateBotWallet com Idempotency-Key); ActivationScreen.test.tsx, e2e/real-bot-wallet/bot-wallet.spec.ts"
+    },
+    {
+      "id": "BR2.5",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/ReleaseStatus.tsx; ActivationScreen.test.tsx, base.test.tsx"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "apps/web/src/features/real/sign-transaction.ts, features/auth/wallets.ts (signTransaction), lib/encoding/base64.ts, apps/web/src/features/real/components/SigningDialog.tsx; sign-transaction.test.ts, base64.test.ts, SigningBanner.test.tsx, e2e/support/test-wallet.test.ts"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "apps/web/src/lib/time/countdown.ts, RealOrderDtos.SigningSession.serverTime; countdown.test.ts, SigningBanner.test.tsx, SigningSessionServerTimeIT"
+    },
+    {
+      "id": "BR3.3",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/SigningBanner.tsx (OUTCOME_MS 5 s), SigningDialog.tsx (SIGNING_DEADLINE_EXPIRED); SigningBanner.test.tsx"
+    },
+    {
+      "id": "BR3.4",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/SigningDialog.tsx (reject, rejectFailed); SigningBanner.test.tsx"
+    },
+    {
+      "id": "BR3.5",
+      "status": "OK",
+      "target": "features/live/LiveChannelProvider.tsx, features/dashboard/warn.ts e envelopes.ts (eventos real.*), apps/web/src/features/real/hooks/useSigningSession.ts, components/shell/AppShell.tsx; LiveChannelProvider.test.tsx, SigningBanner.test.tsx, AppShell.test.tsx"
+    },
+    {
+      "id": "BR3.6",
+      "status": "OK",
+      "target": "features/auth/wallets.ts (canSignTransaction), apps/web/src/features/real/components/SigningBanner.tsx; sign-transaction.test.ts, SigningBanner.test.tsx"
+    },
+    {
+      "id": "BR3.7",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/SigningDialog.tsx (outcomeOf), apps/web/src/features/real/sign-transaction.ts (SignedTransactionMismatch); SigningBanner.test.tsx"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/ModeSelector.tsx (AUTO_EXITS \"Em breve\"); ModeScreen.test.tsx"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/ModeScreen.tsx (RAISE_MODE, signMessage, PUT /mode); ModeScreen.test.tsx, e2e/real-ui"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/ModeScreen.tsx (lowerEffect); ModeScreen.test.tsx, e2e/real-ui"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "apps/web/src/features/real/api.ts (toRealError), ModeScreen.tsx; ModeScreen.test.tsx"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "apps/web/src/features/real/money.ts (parseSol, bigint), eslint.config.mjs (bloco REAL); money.test.ts, real-lint.test.ts"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "apps/web/src/features/real/money.ts (MAX_CAP_LAMPORTS), screens/OverviewScreen.tsx (CapSection); money.test.ts, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "BR5.2b",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/OverviewScreen.tsx (PATCH ao baixar; RAISE_CAP ao subir; lowerPath/raisePath); OverviewScreen.test.tsx, e2e/real-ui"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/OverviewScreen.tsx (belowExposure); OverviewScreen.test.tsx"
+    },
+    {
+      "id": "BR5.4",
+      "status": "OK",
+      "target": "BotWalletViews.capSetBy, JdbcBotWalletRepository.lastCapLoweredByAdmin, OverviewScreen.tsx (setByAdmin); BotWalletViewCapSetByTest, RealReleaseRouteIT, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/MoneyConfirmDialog.tsx; base.test.tsx, DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "apps/web/src/features/real/hooks/useMoneyAction.ts, apps/admin/src/features/real/hooks/useAdminAction.ts; base.test.tsx, ModeScreen.test.tsx (S40), DepositWithdrawScreen.test.tsx (S25)"
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "apps/web/src/features/real/hooks/useMoneyAction.ts (inFlight); base.test.tsx, DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "BR6.4",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/DepositWithdrawScreen.tsx, apps/web/src/features/real/components/RealArea.tsx (withdrawal sem liberação); DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "BR6.5",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/DepositWithdrawScreen.tsx (abbreviateAddress, sem campo de destino); DepositWithdrawScreen.test.tsx, e2e/real-ui"
+    },
+    {
+      "id": "BR7.1",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/RealBadge.tsx, lib/theme/tokens.ts (real), globals.css; base.test.tsx, AppShell.test.tsx"
+    },
+    {
+      "id": "BR7.2",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/RealPnlCard.tsx, DashboardRealPnl.tsx; DashboardRealPnl.test.tsx, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "BR8.1",
+      "status": "OK",
+      "target": "apps/web/src/features/real/hooks/useLoad.ts, components/RealErrorNotice.tsx; base.test.tsx, OrdersScreen.test.tsx"
+    },
+    {
+      "id": "BR8.2",
+      "status": "OK",
+      "target": "apps/web/src/features/real/money.ts (Unknown), RealPnlCard.tsx (sem preço); money.test.ts, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "BR8.3",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/PauseBanner.tsx (pausedText); base.test.tsx"
+    },
+    {
+      "id": "BR8.4",
+      "status": "OK",
+      "target": "apps/web/src/features/real/components/OrderStateBadge.tsx; base.test.tsx, OrdersScreen.test.tsx"
+    },
+    {
+      "id": "BR8.5",
+      "status": "OK",
+      "target": "apps/web/src/features/real/screens/OrdersScreen.tsx (explorerLink); OrdersScreen.test.tsx"
+    },
+    {
+      "id": "BR8.6",
+      "status": "OK",
+      "target": "apps/web/src/lib/format/format.ts (formatInstant), OrdersScreen.tsx, ReleaseStatus.tsx; OrdersScreen.test.tsx, base.test.tsx"
+    },
+    {
+      "id": "BR8.7",
+      "status": "OK",
+      "target": "apps/web/src/features/real/money.ts (formatSol, formatToken); money.test.ts"
+    },
+    {
+      "id": "BR8.8",
+      "status": "OK",
+      "target": "apps/web/src/features/real/messages.ts (errors), api.ts (toRealError); base.test.tsx"
+    },
+    {
+      "id": "BR9.1",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/screens/*, apps/admin/src/features/real/components/RealSection.tsx, lib/api/admin-api.ts; real-admin.test.tsx"
+    },
+    {
+      "id": "BR9.2",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/components/AdminActionDialog.tsx, hooks/useAdminAction.ts; real-admin.test.tsx"
+    },
+    {
+      "id": "BR9.3",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/errors.ts, messages.ts; real-admin.test.tsx"
+    },
+    {
+      "id": "BR9.4",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/screens/RealKillSwitchScreen.tsx, features/layout/AdminLayout.tsx (item REAL); real-admin.test.tsx, layout.test.tsx"
+    },
+    {
+      "id": "BR9.5",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/screens/RealUserDetailScreen.tsx (mainWalletShort); real-admin.test.tsx"
+    },
+    {
+      "id": "BR9.6",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/screens/RealDivergencesScreen.tsx (compensationItems); real-admin.test.tsx"
+    },
+    {
+      "id": "S1",
+      "status": "OK",
+      "target": "RealArea.tsx, PrimaryNav.tsx; OverviewScreen.test.tsx, ActivationScreen.test.tsx, AppShell.test.tsx"
+    },
+    {
+      "id": "S2",
+      "status": "OK",
+      "target": "ReleaseStatus.tsx; ActivationScreen.test.tsx"
+    },
+    {
+      "id": "S3",
+      "status": "OK",
+      "target": "ReleaseStatus.tsx; ActivationScreen.test.tsx"
+    },
+    {
+      "id": "S4",
+      "status": "OK",
+      "target": "ActivationScreen.tsx (TermsStep); ActivationScreen.test.tsx"
+    },
+    {
+      "id": "S5",
+      "status": "OK",
+      "target": "ActivationScreen.tsx (termsFailed); ActivationScreen.test.tsx"
+    },
+    {
+      "id": "S6",
+      "status": "OK",
+      "target": "ActivationScreen.tsx; ActivationScreen.test.tsx"
+    },
+    {
+      "id": "S7",
+      "status": "OK",
+      "target": "ActivationScreen.tsx (DoneStep); ActivationScreen.test.tsx, e2e/real-bot-wallet"
+    },
+    {
+      "id": "S8",
+      "status": "OK",
+      "target": "money.ts, OverviewScreen.tsx; money.test.ts, OverviewScreen.test.tsx, ActivationScreen.test.tsx"
+    },
+    {
+      "id": "S9",
+      "status": "OK",
+      "target": "money.ts, OverviewScreen.tsx; money.test.ts, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "S10",
+      "status": "OK",
+      "target": "money.ts; money.test.ts, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "S11",
+      "status": "OK",
+      "target": "OverviewScreen.tsx (RAISE_CAP); OverviewScreen.test.tsx, e2e/real-ui"
+    },
+    {
+      "id": "S12",
+      "status": "OK",
+      "target": "SigningBanner.tsx, useSigningSession.ts; SigningBanner.test.tsx"
+    },
+    {
+      "id": "S13",
+      "status": "OK",
+      "target": "SigningDialog.tsx, sign-transaction.ts; SigningBanner.test.tsx, sign-transaction.test.ts"
+    },
+    {
+      "id": "S14",
+      "status": "OK",
+      "target": "SigningBanner.tsx; SigningBanner.test.tsx"
+    },
+    {
+      "id": "S15",
+      "status": "OK",
+      "target": "SigningDialog.tsx; SigningBanner.test.tsx"
+    },
+    {
+      "id": "S16",
+      "status": "OK",
+      "target": "SigningBanner.tsx, wallets.ts; SigningBanner.test.tsx, sign-transaction.test.ts"
+    },
+    {
+      "id": "S17",
+      "status": "OK",
+      "target": "ModeScreen.tsx; ModeScreen.test.tsx, e2e/real-ui"
+    },
+    {
+      "id": "S18",
+      "status": "OK",
+      "target": "ModeScreen.tsx; ModeScreen.test.tsx, e2e/real-ui"
+    },
+    {
+      "id": "S19",
+      "status": "OK",
+      "target": "ModeScreen.tsx, api.ts; ModeScreen.test.tsx"
+    },
+    {
+      "id": "S20",
+      "status": "OK",
+      "target": "ModeSelector.tsx; ModeScreen.test.tsx"
+    },
+    {
+      "id": "S21",
+      "status": "OK",
+      "target": "DepositWithdrawScreen.tsx; DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "S22",
+      "status": "OK",
+      "target": "DepositWithdrawScreen.tsx, api.ts (maxLamports); DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "S23",
+      "status": "OK",
+      "target": "DepositWithdrawScreen.tsx, RealArea.tsx (withdrawal), ApiProvider.tsx (useQuietApi); DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "S24",
+      "status": "OK",
+      "target": "useMoneyAction.ts; DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "S25",
+      "status": "OK",
+      "target": "useMoneyAction.ts; DepositWithdrawScreen.test.tsx, base.test.tsx"
+    },
+    {
+      "id": "S26",
+      "status": "OK",
+      "target": "OrdersScreen.tsx; OrdersScreen.test.tsx"
+    },
+    {
+      "id": "S27",
+      "status": "OK",
+      "target": "OrderStateBadge.tsx; OrdersScreen.test.tsx"
+    },
+    {
+      "id": "S28",
+      "status": "OK",
+      "target": "OrdersScreen.tsx; OrdersScreen.test.tsx, e2e/real-ui"
+    },
+    {
+      "id": "S29",
+      "status": "OK",
+      "target": "OrdersScreen.tsx (explorerLink); OrdersScreen.test.tsx"
+    },
+    {
+      "id": "S30",
+      "status": "OK",
+      "target": "RealPnlCard.tsx; OverviewScreen.test.tsx"
+    },
+    {
+      "id": "S31",
+      "status": "OK",
+      "target": "DashboardRealPnl.tsx, DashboardScreen.tsx; DashboardRealPnl.test.tsx"
+    },
+    {
+      "id": "S32",
+      "status": "OK",
+      "target": "PauseBanner.tsx; OverviewScreen.test.tsx"
+    },
+    {
+      "id": "S33",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/screens/RealUserDetailScreen.tsx, errors.ts; real-admin.test.tsx"
+    },
+    {
+      "id": "S34",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/screens/RealDivergencesScreen.tsx; real-admin.test.tsx"
+    },
+    {
+      "id": "S35",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/screens/RealKillSwitchScreen.tsx; real-admin.test.tsx, e2e/real-ui"
+    },
+    {
+      "id": "S36",
+      "status": "OK",
+      "target": "BotWalletViews.capSetBy, OverviewScreen.tsx; RealReleaseRouteIT, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "S37",
+      "status": "OK",
+      "target": "globals.css (@media < 768 px), OrdersScreen.tsx (cartões); OrdersScreen.test.tsx, e2e/real-ui (cenário 6)"
+    },
+    {
+      "id": "S38",
+      "status": "OK",
+      "target": "SigningDialog.tsx; SigningBanner.test.tsx"
+    },
+    {
+      "id": "S39",
+      "status": "OK",
+      "target": "SigningDialog.tsx; SigningBanner.test.tsx"
+    },
+    {
+      "id": "S40",
+      "status": "OK",
+      "target": "ModeScreen.tsx, useMoneyAction.ts; ModeScreen.test.tsx"
+    },
+    {
+      "id": "S41",
+      "status": "OK",
+      "target": "SigningDialog.tsx (rejectFailed); SigningBanner.test.tsx"
+    },
+    {
+      "id": "S42",
+      "status": "OK",
+      "target": "DepositWithdrawScreen.tsx, useSigningSession.ts, LiveChannelProvider.tsx; DepositWithdrawScreen.test.tsx, SigningBanner.test.tsx, LiveChannelProvider.test.tsx"
+    },
+    {
+      "id": "S43",
+      "status": "OK",
+      "target": "RealArea.tsx; OverviewScreen.test.tsx"
+    },
+    {
+      "id": "S44",
+      "status": "OK",
+      "target": "DepositWithdrawScreen.tsx (acompanhamento da venda total); DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "U6-NFR1.1",
+      "status": "OK",
+      "target": "sign-transaction.ts, wallets.ts, base64.ts; sign-transaction.test.ts, SigningBanner.test.tsx"
+    },
+    {
+      "id": "U6-NFR1.1b",
+      "status": "OK",
+      "target": "eslint.config.mjs (no-restricted-imports, no-restricted-syntax) nos dois apps; real-lint.test.ts (web e admin)"
+    },
+    {
+      "id": "U6-NFR1.2",
+      "status": "OK",
+      "target": "eslint.config.mjs (globals e properties de armazenamento e console); real-lint.test.ts, SigningBanner.test.tsx, ActivationScreen.test.tsx, DepositWithdrawScreen.test.tsx (armazenamento vazio)"
+    },
+    {
+      "id": "U6-NFR1.3",
+      "status": "OK",
+      "target": "package.json sem SDK; real-lint.test.ts (lista permitida, web e admin)"
+    },
+    {
+      "id": "U6-NFR1.4",
+      "status": "OK",
+      "target": "nenhum script novo; middleware.test.ts existente verde na suíte do web"
+    },
+    {
+      "id": "U6-NFR1.5",
+      "status": "OK",
+      "target": "nenhuma NEXT_PUBLIC_*; real-lint.test.ts, shell.test.tsx existente"
+    },
+    {
+      "id": "U6-NFR1.6",
+      "status": "OK",
+      "target": "BotWalletController.release, RealStateService.readRelease, route-registry.yml; RealReleaseRouteIT, RealReleaseRouteOffIT, RouteRegistryTest"
+    },
+    {
+      "id": "U6-NFR1.7",
+      "status": "OK",
+      "target": "GuestCorsPolicy (PATCH no ramo com token); GuestCorsPolicyTest"
+    },
+    {
+      "id": "U6-NFR1.8",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/screens/RealUserDetailScreen.tsx, DepositWithdrawScreen.tsx; real-admin.test.tsx, DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "U6-NFR1.9",
+      "status": "OK",
+      "target": "react/no-danger no bloco REAL; real-lint.test.ts"
+    },
+    {
+      "id": "U6-NFR1.10",
+      "status": "OK",
+      "target": "apps/admin/src/features/real (token só em memória, nada no armazenamento); real-admin.test.tsx"
+    },
+    {
+      "id": "U6-NFR1.11",
+      "status": "OK",
+      "target": "apps/admin/src/features/real/components/AdminActionDialog.tsx (codePoints, 1 a 500); real-admin.test.tsx"
+    },
+    {
+      "id": "U6-NFR2.1",
+      "status": "OK",
+      "target": "RealPnlCard.tsx, DashboardRealPnl.tsx; DashboardRealPnl.test.tsx, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "U6-NFR3.1",
+      "status": "OK",
+      "target": "useSigningSession.ts (evento no handler); SigningBanner.test.tsx"
+    },
+    {
+      "id": "U6-NFR3.2",
+      "status": "OK",
+      "target": "countdown.ts; countdown.test.ts, SigningBanner.test.tsx"
+    },
+    {
+      "id": "U6-NFR3.3",
+      "status": "OK",
+      "target": "useMoneyAction.ts, MoneyConfirmDialog.tsx; base.test.tsx"
+    },
+    {
+      "id": "U6-NFR3.4",
+      "status": "OK",
+      "target": "useTracking.ts; base.test.tsx, DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "U6-NFR3.5",
+      "status": "OK",
+      "target": "useSigningSession.ts (duas chamadas por troca de rota); SigningBanner.test.tsx"
+    },
+    {
+      "id": "U6-NFR3.5b",
+      "status": "OK",
+      "target": "useTracking.ts (no máximo 40 leituras); base.test.tsx"
+    },
+    {
+      "id": "U6-NFR3.6",
+      "status": "OK",
+      "target": "OrdersScreen.tsx (ORDERS_PAGE 20), apps/admin/src/features/real/lib/api/admin-api.ts (limit 20); OrdersScreen.test.tsx, real-admin.test.tsx"
+    },
+    {
+      "id": "U6-NFR4.1",
+      "status": "OK",
+      "target": "LiveChannelProvider.tsx (onReconnected), useSigningSession.ts; LiveChannelProvider.test.tsx, SigningBanner.test.tsx"
+    },
+    {
+      "id": "U6-NFR4.2",
+      "status": "OK",
+      "target": "useMoneyAction.ts (sem reenvio automático); base.test.tsx"
+    },
+    {
+      "id": "U6-NFR4.3",
+      "status": "OK",
+      "target": "useLoad.ts, RealPnlCard.tsx; OverviewScreen.test.tsx, DashboardRealPnl.test.tsx"
+    },
+    {
+      "id": "U6-NFR4.4",
+      "status": "OK",
+      "target": "DepositWithdrawScreen.tsx, RealArea.tsx; DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "U6-NFR4.5",
+      "status": "OK",
+      "target": "ApiProvider.tsx (segunda instância), useSigningSession.ts; quiet-api.test.ts, SigningBanner.test.tsx"
+    },
+    {
+      "id": "U6-NFR4.6",
+      "status": "OK",
+      "target": "useTracking.ts (TIMEOUT); DepositWithdrawScreen.test.tsx, base.test.tsx"
+    },
+    {
+      "id": "U6-NFR4.7",
+      "status": "OK",
+      "target": "useLoad.ts e estados de cada tela; testes de tela"
+    },
+    {
+      "id": "U6-NFR5.1",
+      "status": "OK",
+      "target": "RealErrorNotice.tsx, api.ts (correlationId); base.test.tsx, OverviewScreen.test.tsx"
+    },
+    {
+      "id": "U6-NFR5.2",
+      "status": "OK",
+      "target": "RealOrderController (Clock), route-registry.yml; SigningSessionServerTimeIT, RealReleaseRouteIT"
+    },
+    {
+      "id": "U6-NFR6.1",
+      "status": "OK",
+      "target": "componentes nativos; testes por papel e nome, e2e/real-bot-wallet e e2e/real-ui pelo teclado"
+    },
+    {
+      "id": "U6-NFR6.2",
+      "status": "OK",
+      "target": "ModalDialog.tsx, AdminActionDialog.tsx, jest.setup.ts (stubs de dialog); base.test.tsx, SigningBanner.test.tsx, ModeScreen.test.tsx, real-admin.test.tsx"
+    },
+    {
+      "id": "U6-NFR6.3",
+      "status": "OK",
+      "target": "SigningBanner.tsx (aria-live nos marcos); SigningBanner.test.tsx"
+    },
+    {
+      "id": "U6-NFR6.4",
+      "status": "OK",
+      "target": "tokens.ts (real) nos dois apps, RealBadge.tsx; base.test.tsx, real-admin.test.tsx"
+    },
+    {
+      "id": "U6-NFR6.5",
+      "status": "OK",
+      "target": "globals.css; e2e/real-ui (cenário 6), OrdersScreen.test.tsx (cartões)"
+    },
+    {
+      "id": "U6-NFR6.6",
+      "status": "OK",
+      "target": ":focus-visible existente; e2e/real-ui (cenário 6)"
+    },
+    {
+      "id": "U6-NFR7.1",
+      "status": "OK",
+      "target": "money.ts (toBaseUnits), api.ts; money.test.ts"
+    },
+    {
+      "id": "U6-NFR7.2",
+      "status": "OK",
+      "target": "money.ts nos dois apps; money.test.ts (web e admin)"
+    },
+    {
+      "id": "U6-NFR7.3",
+      "status": "OK",
+      "target": "eslint.config.mjs (Number, parseFloat, parseInt, toFixed, Math.*, + unário) com money.ts como exceção nomeada; lib/time/countdown.ts fora das pastas do REAL; real-lint.test.ts"
+    },
+    {
+      "id": "U6-NFR7.4",
+      "status": "OK",
+      "target": "useMoneyAction.ts, useAdminAction.ts; base.test.tsx, DepositWithdrawScreen.test.tsx, real-admin.test.tsx"
+    },
+    {
+      "id": "U6-NFR7.5",
+      "status": "OK",
+      "target": "money.ts (Unknown), api.ts, RealPnlCard.tsx; money.test.ts, OverviewScreen.test.tsx, OrdersScreen.test.tsx"
+    },
+    {
+      "id": "U6-NFR7.6",
+      "status": "OK",
+      "target": "useMoneyAction.ts; base.test.tsx, DepositWithdrawScreen.test.tsx"
+    },
+    {
+      "id": "U6-NFR8.1",
+      "status": "OK",
+      "target": "nenhuma dependência de produção nova; real-lint.test.ts"
+    },
+    {
+      "id": "U6-NFR8.2",
+      "status": "OK",
+      "target": "wallets.ts (solana:signTransaction); sign-transaction.test.ts"
+    },
+    {
+      "id": "U6-NFR8.3",
+      "status": "OK",
+      "target": "openapi-guest.yaml regenerado, schema.d.ts (gen:api, check:api nos dois apps)"
+    },
+    {
+      "id": "U6-NFR8.4",
+      "status": "OK",
+      "target": "Jest 30 e RTL, coverageThreshold 80% nos dois apps sem exclusão nova"
+    },
+    {
+      "id": "U6-NFR8.5",
+      "status": "OK",
+      "target": "e2e/real-bot-wallet adaptado, e2e/real-ui novo, e2e/support/test-wallet.ts (signTransaction); test-wallet.test.ts, playwright --list"
+    },
+    {
+      "id": "U6-NFR8.6",
+      "status": "OK",
+      "target": "eslint.config.mjs (bloco src/{app,features}/real/**) nos dois apps; real-lint.test.ts"
+    },
+    {
+      "id": "U6-NFR8.7",
+      "status": "OK",
+      "target": "RealReleaseCurrentTest, BotWalletViewCapSetByTest, RealReleaseRouteIT, RealReleaseRouteOffIT, SigningSessionServerTimeIT, GuestCorsPolicyTest (testes antes do código)"
+    },
+    {
+      "id": "U6-NFR10.1",
+      "status": "OK",
+      "target": "formatInstant (Intl.DateTimeFormat pt-BR com timeZone); OrdersScreen.test.tsx, OverviewScreen.test.tsx"
+    }
+  ],
+  "reverse": [
+    {
+      "id": "AdminCorsPolicy DELETE",
+      "status": "N/A",
+      "target": "desvio necessário para as rotas DELETE da R4 da U5 chamadas pelo app administrativo de outra origem (GuestCorsPolicyTest)"
+    },
+    {
+      "id": "RealReleases.current",
+      "status": "N/A",
+      "target": "regra de escolha da liberação mostrada (aberta, senão a última revogada, senão NONE) exigida pelo adendo item 1 (RealReleaseCurrentTest)"
+    }
+  ]
+}

@@ -45,7 +45,12 @@ public final class AdminCorsPolicy {
     private static CorsConfiguration configuration(String origin, boolean credentials) {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(origin));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "OPTIONS"));
+        // 261113-trading-real-bot U6: the cookie routes keep POST only in practice; the R4 of the U5 also has DELETE
+        // (revoke a release, switch the kill switch REAL off, unblock a token), sent cross origin by the admin app.
+        config.setAllowedMethods(
+                credentials
+                        ? List.of("GET", "POST", "PUT", "OPTIONS")
+                        : List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-Id"));
         config.setExposedHeaders(List.of("X-Correlation-Id", "Retry-After"));
         config.setAllowCredentials(credentials);

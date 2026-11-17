@@ -25,6 +25,11 @@ export class ApiError extends Error {
      * TERMS_VERSION_OUTDATED.
      */
     readonly currentVersion?: string,
+    /**
+     * 261113-trading-real-bot U6 (BR8.8, U6-NFR5.1): the `detail` of the ProblemDetail, shown as text when a code has
+     * no text of its own (never a stack trace).
+     */
+    readonly detail?: string,
   ) {
     super(`${status} ${code}`);
     this.name = 'ApiError';
@@ -32,8 +37,11 @@ export class ApiError extends Error {
 }
 
 export interface RequestOptions {
-  /** U5 adds PUT for the steps of the bot wizard (C4 {@code PUT /bots/{botId}/draft}). */
-  method?: 'GET' | 'POST' | 'PUT';
+  /**
+   * U5 adds PUT for the steps of the bot wizard (C4 {@code PUT /bots/{botId}/draft}); 261113-trading-real-bot U6 adds
+   * PATCH for the REAL preferences.
+   */
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH';
   body?: unknown;
   /** Adds a fresh Idempotency-Key (UUID); such requests may be retried. */
   idempotent?: boolean;
@@ -160,6 +168,7 @@ async function parse<T>(response: Response): Promise<T> {
     problem.sources ?? [],
     retryAfter(response),
     problem.currentVersion,
+    problem.detail,
   );
 }
 

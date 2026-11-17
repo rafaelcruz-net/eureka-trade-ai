@@ -122,6 +122,63 @@ class GuestCorsPolicyTest {
                 .isEqualTo(403);
     }
 
+    /**
+     * 261113-trading-real-bot U6, Step 3, written before the code (rules.md "Mudança de contrato" item 4, U6-NFR1.7):
+     * the preferences of the REAL are a {@code PATCH}; it is accepted on the routes with token only.
+     */
+    @Test
+    void thePatchOfThePreferencesIsAllowedOnTheTokenRoutes() throws Exception {
+        MockHttpServletResponse preferences = preflight(GUEST, "/api/v1/real/bot-wallet/preferences", "PATCH");
+
+        assertThat(preferences.getStatus()).isEqualTo(200);
+        assertThat(preferences.getHeader("Access-Control-Allow-Methods")).contains("PATCH");
+        assertThat(preferences.getHeader("Access-Control-Allow-Credentials")).isNull();
+    }
+
+    /** U6-NFR1.7: the cookie branch (verify, refresh, logout) still refuses {@code PATCH}. */
+    @Test
+    void thePatchIsRefusedOnTheCookieRoutes() throws Exception {
+        for (String route : GuestCorsPolicy.CREDENTIAL_ROUTES) {
+            MockHttpServletResponse response = preflight(GUEST, route, "PATCH");
+            assertThat(response.getStatus()).as(route).isEqualTo(403);
+            assertThat(response.getHeader("Access-Control-Allow-Origin"))
+                    .as(route)
+                    .isNull();
+        }
+    }
+
+    /**
+     * U6-NFR1.7: the administrative policy does not take {@code PATCH}, and the guest origin is never admitted there.
+     * U6 deviation (code-summary.md): the administrator app sends the {@code DELETE} routes of the R4 of the U5 (revoke,
+     * switch the kill switch REAL off, unblock a token) cross origin, so the administrative policy lists DELETE.
+     */
+    @Test
+    void theAdministrativePolicyTakesNoPatchButTakesTheDeleteOfTheR4() throws Exception {
+        String admin = "http://localhost:3001";
+        CorsFilter combined = new CorsFilter(AdminCorsPolicy.combined(URI.create(admin), URI.create(GUEST + "/")));
+
+        MockHttpServletResponse patch = new MockHttpServletResponse();
+        combined.doFilter(
+                preflightRequest(admin, "/api/v1/admin/real/kill-switch", "PATCH"), patch, new MockFilterChain());
+        MockHttpServletResponse delete = new MockHttpServletResponse();
+        combined.doFilter(
+                preflightRequest(admin, "/api/v1/admin/real/kill-switch", "DELETE"), delete, new MockFilterChain());
+        MockHttpServletResponse guestOnAdmin = new MockHttpServletResponse();
+        combined.doFilter(
+                preflightRequest(GUEST, "/api/v1/admin/real/kill-switch", "DELETE"),
+                guestOnAdmin,
+                new MockFilterChain());
+        MockHttpServletResponse cookieDelete = new MockHttpServletResponse();
+        combined.doFilter(
+                preflightRequest(admin, "/api/v1/admin/auth/logout", "DELETE"), cookieDelete, new MockFilterChain());
+
+        assertThat(patch.getStatus()).isEqualTo(403);
+        assertThat(delete.getStatus()).isEqualTo(200);
+        assertThat(delete.getHeader("Access-Control-Allow-Methods")).contains("DELETE");
+        assertThat(guestOnAdmin.getStatus()).isEqualTo(403);
+        assertThat(cookieDelete.getStatus()).isEqualTo(403);
+    }
+
     private MockHttpServletResponse preflight(String origin, String path, String method) throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
         filter.doFilter(preflightRequest(origin, path, method), response, new MockFilterChain());

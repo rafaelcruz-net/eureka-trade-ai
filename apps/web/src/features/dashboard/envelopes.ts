@@ -18,6 +18,9 @@ export type PnlUpdatedEnvelope = Schemas['DashboardPnlUpdatedEvent'];
 export type DataStatusEnvelope = Schemas['DashboardDataStatusEvent'];
 export type HeartbeatEnvelope = Schemas['DashboardHeartbeatEvent'];
 export type AuthExpiredEnvelope = Schemas['DashboardAuthExpiredEvent'];
+// 261113-trading-real-bot U6 (BR3.5): the REAL events of the channel (R6 of the U4).
+export type RealSigningRequestedEnvelope = Schemas['RealSigningSessionOpened'];
+export type RealOrderStateEnvelope = Schemas['RealOrderStateChanged'];
 
 export type DashboardEvent =
   | { kind: 'bot.state'; data: BotStateEnvelope }
@@ -25,7 +28,9 @@ export type DashboardEvent =
   | { kind: 'pnl.updated'; data: PnlUpdatedEnvelope }
   | { kind: 'data.status'; data: DataStatusEnvelope }
   | { kind: 'heartbeat'; data: HeartbeatEnvelope }
-  | { kind: 'auth.expired'; data: AuthExpiredEnvelope };
+  | { kind: 'auth.expired'; data: AuthExpiredEnvelope }
+  | { kind: 'real.signing.requested'; data: RealSigningRequestedEnvelope }
+  | { kind: 'real.order.state'; data: RealOrderStateEnvelope };
 
 const BOT_STATES: readonly BotSummary['state'][] = [
   'DRAFT',
@@ -51,6 +56,16 @@ const TRADE_STATUSES: readonly TradeNotice['status'][] = [
   'CLOSE_PENDING',
 ];
 const SOURCE_STATES: readonly SourceStatus['status'][] = ['PENDING', 'OK', 'DEGRADED', 'FAILED'];
+const REAL_ORDER_STATES: readonly RealOrderStateEnvelope['state'][] = [
+  'PROPOSED',
+  'QUOTED',
+  'SIGNED',
+  'SENT',
+  'CONFIRMED',
+  'FAILED',
+  'AMBIGUOUS',
+  'CANCELLED',
+];
 
 /** Raised inside the check; the caller turns it into a discarded event. */
 class InvalidEnvelope extends Error {}
@@ -168,6 +183,25 @@ function check(kind: EventKind, raw: Json): DashboardEvent {
       return { kind, data: { at: text(raw.at) } };
     case 'auth.expired':
       return { kind, data: { expiredAt: text(raw.expiredAt) } };
+    case 'real.signing.requested':
+      return {
+        kind,
+        data: {
+          type: oneOf(raw.type, ['REAL_SIGNING_REQUESTED'] as const),
+          realOrderId: text(raw.realOrderId),
+          deadline: text(raw.deadline),
+        },
+      };
+    case 'real.order.state':
+      return {
+        kind,
+        data: {
+          type: oneOf(raw.type, ['REAL_ORDER_STATE'] as const),
+          realOrderId: text(raw.realOrderId),
+          state: oneOf(raw.state, REAL_ORDER_STATES),
+          at: text(raw.at),
+        },
+      };
   }
 }
 

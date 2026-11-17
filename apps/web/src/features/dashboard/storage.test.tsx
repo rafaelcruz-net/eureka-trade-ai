@@ -5,6 +5,7 @@ import { tokenStore } from '@/lib/auth/token-store';
 import { fakeApi, Providers } from '@/features/auth/test-support';
 import { resetWalletCache } from '@/components/shell/WalletBadge';
 import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
+import { LiveChannelProvider } from '@/features/live/LiveChannelProvider';
 import {
   BOT_A,
   botPage,
@@ -26,6 +27,7 @@ import {
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/',
 }));
 
 const TOKEN = 'eyJhbGciOiJIUzI1NiJ9.dashboard-token.signature';
@@ -88,11 +90,9 @@ it('the token never reaches the browser storage, a readable cookie or the consol
 
   render(
     <Providers api={api}>
-      <DashboardScreen
-        now={() => new Date('2026-10-28T12:00:00Z')}
-        timeZone={ZONE}
-        fetchImpl={net.impl}
-      />
+      <LiveChannelProvider fetchImpl={net.impl}>
+        <DashboardScreen now={() => new Date('2026-10-28T12:00:00Z')} timeZone={ZONE} />
+      </LiveChannelProvider>
     </Providers>,
   );
   await screen.findByTestId(`dashboard-bot-pause-button-${BOT_A}`);

@@ -17,6 +17,7 @@ import { resetWalletCache } from '@/components/shell/WalletBadge';
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
   useSearchParams: () => new URLSearchParams(),
+  usePathname: () => '/',
 }));
 
 const nav = messages.nav;
@@ -185,6 +186,132 @@ describe('AppShell', () => {
     expect(safeOrigin('/')).toBe('/');
     expect(safeOrigin('/conta')).toBe('/conta');
     expect(safeOrigin('/scanner?minHolders=10')).toBe('/scanner?minHolders=10');
+  });
+});
+
+/**
+ * 261113-trading-real-bot U6, Step 8, written after the code (BR1.1, BR7.1, BR3.5; logical-components.md "Menu"): the
+ * item "Carteira do bot" with the REAL label only while the REAL is on, the tags of the header and the signing banner
+ * below the header.
+ */
+describe('AppShell with the REAL', () => {
+  const release = jest.fn(async () => ({
+    network: 'LOCALNET',
+    release: { state: 'ACTIVE' as const, effectiveAt: '2026-11-10T12:00:00Z' },
+  }));
+
+  it('shows "Carteira do bot" with the REAL label before "Conta" when the REAL is on', async () => {
+    renderShell('real', fakeApi({ getRealRelease: release }));
+
+    const item = await screen.findByTestId('app-nav-real-link');
+    expect(item).toHaveTextContent('Carteira do bot');
+    expect(item).toHaveAttribute('href', '/real');
+    expect(item).toHaveAttribute('aria-current', 'page');
+    expect(within(item).getByTestId('app-nav-real-badge')).toHaveTextContent('◆ REAL');
+    const links = within(screen.getByRole('navigation', { name: nav.label })).getAllByRole('link');
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/',
+      '/scanner',
+      '/bots',
+      '/pnl',
+      '/real',
+      '/conta',
+    ]);
+  });
+
+  it('hides the item with the REAL off (403 REAL_DISABLED) or an older API (404)', async () => {
+    const off = fakeApi();
+    renderShell('dashboard', off);
+    await waitFor(() => expect(off.getRealRelease).toHaveBeenCalled());
+    await screen.findByText(`Carteira ${ACCOUNT.walletAddressMasked}`);
+
+    expect(screen.queryByTestId('app-nav-real-link')).toBeNull();
+  });
+
+  it('keeps the item when the release read meets the lock of the terms, so the withdrawal stays reachable', async () => {
+    const locked = fakeApi({
+      getRealRelease: jest.fn(async () => {
+        throw new ApiError(403, 'TERMS_REACCEPTANCE_REQUIRED');
+      }),
+    });
+    renderShell('dashboard', locked);
+
+    expect(await screen.findByTestId('app-nav-real-link')).toBeInTheDocument();
+    expect(locked.notifyTermsReacceptance).not.toHaveBeenCalled();
+  });
+
+  it('with an active bot wallet the tag is "PAPER" beside the REAL label', async () => {
+    const api = fakeApi({
+      getRealRelease: release,
+      getBotWallet: jest.fn(async () => ({
+        address: 'Bot',
+        mainWalletAddress: 'Main',
+        status: 'ACTIVE',
+        mode: 'AUTO_FULL',
+        capLamports: '1',
+        maxCapLamports: '10',
+        maxSlippageBps: 200,
+        pausedReason: 'NONE',
+        network: 'LOCALNET',
+        policyResetRequired: false,
+      })),
+    });
+    renderShell('dashboard', api);
+
+    const tags = await screen.findByTestId('app-mode-tags');
+    expect(tags).toHaveTextContent('PAPER');
+    expect(within(tags).getByTestId('app-real-badge')).toHaveTextContent('REAL');
+    expect(screen.queryByText(nav.paperMode)).toBeNull();
+    expect(screen.queryByTestId('real-signing-region')).toBeNull();
+  });
+
+  it('without a bot wallet the tag stays "MODO PAPER (simulado)" and nothing of the REAL shows', async () => {
+    renderShell('dashboard', fakeApi({ getRealRelease: release }));
+    await screen.findByTestId('app-nav-real-link');
+
+    expect(screen.getByText(nav.paperMode)).toBeInTheDocument();
+    expect(screen.queryByTestId('app-mode-tags')).toBeNull();
+  });
+
+  it('reads the REAL of the session once for every screen of the session', async () => {
+    const api = fakeApi({ getRealRelease: jest.fn(release) });
+    renderShell('dashboard', api);
+    await screen.findByTestId('app-nav-real-link');
+    render(
+      <Providers api={api}>
+        <AppShell current="pnl" titleId="other">
+          <h1 id="other">Outra</h1>
+        </AppShell>
+      </Providers>,
+    );
+
+    await waitFor(() => expect(screen.getAllByTestId('app-nav-real-link')).toHaveLength(2));
+    expect(api.getRealRelease).toHaveBeenCalledTimes(1);
+    expect(api.getBotWallet).toHaveBeenCalledTimes(1);
+  });
+
+  it('in the SIGNED mode the signing banner sits right below the header', async () => {
+    const api = fakeApi({
+      getRealRelease: release,
+      getBotWallet: jest.fn(async () => ({
+        address: 'Bot',
+        mainWalletAddress: 'Main',
+        status: 'ACTIVE',
+        mode: 'SIGNED',
+        capLamports: '1',
+        maxCapLamports: '10',
+        maxSlippageBps: 200,
+        pausedReason: 'NONE',
+        network: 'LOCALNET',
+        policyResetRequired: false,
+      })),
+      listRealOrders: jest.fn(async () => ({ items: [], total: 0 })),
+    });
+    renderShell('dashboard', api);
+
+    await waitFor(() =>
+      expect(api.listRealOrders).toHaveBeenCalledWith({ state: 'QUOTED', limit: 1 }),
+    );
   });
 });
 

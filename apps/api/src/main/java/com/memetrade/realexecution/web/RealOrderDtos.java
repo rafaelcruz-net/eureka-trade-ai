@@ -124,6 +124,12 @@ public final class RealOrderDtos {
             @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
             Instant deadline,
 
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    format = "date-time",
+                    description = "Instante UTC do servidor ao montar a resposta (U6, BR3.2)")
+            Instant serverTime,
+
             @Schema(requiredMode = RequiredMode.REQUIRED) SigningDisplay display) {}
 
     @Schema(name = "RealSignedTransactionRequest")

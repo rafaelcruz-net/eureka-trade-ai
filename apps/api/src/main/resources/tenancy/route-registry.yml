@@ -106,6 +106,8 @@ routes:
   # a withdrawal of another account answers 404 (BotWalletRoutesIT).
   - { method: POST, path: /api/v1/real/consents/challenge, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
   - { method: GET, path: /api/v1/real/bot-wallet, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
+  # 261113-trading-real-bot U6 (U6-NFR1.6): the read of the release of the person of the token; needs the current terms.
+  - { method: GET, path: /api/v1/real/release, scope: CLIENT, negativeTest: com.memetrade.botwallet.RealReleaseRouteIT#anotherAccountNeverSeesTheReleaseOfSomeoneElse }
   - { method: POST, path: /api/v1/real/bot-wallet, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
   - { method: PATCH, path: /api/v1/real/bot-wallet/preferences, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }
   - { method: POST, path: /api/v1/real/bot-wallet/resume, scope: CLIENT, negativeTest: com.memetrade.botwallet.BotWalletRoutesIT#aWithdrawalOfAnotherAccountIsNotFound }

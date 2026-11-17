@@ -1,0 +1,80 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u6-real-modes-ui",
+  "upstream_ids": [
+    "U6-NFR1.4",
+    "U6-NFR1.5",
+    "U6-NFR1.6",
+    "U6-NFR1.7",
+    "U6-NFR5.1",
+    "U6-NFR5.2",
+    "U6-NFR6.5",
+    "U6-NFR8.3",
+    "U6-NFR8.4",
+    "U6-NFR8.5",
+    "U6-NFR8.7",
+    "U6-NFR8.6"
+  ],
+  "coverage": [
+    {
+      "id": "U6-NFR1.4",
+      "status": "OK",
+      "target": "infrastructure-specification: sem script novo nem mudança de imagem"
+    },
+    {
+      "id": "U6-NFR1.5",
+      "status": "OK",
+      "target": "infrastructure-specification: sem variável nova"
+    },
+    {
+      "id": "U6-NFR1.6",
+      "status": "OK",
+      "target": "infrastructure-specification: rota nova sem migração, pela M1"
+    },
+    {
+      "id": "U6-NFR1.7",
+      "status": "OK",
+      "target": "infrastructure-specification: PATCH no ramo com token; origens iguais"
+    },
+    {
+      "id": "U6-NFR5.1",
+      "status": "OK",
+      "target": "monitoring-design: correlationId"
+    },
+    {
+      "id": "U6-NFR5.2",
+      "status": "OK",
+      "target": "monitoring-design: métricas e log que já existem"
+    },
+    {
+      "id": "U6-NFR6.5",
+      "status": "OK",
+      "target": "infrastructure-specification: real-ui cenário 6 (320 px em /real, /real/ordens e /real/deposito-saque)"
+    },
+    {
+      "id": "U6-NFR8.3",
+      "status": "OK",
+      "target": "cicd-pipeline: contract"
+    },
+    {
+      "id": "U6-NFR8.4",
+      "status": "OK",
+      "target": "cicd-pipeline: frontend e admin"
+    },
+    {
+      "id": "U6-NFR8.5",
+      "status": "OK",
+      "target": "infrastructure-specification: e2e/real-bot-wallet adaptado (R1), e2e/real-ui (cenários 1 a 6), estado de entrada e saída, limite da assinatura no modo Assinada, linha do verify.sh"
+    },
+    {
+      "id": "U6-NFR8.7",
+      "status": "OK",
+      "target": "cicd-pipeline: backend"
+    },
+    {
+      "id": "U6-NFR8.6",
+      "status": "OK",
+      "target": "cicd-pipeline: lint das pastas do REAL e teste das fixtures nos jobs frontend e admin"
+    }
+  ]
+}

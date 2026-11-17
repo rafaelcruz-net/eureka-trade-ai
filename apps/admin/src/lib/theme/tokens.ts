@@ -16,6 +16,8 @@ export const colors = {
   unknown: '#c9b8ff',
   border: '#3a404c',
   bannerBackground: '#3d1414',
+  /** 261113-trading-real-bot U6 (BR7.1): the amber of the REAL label. */
+  real: '#f59e0b',
 } as const;
 
 export type ColorToken = keyof typeof colors;
@@ -36,6 +38,8 @@ export const textPairs: ReadonlyArray<[ColorToken, ColorToken]> = [
   ['focus', 'surface'],
   ['text', 'bannerBackground'],
   ['warning', 'bannerBackground'],
+  // U6 (U6-NFR6.4): the dark text on the amber fill of the REAL label.
+  ['background', 'real'],
 ];
 
 function channel(value: number): number {

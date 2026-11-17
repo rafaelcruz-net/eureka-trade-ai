@@ -12,6 +12,9 @@ export class ApiError extends Error {
     readonly reason?: string,
     readonly fields: FieldError[] = [],
     readonly retryAfterSeconds?: number,
+    /** 261113-trading-real-bot U6 (BR9.3, U6-NFR5.1): the `detail` of the ProblemDetail and the id for support. */
+    readonly detail?: string,
+    readonly correlationId?: string,
   ) {
     super(`${status} ${code}`);
     this.name = 'ApiError';
@@ -19,7 +22,8 @@ export class ApiError extends Error {
 }
 
 export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT';
+  /** 261113-trading-real-bot U6: the R4 of the U5 also has DELETE (revoke, kill switch REAL off, unblock). */
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   /** A fixed Idempotency-Key chosen by the screen (generated when a dialog opens and reused on every attempt). */
   idempotencyKey?: string;
@@ -130,6 +134,8 @@ async function parse<T>(response: Response): Promise<T> {
       message: field.message ?? '',
     })),
     retryAfter(response),
+    problem.detail,
+    problem.correlationId,
   );
 }
 

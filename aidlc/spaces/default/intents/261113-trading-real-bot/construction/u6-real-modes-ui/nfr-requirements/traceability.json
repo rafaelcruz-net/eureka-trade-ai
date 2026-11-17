@@ -1,0 +1,47 @@
+{
+  "stage": "nfr-requirements",
+  "unit": "u6-real-modes-ui",
+  "upstream_ids": [
+    "BR1.1", "BR1.4", "BR2.2", "BR3.1", "BR3.2", "BR3.4", "BR3.5", "BR3.7",
+    "BR5.1", "BR5.2", "BR6.2", "BR6.3", "BR6.4", "BR7.1", "BR7.2",
+    "BR8.1", "BR8.2", "BR8.6", "BR8.7", "BR8.8", "BR9.2", "BR9.5", "Adendo-U6"
+  ],
+  "coverage": [
+    {"id": "BR1.1", "status": "OK", "target": "U6-NFR1.5, U6-NFR1.6"},
+    {"id": "BR1.4", "status": "OK", "target": "U6-NFR4.4, U6-NFR4.5"},
+    {"id": "BR2.2", "status": "OK", "target": "U6-NFR4.3, U6-NFR4.7"},
+    {"id": "BR3.1", "status": "OK", "target": "U6-NFR1.1, U6-NFR1.1b, U6-NFR8.2"},
+    {"id": "BR3.2", "status": "OK", "target": "U6-NFR3.2"},
+    {"id": "BR3.4", "status": "OK", "target": "U6-NFR4.2"},
+    {"id": "BR3.5", "status": "OK", "target": "U6-NFR3.1, U6-NFR3.5, U6-NFR4.1, U6-NFR4.5"},
+    {"id": "BR3.7", "status": "OK", "target": "U6-NFR5.1"},
+    {"id": "BR5.1", "status": "OK", "target": "U6-NFR7.1, U6-NFR7.2, U6-NFR7.3"},
+    {"id": "BR5.2", "status": "OK", "target": "U6-NFR7.2"},
+    {"id": "BR6.2", "status": "OK", "target": "U6-NFR4.2, U6-NFR7.4"},
+    {"id": "BR6.3", "status": "OK", "target": "U6-NFR3.3, U6-NFR7.6"},
+    {"id": "BR6.4", "status": "OK", "target": "U6-NFR4.4"},
+    {"id": "BR7.1", "status": "OK", "target": "U6-NFR6.4"},
+    {"id": "BR7.2", "status": "OK", "target": "U6-NFR2.1"},
+    {"id": "BR8.1", "status": "OK", "target": "U6-NFR4.3, U6-NFR4.7"},
+    {"id": "BR8.2", "status": "OK", "target": "U6-NFR7.5"},
+    {"id": "BR8.6", "status": "OK", "target": "U6-NFR10.1"},
+    {"id": "BR8.7", "status": "OK", "target": "U6-NFR7.2"},
+    {"id": "BR8.8", "status": "OK", "target": "U6-NFR5.1"},
+    {"id": "BR9.2", "status": "OK", "target": "U6-NFR1.11, U6-NFR7.4"},
+    {"id": "BR9.5", "status": "OK", "target": "U6-NFR1.8"},
+    {"id": "Adendo-U6", "status": "OK", "target": "U6-NFR1.6, U6-NFR1.7, U6-NFR5.2, U6-NFR8.7"}
+  ],
+  "nfr_to_source": {
+    "U6-NFR1.1": "BR3.1", "U6-NFR1.1b": "BR3.1, project.md", "U6-NFR1.2": "project.md, Q2", "U6-NFR1.3": "project.md",
+    "U6-NFR1.4": "Q2", "U6-NFR1.5": "BR1.1, project.md", "U6-NFR1.6": "Adendo-U6", "U6-NFR1.7": "Adendo-U6",
+    "U6-NFR1.8": "BR9.5", "U6-NFR1.9": "Q2 (revisão)", "U6-NFR1.10": "Q2 (revisão)", "U6-NFR1.11": "BR9.2",
+    "U6-NFR2.1": "BR7.2", "U6-NFR3.1": "Q1, BR3.5", "U6-NFR3.2": "Q1, BR3.2", "U6-NFR3.3": "Q1, BR6.3",
+    "U6-NFR3.4": "Q5", "U6-NFR3.5": "BR3.5", "U6-NFR3.5b": "Q5", "U6-NFR3.6": "BR8.1",
+    "U6-NFR4.1": "Q5, BR3.5", "U6-NFR4.2": "Q5, BR6.2", "U6-NFR4.3": "Q5", "U6-NFR4.4": "BR6.4", "U6-NFR4.5": "BR3.5",
+    "U6-NFR4.6": "Q5", "U6-NFR4.7": "BR8.1", "U6-NFR5.1": "Q7, BR8.8", "U6-NFR5.2": "Q7",
+    "U6-NFR6.1": "Q4", "U6-NFR6.2": "Q4", "U6-NFR6.3": "Q4", "U6-NFR6.4": "Q4, BR7.1", "U6-NFR6.5": "Q4", "U6-NFR6.6": "Q4",
+    "U6-NFR7.1": "Q3", "U6-NFR7.2": "Q3, BR8.7", "U6-NFR7.3": "Q3", "U6-NFR7.4": "BR6.2", "U6-NFR7.5": "BR8.2", "U6-NFR7.6": "BR6.3",
+    "U6-NFR8.1": "Q6", "U6-NFR8.2": "BR3.1", "U6-NFR8.3": "team.md", "U6-NFR8.4": "Q6", "U6-NFR8.5": "Q6",
+    "U6-NFR8.6": "Q3, Q2", "U6-NFR8.7": "Adendo-U6", "U6-NFR10.1": "BR8.6"
+  }
+}

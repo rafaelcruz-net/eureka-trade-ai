@@ -83,6 +83,10 @@ public abstract class GuestOpenApiSlice {
     @MockitoBean
     com.memetrade.botwallet.application.BotWalletService botWalletService;
 
+    /** 261113-trading-real-bot U6: the read of the release goes through the M1. */
+    @MockitoBean
+    com.memetrade.botwallet.api.RealStateQuery realStateQuery;
+
     @MockitoBean
     LoginVerificationService loginVerificationService;
 

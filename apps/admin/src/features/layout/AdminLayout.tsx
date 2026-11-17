@@ -31,6 +31,10 @@ export function AdminLayout({ children }: { children: ReactNode }) {
           <Link href="/kill-switch" data-testid="admin-nav-kill-switch">
             {text.killSwitch}
           </Link>{' '}
+          {/* 261113-trading-real-bot U6 (BR9.4): "REAL" is apart from "Kill switch", which is the one of the PAPER. */}
+          <Link href="/real" data-testid="admin-nav-real">
+            {text.real}
+          </Link>{' '}
           <Link href="/feedback" data-testid="admin-nav-feedback">
             {text.feedback}
           </Link>{' '}

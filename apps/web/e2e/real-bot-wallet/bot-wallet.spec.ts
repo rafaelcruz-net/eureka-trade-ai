@@ -1,11 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type APIResponse,
-  type Page,
-} from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   generateTestWallet,
   installTestWallet,
@@ -13,6 +7,11 @@ import {
   signWith,
   type SmokeWallet,
 } from '../support/test-wallet';
+import {
+  LOGIN_WINDOW_MS,
+  postWithinLoginLimit,
+  signInWithinLoginLimit,
+} from '../support/login-limit';
 import { LAMPORTS_PER_SOL, airdrop, balance, encode, transfer } from './local-validator';
 
 const API = process.env.API_BASE_URL ?? 'http://localhost:8080';
@@ -23,6 +22,11 @@ const API = process.env.API_BASE_URL ?? 'http://localhost:8080';
  * consent signed by the test main wallet (generated in test code), deposits 1 SOL from it, sees the balance, withdraws
  * everything back to the main wallet and checks that a withdrawal to another address is refused. Needs the REAL
  * overlay infra/docker-compose.real.yml (scripts/verify.sh); nothing here talks to devnet, mainnet or a real KMS.
+ *
+ * 261113-trading-real-bot U6 (infrastructure-specification.md "Ativação pela tela nova"): the minimal screen
+ * `/real/carteira` now redirects; the activation goes through `/real/ativacao` with the keyboard (the terms when they
+ * are still to accept, then the cap and the consent, then the address), and the deposit and the withdrawal through
+ * `/real/deposito-saque`.
  */
 test.describe.serial('REAL bot wallet on the local validator', () => {
   test.setTimeout(240_000);
@@ -33,37 +37,12 @@ test.describe.serial('REAL bot wallet on the local validator', () => {
   // login-rate-limit-per-minute) and the specs before this one already sign in with the same smoke wallet.
   let page: Page;
 
-  const LOGIN_WINDOW_MS = 65_000;
-
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(300_000);
     main = loadSmokeWallet();
     page = await browser.newPage();
     await installTestWallet(page, main);
-    // The login limit counts challenges and verifications per IP (LoginRateLimiter), and every spec before this one
-    // signs in from the same machine: a refusal is waited out once per window, at most three times.
-    for (let attempt = 1; ; attempt++) {
-      await page.goto('/entrar?origem=/scanner');
-      await page.getByTestId('login-connect-phantom').click();
-      // Each wait is bounded and the loser of the race is settled, so nothing is left pending on the page.
-      const outcome = await Promise.race([
-        page
-          .waitForURL((url) => url.pathname === '/scanner', { timeout: 30_000 })
-          .then(() => 'signed-in' as const)
-          .catch(() => 'timeout' as const),
-        page
-          .getByText('Muitas tentativas')
-          .waitFor({ timeout: 30_000 })
-          .then(() => 'rate-limited' as const)
-          .catch(() => 'timeout' as const),
-      ]);
-      expect(outcome, 'the login neither finished nor was rate limited').not.toBe('timeout');
-      if (outcome === 'signed-in') {
-        return;
-      }
-      expect(attempt, 'login still rate limited after three windows').toBeLessThan(3);
-      await page.waitForTimeout(LOGIN_WINDOW_MS);
-    }
+    await signInWithinLoginLimit(page);
   });
 
   test.afterAll(async () => {
@@ -77,94 +56,114 @@ test.describe.serial('REAL bot wallet on the local validator', () => {
    * Every page load renews the session ONCE through the refresh cookie, and the server rotates that cookie with reuse
    * detection (BR1.15): a refresh token used twice revokes the whole session. If the page is reloaded while that
    * renewal is still in flight, the browser drops the answer with the new cookie, the next load sends the old one and
-   * the session is revoked: from then on every load lands on /entrar. That is how the deposit test failed in the CI
-   * (run 43777057925): it reloaded right after the navigation, and then every 2 s, without waiting for the screen. So
-   * no navigation here starts before the previous one reached a final state of the screen, and a lost session fails at
-   * once, by its URL, instead of looking like a missing balance.
+   * the session is revoked: from then on every load lands on /entrar. So no navigation here starts before the previous
+   * one reached a final state of the screen, and a lost session fails at once, by its URL, instead of looking like a
+   * missing balance.
    */
-  async function settleWallet() {
+  async function settleWithdrawal() {
     await expect(
       page
-        .getByTestId('real-wallet-total')
-        .or(page.getByTestId('real-wallet-activation'))
+        .getByTestId('real-withdraw-available')
         .or(page.getByTestId('real-wallet-error'))
         .or(page.getByTestId('login-connect-phantom'))
         .first(),
     ).toBeVisible({ timeout: 30_000 });
     expect(new URL(page.url()).pathname, 'the session was lost on the navigation').toBe(
-      '/real/carteira',
+      '/real/deposito-saque',
     );
     await expect(page.getByTestId('real-wallet-error')).toHaveCount(0);
   }
 
-  async function openWallet() {
-    await page.goto('/real/carteira');
-    await settleWallet();
+  async function openWithdrawal() {
+    await page.goto('/real/deposito-saque');
+    await settleWithdrawal();
   }
 
-  async function reloadWallet() {
+  async function reloadWithdrawal() {
     await page.reload();
-    await settleWallet();
+    await settleWithdrawal();
   }
 
-  /** POST that waits out one 429 of the login rate limit before giving up. */
-  async function postWithinLoginLimit(
-    request: APIRequestContext,
-    url: string,
-    data: object,
-  ): Promise<APIResponse> {
-    const send = () =>
-      request.post(url, {
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() },
-        data,
-      });
-    const first = await send();
-    if (first.status() !== 429) {
-      return first;
+  const short = (address: string) => `${address.slice(0, 4)}…${address.slice(-4)}`;
+
+  test('activates the bot wallet through /real/ativacao with the keyboard and the consent of the main wallet', async () => {
+    await page.goto('/real/carteira');
+    // BR1.3 and BR1.2: the old screen goes to /real, which sends a person without a wallet to the activation.
+    await page.waitForURL((url) => url.pathname === '/real/ativacao', { timeout: 30_000 });
+    const consent = page.getByTestId('real-activation-consent');
+    const terms = page.getByTestId('real-activation-terms');
+    await expect(consent.or(terms).first()).toBeVisible({ timeout: 30_000 });
+    if (await terms.isVisible()) {
+      await page.getByTestId('real-terms-box').focus();
+      await page.keyboard.press('Space');
+      await page.keyboard.press('Tab');
+      await expect(page.getByTestId('real-terms-continue')).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(consent).toBeVisible({ timeout: 30_000 });
     }
-    await new Promise((resolve) => setTimeout(resolve, LOGIN_WINDOW_MS));
-    return send();
-  }
+    await expect(consent).toContainText('Esta assinatura não é a do login e não movimenta fundos.');
 
-  test('activates the bot wallet with the consent signed by the main wallet', async () => {
-    await openWallet();
-    await expect(page.getByTestId('real-wallet-activation')).toBeVisible();
-    await page.getByTestId('real-wallet-cap-input').fill('1');
-    await page.getByTestId('real-wallet-activate-button').click();
+    const cap = page.getByTestId('real-activation-cap');
+    await cap.focus();
+    await cap.fill('1');
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('real-activation-sign')).toBeFocused();
+    await page.keyboard.press('Enter');
+    // The confirmation starts on "Cancelar"; Tab reaches "Confirmar".
+    await expect(page.getByTestId('real-activation-confirm-cancel')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('real-activation-confirm-submit')).toBeFocused();
+    await page.keyboard.press('Enter');
 
-    const address = page.getByTestId('real-wallet-address');
-    await expect(address).toBeVisible();
+    const address = page.getByTestId('real-activation-address');
+    await expect(address).toBeVisible({ timeout: 60_000 });
     botAddress = (await address.textContent())?.trim() ?? '';
     expect(botAddress).toMatch(/^[1-9A-HJ-NP-Za-km-z]{32,44}$/);
-    await expect(page.getByTestId('real-wallet-main')).toHaveText(main.address);
-    await expect(page.getByTestId('real-wallet-total')).toHaveText('0 SOL');
+    await expect(page.getByTestId('real-activation-copy')).toBeVisible();
+    await expect(page.getByTestId('real-activation-deposit-link')).toHaveAttribute(
+      'href',
+      '/real/deposito-saque',
+    );
   });
 
   test('a deposit of 1 SOL from the main wallet appears in the balance', async () => {
     await airdrop(main.address, 2n * LAMPORTS_PER_SOL);
     await transfer(main, botAddress, LAMPORTS_PER_SOL);
 
-    await openWallet();
+    await openWithdrawal();
+    await expect(page.getByTestId('real-deposit-address')).toHaveText(botAddress);
+    await expect(page.getByTestId('real-withdraw-destination')).toContainText(short(main.address));
     await expect(async () => {
-      await reloadWallet();
-      await expect(page.getByTestId('real-wallet-total')).toHaveText('1 SOL', { timeout: 2_000 });
+      await reloadWithdrawal();
+      await expect(page.getByTestId('real-withdraw-available')).not.toHaveText('0,000000000 SOL', {
+        timeout: 2_000,
+      });
     }).toPass({ timeout: 120_000, intervals: [5_000] });
-    await expect(page.getByTestId('real-wallet-fee-reserve')).toHaveText('0,03 SOL');
+    await page.goto('/real');
+    await expect(page.getByTestId('real-overview-fee-reserve')).toHaveText('0,030000000 SOL', {
+      timeout: 30_000,
+    });
   });
 
   test('withdrawing everything goes back to the main wallet', async () => {
     const before = await balance(main.address);
 
-    await openWallet();
-    await page.getByTestId('real-wallet-withdraw-all-button').click();
-    await expect(page.getByTestId('real-wallet-withdrawal-state')).toContainText('REQUESTED');
+    await openWithdrawal();
+    await page.getByTestId('real-withdraw-all').click();
+    await expect(page.getByTestId('real-withdraw-confirm-destination')).toHaveText(
+      short(main.address),
+    );
+    await page.getByTestId('real-withdraw-confirm-submit').click();
+    await expect(page.getByTestId('real-withdraw-state')).toContainText('Saque:');
 
     await expect(async () => {
       expect(await balance(main.address)).toBeGreaterThan(before + LAMPORTS_PER_SOL - 10_000n);
     }).toPass({ timeout: 150_000, intervals: [5_000] });
     await expect(async () => {
-      await reloadWallet();
-      await expect(page.getByTestId('real-wallet-total')).toHaveText('0 SOL', { timeout: 2_000 });
+      await reloadWithdrawal();
+      await expect(page.getByTestId('real-withdraw-available')).toHaveText('0,000000000 SOL', {
+        timeout: 2_000,
+      });
     }).toPass({ timeout: 90_000, intervals: [5_000] });
     expect(await balance(botAddress)).toBe(0n);
   });

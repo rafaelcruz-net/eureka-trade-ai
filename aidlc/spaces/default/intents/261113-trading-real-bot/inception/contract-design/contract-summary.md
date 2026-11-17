@@ -1165,3 +1165,38 @@ M7_RealKillSwitchState:
 ### Decisão
 
 `decision.mode` aceita `REAL` (migração 0021); o ciclo grava o modo do bot (`PAPER` ou `REAL`).
+
+## Adendo da U6 (Code Generation de `u6-real-modes-ui`, 2026-11-16)
+
+Mudanças só de leitura e de transporte, aplicadas no código no mesmo trabalho da U6. Nenhuma regra de negócio mudou e as rotas que já existiam respondem igual. As fontes são `construction/u6-real-modes-ui/functional-design/rules.md` (seção "Mudança de contrato") e `nfr-design/logical-components.md`. O OpenAPI de referência é `apps/api/openapi/openapi-guest.yaml` (gerado do código) e os tipos de `apps/web` foram regenerados dele; o `openapi-admin.yaml` não mudou.
+
+### R2 — Carteira do bot (convidado)
+
+| Item | Mudança |
+|---|---|
+| `GET /api/v1/real/release` (rota nova) | Devolve `RealReleaseView { network, release: RealReleaseStatus }`, com `RealReleaseStatus { state: NONE \| QUARANTINE \| ACTIVE \| BLOCKED \| REVOKED, effectiveAt?, blockedReason? }`. Lê pela M1 (`RealStateQuery.readRelease(tenantId, userId)`), com o tenant e a pessoa do token. Com o REAL desligado: `403 REAL_DISABLED`. Sem o aceite dos termos vigentes: `403 TERMS_REACCEPTANCE_REQUIRED` (não é exceção do novo aceite). A liberação mostrada é a aberta da rede do ambiente; sem ela, a última revogada; sem nenhuma, `NONE`. `Cache-Control: no-store`. Entrou no `route-registry.yml` (`scope: CLIENT`). |
+| `BotWalletView` | Dois campos novos só de leitura: `capSetBy` (`USER` ou `ADMIN`) e `release` (o mesmo `RealReleaseStatus`). `capSetBy` é `ADMIN` enquanto o teto atual for igual ao valor do último `LOWER_CAP` do administrador para a carteira (U5 BR4.1); qualquer mudança da própria pessoa volta a `USER`. |
+| `GET /api/v1/real/bot-wallet` | Continua `404 NOT_FOUND` sem carteira, como na U1. |
+
+### R3 — Sessão de assinatura
+
+| Item | Mudança |
+|---|---|
+| `RealSigningSession` | Campo novo `serverTime` (instante UTC do `Clock` do servidor ao montar a resposta). A tela desconta a diferença de relógio; o `deadline` não muda e o servidor continua decidindo a expiração. |
+
+### CORS
+
+| Política | Mudança |
+|---|---|
+| `GuestCorsPolicy` | O ramo com token aceita `PATCH` (preferências do REAL). O ramo por cookie (verify, refresh, logout) continua sem `PATCH`. |
+| `AdminCorsPolicy` (desvio da U6) | O ramo com token aceita `DELETE`, porque o app administrativo chama, de outra origem, as rotas `DELETE` da R4 da U5 (revogar liberação, desligar o kill switch REAL, desbloquear token). Sem isso o navegador recusaria o preflight. O ramo por cookie continua sem `DELETE` e a política não aceita `PATCH`. |
+
+### M1 — `botwallet.api`
+
+| Item | Mudança |
+|---|---|
+| `RealStateQuery.readRelease(tenantId, userId)` | Novo, só de leitura: `RealReleaseInfo { realEnabled, network, state, effectiveAt?, blockedReason? }`. |
+
+### Canal ao vivo (R6)
+
+Sem mudança no servidor. O navegador passou a tratar `real.signing.requested` (`RealSigningSessionOpened`) e `real.order.state` (`RealOrderStateChanged`), que antes descartava como evento desconhecido, e o canal agora é um só por pessoa, aberto no layout raiz.

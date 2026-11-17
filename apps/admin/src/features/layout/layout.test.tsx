@@ -28,7 +28,13 @@ describe('administrator layout and kill switch banner (BR7.1, BR1.6, AC7.4.2)', 
       within(nav)
         .getAllByRole('link')
         .map((link) => link.textContent),
-    ).toEqual(['Estado', 'Convites', 'Kill switch', 'Feedback', 'Pedidos LGPD']);
+    ).toEqual(['Estado', 'Convites', 'Kill switch', 'REAL', 'Feedback', 'Pedidos LGPD']);
+    // 261113-trading-real-bot U6 (BR9.4): "REAL" is its own item, apart from "Kill switch" of the PAPER.
+    expect(within(nav).getByTestId('admin-nav-real')).toHaveAttribute('href', '/real');
+    expect(within(nav).getByTestId('admin-nav-kill-switch')).toHaveAttribute(
+      'href',
+      '/kill-switch',
+    );
     expect(screen.getByTestId('admin-no-personal-data')).toHaveTextContent(
       messages.app.noPersonalData,
     );

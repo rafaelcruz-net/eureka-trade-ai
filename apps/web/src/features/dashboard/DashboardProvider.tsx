@@ -11,8 +11,7 @@ import {
   type Dispatch,
   type ReactNode,
 } from 'react';
-import { useApi, useApiOrigin } from '@/lib/api/ApiProvider';
-import { tokenStore } from '@/lib/auth/token-store';
+import { useApi } from '@/lib/api/ApiProvider';
 import { useSession } from '@/features/auth/SessionProvider';
 import { reasonsText, stateText } from '@/features/bots/states';
 import { useAnnounce } from '@/components/shell/NoticesRegion';
@@ -27,20 +26,19 @@ import {
 import type { DashboardEvent } from '@/features/dashboard/envelopes';
 import { dashboardMessages as text } from '@/features/dashboard/messages';
 import { msUntilNextUtcMidnight } from '@/features/dashboard/period';
-import {
-  createStreamClient,
-  STREAM_PATH,
-  type StreamClient,
-} from '@/features/dashboard/stream-client';
-import { channelRenewal } from '@/features/dashboard/channel-renewal';
+import { useLiveChannel, type LiveKind } from '@/features/live/LiveChannelProvider';
 import { formatClock } from '@/lib/format/format';
 
 /**
  * State and live channel of the dashboard S2 (frontend-components.md; BR1.2 to BR1.5, BR2.1, BR2.3, BR3.1 to BR3.4,
  * BR4.1, BR5.1 to BR5.6, BR7.1; NFR1.2, NFR3.1 to NFR3.4). The three cards load in parallel, each from its own routes
  * (no `Promise.all` between them), the live channel opens at the same time, and REST answers and events go through
- * the same reducer. The channel is closed, and every scheduled attempt cancelled, when the dashboard leaves the screen
- * (BR5.6). Announcements go to the "Avisos" region of the shell only for what matters (BR7.1).
+ * the same reducer. Announcements go to the "Avisos" region of the shell only for what matters (BR7.1).
+ *
+ * 261113-trading-real-bot U6 (logical-components.md "Canal ao vivo no layout raiz"): the live channel is the ONE of the
+ * root layout ({@link useLiveChannel}). The dashboard subscribes to its five kinds and reads the status of the channel;
+ * leaving the screen cancels only its subscriptions (BR5.6 as changed by the U6), and the connection stays for the
+ * signing banner. The loss and return of the channel are announced by the provider (LiveChannelAnnouncer).
  */
 export const SOURCES_FALLBACK_MS = 5_000;
 export const SOURCES_TICK_MS = 30_000;
@@ -67,20 +65,26 @@ export function useDashboard(): DashboardContextValue {
   return value;
 }
 
+/** The kinds of the live channel the dashboard reads (the REAL events are for the signing banner). */
+const DASHBOARD_KINDS: readonly LiveKind[] = [
+  'bot.state',
+  'trade.recorded',
+  'pnl.updated',
+  'data.status',
+  'heartbeat',
+];
+
 export function DashboardProvider({
   children,
   now = () => new Date(),
   timeZone,
-  fetchImpl,
 }: {
   children: ReactNode;
   now?: () => Date;
   timeZone?: string;
-  /** Tests give a fake fetch for the live channel; the REST calls go through the API of the context. */
-  fetchImpl?: typeof fetch;
 }) {
   const api = useApi();
-  const apiOrigin = useApiOrigin();
+  const { subscribe, retryNow, status: channel } = useLiveChannel();
   const { status, expire } = useSession();
   const announce = useAnnounce();
   const [state, dispatch] = useReducer(dashboardReducer, undefined, () =>
@@ -91,7 +95,6 @@ export function DashboardProvider({
   const stateRef = useRef(state);
   stateRef.current = state;
   const announcedByPause = useRef(new Set<string>());
-  const client = useRef<StreamClient | null>(null);
   const sourcesSeen = useRef(false);
 
   const loader = useMemo(
@@ -145,7 +148,7 @@ export function DashboardProvider({
     [announce, loader],
   );
 
-  // F1: the three cards and the live channel start together once the session is known.
+  // F1: the three cards load and the subscriptions to the live channel start together once the session is known.
   useEffect(() => {
     if (status !== 'authenticated') {
       return undefined;
@@ -158,25 +161,19 @@ export function DashboardProvider({
         void loader.loadSources();
       }
     }, SOURCES_FALLBACK_MS);
-    const stream = createStreamClient({
-      url: `${apiOrigin}${STREAM_PATH}`,
-      getToken: () => tokenStore.get(),
-      renew: channelRenewal(api),
-      onEvent: handleEvent,
-      onStatus: (channel) => dispatch({ type: 'CHANNEL_STATUS', ...channel }),
-      onSessionExpired: expire,
-      // u3-reacceptance (NFR2.4): the same handler of the REST calls of the API layer.
-      onTermsReacceptance: () => api.notifyTermsReacceptance(),
-      fetchImpl,
-    });
-    client.current = stream;
-    stream.start();
+    const subscriptions = DASHBOARD_KINDS.map((kind) => subscribe(kind, handleEvent));
     return () => {
       clearTimeout(fallback);
-      stream.close();
-      client.current = null;
+      // BR5.6 (U6): only the subscriptions of the dashboard end; the channel stays for the signing banner.
+      subscriptions.forEach((unsubscribe) => unsubscribe());
     };
-  }, [status, loader, api, apiOrigin, expire, fetchImpl, handleEvent]);
+  }, [status, loader, subscribe, handleEvent]);
+
+  // The status of the ONE channel of the root layout feeds the same reducer as before.
+  const { state: channelState, outdated: channelOutdated } = channel;
+  useEffect(() => {
+    dispatch({ type: 'CHANNEL_STATUS', state: channelState, outdated: channelOutdated });
+  }, [channelState, channelOutdated]);
 
   // BR4.1, NFR1.2: the age of the sources is checked every 30 s on the app clock, without a new call.
   useEffect(() => {
@@ -205,14 +202,13 @@ export function DashboardProvider({
 
   useBotAnnouncements(state, announce, announcedByPause.current);
   useSourceAnnouncements(state, announce, timeZone);
-  useChannelAnnouncements(state, announce);
 
   const retryChannel = useCallback(() => {
-    client.current?.retryNow();
+    retryNow();
     void loader.reloadBots();
     void loader.refreshPnl();
     void loader.refreshReconciliation();
-  }, [loader]);
+  }, [loader, retryNow]);
 
   const value = useMemo<DashboardContextValue>(
     () => ({
@@ -306,19 +302,4 @@ function useSourceAnnouncements(
       }
     }
   }, [state.sources, announce, timeZone]);
-}
-
-/** BR7.1: the loss and the return of the automatic update (heartbeats and full reads are never announced). */
-function useChannelAnnouncements(state: DashboardState, announce: (text: string) => void) {
-  const lost = useRef(false);
-  const { state: channel, outdated } = state.channel;
-  useEffect(() => {
-    if (outdated && (channel === 'WAITING' || channel === 'STALE') && !lost.current) {
-      lost.current = true;
-      announce(text.notices.lost);
-    } else if (channel === 'OPEN' && lost.current) {
-      lost.current = false;
-      announce(text.notices.resumed);
-    }
-  }, [channel, outdated, announce]);
 }

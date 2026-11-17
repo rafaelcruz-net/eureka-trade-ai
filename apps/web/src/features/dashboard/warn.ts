@@ -9,6 +9,10 @@ export const EVENT_KINDS = [
   'data.status',
   'heartbeat',
   'auth.expired',
+  // 261113-trading-real-bot U6 (BR3.5, logical-components.md "Eventos novos"): the REAL events of the same channel,
+  // for the signing banner; they used to be discarded as UNKNOWN_EVENT.
+  'real.signing.requested',
+  'real.order.state',
 ] as const;
 
 export type EventKind = (typeof EVENT_KINDS)[number];

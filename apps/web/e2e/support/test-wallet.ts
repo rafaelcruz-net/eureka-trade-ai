@@ -70,9 +70,56 @@ export function signWith(wallet: SmokeWallet, message: string): Buffer {
   return sign(null, Buffer.from(message, 'utf8'), wallet.key);
 }
 
+/** compact-u16 of the Solana wire format: the value and the bytes it took. */
+function readCompactU16(bytes: Uint8Array, offset: number): { value: number; size: number } {
+  let value = 0;
+  for (let index = 0; index < 3; index++) {
+    const byte = bytes[offset + index];
+    if (byte === undefined) {
+      break;
+    }
+    value |= (byte & 0x7f) << (7 * index);
+    if ((byte & 0x80) === 0) {
+      return { value, size: index + 1 };
+    }
+  }
+  throw new Error('Not a compact-u16');
+}
+
+/**
+ * 261113-trading-real-bot U6 (infrastructure-specification.md "Carteira de teste"): what a wallet does on
+ * `solana:signTransaction`, in test code only. It finds the key of the wallet among the signers of the message (legacy
+ * or version 0), signs the message with Ed25519 and puts the signature in that slot; every other byte is kept.
+ */
+export function signTransactionBytes(wallet: SmokeWallet, transaction: Uint8Array): Uint8Array {
+  const signatures = readCompactU16(transaction, 0);
+  const messageStart = signatures.size + 64 * signatures.value;
+  const message = transaction.subarray(messageStart);
+  const header = (message[0] ?? 0) & 0x80 ? 1 : 0;
+  const required = message[header] ?? 0;
+  const keys = readCompactU16(message, header + 3);
+  const keysStart = header + 3 + keys.size;
+  const own = Buffer.from(wallet.publicKey);
+  for (let index = 0; index < Math.min(required, keys.value); index++) {
+    const key = message.subarray(keysStart + 32 * index, keysStart + 32 * (index + 1));
+    if (own.equals(Buffer.from(key))) {
+      const signed = Uint8Array.from(transaction);
+      signed.set(sign(null, Buffer.from(message), wallet.key), signatures.size + 64 * index);
+      return signed;
+    }
+  }
+  throw new Error('The test wallet is not a signer of this transaction');
+}
+
 export async function installTestWallet(page: Page, wallet: SmokeWallet): Promise<void> {
   await page.exposeFunction('__memetradeSmokeSign', (messageBase64: string) =>
     sign(null, Buffer.from(messageBase64, 'base64'), wallet.key).toString('base64'),
+  );
+  // U6: the signing of a whole transaction happens in this Node process too; the page gets the signed bytes back.
+  await page.exposeFunction('__memetradeSmokeSignTransaction', (transactionBase64: string) =>
+    Buffer.from(
+      signTransactionBytes(wallet, Uint8Array.from(Buffer.from(transactionBase64, 'base64'))),
+    ).toString('base64'),
   );
   await page.addInitScript(
     ({ address, publicKey }) => {
@@ -81,12 +128,15 @@ export async function installTestWallet(page: Page, wallet: SmokeWallet): Promis
         address,
         publicKey: new Uint8Array(publicKey),
         chains: ['solana:mainnet'],
-        features: ['solana:signMessage'],
+        features: ['solana:signMessage', 'solana:signTransaction'],
       };
       const toBase64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
       const fromBase64 = (text: string) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
       const signer = (window as unknown as { __memetradeSmokeSign: (m: string) => Promise<string> })
         .__memetradeSmokeSign;
+      const transactionSigner = (
+        window as unknown as { __memetradeSmokeSignTransaction: (t: string) => Promise<string> }
+      ).__memetradeSmokeSignTransaction;
       const wallet = {
         version: '1.0.0',
         name: 'Phantom',
@@ -103,6 +153,19 @@ export async function installTestWallet(page: Page, wallet: SmokeWallet): Promis
                 inputs.map(async (input) => ({
                   signedMessage: input.message,
                   signature: fromBase64(await signer(toBase64(input.message))),
+                })),
+              ),
+          },
+          // U6: the whole serialized transaction comes back, with the signature in its slot.
+          'solana:signTransaction': {
+            version: '1.0.0',
+            supportedTransactionVersions: ['legacy', 0],
+            signTransaction: async (...inputs: Array<{ transaction: Uint8Array }>) =>
+              Promise.all(
+                inputs.map(async (input) => ({
+                  signedTransaction: fromBase64(
+                    await transactionSigner(toBase64(input.transaction)),
+                  ),
                 })),
               ),
           },

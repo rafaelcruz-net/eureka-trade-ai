@@ -72,6 +72,7 @@ public class RealOrderController {
     private final IdempotencyGuard idempotency;
     private final TransactionTemplate transactions;
     private final ObjectMapper json;
+    private final java.time.Clock clock;
 
     public RealOrderController(
             JdbcRealExecutionStore store,
@@ -82,7 +83,8 @@ public class RealOrderController {
             AuthContext auth,
             IdempotencyGuard idempotency,
             PlatformTransactionManager transactionManager,
-            ObjectMapper json) {
+            ObjectMapper json,
+            java.time.Clock clock) {
         this.store = store;
         this.sessions = sessions;
         this.modes = modes;
@@ -92,6 +94,7 @@ public class RealOrderController {
         this.idempotency = idempotency;
         this.transactions = new TransactionTemplate(transactionManager);
         this.json = json;
+        this.clock = clock;
     }
 
     @Operation(
@@ -160,6 +163,8 @@ public class RealOrderController {
                         session.transactionBase64(),
                         session.messageDigest(),
                         session.deadline(),
+                        // 261113-trading-real-bot U6 (BR3.2): the instant of the server when it built the answer.
+                        clock.instant(),
                         new RealOrderDtos.SigningDisplay(
                                 display.side(),
                                 RealOrderDtos.amount(display.inputMint(), display.inputBaseUnits(), decimals),

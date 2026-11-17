@@ -76,6 +76,8 @@ class RouteRegistryTest {
                         // 261113-trading-real-bot U1 (R2): the bot wallet of the caller.
                         "POST /api/v1/real/consents/challenge",
                         "GET /api/v1/real/bot-wallet",
+                        // 261113-trading-real-bot U6: the read of the release of the caller.
+                        "GET /api/v1/real/release",
                         "POST /api/v1/real/bot-wallet",
                         "PATCH /api/v1/real/bot-wallet/preferences",
                         "POST /api/v1/real/bot-wallet/resume",

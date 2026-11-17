@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { DesktopOnlyNotice } from '@/components/DesktopOnlyNotice';
 import { ApiProvider } from '@/lib/api/ApiProvider';
 import { SessionProvider } from '@/features/auth/SessionProvider';
+import { LiveChannelProvider } from '@/features/live/LiveChannelProvider';
 import { messages } from '@/lib/i18n/messages';
 import './globals.css';
 
@@ -24,8 +25,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </a>
         <ApiProvider apiOrigin={apiOrigin} redirectOnTermsReacceptance>
           <SessionProvider>
-            <DesktopOnlyNotice />
-            {children}
+            {/* 261113-trading-real-bot U6: ONE live channel per person, kept across the navigations. */}
+            <LiveChannelProvider>
+              <DesktopOnlyNotice />
+              {children}
+            </LiveChannelProvider>
           </SessionProvider>
         </ApiProvider>
       </body>

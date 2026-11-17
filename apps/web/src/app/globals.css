@@ -12,6 +12,8 @@
   --warning: #ffcc66;
   --unknown: #c9b8ff;
   --border: #3a404c;
+  /* 261113-trading-real-bot U6: the amber of the REAL label (always with text and icon). */
+  --real: #f59e0b;
 }
 
 * {
@@ -566,4 +568,99 @@ fieldset label {
   border-radius: 8px;
   margin: 16px 0;
   padding: 16px;
+}
+
+/* 261113-trading-real-bot U6: the REAL screens (BR7.1, U6-NFR6.4 to U6-NFR6.6). Color never alone: every badge has text
+   and an icon. No horizontal scroll from 320 px; the orders become cards below 768 px. */
+.real-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--real);
+  color: var(--background);
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+.real-area {
+  max-width: 1080px;
+  overflow-wrap: anywhere;
+}
+
+.real-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+}
+
+.real-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--real);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+
+.real-signing-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 24px;
+  background: var(--surface-raised);
+  border-bottom: 2px solid var(--real);
+}
+
+.real-dialog {
+  max-width: min(560px, calc(100vw - 32px));
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.real-dialog::backdrop {
+  background: rgb(0 0 0 / 60%);
+}
+
+.real-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.real-orders-cards {
+  display: none;
+  list-style: none;
+  padding: 0;
+}
+
+.field-error {
+  color: var(--danger);
+}
+
+@media (max-width: 767px) {
+  .real-orders-table {
+    display: none;
+  }
+
+  .real-orders-cards {
+    display: grid;
+    gap: 8px;
+  }
+
+  header.app-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+
+  .app-nav ul,
+  .app-actions {
+    flex-wrap: wrap;
+  }
+
+  main {
+    padding: 16px;
+  }
 }

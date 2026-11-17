@@ -29,6 +29,24 @@ export type AccessSummary = components['schemas']['AccessSummary'];
 export type AnonymizationResult = components['schemas']['AnonymizationResult'];
 export type DataRequestStatus = AdminDataRequest['status'];
 export type DataRequestType = AdminDataRequest['type'];
+// 261113-trading-real-bot U6 (A1): the REAL routes R4 of the U5.
+export type RealAdminUser = components['schemas']['RealAdminUser'];
+export type RealAdminUserPage = components['schemas']['RealAdminUserPage'];
+export type RealAdminRelease = components['schemas']['RealAdminRelease'];
+export type RealAdminReleaseRequest = components['schemas']['RealAdminReleaseRequest'];
+export type RealAdminRevocation = components['schemas']['RealAdminRevocation'];
+export type RealAdminCap = components['schemas']['RealAdminCap'];
+export type RealAdminCapRequest = components['schemas']['RealAdminCapRequest'];
+export type RealAdminTokenList = components['schemas']['RealAdminTokenList'];
+export type RealAdminBlockedToken = components['schemas']['RealAdminBlockedToken'];
+export type RealAdminTokenBlockRequest = components['schemas']['RealAdminTokenBlockRequest'];
+export type RealAdminUnblock = components['schemas']['RealAdminUnblock'];
+export type RealAdminKillSwitch = components['schemas']['RealAdminKillSwitch'];
+export type RealAdminReasonRequest = components['schemas']['RealAdminReasonRequest'];
+export type RealAdminDivergence = components['schemas']['RealAdminDivergence'];
+export type RealAdminDivergencePage = components['schemas']['RealAdminDivergencePage'];
+export type RealAdminCompensationRequest = components['schemas']['RealAdminCompensationRequest'];
+export type RealAdminRestore = components['schemas']['RealAdminRestore'];
 
 /** Query string with only the parameters that have a value. */
 function query(values: Record<string, string | number | null | undefined>): string {
@@ -223,6 +241,144 @@ export function adminApi(client: ApiClient) {
           `/api/v1/admin/privacy/requests/${encodeURIComponent(requestId)}/anonymization`,
           { method: 'POST', body: { confirmation }, idempotencyKey, authenticated: true },
         ),
+      );
+    },
+    /** U6 (A1, U6-NFR3.6): the people with a bot wallet, 20 per page by cursor. */
+    listRealUsers(cursor: string | null) {
+      return withRenewal(() =>
+        client.request<RealAdminUserPage>(
+          `/api/v1/admin/real/users${query({ cursor, limit: 20 })}`,
+          {
+            authenticated: true,
+          },
+        ),
+      );
+    },
+    /** U6 (A1): one person, with the main wallet abbreviated and no key. */
+    getRealUser(userId: string) {
+      return withRenewal(() =>
+        client.request<RealAdminUser>(`/api/v1/admin/real/users/${encodeURIComponent(userId)}`, {
+          authenticated: true,
+        }),
+      );
+    },
+    /** U6 (A1, US7.1): registers a release (24 h of quarantine). */
+    releaseRealUser(userId: string, body: RealAdminReleaseRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealAdminRelease>(
+          `/api/v1/admin/real/users/${encodeURIComponent(userId)}/release`,
+          { method: 'POST', body, idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** U6 (A1, US7.1): revokes at once; the withdrawal continues. */
+    revokeRealUser(userId: string, body: RealAdminReasonRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealAdminRevocation>(
+          `/api/v1/admin/real/users/${encodeURIComponent(userId)}/release`,
+          { method: 'DELETE', body, idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** U6 (A1, US7.2): lowers the cap (never raises). */
+    lowerRealCap(userId: string, body: RealAdminCapRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealAdminCap>(`/api/v1/admin/real/users/${encodeURIComponent(userId)}/cap`, {
+          method: 'PUT',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U6 (A1, US7.3): the blocked tokens. */
+    listRealTokenBlocks() {
+      return withRenewal(() =>
+        client.request<RealAdminTokenList>('/api/v1/admin/real/token-blocks', {
+          authenticated: true,
+        }),
+      );
+    },
+    blockRealToken(body: RealAdminTokenBlockRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealAdminBlockedToken>('/api/v1/admin/real/token-blocks', {
+          method: 'POST',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    unblockRealToken(mint: string, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealAdminUnblock>(
+          `/api/v1/admin/real/token-blocks/${encodeURIComponent(mint)}`,
+          {
+            method: 'DELETE',
+            idempotencyKey,
+            authenticated: true,
+          },
+        ),
+      );
+    },
+    /** U6 (A1, US8.1): the kill switch REAL, separate from the one of the PAPER. */
+    getRealKillSwitch() {
+      return withRenewal(() =>
+        client.request<RealAdminKillSwitch>('/api/v1/admin/real/kill-switch', {
+          authenticated: true,
+        }),
+      );
+    },
+    activateRealKillSwitch(body: RealAdminReasonRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealAdminKillSwitch>('/api/v1/admin/real/kill-switch', {
+          method: 'PUT',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    deactivateRealKillSwitch(body: RealAdminReasonRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealAdminKillSwitch>('/api/v1/admin/real/kill-switch', {
+          method: 'DELETE',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
+      );
+    },
+    /** U6 (A1, US8.2): the divergences open or compensated, by cursor. */
+    listRealDivergences(cursor: string | null) {
+      return withRenewal(() =>
+        client.request<RealAdminDivergencePage>(
+          `/api/v1/admin/real/divergences${query({ cursor, limit: 20 })}`,
+          { authenticated: true },
+        ),
+      );
+    },
+    compensateRealDivergence(
+      divergenceId: string,
+      body: RealAdminCompensationRequest,
+      idempotencyKey: string,
+    ) {
+      return withRenewal(() =>
+        client.request<RealAdminDivergence>(
+          `/api/v1/admin/real/divergences/${encodeURIComponent(divergenceId)}/compensation`,
+          { method: 'POST', body, idempotencyKey, authenticated: true },
+        ),
+      );
+    },
+    /** U6 (A1): confirms the restore once every wallet came back clean. */
+    confirmRealRestore(body: RealAdminReasonRequest, idempotencyKey: string) {
+      return withRenewal(() =>
+        client.request<RealAdminRestore>('/api/v1/admin/real/restore/confirmation', {
+          method: 'POST',
+          body,
+          idempotencyKey,
+          authenticated: true,
+        }),
       );
     },
     /** u4-data-requests (P2, BR4.17): the reply of a closed EMAIL request was sent to the contact. */

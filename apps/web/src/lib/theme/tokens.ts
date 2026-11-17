@@ -14,6 +14,8 @@ export const colors = {
   warning: '#ffcc66',
   unknown: '#c9b8ff',
   border: '#3a404c',
+  /** 261113-trading-real-bot U6 (BR7.1, design-system-mapping.md `color.real`): the amber of the REAL label. */
+  real: '#f59e0b',
 } as const;
 
 export type ColorToken = keyof typeof colors;
@@ -31,6 +33,11 @@ export const textPairs: ReadonlyArray<[ColorToken, ColorToken]> = [
   ['warning', 'surface'],
   ['unknown', 'surface'],
   ['focus', 'surface'],
+  // U6 (U6-NFR6.4): the REAL label as amber text, and the dark text on the amber fill of the badge.
+  ['real', 'background'],
+  ['real', 'surface'],
+  ['real', 'surfaceRaised'],
+  ['background', 'real'],
 ];
 
 function channel(value: number): number {

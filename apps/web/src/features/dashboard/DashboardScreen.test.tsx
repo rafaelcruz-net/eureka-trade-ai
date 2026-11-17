@@ -8,6 +8,7 @@ import { findProhibited, prohibitedTerms } from '@/content/prohibited-terms';
 import { fakeApi, Providers } from '@/features/auth/test-support';
 import { resetWalletCache } from '@/components/shell/WalletBadge';
 import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
+import { LiveChannelProvider } from '@/features/live/LiveChannelProvider';
 import {
   BOT_A,
   BOT_B,
@@ -60,7 +61,10 @@ function renderDashboard(
   tokenStore.set('access-token-value');
   render(
     <Providers api={api}>
-      <DashboardScreen now={options.now ?? (() => NOW)} timeZone={ZONE} fetchImpl={net.impl} />
+      {/* U6: the live channel is the one of the root layout, given the same fake fetch. */}
+      <LiveChannelProvider fetchImpl={net.impl}>
+        <DashboardScreen now={options.now ?? (() => NOW)} timeZone={ZONE} />
+      </LiveChannelProvider>
     </Providers>,
   );
   return { api, net };

@@ -6,6 +6,7 @@ import { guestApi, type GuestApi } from '@/lib/api/guest-api';
 import { ReacceptanceRedirect } from '@/features/reacceptance/ReacceptanceRedirect';
 
 const ApiContext = createContext<GuestApi | null>(null);
+const QuietApiContext = createContext<GuestApi | null>(null);
 const ApiOriginContext = createContext<string | null>(null);
 
 /**
@@ -28,15 +29,23 @@ export function ApiProvider({
   redirectOnTermsReacceptance?: boolean;
   children: ReactNode;
 }) {
-  const value = useMemo(
-    () => api ?? guestApi(createApiClient({ baseUrl: apiOrigin })),
-    [api, apiOrigin],
-  );
+  // 261113-trading-real-bot U6: a second instance on the same client, sharing the single-flight renewal of the first,
+  // without the handler of the reacceptance lock. A test double given as `api` serves both.
+  const { value, quiet } = useMemo(() => {
+    if (api) {
+      return { value: api, quiet: api };
+    }
+    const client = createApiClient({ baseUrl: apiOrigin });
+    const main = guestApi(client);
+    return { value: main, quiet: guestApi(client, { renewSession: () => main.refreshSession() }) };
+  }, [api, apiOrigin]);
   return (
     <ApiOriginContext.Provider value={apiOrigin}>
       <ApiContext.Provider value={value}>
-        {redirectOnTermsReacceptance ? <ReacceptanceRedirect api={value} /> : null}
-        {children}
+        <QuietApiContext.Provider value={quiet}>
+          {redirectOnTermsReacceptance ? <ReacceptanceRedirect api={value} /> : null}
+          {children}
+        </QuietApiContext.Provider>
       </ApiContext.Provider>
     </ApiOriginContext.Provider>
   );
@@ -46,6 +55,18 @@ export function useApi(): GuestApi {
   const api = useContext(ApiContext);
   if (!api) {
     throw new Error('useApi must be used inside ApiProvider');
+  }
+  return api;
+}
+
+/**
+ * 261113-trading-real-bot U6 (BR1.4, BR3.5, U6-NFR4.5): the API without the handler of the reacceptance lock, for the
+ * signing banner and the screen of deposit and withdrawal; its 403 TERMS_REACCEPTANCE_REQUIRED reaches only the caller.
+ */
+export function useQuietApi(): GuestApi {
+  const api = useContext(QuietApiContext);
+  if (!api) {
+    throw new Error('useQuietApi must be used inside ApiProvider');
   }
   return api;
 }

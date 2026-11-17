@@ -1341,6 +1341,21 @@ paths:
       summary: "P&L REAL com taxas, nunca misturado com PAPER"
       tags:
       - REAL — ordens e modo
+  /api/v1/real/release:
+    get:
+      operationId: getRealRelease
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealReleaseView"
+          description: OK
+      security:
+      - accessToken: []
+      summary: Liberação do REAL da própria pessoa na rede do ambiente
+      tags:
+      - REAL — carteira do bot
   /api/v1/reconciliation:
     get:
       operationId: getReconciliation
@@ -2142,6 +2157,13 @@ components:
           $ref: "#/components/schemas/RealBalanceView"
         capLamports:
           type: string
+        capSetBy:
+          type: string
+          description: "Quem definiu o teto atual: a pessoa ou o administrador (só\
+            \ leitura)"
+          enum:
+          - USER
+          - ADMIN
         mainWalletAddress:
           type: string
         maxCapLamports:
@@ -2157,6 +2179,9 @@ components:
           type: string
         policyResetRequired:
           type: boolean
+        release:
+          $ref: "#/components/schemas/RealReleaseStatus"
+          description: A liberação do REAL na rede do ambiente
         status:
           type: string
     ChallengeRequest:
@@ -3614,6 +3639,38 @@ components:
           type: boolean
         signature:
           type: string
+    RealReleaseStatus:
+      type: object
+      additionalProperties: false
+      properties:
+        blockedReason:
+          type: string
+          description: Primeiro portão vermelho de uma liberação BLOCKED
+        effectiveAt:
+          type: string
+          format: date-time
+          description: Fim da quarentena; ausente sem liberação
+        state:
+          type: string
+          enum:
+          - NONE
+          - QUARANTINE
+          - ACTIVE
+          - BLOCKED
+          - REVOKED
+      required:
+      - state
+    RealReleaseView:
+      type: object
+      additionalProperties: false
+      properties:
+        network:
+          type: string
+        release:
+          $ref: "#/components/schemas/RealReleaseStatus"
+      required:
+      - network
+      - release
     RealSignedTransactionRequest:
       type: object
       additionalProperties: false
@@ -3665,12 +3722,17 @@ components:
         messageDigest:
           type: string
           description: SHA-256 da mensagem montada
+        serverTime:
+          type: string
+          format: date-time
+          description: "Instante UTC do servidor ao montar a resposta (U6, BR3.2)"
         transactionBase64:
           type: string
       required:
       - deadline
       - display
       - messageDigest
+      - serverTime
       - transactionBase64
     RealSigningSessionOpened:
       type: object

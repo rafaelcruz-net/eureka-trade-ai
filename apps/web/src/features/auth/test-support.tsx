@@ -183,6 +183,36 @@ export function fakeApi(overrides: Partial<GuestApi> = {}): jest.Mocked<GuestApi
     }),
     setTermsReacceptanceHandler: jest.fn(() => () => undefined),
     notifyTermsReacceptance: jest.fn(),
+    // 261113-trading-real-bot U6: the REAL is off unless a test says otherwise (the menu item and the banner hide).
+    getRealRelease: jest.fn(async () => {
+      throw new ApiError(403, 'REAL_DISABLED');
+    }),
+    getRealPnl: jest.fn(async () => {
+      throw new ApiError(403, 'REAL_DISABLED');
+    }),
+    listRealOrders: jest.fn(async () => ({ items: [], total: 0 })),
+    getRealSigningSession: jest.fn(async () => {
+      throw new ApiError(404, 'NOT_FOUND');
+    }),
+    submitRealSignedTransaction: jest.fn(async () => {
+      throw new ApiError(404, 'NOT_FOUND');
+    }),
+    rejectRealSigning: jest.fn(async () => {
+      throw new ApiError(404, 'NOT_FOUND');
+    }),
+    changeRealMode: jest.fn(async () => {
+      throw new ApiError(403, 'REAL_DISABLED');
+    }),
+    changeRealPreferences: jest.fn(async () => {
+      throw new ApiError(409, 'BOT_WALLET_NOT_ACTIVE');
+    }),
+    startRealLiquidation: jest.fn(async () => {
+      throw new ApiError(409, 'BOT_WALLET_NOT_ACTIVE');
+    }),
+    getRealWithdrawal: jest.fn(async () => {
+      throw new ApiError(404, 'NOT_FOUND');
+    }),
+    listRealWithdrawals: jest.fn(async () => ({ items: [], total: 0 })),
     ...overrides,
   } as jest.Mocked<GuestApi>;
 }
@@ -194,6 +224,11 @@ export function fakeWallet(overrides: Partial<WalletPort> = {}): WalletPort {
     provider: 'PHANTOM',
     connect: jest.fn(async () => ({ address: 'TestWa11et1111111111111111111111111111111111' })),
     signMessage: jest.fn(async () => new Uint8Array([1, 2, 3])),
+    // 261113-trading-real-bot U6: a wallet of the login only; the signing tests give their own signTransaction.
+    canSignTransaction: false,
+    signTransaction: jest.fn(async () => {
+      throw new Error('this test wallet does not sign transactions');
+    }),
     ...overrides,
   };
 }

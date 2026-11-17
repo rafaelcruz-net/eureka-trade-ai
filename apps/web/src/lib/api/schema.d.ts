@@ -638,6 +638,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/real/release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Liberação do REAL da própria pessoa na rede do ambiente */
+    get: operations['getRealRelease'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/reconciliation': {
     parameters: {
       query?: never;
@@ -963,6 +980,11 @@ export interface components {
       address?: string;
       balance?: components['schemas']['RealBalanceView'];
       capLamports?: string;
+      /**
+       * @description Quem definiu o teto atual: a pessoa ou o administrador (só leitura)
+       * @enum {string}
+       */
+      capSetBy?: 'USER' | 'ADMIN';
       mainWalletAddress?: string;
       maxCapLamports?: string;
       /** Format: int32 */
@@ -971,6 +993,8 @@ export interface components {
       network?: string;
       pausedReason?: string;
       policyResetRequired?: boolean;
+      /** @description A liberação do REAL na rede do ambiente */
+      release?: components['schemas']['RealReleaseStatus'];
       status?: string;
     };
     ChallengeRequest: {
@@ -1607,6 +1631,21 @@ export interface components {
       paused?: boolean;
       signature?: string;
     };
+    RealReleaseStatus: {
+      /** @description Primeiro portão vermelho de uma liberação BLOCKED */
+      blockedReason?: string;
+      /**
+       * Format: date-time
+       * @description Fim da quarentena; ausente sem liberação
+       */
+      effectiveAt?: string;
+      /** @enum {string} */
+      state: 'NONE' | 'QUARANTINE' | 'ACTIVE' | 'BLOCKED' | 'REVOKED';
+    };
+    RealReleaseView: {
+      network: string;
+      release: components['schemas']['RealReleaseStatus'];
+    };
     RealSignedTransactionRequest: {
       signedTransactionBase64: string;
     };
@@ -1627,6 +1666,11 @@ export interface components {
       display: components['schemas']['RealSigningDisplay'];
       /** @description SHA-256 da mensagem montada */
       messageDigest: string;
+      /**
+       * Format: date-time
+       * @description Instante UTC do servidor ao montar a resposta (U6, BR3.2)
+       */
+      serverTime: string;
       transactionBase64: string;
     };
     /** @description data do evento real.signing.requested (R6) */
@@ -3283,6 +3327,26 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['RealPnl'];
+        };
+      };
+    };
+  };
+  getRealRelease: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealReleaseView'];
         };
       };
     };

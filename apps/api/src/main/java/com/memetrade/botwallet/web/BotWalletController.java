@@ -2,8 +2,12 @@ package com.memetrade.botwallet.web;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.memetrade.botwallet.api.RealReleaseInfo;
+import com.memetrade.botwallet.api.RealStateQuery;
 import com.memetrade.botwallet.application.BotWalletService;
 import com.memetrade.botwallet.application.BotWalletViews;
+import com.memetrade.botwallet.domain.BotWalletError;
+import com.memetrade.botwallet.domain.BotWalletException;
 import com.memetrade.botwallet.domain.ConsentKind;
 import com.memetrade.botwallet.domain.OperationMode;
 import com.memetrade.identity.api.AuthContext;
@@ -41,11 +45,13 @@ public class BotWalletController {
     private static final Pattern SIGNATURE = Pattern.compile("^[1-9A-HJ-NP-Za-km-z]{64,90}$");
 
     private final BotWalletService service;
+    private final RealStateQuery state;
     private final AuthContext auth;
     private final ObjectMapper json;
 
-    public BotWalletController(BotWalletService service, AuthContext auth, ObjectMapper json) {
+    public BotWalletController(BotWalletService service, RealStateQuery state, AuthContext auth, ObjectMapper json) {
         this.service = service;
+        this.state = state;
         this.auth = auth;
         this.json = json;
     }
@@ -88,6 +94,29 @@ public class BotWalletController {
     @GetMapping("/bot-wallet")
     public ResponseEntity<BotWalletViews.BotWalletView> view() {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.view(auth.current()));
+    }
+
+    /**
+     * 261113-trading-real-bot U6 (rules.md "Mudança de contrato" item 1, U6-NFR1.6): the release of the person of the
+     * token, read through the M1; {@code 403 REAL_DISABLED} with the REAL switched off. It needs the acceptance of the
+     * current terms (not one of the exceptions of the reacceptance).
+     */
+    @Operation(
+            operationId = "getRealRelease",
+            summary = "Liberação do REAL da própria pessoa na rede do ambiente",
+            security = @SecurityRequirement(name = "accessToken"))
+    @GetMapping("/release")
+    public ResponseEntity<BotWalletViews.ReleaseView> release() {
+        var person = auth.current();
+        RealReleaseInfo info = state.readRelease(person.tenantId(), person.userId());
+        if (!info.realEnabled()) {
+            throw new BotWalletException(BotWalletError.REAL_DISABLED);
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(new BotWalletViews.ReleaseView(
+                        info.network(),
+                        new BotWalletViews.ReleaseStatus(info.state(), info.effectiveAt(), info.blockedReason())));
     }
 
     @Operation(

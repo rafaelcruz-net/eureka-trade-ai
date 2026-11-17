@@ -22,6 +22,12 @@ public interface RealStateQuery {
      */
     List<RealWalletRef> walletsInForce();
 
+    /**
+     * 261113-trading-real-bot U6 (rules.md "Mudança de contrato" item 1): the release of this person on the network of
+     * the environment, with the REAL switch; read only, whether or not the person has a bot wallet.
+     */
+    RealReleaseInfo readRelease(UUID tenantId, UUID userId);
+
     /** BR4.5: every ACTIVE wallet paused for {@code reason}, with the start of that pause. */
     List<PausedWallet> pausedWallets(RealPauseReason reason);
 

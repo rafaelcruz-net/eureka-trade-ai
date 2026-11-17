@@ -3,6 +3,7 @@ package com.memetrade.botwallet.application;
 import com.memetrade.botwallet.api.RealOperationMode;
 import com.memetrade.botwallet.api.RealPauseReason;
 import com.memetrade.botwallet.api.RealPauses;
+import com.memetrade.botwallet.api.RealReleaseInfo;
 import com.memetrade.botwallet.api.RealStateQuery;
 import com.memetrade.botwallet.api.RealStateView;
 import com.memetrade.botwallet.api.RealWalletRef;
@@ -90,6 +91,21 @@ public class RealStateService implements RealStateQuery, RealPauses {
                 preferences.feeReserveLamports(),
                 reasons,
                 since));
+    }
+
+    /**
+     * 261113-trading-real-bot U6: the person comes from the authentication of the caller (tenant and person of the
+     * token); the releases are read by that person only, so another account is never seen.
+     */
+    @Override
+    public RealReleaseInfo readRelease(UUID tenantId, UUID userId) {
+        RealReleases.Current current = RealReleases.current(repository.releases(userId), properties.network());
+        return new RealReleaseInfo(
+                properties.enabled(),
+                properties.network().name(),
+                current.state(),
+                current.effectiveAt(),
+                current.blockedReason());
     }
 
     @Override

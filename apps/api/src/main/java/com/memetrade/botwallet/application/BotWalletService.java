@@ -208,7 +208,8 @@ public class BotWalletService {
                 Map.of("kind", challenge.kind().name()),
                 RealReferences.botWallet(address),
                 null);
-        return BotWalletViews.of(wallet, preferences, RealBalances.EMPTY, now);
+        return BotWalletViews.of(
+                wallet, preferences, RealBalances.EMPTY, now, java.util.Set.of(), extras(person, wallet, preferences));
     }
 
     // ----- F2: preferences, pause and resume -----
@@ -325,12 +326,23 @@ public class BotWalletService {
                 .activeWallet(person.tenantId(), person.userId())
                 .orElseThrow(() -> new BotWalletException(BotWalletError.NOT_FOUND));
         // U5 (BR3.1, BR2.5): the global pauses (kill switch REAL, restore) show in the view of every person too.
+        Preferences preferences = repository.preferences(wallet.botWalletId());
         return BotWalletViews.of(
                 wallet,
-                repository.preferences(wallet.botWalletId()),
+                preferences,
                 ledger.balance(person.tenantId(), wallet.botWalletId()),
                 clock.instant(),
-                globalPauses.active().keySet());
+                globalPauses.active().keySet(),
+                extras(person, wallet, preferences));
+    }
+
+    /** 261113-trading-real-bot U6 (rules.md "Mudança de contrato" item 2): who set the cap and the release, read only. */
+    private BotWalletViews.Extras extras(Principal person, BotWalletAccount wallet, Preferences preferences) {
+        return new BotWalletViews.Extras(
+                BotWalletViews.capSetBy(
+                        preferences.capLamports(), repository.lastCapLoweredByAdmin(wallet.botWalletId())),
+                BotWalletViews.releaseOf(
+                        RealReleases.current(repository.releases(person.userId()), properties.network())));
     }
 
     /** BR4.2: no flag, kill switch, release, terms or pause blocks a withdrawal; BR4.8 common idempotency. */

@@ -40,6 +40,12 @@ public interface BotWalletRepository {
 
     List<RealRelease> releases(UUID userId);
 
+    /**
+     * 261113-trading-real-bot U6 (BR5.4): the cap of the most recent LOWER_CAP command of the administrator for this
+     * wallet (U5 BR4.1); empty when the administrator never lowered it.
+     */
+    Optional<Long> lastCapLoweredByAdmin(UUID botWalletId);
+
     void insertRelease(RealRelease release);
 
     void insertWithdrawal(Withdrawal withdrawal);

@@ -1,0 +1,50 @@
+## Review
+
+**Verdict:** READY
+**Reviewer:** aidlc-architecture-reviewer-agent
+**Date:** 2026-11-16
+**Iteration:** 2
+**Verdict Dictated:** no
+
+### Findings
+
+| ID | Severity | Location | Finding | Required action | Status |
+|---|---|---|---|---|---|
+| R-01 | Critical | aidlc/spaces/default/intents/261113-trading-real-bot/construction/u6-real-modes-ui/infrastructure-design/infrastructure-specification.md > Local e ponta a ponta, cenários 1 e 3 | O texto diz "conta convidada liberada pelo perfil de teste" e "ordem proposta pelo bot de teste". O `RealTestSeeder` só libera (release ACTIVE já fora da quarentena e termos v3) a conta de fumaça, achada por `memetrade.smoke.beta-wallet-address`. Nenhuma outra conta é liberada pelo perfil de teste. Uma liberação feita pelo administrador na tela cai na quarentena de 24 h e não vale no mesmo run. | Dizer qual conta o spec usa. Ou reaproveitar a conta de fumaça, com o bot e o estado deixados pelos specs anteriores, ou declarar a mudança de infraestrutura necessária: um segundo endereço no seeder, uma variável nova no compose do REAL e a geração dessa carteira no `verify.sh`. A especificação afirma "nenhuma variável nova" e "nenhuma mudança no Compose"; isso só vale para a primeira opção. | Resolved (reviewer) |
+| R-02 | Critical | infrastructure-specification.md > cenário 3 (Assinatura) e Q1 ("nada muda") | Uma ordem proposta em SIGNED não pode ser obtida com as fixtures gravadas. O `RecordedSwapStrategy` compra uma única vez por bot ("one buy, ever"), só para um bot REAL cuja seleção é exatamente o mint gravado. O `real-swap` já gasta essa compra e termina vendendo tudo, sacando e parando o bot. O endereço da carteira do bot é derivado de `KMS_SIM_SEED` pela n-ésima `CreateKey`; só a carteira do primeiro usuário coincide com a gravação da Jupiter e do validador (contas clonadas). Uma carteira de um segundo usuário teria outro endereço, e as instruções gravadas não casam. O texto também não explica quem assina no modo Assinada, nem como a assinatura da carteira de teste ("main") vale para uma transação cujo pagador é a carteira do bot. | Desenhar a prova de forma realizável. Opções: (a) rodar o spec `real-ui` antes do `real-swap` sobre a mesma carteira do bot e com um bot novo; (b) estender a estratégia de teste e o compose (por exemplo, uma ordem propose-only em SIGNED, com fixture própria e o pagador correto); (c) sem fixture, testar a faixa e o diálogo com uma ordem semeada e, no e2e, só até a assinatura. Registrar a escolha e as mudanças em `infra/` ou no código de teste da API. | Resolved (reviewer) |
+| R-03 | Major | infrastructure-specification.md > Local e ponta a ponta (ordem e interferência) | Falta definir o estado de entrada e de saída do spec. O `verify.sh` roda com `workers: 1` e o `real-ops` vem antes, no mesmo ambiente, sem reinício entre specs. Ao chegar no `real-ui` a carteira está em AUTO_FULL (`real-swap`) e com saldo zero; o bot foi parado; pode haver divergência resolvida ou pausa de reconciliação (`real-ops`). O kill switch é desligado em `finally` no `real-ops`, mas o cenário 4 do `real-ui` também o liga e desliga e não diz como garante que ele fique desligado se falhar no meio. O cenário 1 pressupõe "ativação" e "passos 1 a 3", mas a carteira já está ativa. O cenário 2 sobe para Automática total, estado que já existe. | Incluir um `beforeAll` determinístico, descrito na especificação: levar o modo a SIGNED, conferir ou limpar a pausa, conferir o kill switch desligado. No cenário 4, usar `try/finally` como o `real-ops`. Dizer se a ativação pela tela exige uma conta sem carteira do bot. | Resolved (reviewer) |
+| R-04 | Major | infrastructure-specification.md > Local e ponta a ponta, cenário 4 (administrador) | A disponibilidade do login do administrador no e2e está certa (`ADMIN_WALLET_ADDRESSES`, `SMOKE_ADMIN_WALLET_FILE` e `ADMIN_BASE_URL` já vêm do `verify.sh`), mas o texto não diz que o spec precisa dessas variáveis, nem que a página do admin precisa de `installTestWallet` na porta 3001. Além disso, "liberar com motivo" só gera um pedido em quarentena; o texto não diz qual conta, nem o que o spec conclui. Por fim, `signIn` do `real-ops` trata o limite de 429 de login (`LOGIN_WINDOW_MS`); o `real-ui` faz mais logins (convidado e administrador) e não menciona isso. | Listar as variáveis de ambiente exigidas pelo spec e o tratamento do limite de login. Dizer qual conta recebe a liberação e o que se espera (pedido pendente, sem efeito). | Resolved (reviewer) |
+| R-05 | Minor | infrastructure-specification.md > CI [Q3] e cicd-pipeline.md | A pergunta "o job `e2e` roda como o `verify.sh`?" tem resposta: sim, os jobs `smoke` e `e2e` (push em `main`) chamam `bash scripts/verify.sh`, a mesma lista de specs, sem filtro; o `e2e` só repete a execução completa depois do `smoke`. Portanto a execução dobra os minutos do GitHub Actions a cada push em `main` com o spec novo, e o documento não registra esse custo, que `team.md` manda rever com dados de consumo. O `cicd-pipeline.md` também não menciona o job `txsigner` e o `e2e`, que existem no `ci.yml`. | Registrar que o spec novo vai rodar duas vezes no `main` e o tempo estimado. Citar os jobs `txsigner` e `e2e` na tabela. | Resolved (reviewer) |
+| R-06 | Minor | infrastructure-specification.md > Implantação e rollback [Q4] | A ordem e o rollback estão corretos para mudanças só de acréscimo, e o saque fica disponível. Falta dizer o caminho com a API revertida enquanto a faixa nova de web já está no ar (`GET /real/release` e `PATCH` voltam 404/405) e o comportamento esperado nesse caso, já que a ordem inversa foi escolhida para evitá-lo; também falta o smoke pós-implantação exigido por `team.md` (uma implantação só termina com o smoke passando). | Acrescentar a degradação aceita (tela mostra erro, nunca perde o saque) e que o `verify.sh` é o smoke da implantação. | Resolved (reviewer) |
+| R-07 | Minor | aidlc/spaces/default/intents/261113-trading-real-bot/construction/u6-real-modes-ui/infrastructure-design/traceability.json | O mapeamento cobre 11 IDs, mas cita U6-NFR8.4 só para `frontend`/`admin` e deixa de fora U6-NFR8.6 (regras de lint em bloco próprio), que o `cicd-pipeline.md` descreve. O destino de U6-NFR1.4 ("sem script novo nem mudança de imagem") não nomeia a ausência de mudança na CSP. | Incluir U6-NFR8.6 e apontar cada destino para a seção exata, ou justificar a omissão. | Resolved (reviewer) |
+| R-08 | Minor | aidlc/spaces/default/intents/261113-trading-real-bot/construction/u6-real-modes-ui/infrastructure-design/infrastructure-specification.md > Spec novo `apps/web/e2e/real-ui/` | O texto diz que `postWithinLoginLimit` é um helper que já existe, mas ele é uma função local dentro de `e2e/real-bot-wallet/bot-wallet.spec.ts`, não um módulo compartilhado em `e2e/support/`. O `real-ops` tem a sua própria cópia (`post`/`signIn`). | No Code Generation, extrair o helper para `e2e/support/` ou copiá-lo no spec novo; ajustar a frase para não dizer que é compartilhado. | New |
+| R-09 | Minor | infrastructure-specification.md > cenário 5 | "As telas de divergências e de restauração abrem e mostram o estado vazio" supõe que o `real-ops` não deixa divergência resolvida nem registro de restauração listados; o próprio `beforeAll` só confere que não há divergência aberta. Uma divergência RESOLVIDA do `real-ops` pode aparecer na lista. | Trocar a expectativa para "abre sem erro", ou conferir só que nenhuma está aberta. | New |
+| R-10 | Minor | infrastructure-specification.md > Carteira de teste | A carteira de teste passa a declarar `solana:signTransaction` sem que nenhum e2e a use; a justificativa ("futura gravação de rota") é aceitável, mas o teste que a exercita precisa existir. | Garantir um teste (de unidade do próprio suporte ou de componente) que exerça `signTransaction`, para a cobertura e para não deixar código de teste morto. | New |
+
+> R-01 Reviewer note: O spec usa só a conta de fumaça e a carteira do bot existente; a especificação registra os limites do seeder e afirma, coerentemente, que não há mudança de Compose, seeder nem variáveis.
+
+> R-02 Reviewer note: A ordem proposta em SIGNED deixou de ser prometida no e2e. A assinatura passa a ser provada por testes de componente com carteira falsa (byte a byte, todos os desfechos) e pelos ITs da U4; o U6-NFR8.5 foi ajustado em `tech-stack-decisions.md` e `scalability-design.md`.
+
+> R-03 Reviewer note: Estados de entrada e de saída definidos (AUTO_FULL, bot parado, divergência resolvida, kill switch desligado), `beforeAll` que confere e falha sem corrigir, e kill switch em `try/finally` com reset pela API.
+
+> R-04 Reviewer note: Variáveis, `installTestWallet` nas portas 3000 e 3001, espera de `LOGIN_WINDOW_MS`, conta da liberação (fumaça, `RELEASE_EXISTS`) e resultado esperado estão descritos. Ver o achado Minor sobre o nome do helper.
+
+> R-05 Reviewer note: Custo de CI duplicado no `main` registrado (2 a 3 minutos por job); jobs `txsigner`, `smoke` e `e2e` entraram na tabela do `cicd-pipeline.md`.
+
+> R-06 Reviewer note: Smoke após cada etapa e comportamento com a API revertida e o web novo (404 em `/real/release`, relógio do navegador, saque preservado) documentados.
+
+> R-07 Reviewer note: U6-NFR8.6 incluído na `traceability.json` e destinos mais específicos.
+
+### Validation Tool Results
+
+| Tool | Result | Interpretation |
+|---|---|---|
+| Leitura de `tech-stack-decisions.md` e `scalability-design.md` | U6-NFR8.5 ajustado nos dois | Consistente com a especificação revisada |
+| Leitura de `bot-wallet.spec.ts` e `divergence.spec.ts` | `postWithinLoginLimit` é local; `real-ops` já tem `finally` para o kill switch | Base dos Minors |
+| Leitura de `traceability.json` | 12 IDs, todos OK | Cobertura completa |
+
+Não executei testes nem o `verify.sh`.
+
+### Summary
+
+As duas Criticals e as duas Majors da iteração 1 foram resolvidas ao restringir o e2e ao que o ambiente local realmente suporta e ao mover a prova da assinatura para testes de componente. Restam três Minors, nenhum bloqueante.

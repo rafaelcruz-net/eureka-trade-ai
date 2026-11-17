@@ -10,6 +10,7 @@ export const messages = {
     status: 'Estado',
     invites: 'Convites',
     killSwitch: 'Kill switch',
+    real: 'REAL',
     feedback: 'Feedback',
     dataRequests: 'Pedidos LGPD',
     signOut: 'Sair',

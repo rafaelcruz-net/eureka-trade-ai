@@ -40,7 +40,49 @@ public final class BotWalletViews {
             Balance balance,
             String pausedReason,
             String network,
-            boolean policyResetRequired) {}
+            boolean policyResetRequired,
+
+            @io.swagger.v3.oas.annotations.media.Schema(
+                    allowableValues = {"USER", "ADMIN"},
+                    description = "Quem definiu o teto atual: a pessoa ou o administrador (só leitura)")
+            String capSetBy,
+
+            @io.swagger.v3.oas.annotations.media.Schema(description = "A liberação do REAL na rede do ambiente")
+            ReleaseStatus release) {}
+
+    /**
+     * 261113-trading-real-bot U6 (rules.md "Mudança de contrato" item 1): the release on the network of the environment;
+     * the same object in the bot wallet view and in {@code GET /api/v1/real/release}.
+     */
+    @io.swagger.v3.oas.annotations.media.Schema(name = "RealReleaseStatus")
+    public record ReleaseStatus(
+            @io.swagger.v3.oas.annotations.media.Schema(
+                    requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED,
+                    allowableValues = {"NONE", "QUARANTINE", "ACTIVE", "BLOCKED", "REVOKED"})
+            String state,
+
+            @io.swagger.v3.oas.annotations.media.Schema(description = "Fim da quarentena; ausente sem liberação")
+            Instant effectiveAt,
+
+            @io.swagger.v3.oas.annotations.media.Schema(
+                    description = "Primeiro portão vermelho de uma liberação BLOCKED")
+            String blockedReason) {}
+
+    /** 261113-trading-real-bot U6: the answer of {@code GET /api/v1/real/release}. */
+    @io.swagger.v3.oas.annotations.media.Schema(name = "RealReleaseView")
+    public record ReleaseView(
+            @io.swagger.v3.oas.annotations.media.Schema(
+                    requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
+            String network,
+
+            @io.swagger.v3.oas.annotations.media.Schema(
+                    requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED)
+            ReleaseStatus release) {}
+
+    /** Who set the cap (U6, BR5.4). */
+    public static final String SET_BY_USER = "USER";
+
+    public static final String SET_BY_ADMIN = "ADMIN";
 
     @io.swagger.v3.oas.annotations.media.Schema(name = "RealChallengeView")
     public record ChallengeView(UUID challengeId, String message, String nonce, Instant expiresAt) {}
@@ -61,9 +103,21 @@ public final class BotWalletViews {
     @io.swagger.v3.oas.annotations.media.Schema(name = "RealPage")
     public record Page<T>(List<T> items, String nextCursor, int total) {}
 
-    static BotWalletView of(BotWalletAccount wallet, Preferences preferences, RealBalance balance, Instant now) {
-        return of(wallet, preferences, balance, now, java.util.Set.of());
+    /**
+     * 261113-trading-real-bot U6 (BR5.4): the administrator only lowers a cap, and each lowering leaves a LOWER_CAP
+     * command with the new value; the person's own changes leave none. So the cap is "ADMIN" while it still equals the
+     * most recent lowering by the administrator, and "USER" otherwise.
+     */
+    static String capSetBy(long capLamports, java.util.Optional<Long> lastLoweredByAdmin) {
+        return lastLoweredByAdmin.filter(cap -> cap == capLamports).isPresent() ? SET_BY_ADMIN : SET_BY_USER;
     }
+
+    static ReleaseStatus releaseOf(com.memetrade.botwallet.domain.RealReleases.Current current) {
+        return new ReleaseStatus(current.state(), current.effectiveAt(), current.blockedReason());
+    }
+
+    /** What the view carries since the U6: who set the cap and the release. */
+    record Extras(String capSetBy, ReleaseStatus release) {}
 
     /** 261113-trading-real-bot U5: the view with the global pauses of the REAL merged into its paused reason. */
     static BotWalletView of(
@@ -71,7 +125,8 @@ public final class BotWalletViews {
             Preferences preferences,
             RealBalance balance,
             Instant now,
-            java.util.Set<PauseReason> globalPauses) {
+            java.util.Set<PauseReason> globalPauses,
+            Extras extras) {
         long cap = preferences.capLamports();
         long reserve = preferences.feeReserveLamports();
         return new BotWalletView(
@@ -92,7 +147,9 @@ public final class BotWalletViews {
                         now),
                 pausedReason(preferences, globalPauses),
                 wallet.network().name(),
-                wallet.policyResetRequired());
+                wallet.policyResetRequired(),
+                extras.capSetBy(),
+                extras.release());
     }
 
     /** The most severe reason first; NONE when not paused (contract PausedReason). */

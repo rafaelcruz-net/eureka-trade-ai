@@ -57,9 +57,10 @@ public final class GuestCorsPolicy {
     private static CorsConfiguration configuration(String origin, boolean credentials) {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(origin));
-        // The cookie routes take only POST; the bearer routes also take the PUT of the bot draft (U5, F2).
+        // The cookie routes take only POST; the bearer routes also take the PUT of the bot draft (U5, F2) and, since
+        // 261113-trading-real-bot U6 (U6-NFR1.7), the PATCH of the REAL preferences.
         config.setAllowedMethods(
-                credentials ? List.of("GET", "POST", "OPTIONS") : List.of("GET", "POST", "PUT", "OPTIONS"));
+                credentials ? List.of("GET", "POST", "OPTIONS") : List.of("GET", "POST", "PUT", "PATCH", "OPTIONS"));
         // U9 (BR5.3): the live channel C7 reopens with Last-Event-ID, a header the bearer routes must accept.
         config.setAllowedHeaders(
                 credentials

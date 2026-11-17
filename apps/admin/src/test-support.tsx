@@ -99,6 +99,37 @@ export function fakeAdminApi(overrides: Partial<AdminApi> = {}): jest.Mocked<Adm
     anonymizeAccount: jest.fn(async () => {
       throw new Error('no anonymization configured');
     }),
+    // 261113-trading-real-bot U6 (A1): nothing of the REAL unless a test says otherwise.
+    listRealUsers: jest.fn(async () => ({ items: [] })),
+    getRealUser: jest.fn(async () => {
+      throw new Error('no REAL user configured');
+    }),
+    releaseRealUser: jest.fn(async () => {
+      throw new Error('no REAL release configured');
+    }),
+    revokeRealUser: jest.fn(async () => {
+      throw new Error('no REAL revocation configured');
+    }),
+    lowerRealCap: jest.fn(async () => {
+      throw new Error('no REAL cap configured');
+    }),
+    listRealTokenBlocks: jest.fn(async () => ({ items: [] })),
+    blockRealToken: jest.fn(async () => {
+      throw new Error('no REAL token block configured');
+    }),
+    unblockRealToken: jest.fn(async () => {
+      throw new Error('no REAL token block configured');
+    }),
+    getRealKillSwitch: jest.fn(async () => ({ active: false, version: 0 })),
+    activateRealKillSwitch: jest.fn(async () => ({ active: true, version: 1, changed: true })),
+    deactivateRealKillSwitch: jest.fn(async () => ({ active: false, version: 2, changed: true })),
+    listRealDivergences: jest.fn(async () => ({ items: [] })),
+    compensateRealDivergence: jest.fn(async () => {
+      throw new Error('no REAL divergence configured');
+    }),
+    confirmRealRestore: jest.fn(async () => {
+      throw new Error('no REAL restore configured');
+    }),
     ...overrides,
   } as jest.Mocked<AdminApi>;
 }
