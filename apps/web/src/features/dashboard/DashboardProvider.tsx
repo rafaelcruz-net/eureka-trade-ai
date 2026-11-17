@@ -84,7 +84,7 @@ export function DashboardProvider({
   timeZone?: string;
 }) {
   const api = useApi();
-  const { subscribe, retryNow, status: channel } = useLiveChannel();
+  const { subscribe, retryNow, acquire, status: channel } = useLiveChannel();
   const { status, expire } = useSession();
   const announce = useAnnounce();
   const [state, dispatch] = useReducer(dashboardReducer, undefined, () =>
@@ -162,12 +162,15 @@ export function DashboardProvider({
       }
     }, SOURCES_FALLBACK_MS);
     const subscriptions = DASHBOARD_KINDS.map((kind) => subscribe(kind, handleEvent));
+    const release = acquire();
     return () => {
       clearTimeout(fallback);
-      // BR5.6 (U6): only the subscriptions of the dashboard end; the channel stays for the signing banner.
+      // BR5.6: the dashboard ends its subscriptions and gives the channel back; it closes unless the signing banner
+      // of the SIGNED mode still asks for it.
       subscriptions.forEach((unsubscribe) => unsubscribe());
+      release();
     };
-  }, [status, loader, subscribe, handleEvent]);
+  }, [status, loader, subscribe, acquire, handleEvent]);
 
   // The status of the ONE channel of the root layout feeds the same reducer as before.
   const { state: channelState, outdated: channelOutdated } = channel;

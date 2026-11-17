@@ -63,11 +63,19 @@ function Subscriber({ kind, onEvent }: { kind: LiveKind; onEvent: (data: unknown
   return null;
 }
 
+/** A screen that asks for the channel (the dashboard, or the banner in the SIGNED mode). */
+function Demand() {
+  const { acquire } = useLiveChannel();
+  useEffect(() => acquire(), [acquire]);
+  return null;
+}
+
 function renderChannel(children: React.ReactNode, net = fakeFetch(), api = fakeApi()) {
   const view = render(
     <Providers api={api}>
       <LiveChannelProvider fetchImpl={net.impl}>
         <Probe />
+        <Demand />
         {children}
       </LiveChannelProvider>
     </Providers>,
@@ -144,6 +152,43 @@ describe('LiveChannelProvider', () => {
     expect(net.requests).toHaveLength(1);
   });
 
+  it('never opens while no screen asks for it, and closes when the last one gives it back', async () => {
+    tokenStore.set('access-token-value');
+    const channel = fakeChannel();
+    const net = fakeFetch();
+    net.respond(channel.response);
+    function Page() {
+      const [asking, setAsking] = useState(false);
+      return (
+        <>
+          {asking && <Demand />}
+          <button type="button" onClick={() => setAsking((now) => !now)}>
+            alternar
+          </button>
+        </>
+      );
+    }
+    render(
+      <Providers api={fakeApi()}>
+        <LiveChannelProvider fetchImpl={net.impl}>
+          <Probe />
+          <Page />
+        </LiveChannelProvider>
+      </Providers>,
+    );
+    await act(async () => settle());
+    expect(net.requests).toHaveLength(0);
+
+    await act(async () => screen.getByRole('button', { name: 'alternar' }).click());
+    await act(async () => settle());
+    expect(net.requests).toHaveLength(1);
+
+    await act(async () => screen.getByRole('button', { name: 'alternar' }).click());
+    await act(async () => settle());
+    expect(net.requests[0]?.init.signal?.aborted).toBe(true);
+    expect(screen.getByTestId('probe-state')).toHaveTextContent('CLOSED');
+  });
+
   it('never opens without a session', async () => {
     const net = fakeFetch();
     renderChannel(null, net);
@@ -180,6 +225,7 @@ describe('LiveChannelProvider', () => {
         <Providers api={api}>
           <LiveChannelProvider fetchImpl={net.impl}>
             <Probe />
+            <Demand />
           </LiveChannelProvider>
         </Providers>,
       );
@@ -308,6 +354,7 @@ describe('LiveChannelProvider', () => {
         <Providers api={api}>
           <LiveChannelProvider fetchImpl={net.impl}>
             <Probe />
+            <Demand />
           </LiveChannelProvider>
         </Providers>,
       );

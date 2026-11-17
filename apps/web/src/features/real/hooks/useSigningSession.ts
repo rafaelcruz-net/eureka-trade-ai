@@ -30,7 +30,7 @@ export function useSigningSession(mode: Mode | null) {
   const api = useQuietApi();
   const reads = useMemo(() => realReads(api), [api]);
   const { status } = useSession();
-  const { subscribe, onReconnected, termsPending, markTermsPending } = useLiveChannel();
+  const { subscribe, onReconnected, acquire, termsPending, markTermsPending } = useLiveChannel();
   const pathname = usePathname();
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const active = status === 'authenticated' && mode === 'SIGNED' && !termsPending;
@@ -101,12 +101,15 @@ export function useSigningSession(mode: Mode | null) {
       );
     });
     const offReconnected = onReconnected(() => void reread());
+    // Only the SIGNED mode keeps the channel open outside the dashboard.
+    const release = acquire();
     return () => {
       offEvent();
       offState();
       offReconnected();
+      release();
     };
-  }, [active, subscribe, onReconnected, reread]);
+  }, [active, subscribe, onReconnected, acquire, reread]);
 
   const clear = useCallback(() => {
     generation.current += 1;

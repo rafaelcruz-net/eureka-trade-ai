@@ -46,6 +46,12 @@ export interface LiveChannelValue {
   retryNow(): void;
   subscribe<K extends LiveKind>(kind: K, handler: (event: LiveEventOf<K>) => void): () => void;
   onReconnected(handler: () => void): () => void;
+  /**
+   * A screen that needs the live events asks for the channel and gives it back when it leaves; the channel is open only
+   * while someone asks (the dashboard, or the signing banner in the SIGNED mode). Opening it on every screen held one
+   * server slot per screen and, with the limit of 5 channels per person, a new screen could get 429 (run 44014735480).
+   */
+  acquire(): () => void;
   /** The reacceptance of the terms is pending: the channel stays closed and the banner reads nothing. */
   termsPending: boolean;
   markTermsPending(): void;
@@ -70,6 +76,7 @@ const INERT: LiveChannelValue = {
   retryNow: () => undefined,
   subscribe: () => () => undefined,
   onReconnected: () => () => undefined,
+  acquire: () => () => undefined,
   termsPending: false,
   markTermsPending: () => undefined,
 };
@@ -100,6 +107,7 @@ export function LiveChannelProvider({
   const pathname = usePathname() ?? '/';
   const [status, setStatus] = useState<ChannelStatus>(CLOSED);
   const [termsPending, setTermsPending] = useState(false);
+  const [demand, setDemand] = useState(0);
   const handlers = useRef(new Map<LiveKind, Set<Handler>>());
   const reconnected = useRef(new Set<() => void>());
   const client = useRef<StreamClient | null>(null);
@@ -109,7 +117,7 @@ export function LiveChannelProvider({
   const everOpen = useRef(false);
 
   const blockedPath = isNoChannelPath(pathname);
-  const shouldOpen = session === 'authenticated' && !blockedPath && !termsPending;
+  const shouldOpen = session === 'authenticated' && !blockedPath && !termsPending && demand > 0;
 
   // Leaving the new acceptance is the end of the pending state: the next opening tells again.
   const wasOnReacceptance = useRef(false);
@@ -212,12 +220,31 @@ export function LiveChannelProvider({
     };
   }, []);
 
+  const acquire = useCallback(() => {
+    setDemand((count) => count + 1);
+    let released = false;
+    return () => {
+      if (!released) {
+        released = true;
+        setDemand((count) => count - 1);
+      }
+    };
+  }, []);
+
   const retryNow = useCallback(() => client.current?.retryNow(), []);
   const markTermsPending = useCallback(() => setTermsPending(true), []);
 
   const value = useMemo<LiveChannelValue>(
-    () => ({ status, retryNow, subscribe, onReconnected, termsPending, markTermsPending }),
-    [status, retryNow, subscribe, onReconnected, termsPending, markTermsPending],
+    () => ({
+      status,
+      retryNow,
+      subscribe,
+      onReconnected,
+      acquire,
+      termsPending,
+      markTermsPending,
+    }),
+    [status, retryNow, subscribe, onReconnected, acquire, termsPending, markTermsPending],
   );
   return <LiveChannelContext.Provider value={value}>{children}</LiveChannelContext.Provider>;
 }
