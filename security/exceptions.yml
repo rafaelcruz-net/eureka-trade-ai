@@ -19,6 +19,10 @@
 # annotated SseEmitter, no SpEL is ever built from request input, and every request parameter is read as a String and
 # parsed by hand (no implicit data binding). Follow-up before they expire: move to Spring Boot 4 (Spring 7.0.9+).
 # EX-013: false positive, the CVE is in the Prometheus server, not in the Micrometer client library.
+# EX-014: picomatch <= 4.0.7 ReDoS with no fixed version, dev-only in apps/web and apps/admin. Approved by the project
+# owner at the Plan Approval of the Build and Test loop-back 1 of 261113-trading-real-bot (2026-11-18). pnpm audit does
+# not read this file, so the GHSA is also in pnpm.auditConfig.ignoreGhsas of both apps. Remove both when a fixed
+# picomatch is released (or for good if the advisory stays withdrawn) and update the package.
 exceptions:
   - id: EX-001
     tool: dependency-check
@@ -111,3 +115,10 @@ exceptions:
     approvedBy: project-owner
     approvedAt: "2026-11-11"
     expires: "2027-02-09"
+  - id: EX-014
+    tool: pnpm-audit
+    finding: GHSA-fc5q-39xc-vjpf
+    justification: picomatch <= 4.0.7 ReDoS through crafted extglob patterns, no fixed version. Dev-only (Jest and ESLint tooling) in apps/web and apps/admin; globs come from the repository's own config, never from user input, and picomatch is not in the browser bundle. GitHub withdrew the advisory on 2026-11-18; kept until it is confirmed gone.
+    approvedBy: project-owner
+    approvedAt: "2026-11-18"
+    expires: "2027-02-16"

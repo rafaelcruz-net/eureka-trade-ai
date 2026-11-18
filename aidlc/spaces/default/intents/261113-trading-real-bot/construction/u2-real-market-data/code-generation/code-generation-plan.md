@@ -88,6 +88,23 @@ A U2 é adaptador e configuração, fora do núcleo financeiro e da carteira. Po
 - [x] **Step 13 — Alertas, Terraform e `.env.example` [depois].** Regras em `infra/observability/` (`promtool`). Segredo `coingecko-api-key` e alarmes no Terraform. Teste que compara os limites dos alarmes com as regras do `promtool`. `COINGECKO_API_KEY` entra no `.env.example` só com o nome. *(monitoring-design, infrastructure-specification)*
 - [x] **Step 14 — Documentação e rastreabilidade.** Runbook de giro e vazamento da chave, `code-summary.md`, `traceability.json` e `source-manifest.json`.
 
+## Volta 1 do Build and Test (2026-11-18)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) pediu duas correções que cabem nesta Unit. As etapas 1 a 14 continuam como estão.
+
+- [x] **Step 15 — Rastreabilidade no formato do sensor.**
+  - Reescrever `traceability.json` no formato que o `aidlc engine sensor-traceability` lê: uma linha por AC, BR e NFRx.y da Unit, com os IDs como no requisito e um arquivo existente por alvo `OK`.
+  - O NFR9.1 (preço do plano da CoinGecko) fica `Deferred` com o motivo.
+  - Rodar o sensor até passar e atualizar o `code-summary.md`.
+- [x] **Step 16 — Exceção EX-014 para o aviso GHSA-fc5q-39xc-vjpf.**
+  - Origem: o workflow `security` ficou vermelho pelo aviso Alto no `picomatch` (até 4.0.7, ReDoS, sem versão corrigida). O pacote só entra em dependências de desenvolvimento de `apps/web` e `apps/admin`.
+  - Registrar a EX-014 em `security/exceptions.yml`, no formato das anteriores, com:
+    - a justificativa;
+    - a validade de 90 dias (até 2027-02-16);
+    - a aprovação do responsável do projeto, dada na aprovação deste plano.
+  - Acrescentar o mesmo aviso em `pnpm.auditConfig.ignoreGhsas` nos `package.json` dos dois apps, porque o `pnpm audit` não lê o arquivo de exceções.
+  - Conferir que o `pnpm audit --audit-level high` dos dois apps passa no local. Assim que sair uma versão corrigida, a exceção é removida e o pacote é atualizado.
+
 ## Rastreabilidade história → etapas
 
 | História | Etapas |

@@ -15,8 +15,8 @@ Approve the code plan for u2-real-market-data?
 Full plan: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u2-real-market-data/code-generation/code-generation-plan.md
 Test instructions: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u2-real-market-data/code-generation/unit-test-instructions.md
 
-[Approval Fingerprint]: sha256:v3:1bccf14052585014055b59e16b3320e54a0b76e98c62f4461a0c61366f0564d5
-[Planned Source]: 5914cce5d7fbd32453535703ec178f73477ff0caf2c330c217d4343531013086
+[Approval Fingerprint]: sha256:v3:cdec0a0acb16517489cf51f2bd9d50d579bd8d22da675d74d1c8520bf9988704
+[Planned Source]: 12dc1ec18aa90718e91697c45772a2813e9366e403e0daf6c2c24bca21d77280
 
 - A. Approve Plan
 - B. Request Changes

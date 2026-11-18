@@ -96,3 +96,38 @@ O `cicd-pipeline.md` diz que o `promtool` já valida as regras de `infra/observa
 ```
 
 Nenhuma outra mudança de CI é necessária: os testes da U2 rodam no `mvnw verify` existente e o `scripts/verify.sh` continua com `sim-a,sim-b`.
+
+## Volta 1 do Build and Test (2026-11-18)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) pediu duas correções nesta Unit. As etapas 1 a 14 não mudaram.
+
+### Step 15 — Rastreabilidade no formato do sensor
+
+- O `traceability.json` foi reescrito com uma linha por critério de aceite, regra e NFR detalhado da Unit: AC6.3.1 a AC6.3.3, BR1.1 a BR1.10 e os 33 NFRx.y (49 IDs). Cada alvo `OK` é um arquivo existente que implementa o ID; quando a implementação fica em dois ou três arquivos, o ID tem uma linha por arquivo.
+- A linha da US6.3 saiu: a história é rastreada pelos três critérios de aceite.
+- Linhas que não são `OK`, cada uma com o motivo:
+  - **AC6.3.3** `N/A`: a recusa da ordem REAL por dado vencido é da U3. A U2 entrega só o horário da busca de cada campo (BR1.4).
+  - **NFR2.1** `N/A`: é uma restrição de ausência (a U2 não toca em ledger nem em saldo). A verificação pedida é a revisão de código: nenhuma classe de `com.memetrade.marketdata` referencia `ledger` ou `botwallet`. Nenhum arquivo implementa essa restrição, e nenhuma regra ArchUnit a verifica.
+  - **NFR3.4** `Deferred`: a meta "sem piora na leitura do scanner" depende do teste de carga existente, que ainda não rodou. A U2 só acrescenta a atribuição à resposta.
+  - **NFR9.1** `Deferred`: o preço do plano da CoinGecko ainda não foi confirmado, e o fundador decide antes da produção.
+- O AC6.3.2 aponta para o `MarketSourceGuard`, que impede a API e o worker de subir com fonte simulada quando o REAL está ligado fora de `test` e `local`. A recusa da ordem com fonte simulada continua na U3.
+- Três NFRs ficaram `OK` porque a implementação existe, mas a meta numérica ainda não foi medida (no Build and Test eles estão `Unverified`):
+  - NFR3.1 a NFR3.3: os prazos estão no `CoinGeckoAdapter`, mas as durações de 10 s e 5 s não foram medidas;
+  - NFR4.1: a regra de gravação está em `marketdata-alerts.yml`, mas os 99% de minutos com preço fresco só se medem com a CoinGecko real.
+- Sensor: `aidlc engine sensor-traceability --stage code-generation` sobre uma cópia em `construction/u2-real-market-data/code-generation/` → `pass: true`, 0 achados.
+
+### Step 16 — Exceção EX-014 (GHSA-fc5q-39xc-vjpf, `picomatch`)
+
+- A EX-014 entrou em `security/exceptions.yml` com:
+  - ferramenta `pnpm-audit`;
+  - a justificativa;
+  - a aprovação do responsável do projeto em 2026-11-18;
+  - a validade até 2027-02-16 (90 dias).
+- O mesmo GHSA entrou em `pnpm.auditConfig.ignoreGhsas` de `apps/web/package.json` e `apps/admin/package.json`. É preciso porque o workflow `security` roda `pnpm --dir apps/<app> audit --audit-level high` e só converte em supressão as exceções do `dependency-check`.
+- **Só de desenvolvimento:** o `pnpm why picomatch --prod` não mostra nada nos dois apps. O pacote vem do Jest e do ESLint.
+- **Aviso retirado:** o GitHub retirou o aviso em 2026-11-18T15:38:56Z, e o registro do npm já não o devolve. Por isso o `pnpm audit` local passava mesmo antes da mudança. A exceção fica como proteção caso o aviso seja publicado de novo. Quando a retirada se confirmar, ou quando sair um `picomatch` corrigido, a exceção e o `ignoreGhsas` saem.
+- **Verificação:**
+  - `corepack pnpm@10.18.3 audit --audit-level high` passa nos dois apps, só com 3 avisos Moderados;
+  - numa cópia descartável, o pnpm mostrou "(1 ignored)", o que confirma que ele lê o `auditConfig` do `package.json`;
+  - o `install --frozen-lockfile --lockfile-only` passa nos dois apps, e os lockfiles não mudaram;
+  - o `SecurityExceptionsTest` passa (3 testes, 0 falhas).
