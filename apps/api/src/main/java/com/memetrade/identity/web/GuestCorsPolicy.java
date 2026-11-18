@@ -51,8 +51,15 @@ public final class GuestCorsPolicy {
         for (String route : CREDENTIAL_ROUTES) {
             source.registerCorsConfiguration(route, configuration(origin, true));
         }
+        // 261113-trading-real-bot U7 (BR6, S48): the person cancels a conditional exit with a DELETE; only these routes
+        // take it, every other route with token still refuses DELETE.
+        CorsConfiguration conditionals = configuration(origin, false);
+        conditionals.setAllowedMethods(List.of("GET", "POST", "DELETE", "OPTIONS"));
+        source.registerCorsConfiguration(CONDITIONAL_ROUTES, conditionals);
         source.registerCorsConfiguration("/api/v1/**", configuration(origin, false));
     }
+
+    static final String CONDITIONAL_ROUTES = "/api/v1/real/conditional-orders/**";
 
     private static CorsConfiguration configuration(String origin, boolean credentials) {
         CorsConfiguration config = new CorsConfiguration();

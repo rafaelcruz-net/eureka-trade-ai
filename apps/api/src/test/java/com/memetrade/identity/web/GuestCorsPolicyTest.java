@@ -135,6 +135,29 @@ class GuestCorsPolicyTest {
         assertThat(preferences.getHeader("Access-Control-Allow-Credentials")).isNull();
     }
 
+    /**
+     * 261113-trading-real-bot U7 (BR6, S48), regression of the CI run 44119901553: the person cancels a conditional
+     * exit with a {@code DELETE} from the browser; it is accepted on the routes with token only.
+     */
+    @Test
+    void theDeleteOfAConditionalIsAllowedOnTheTokenRoutes() throws Exception {
+        MockHttpServletResponse cancel =
+                preflight(GUEST, "/api/v1/real/conditional-orders/0dde0000-0000-4000-8000-000000000001", "DELETE");
+
+        assertThat(cancel.getStatus()).isEqualTo(200);
+        assertThat(cancel.getHeader("Access-Control-Allow-Methods")).contains("DELETE");
+        assertThat(cancel.getHeader("Access-Control-Allow-Credentials")).isNull();
+    }
+
+    /** U7: the cookie branch (verify, refresh, logout) refuses {@code DELETE} too. */
+    @Test
+    void theDeleteIsRefusedOnTheCookieRoutes() throws Exception {
+        for (String route : GuestCorsPolicy.CREDENTIAL_ROUTES) {
+            MockHttpServletResponse response = preflight(GUEST, route, "DELETE");
+            assertThat(response.getStatus()).as(route).isEqualTo(403);
+        }
+    }
+
     /** U6-NFR1.7: the cookie branch (verify, refresh, logout) still refuses {@code PATCH}. */
     @Test
     void thePatchIsRefusedOnTheCookieRoutes() throws Exception {

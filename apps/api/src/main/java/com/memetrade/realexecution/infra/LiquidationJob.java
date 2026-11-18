@@ -119,14 +119,20 @@ public class LiquidationJob {
                 .filter(position -> !skip.contains(position.mint()))
                 .toList();
         boolean waiting = false;
+        boolean sold = false;
         for (RealPosition candidate : candidates) {
-            Boolean created = transactions.execute(status -> saleOf(liquidation, wallet.get(), candidate));
-            if (Boolean.TRUE.equals(created)) {
-                return;
+            if (sold) {
+                // One sale per round (one order in flight), but every other position still goes through the guard in
+                // this round, so its conditional starts being cancelled now instead of one round per position
+                // (BR4.3; regression of LiquidationExitIT, which depended on the order of the positions).
+                transactions.execute(status -> holdOnly(liquidation, candidate));
+                continue;
             }
+            Boolean created = transactions.execute(status -> saleOf(liquidation, wallet.get(), candidate));
+            sold = Boolean.TRUE.equals(created);
             waiting = waiting || created == null;
         }
-        if (waiting) {
+        if (sold || waiting) {
             // 261113-trading-real-bot U7: a position still held by a conditional waits for the next round.
             return;
         }
@@ -162,6 +168,19 @@ public class LiquidationJob {
         } catch (com.memetrade.riskcontrol.api.RealGateUnavailable noLock) {
             return null;
         }
+    }
+
+    /** The guard alone, under the person lock: it starts the cancellation of a conditional without creating a sale. */
+    private Void holdOnly(LiquidationRow liquidation, RealPosition candidate) {
+        try {
+            gate.withPersonLock(
+                    liquidation.tenantId(),
+                    liquidation.userId(),
+                    () -> exits.releaseForSale(liquidation.tenantId(), liquidation.userId(), candidate.mint()));
+        } catch (com.memetrade.riskcontrol.api.RealGateUnavailable noLock) {
+            // The next round tries again.
+        }
+        return null;
     }
 
     private void createSale(LiquidationRow liquidation, RealWalletInfo wallet, RealPosition position) {
