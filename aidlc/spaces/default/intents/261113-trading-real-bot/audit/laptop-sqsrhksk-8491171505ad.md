@@ -43854,3 +43854,139 @@
 **Context**: construction > u1-bot-wallet > code-generation > source-manifest.json
 
 ---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-18T14:29:58Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: instruction
+**Grant**: none
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/Claude-Session
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-18T14:30:08Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: instruction
+**Grant**: none
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: <project-dir>/git
+
+---
+
+## Host Turn
+**Timestamp**: 2026-11-18T14:51:53Z
+**Event**: HOST_TURN
+**Session**: ce4ac752-f55d-4f37-8ba9-95ed81de317c
+**Origin**: host
+**Reason**: claude task notification
+**Source**: template
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-18T14:52:03Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: instruction
+**Grant**: none
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: id=$(gh run view 44325394965 --json jobs --jq '.jobs[] | select(.name=="backend") | .databaseId'); gh run view 44325394965 --log-failed --job $id | grep -E "Tes
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-18T14:52:16Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: instruction
+**Grant**: none
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: id=$(gh run view 44325394965 --json jobs --jq '.jobs[] | select(.name=="backend") | .databaseId'); gh run view 44325394965 --log-failed --job $id | grep -A25 "a
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-18T14:52:35Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: instruction
+**Grant**: none
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Edit
+**Details**: <project-dir>/apps/api/src/test/java/com/memetrade/botwallet/WorkerStoresIT.java
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-18T14:52:39Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: instruction
+**Grant**: none
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: cd apps/api && ./mvnw -q -B verify -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test='BotWalletRateLimitIT,WorkerStoresIT' -Djacoco.skip=true 
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-18T14:54:47Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: instruction
+**Grant**: none
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Edit
+**Details**: <project-dir>/apps/api/src/test/java/com/memetrade/botwallet/WorkerStoresIT.java
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-18T14:54:50Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: instruction
+**Grant**: none
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: rm -f target/failsafe-reports/TEST-*.xml; ./mvnw -q -B verify -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test='BotWalletRateLimitIT,WorkerSt
+
+---
+
+## Guard Stood Aside
+**Timestamp**: 2026-11-18T14:56:42Z
+**Event**: GUARD_STOOD_ASIDE
+**Guard**: plan-approval
+**Authority**: instruction
+**Grant**: none
+**Actor**: main
+**Stage**: code-generation
+**Tool**: Bash
+**Details**: ./mvnw -q -B spotless:check 2>&1 | tail -3; echo rc=${PIPESTATUS[0]}
+
+---
+
+## Artifact Updated
+**Timestamp**: 2026-11-18T14:56:54Z
+**Event**: ARTIFACT_UPDATED
+**Tool**: Edit
+**File**: <project-dir>/aidlc/spaces/default/intents/261113-trading-real-bot/construction/u1-bot-wallet/code-generation/source-manifest.json
+**Context**: construction > u1-bot-wallet > code-generation > source-manifest.json
+
+---

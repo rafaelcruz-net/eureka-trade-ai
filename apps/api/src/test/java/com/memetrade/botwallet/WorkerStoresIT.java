@@ -129,13 +129,20 @@ class WorkerStoresIT extends AbstractRealIT {
             requested.entries().forEach(ledger::record);
         });
 
-        List<Withdrawal> claimed = stores.claimReady(clock.instant(), Duration.ofSeconds(60), 20);
+        // Other ITs of the shared database leave READY withdrawals behind (BotWalletRateLimitIT among them), so the
+        // batches are claimed until this one shows up instead of assuming it is in the first batch of 20.
+        Withdrawal found = null;
+        for (List<Withdrawal> batch = stores.claimReady(clock.instant(), Duration.ofSeconds(60), 20);
+                found == null && !batch.isEmpty();
+                batch = stores.claimReady(clock.instant(), Duration.ofSeconds(60), 20)) {
+            found = batch.stream()
+                    .filter(w -> w.withdrawalId().equals(requested.withdrawal().withdrawalId()))
+                    .findFirst()
+                    .orElse(null);
+        }
+        assertThat(found).as("the withdrawal of this test is claimed").isNotNull();
+        Withdrawal mine = found;
         List<Withdrawal> second = stores.claimReady(clock.instant(), Duration.ofSeconds(60), 20);
-
-        Withdrawal mine = claimed.stream()
-                .filter(w -> w.withdrawalId().equals(requested.withdrawal().withdrawalId()))
-                .findFirst()
-                .orElseThrow();
         assertThat(second).noneMatch(w -> w.withdrawalId().equals(mine.withdrawalId()));
         assertThat(stores.target(mine).orElseThrow().mainWalletAddress())
                 .isEqualTo(person.wallet().address());
