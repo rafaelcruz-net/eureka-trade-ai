@@ -14,6 +14,7 @@
     { "path": "apps/api/src/test/java/com/memetrade/botwallet/infra/HttpTxSignerClientTest.java" },
     { "path": "apps/api/src/test/java/com/memetrade/botwallet/infra/RealMetricsTest.java" },
     { "path": "apps/api/src/test/java/com/memetrade/botwallet/web/" },
+    { "path": "apps/api/src/test/java/com/memetrade/contract/GuestOpenApiSlice.java" },
     { "path": "apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java" },
     { "path": "apps/txsigner/src/main/java/com/memetrade/txsigner/domain/WalletRequestLimiter.java" },
     { "path": "apps/txsigner/src/main/java/com/memetrade/txsigner/domain/kms/KmsThrottledException.java" },

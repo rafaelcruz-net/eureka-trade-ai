@@ -245,6 +245,9 @@ public abstract class GuestOpenApiSlice {
     @MockitoBean
     com.memetrade.pnl.application.RealPnlService realPnlService;
 
+    @MockitoBean
+    com.memetrade.botwallet.web.BotWalletRateLimits botWalletRateLimits;
+
     protected String generatedYaml() throws Exception {
         return mvc.perform(get("/v3/api-docs.yaml/guest"))
                 .andReturn()
