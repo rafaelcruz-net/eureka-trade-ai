@@ -82,6 +82,54 @@ resource "aws_cloudwatch_metric_alarm" "kms_admin" {
   alarm_actions       = [var.alarm_topic_arn]
 }
 
+# NFR5.19 (loop-back 1 of Build and Test): more than 3 KMS calls of the TxSigner throttled or failed in 5 minutes, the
+# twin of the rule TxSignerKmsErrors in infra/observability/real-alerts.yml (RealOpsAlarmParityTest compares both). The
+# TxSigner publishes txsigner_kms_errors_total with the dimension kind (THROTTLED, ERROR) only; how its metrics reach
+# CloudWatch is the decision still pending for U1 to U4, to take before the mainnet.
+locals {
+  real_bot_wallet_namespace = "Eureka/RealBotWallet"
+}
+
+resource "aws_cloudwatch_metric_alarm" "txsigner_kms_errors" {
+  alarm_name          = "${var.name}-tx-signer-kms-errors"
+  alarm_description   = "NFR5.19: more than 3 KMS calls of the TxSigner throttled or failed in 5 minutes (high)."
+  evaluation_periods  = 1
+  threshold           = 3
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_topic_arn]
+
+  # Each kind is its own CloudWatch metric: alarm on their sum, a missing kind counting as zero.
+  metric_query {
+    id          = "kms_errors"
+    expression  = "FILL(throttled, 0) + FILL(failed, 0)"
+    label       = "KMS calls throttled or failed"
+    return_data = true
+  }
+
+  metric_query {
+    id = "throttled"
+    metric {
+      namespace   = local.real_bot_wallet_namespace
+      metric_name = "txsigner_kms_errors_total"
+      dimensions  = { kind = "THROTTLED" }
+      stat        = "Sum"
+      period      = 300
+    }
+  }
+
+  metric_query {
+    id = "failed"
+    metric {
+      namespace   = local.real_bot_wallet_namespace
+      metric_name = "txsigner_kms_errors_total"
+      dimensions  = { kind = "ERROR" }
+      stat        = "Sum"
+      period      = 300
+    }
+  }
+}
+
 resource "aws_cloudwatch_metric_alarm" "kms_keys_per_hour" {
   alarm_name          = "${var.name}-kms-keys-per-hour"
   namespace           = "Eureka/Kms"

@@ -15,8 +15,8 @@ Approve the code plan for u1-bot-wallet?
 Full plan: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u1-bot-wallet/code-generation/code-generation-plan.md
 Test instructions: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u1-bot-wallet/code-generation/unit-test-instructions.md
 
-[Approval Fingerprint]: sha256:v3:18323c6adec4a5898c86cf547397d7d3b5bbaca6edcce880ab4a0cf74c7b6583
-[Planned Source]: 6f2c6ba0c7df66e084aaed9d52ff4a9b2351915080fd2ffcb42313f36e425393
+[Approval Fingerprint]: sha256:v3:6c6341537e1c87dd0680fd418298f25f41c4718c557f36c1a1da03829cd84c3a
+[Planned Source]: d2b5a134c30f48744e9f1c0ae17005f835438c51dbd3b663e58df70cd10c4877
 
 - A. Approve Plan
 - B. Request Changes

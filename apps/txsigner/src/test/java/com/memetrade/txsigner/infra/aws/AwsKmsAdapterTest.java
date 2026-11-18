@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.memetrade.txsigner.codec.Base58;
 import com.memetrade.txsigner.domain.kms.KeyTags;
 import com.memetrade.txsigner.domain.kms.KmsRefusedException;
+import com.memetrade.txsigner.domain.kms.KmsThrottledException;
 import com.memetrade.txsigner.domain.kms.KmsUnavailableException;
 import com.memetrade.txsigner.policy.Ed25519Verifier;
 import com.memetrade.txsigner.testsupport.KmsJsonProtocolServer;
@@ -89,6 +90,25 @@ class AwsKmsAdapterTest {
     @Test
     void anUnknownKeyIsARefusalNotAnOutage() {
         assertThatThrownBy(() -> adapter.sign("missing", new byte[] {1})).isInstanceOf(KmsRefusedException.class);
+    }
+
+    /** Loop-back 1 of Build and Test (NFR5.14): a quota refusal is a technical failure of its own kind. */
+    @Test
+    void aThrottledKmsIsATechnicalFailureOfItsOwnKind() {
+        server.failWith("ThrottlingException", 400);
+
+        assertThatThrownBy(() -> adapter.sign("any", new byte[] {1}))
+                .isInstanceOf(KmsThrottledException.class)
+                .hasMessageContaining("ThrottlingException");
+    }
+
+    @Test
+    void anInternalErrorOfTheKmsIsATechnicalFailureButNotAThrottle() {
+        server.failWith("KMSInternalException", 500);
+
+        assertThatThrownBy(() -> adapter.sign("any", new byte[] {1}))
+                .isInstanceOf(KmsUnavailableException.class)
+                .isNotInstanceOf(KmsThrottledException.class);
     }
 
     @Test

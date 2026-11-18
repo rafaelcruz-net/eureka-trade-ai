@@ -109,6 +109,48 @@ class HttpTxSignerClientTest {
         assertThat(calls.get()).isEqualTo(2);
     }
 
+    /**
+     * Step 31 (NFR1.9 second half), written before the code: the per-wallet limit of the TxSigner is a refusal of ONE
+     * wallet, not a technical failure. It is not repeated and never counts in the circuit, which is shared by every
+     * wallet, so one wallet flooding the TxSigner can never block the withdrawals of everybody.
+     */
+    @Test
+    void thePerWalletLimitOfTheTxSignerIsARefusalThatIsNotRepeatedAndNeverOpensTheCircuit() {
+        status.set(429);
+        answer.set("{\"code\":\"WALLET_RATE_LIMITED\",\"reason\":\"WALLET_RATE_LIMITED\"}");
+
+        for (int i = 0; i < 6; i++) {
+            TxSignerPort.SignOutcome outcome = client.signSwap(
+                    "Bot",
+                    new com.memetrade.botwallet.api.SwapSigningRequest(
+                            UUID.randomUUID(),
+                            "AAAA",
+                            com.memetrade.botwallet.api.SwapSigningRequest.Mode.AUTO_FULL,
+                            "BUY",
+                            1L,
+                            null,
+                            2L,
+                            1L,
+                            100,
+                            5_000L,
+                            "Mint"));
+            assertThat(outcome.refusal()).isEqualTo("WALLET_RATE_LIMITED");
+        }
+
+        assertThat(calls.get()).as("never repeated").isEqualTo(6);
+        assertThat(client.circuitState()).isEqualTo(CircuitBreaker.State.CLOSED);
+    }
+
+    @Test
+    void anotherTooManyRequestsAnswerIsStillATechnicalFailure() {
+        status.set(429);
+        answer.set("{\"code\":\"KEY_RATE_LIMITED\"}");
+
+        assertThatThrownBy(() -> client.createWallet(UUID.randomUUID(), "M", "m", "s"))
+                .isInstanceOf(TxSignerPort.SignerUnavailableException.class);
+        assertThat(calls.get()).isEqualTo(2);
+    }
+
     @Test
     void onlyTechnicalFailuresOpenTheCircuit() {
         status.set(422);

@@ -86,7 +86,15 @@ public class TxSignerConfig {
             SignerStore store,
             SignerEvents events,
             RecoveryGate recovery) {
-        return new SigningService(settings, clock, kms, store, events, recovery);
+        // NFR1.9 (Step 31 of the U1): 60 signing requests per minute per bot wallet; a WITHDRAWAL is never limited.
+        return new SigningService(
+                settings,
+                clock,
+                kms,
+                store,
+                events,
+                recovery,
+                com.memetrade.txsigner.domain.WalletRequestLimiter.perMinute(clock));
     }
 
     /**

@@ -33,6 +33,9 @@ class BotWalletRoutesIT extends AbstractRealIT {
     @Autowired
     private RealLedger ledger;
 
+    @Autowired
+    private io.micrometer.core.instrument.MeterRegistry meters;
+
     private JsonNode challenge(Person person, String capLamports) throws Exception {
         MockHttpServletResponse response = call(
                 person,
@@ -114,6 +117,23 @@ class BotWalletRoutesIT extends AbstractRealIT {
                         .query(Long.class)
                         .single())
                 .isPositive();
+    }
+
+    /** Loop-back 1 of Build and Test (NFR5.1), after the code: the gauge counts the ACTIVE bot wallets of the base. */
+    @Test
+    void theActiveWalletsGaugeCountsTheActivation() throws Exception {
+        io.micrometer.core.instrument.Gauge active =
+                meters.get("real_bot_wallets_active").gauge();
+        double before = active.value();
+
+        activeWallet(signIn(true, true));
+
+        assertThat(active.value()).isEqualTo(before + 1);
+        assertThat(active.value())
+                .isEqualTo(jdbc.sql("select count(*) from bot_wallet_account where status = 'ACTIVE'")
+                        .query(Long.class)
+                        .single()
+                        .doubleValue());
     }
 
     @Test

@@ -118,6 +118,45 @@ O contrato manda escrever os testes **antes** do código na lógica da carteira 
 - [x] **Step 26 — Texto pronto para o fundador [depois].** Mudanças propostas para `.github/workflows/ci.yml` (job do TxSigner, Checkov, `terraform validate`, `promtool`, ações por SHA, `permissions: contents: read`) e para `scripts/verify.sh`, entregues em `code-summary.md`, sem editar esses arquivos. *(cicd-pipeline, team.md)*
 - [x] **Step 27 — Documentação e rastreabilidade.** `docs/adr/` com as decisões novas do TxSigner, `docs/runbooks/txsigner-recovery.md` (restauração, recuperação, giro da credencial), atualização do contrato (R1 interno e X4) no `contract-summary` por adendo, `code-summary.md`, `traceability.json` e `source-manifest.json`. *(Documentation and traceability)*
 
+## Volta 1 do Build and Test (2026-11-18)
+
+O Build and Test mostrou metas que esta Unit não cumpriu. As etapas abaixo corrigem só isso; as etapas 1 a 27 continuam como estão. A origem está no "Loop-back 1" de `construction/build-and-test/test-results.md`.
+
+- [x] **Step 28 — Limites de uso por usuário [testes antes].**
+  - Testes primeiro:
+    - 11º desafio no minuto;
+    - 4ª ativação no dia;
+    - 11º saque parcial na hora, todos com `429 RATE_LIMITED` e `Retry-After`;
+    - o saque total e o acompanhamento de saque nunca são limitados.
+  - Depois, os limitadores com o `PersonRouteRateLimiter` parametrizado (janela e limite), nas rotas `consents/challenge`, `bot-wallet` (POST) e `withdrawals` (POST parcial).
+
+  *(NFR1.9)*
+- [x] **Step 29 — Métricas e alerta do KMS [depois].**
+  - Medidor `real_bot_wallets_active`.
+  - No TxSigner: `txsigner_kms_sign_seconds`, `txsigner_kms_errors_total{kind}` com `THROTTLED` e `ERROR`, contadores iniciados em zero.
+  - Regra `TxSignerKmsErrors` (mais de 3 em 5 min) em `infra/observability/real-alerts.yml`, alarme no Terraform e teste de paridade.
+
+  *(NFR5.1, NFR5.14, NFR5.19)*
+- [x] **Step 30 — Rastreabilidade no formato do sensor.** Reescrever `traceability.json` no formato que o `aidlc engine sensor-traceability` lê:
+  - uma linha por FR, NFR e critério de aceite da Unit;
+  - IDs como no requisito;
+  - um caminho de arquivo existente por alvo.
+
+  Atualizar o `code-summary.md`.
+
+- [x] **Step 31 — Limite por carteira entre a API e o TxSigner e ajustes da revisão [testes antes].** Origem: achado Major da revisão da volta 1 e escolha do responsável em 2026-11-18.
+  - **Limite por carteira:**
+    - Testes primeiro: o 61º pedido no minuto para a mesma carteira é recusado pelo TxSigner com um código próprio, registrado com o motivo e sem chamar o KMS. A contagem de uma carteira não afeta a de outra.
+    - O pedido de saque para a carteira principal nunca é bloqueado por esse limite, porque o saque fica sempre disponível.
+    - Depois, o limitador por carteira no TxSigner.
+  - **Ajustes da revisão:**
+    - o limite de saque parcial é consumido depois da conferência de idempotência, para que a repetição da mesma `Idempotency-Key` devolva a resposta gravada;
+    - `unit-test-instructions.md` passa a listar os testes novos;
+    - o `code-summary.md` registra como pendências antes da mainnet o caminho das métricas do TxSigner para a nuvem (sem ele o alarme do KMS não dispara) e os limites em memória do processo (a janela diária recomeça quando a API reinicia; serve para o beta com uma instância);
+    - `traceability.json` traz o NFR1.9 com as duas metades cobertas.
+
+  *(NFR1.9)*
+
 ## Rastreabilidade história → etapas
 
 | História | Etapas |

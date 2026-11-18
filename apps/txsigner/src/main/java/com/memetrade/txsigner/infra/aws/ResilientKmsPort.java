@@ -2,10 +2,12 @@ package com.memetrade.txsigner.infra.aws;
 
 import com.memetrade.txsigner.domain.kms.KeyTags;
 import com.memetrade.txsigner.domain.kms.KmsPort;
+import com.memetrade.txsigner.domain.kms.KmsThrottledException;
 import com.memetrade.txsigner.domain.kms.KmsUnavailableException;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
@@ -16,17 +18,28 @@ import java.util.function.Supplier;
 /**
  * Circuit of the KMS calls (reliability-design.md): window of 60 s, at least 3 calls, opens at 50% of TECHNICAL
  * failures, stays open 30 s; a refusal of the KMS never opens it. Open, every call fails fast as unavailable (503).
- * Also times every call in {@code txsigner_kms_latency_seconds}.
+ * Also times every call in {@code txsigner_kms_latency_seconds}, the Sign calls in {@code txsigner_kms_sign_seconds}, and
+ * counts the technical failures of the KMS in {@code txsigner_kms_errors_total{kind}}: {@code THROTTLED} for the quota
+ * refusals and {@code ERROR} for the others, both registered at zero (NFR5.14, alert NFR5.19). A call refused by the
+ * open circuit never reached the KMS and is not counted; a refusal of the KMS (access, key state) is not an error here.
  */
 public final class ResilientKmsPort implements KmsPort {
 
     private final KmsPort delegate;
     private final CircuitBreaker circuit;
     private final MeterRegistry meters;
+    private final Timer signTimer;
+    private final Counter throttled;
+    private final Counter errors;
 
     public ResilientKmsPort(KmsPort delegate, MeterRegistry meters) {
         this.delegate = delegate;
         this.meters = meters;
+        this.signTimer = Timer.builder("txsigner_kms_sign")
+                .description("Latency of the KMS Sign calls")
+                .register(meters);
+        this.throttled = errorCounter(meters, "THROTTLED");
+        this.errors = errorCounter(meters, "ERROR");
         this.circuit = CircuitBreaker.of(
                 "kms",
                 CircuitBreakerConfig.custom()
@@ -55,7 +68,12 @@ public final class ResilientKmsPort implements KmsPort {
 
     @Override
     public byte[] sign(String keyRef, byte[] message) {
-        return call("Sign", () -> delegate.sign(keyRef, message));
+        Timer.Sample sample = Timer.start(meters);
+        try {
+            return call("Sign", () -> delegate.sign(keyRef, message));
+        } finally {
+            sample.stop(signTimer);
+        }
     }
 
     @Override
@@ -88,12 +106,25 @@ public final class ResilientKmsPort implements KmsPort {
         return delegate.isReachable();
     }
 
+    private static Counter errorCounter(MeterRegistry meters, String kind) {
+        return Counter.builder("txsigner_kms_errors")
+                .description("Technical failures of the KMS calls: THROTTLED (quota) or ERROR")
+                .tag("kind", kind)
+                .register(meters);
+    }
+
     private <T> T call(String operation, Supplier<T> action) {
         Timer.Sample sample = Timer.start(meters);
         try {
             return circuit.executeSupplier(action);
         } catch (CallNotPermittedException open) {
             throw new KmsUnavailableException("KMS circuit is open", open);
+        } catch (KmsThrottledException quota) {
+            throttled.increment();
+            throw quota;
+        } catch (KmsUnavailableException failure) {
+            errors.increment();
+            throw failure;
         } finally {
             sample.stop(Timer.builder("txsigner_kms_latency")
                     .description("Latency of the KMS calls")

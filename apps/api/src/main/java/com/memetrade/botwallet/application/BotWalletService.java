@@ -346,7 +346,20 @@ public class BotWalletService {
     }
 
     /** BR4.2: no flag, kill switch, release, terms or pause blocks a withdrawal; BR4.8 common idempotency. */
+    /** A withdrawal without a limit of use (the total withdrawal, and the callers of the U1 before the Step 31). */
+    public static final Runnable NO_LIMIT = () -> {};
+
     public IdempotentResponse requestWithdrawal(Principal person, IdempotencyKey key, Long lamports, boolean all) {
+        return requestWithdrawal(person, key, lamports, all, NO_LIMIT);
+    }
+
+    /**
+     * @param admitNew runs only for a NEW request, inside the idempotency action and before any effect: the limit of
+     *     use of the partial withdrawal (NFR1.9). A replay with the same key never runs it; when it throws, the key is
+     *     released and nothing is stored under it.
+     */
+    public IdempotentResponse requestWithdrawal(
+            Principal person, IdempotencyKey key, Long lamports, boolean all, Runnable admitNew) {
         if (all == (lamports != null)) {
             throw new BotWalletException(BotWalletError.VALIDATION_FAILED);
         }
@@ -357,6 +370,7 @@ public class BotWalletService {
                 key,
                 sha256(content));
         return transactions.execute(status -> idempotency.execute(request, () -> {
+            admitNew.run();
             BotWalletAccount wallet = repository
                     .lockActiveWallet(person.tenantId(), person.userId())
                     .orElseThrow(() -> new BotWalletException(BotWalletError.BOT_WALLET_NOT_ACTIVE));

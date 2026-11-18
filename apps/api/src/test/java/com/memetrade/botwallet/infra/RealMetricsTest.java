@@ -62,6 +62,7 @@ class RealMetricsTest {
 
         assertThat(meters.get("realwallet_balance_lamports_total").gauge().value())
                 .isEqualTo(42);
+        assertThat(meters.get("real_bot_wallets_active").gauge().value()).isEqualTo(42);
         metrics.deposit(false, 1L);
         metrics.withdrawalState("FAILED", NOW);
         for (Meter meter : meters.getMeters()) {

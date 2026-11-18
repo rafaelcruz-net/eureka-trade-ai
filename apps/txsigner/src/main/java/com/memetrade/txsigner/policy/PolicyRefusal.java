@@ -44,7 +44,13 @@ public enum PolicyRefusal {
      * 261113-trading-real-bot U7 (BR0.3, U7-NFR1.2): {@code TRIGGER_CREATE} and {@code TRIGGER_CANCEL} until the
      * {@code TriggerPolicy} exists, written only after the real recording of the Jupiter Trigger API.
      */
-    POLICY_NOT_RECORDED;
+    POLICY_NOT_RECORDED,
+    /**
+     * 261113-trading-real-bot U1 Step 31 (NFR1.9): more than 60 signing requests in one minute for the same bot wallet.
+     * A transient refusal: it is published in the audit event but never stored in the SigningRecord, so the same
+     * signingRequestId is decided again once the window frees a slot. A WITHDRAWAL is never refused with it.
+     */
+    WALLET_RATE_LIMITED;
 
     /** U7 (U7-NFR5.4): the closed label set of {@code txsigner_trigger_refusals_total}; grows with the TriggerPolicy. */
     public static final java.util.Set<PolicyRefusal> TRIGGER_REASONS = java.util.EnumSet.of(POLICY_NOT_RECORDED);

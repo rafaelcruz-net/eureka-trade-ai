@@ -30,6 +30,8 @@ public final class KmsJsonProtocolServer implements AutoCloseable {
     private final HttpServer server;
     private final KmsSimulator kms;
     private final String hmacKeyId = "hmac-anchor-key";
+    private volatile String failureType;
+    private volatile int failureStatus;
 
     public KmsJsonProtocolServer(KmsSimulator kms) throws IOException {
         this.kms = kms;
@@ -46,10 +48,20 @@ public final class KmsJsonProtocolServer implements AutoCloseable {
         return hmacKeyId;
     }
 
+    /** Answers every later call with the given AWS error type and HTTP status, like a throttled or failing KMS. */
+    public void failWith(String errorType, int status) {
+        this.failureType = errorType;
+        this.failureStatus = status;
+    }
+
     private void handle(HttpExchange exchange) throws IOException {
         String target = exchange.getRequestHeaders().getFirst("X-Amz-Target");
         String operation = target == null ? "" : target.substring(target.indexOf('.') + 1);
         JsonNode request = JSON.readTree(exchange.getRequestBody());
+        if (failureType != null) {
+            reply(exchange, failureStatus, error(failureType, "simulated " + failureType));
+            return;
+        }
         try {
             reply(exchange, 200, answer(operation, request));
         } catch (KmsRefusedException refused) {

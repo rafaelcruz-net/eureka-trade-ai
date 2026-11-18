@@ -35,6 +35,7 @@ public final class KmsSimulator implements KmsPort {
     private final AtomicInteger signCalls = new AtomicInteger();
     private final AtomicInteger createCalls = new AtomicInteger();
     private volatile boolean unavailable;
+    private volatile boolean throttled;
 
     public KmsSimulator() {
         this.hmacKey = "kms-sim-anchor-hmac-key-for-tests-only".getBytes(StandardCharsets.UTF_8);
@@ -149,6 +150,12 @@ public final class KmsSimulator implements KmsPort {
 
     public void recover() {
         unavailable = false;
+        throttled = false;
+    }
+
+    /** Makes every later call fail like a KMS quota refusal (throttling), until {@link #recover()}. */
+    public void throttle() {
+        throttled = true;
     }
 
     public int signCalls() {
@@ -162,6 +169,9 @@ public final class KmsSimulator implements KmsPort {
     private void failIfUnavailable() {
         if (unavailable) {
             throw new KmsUnavailableException("kms-sim is down");
+        }
+        if (throttled) {
+            throw new com.memetrade.txsigner.domain.kms.KmsThrottledException("kms-sim is throttling");
         }
     }
 

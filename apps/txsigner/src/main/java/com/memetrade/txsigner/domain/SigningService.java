@@ -22,7 +22,11 @@ import java.util.Optional;
  * with the main wallet and the fee ceiling of the TxSigner's OWN policy, never the request's. Every decision is
  * recorded once per signingRequestId; a repetition with the same message returns the same answer, with another message
  * it is refused (REQUEST_MISMATCH). With REAL off only WITHDRAWAL is signed. Technical failures (KMS outage, recovery
- * wait) record nothing, so the same request can be retried.
+ * wait) record nothing, so the same request can be retried. Since the Step 31 of the U1 (NFR1.9), a NEW request that is
+ * not a WITHDRAWAL counts in the limit of 60 per minute of its bot wallet ({@link WalletRequestLimiter}); above it the
+ * request is refused with {@code WALLET_RATE_LIMITED} before any policy or KMS call, published in the audit event and
+ * NOT stored, so it is decided again when the window frees a slot. A WITHDRAWAL (always to the registered main wallet,
+ * BR5.1) is never limited nor counted: the person can always take her money out.
  */
 public final class SigningService {
 
@@ -34,6 +38,7 @@ public final class SigningService {
     private final RecoveryGate recovery;
     private final WithdrawalPolicy withdrawalPolicy;
     private final SwapPolicy swapPolicy;
+    private final WalletRequestLimiter walletLimit;
     private final Ed25519Verifier verifier = new Ed25519Verifier();
 
     public SigningService(
@@ -43,7 +48,19 @@ public final class SigningService {
             SignerStore store,
             SignerEvents events,
             RecoveryGate recovery) {
+        this(settings, clock, kms, store, events, recovery, WalletRequestLimiter.perMinute(clock));
+    }
+
+    public SigningService(
+            SignerSettings settings,
+            Clock clock,
+            KmsPort kms,
+            SignerStore store,
+            SignerEvents events,
+            RecoveryGate recovery,
+            WalletRequestLimiter walletLimit) {
         this.settings = settings;
+        this.walletLimit = java.util.Objects.requireNonNull(walletLimit, "walletLimit");
         this.clock = clock;
         this.kms = kms;
         this.store = store;
@@ -59,6 +76,10 @@ public final class SigningService {
         Optional<SigningRecord> existing = store.findSigningRecord(command.signingRequestId());
         if (existing.isPresent()) {
             return replay(existing.get(), command, digest);
+        }
+        if (command.operationKind() != OperationKind.WITHDRAWAL
+                && !walletLimit.tryAcquire(command.botWalletAddress())) {
+            return rateLimited(command);
         }
         if (recovery.phase() == RecoveryPhase.WAITING) {
             return SigningOutcome.refused(PolicyRefusal.RECOVERY_IN_PROGRESS);
@@ -153,6 +174,21 @@ public final class SigningService {
                 signed.serializeBase64(),
                 clock.instant());
         return persist(record, command, digest);
+    }
+
+    /**
+     * NFR1.9: the request is above the limit of its wallet. Published for the audit and the metrics with its reason, but
+     * no SigningRecord: the refusal is transient and must not burn the signingRequestId.
+     */
+    private SigningOutcome rateLimited(SignCommand command) {
+        events.publish(new SignerEvent(
+                SignerEvent.Type.SIGNING_REFUSED,
+                command.botWalletAddress(),
+                command.signingRequestId(),
+                command.operationKind().name(),
+                PolicyRefusal.WALLET_RATE_LIMITED.name(),
+                clock.instant()));
+        return SigningOutcome.refused(PolicyRefusal.WALLET_RATE_LIMITED);
     }
 
     private SigningOutcome refuse(SignCommand command, String digest, PolicyRefusal refusal) {

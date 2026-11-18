@@ -4,6 +4,7 @@ import com.memetrade.txsigner.codec.Ed25519Keys;
 import com.memetrade.txsigner.domain.kms.KeyTags;
 import com.memetrade.txsigner.domain.kms.KmsPort;
 import com.memetrade.txsigner.domain.kms.KmsRefusedException;
+import com.memetrade.txsigner.domain.kms.KmsThrottledException;
 import com.memetrade.txsigner.domain.kms.KmsUnavailableException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -50,6 +51,9 @@ public final class AwsKmsAdapter implements KmsPort {
             "KMSInternalException",
             "DependencyTimeoutException",
             "KeyUnavailableException");
+
+    /** The quota refusals, counted apart as THROTTLED (NFR5.14); they stay technical failures. */
+    private static final Set<String> THROTTLING_ERRORS = Set.of("ThrottlingException", "LimitExceededException");
 
     private final KmsClient client;
     private final String hmacKeyId;
@@ -213,7 +217,7 @@ public final class AwsKmsAdapter implements KmsPort {
                             .keyManager();
         } catch (AwsServiceException denied) {
             if (isTechnical(denied)) {
-                throw new KmsUnavailableException("KMS DescribeKey failed: " + errorCode(denied), denied);
+                throw technicalFailure("DescribeKey", denied);
             }
             return false;
         }
@@ -226,10 +230,17 @@ public final class AwsKmsAdapter implements KmsPort {
             throw new KmsUnavailableException("KMS " + operation + " did not answer", technical);
         } catch (AwsServiceException failure) {
             if (isTechnical(failure)) {
-                throw new KmsUnavailableException("KMS " + operation + " failed: " + errorCode(failure), failure);
+                throw technicalFailure(operation, failure);
             }
             throw new KmsRefusedException("KMS " + operation + " refused: " + errorCode(failure), failure);
         }
+    }
+
+    private static KmsUnavailableException technicalFailure(String operation, AwsServiceException failure) {
+        String message = "KMS " + operation + " failed: " + errorCode(failure);
+        return THROTTLING_ERRORS.contains(errorCode(failure))
+                ? new KmsThrottledException(message, failure)
+                : new KmsUnavailableException(message, failure);
     }
 
     private static boolean isTechnical(AwsServiceException failure) {

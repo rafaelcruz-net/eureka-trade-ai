@@ -4,6 +4,9 @@
 # SMS), high (e-mail and SMS), medium and low (e-mail). Metric names differ from the design in two places, noted on
 # the rules: txsigner_orphan_keys (design: realwallet_orphan_keys; the orphan check runs in the TxSigner) and the
 # recovery, alerted from txsigner_recovery_phase (the per-key blocked count is not exported in the U1).
+# TxSignerKmsErrors (NFR5.19, loop-back 1 of Build and Test) carries the annotations `threshold` and `window_seconds`;
+# RealOpsAlarmParityTest compares it with the CloudWatch alarm tx-signer-kms-errors in
+# infra/terraform/modules/observability/main.tf.
 groups:
   - name: real-bot-wallet
     rules:
@@ -39,6 +42,13 @@ groups:
         labels: { severity: high }
         annotations:
           summary: The oldest unfinished withdrawal is older than 10 minutes in some state (NFR5.18).
+      - alert: TxSignerKmsErrors
+        expr: sum(increase(txsigner_kms_errors_total[5m])) > 3
+        labels: { severity: high }
+        annotations:
+          summary: More than 3 KMS calls of the TxSigner throttled or failed in 5 minutes (NFR5.19); signatures wait.
+          threshold: "3"
+          window_seconds: "300"
       - alert: TxSignerCredentialFailures
         expr: sum(increase(txsigner_auth_failures_total[5m])) > 5
         labels: { severity: high }

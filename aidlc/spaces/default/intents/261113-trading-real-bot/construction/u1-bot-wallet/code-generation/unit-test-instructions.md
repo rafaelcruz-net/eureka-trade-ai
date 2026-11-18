@@ -54,6 +54,31 @@ Os testes obrigatórios por risco de `team.md` que esta Unit toca estão entre e
 - política do TxSigner;
 - exceção do novo aceite dos termos, testando as duas metades.
 
+## Testes da Volta 1 do Build and Test (Steps 28 a 31)
+
+| Step | Teste | O que verifica | Antes do código |
+|---|---|---|---|
+| 28 | `apps/api/.../botwallet/web/BotWalletRateLimitsTest` | janelas e limites por usuário (10 desafios por minuto, 3 ativações por dia, 10 saques parciais por hora), espera até a saída do pedido mais antigo, contadores separados por rota e por pessoa | sim |
+| 28 | `apps/api/.../botwallet/BotWalletRateLimitIT` | 11º desafio, 4ª ativação e 11º saque parcial respondem `429 RATE_LIMITED` com `Retry-After` em RFC 7807; o saque total e as leituras nunca são limitados | sim |
+| 29 | `apps/api/.../botwallet/infra/RealMetricsTest` e `BotWalletRoutesIT.theActiveWalletsGaugeCountsTheActivation` | medidor `real_bot_wallets_active` | não |
+| 29 | `apps/api/.../botwallet/RealOpsAlarmParityTest.theKmsErrorsAlertOfTheU1HasTheSameNameThresholdAndWindowAsItsAlarm` | paridade da regra `TxSignerKmsErrors` com o alarme `tx-signer-kms-errors` (nome, limiar, janela, dimensões) | não |
+| 29 | `apps/txsigner/.../infra/aws/ResilientKmsPortTest` e `AwsKmsAdapterTest` | `txsigner_kms_sign_seconds`, `txsigner_kms_errors_total{kind}` e a tradução de `ThrottlingException` | não |
+| 30 | sensor `sensor-traceability` | formato de `traceability.json` (um arquivo existente por alvo `OK`) | não se aplica |
+| 31 | `apps/txsigner/.../domain/SigningServiceWalletLimitTest` | o 61º pedido no minuto da mesma carteira é recusado com `WALLET_RATE_LIMITED`, registrado com o motivo e sem chamar o KMS; carteiras independentes; o saque para a carteira principal nunca é bloqueado nem consome o limite (teste obrigatório); repetição não conta | sim |
+| 31 | `apps/txsigner/.../domain/WalletRequestLimiterTest` | janela deslizante no relógio injetado, esquecimento das carteiras ociosas | sim |
+| 31 | `apps/txsigner/.../web/WalletRateLimitIT` | `429 WALLET_RATE_LIMITED` em RFC 7807 pela rota interna; outra carteira não é afetada | sim |
+| 31 | `apps/api/.../botwallet/infra/HttpTxSignerClientTest` (2 testes novos) | `429 WALLET_RATE_LIMITED` é recusa, sem repetição e sem abrir o circuito; outro `429` continua falha técnica | sim |
+| 31 | `BotWalletRateLimitIT.aRetryWithTheSameKeyAtTheLimitReplaysTheStoredAnswerInsteadOf429` e `aRateLimitedPartialWithdrawalKeepsNothingUnderItsKey` | o limite do saque parcial conta só pedido novo, depois da idempotência; um 429 não grava nada sob a chave | sim (regressão) |
+
+Comandos (um Maven por vez):
+
+| Parte | Comando |
+|---|---|
+| TxSigner, limites e métricas | `sh apps/txsigner/mvnw -B -ntp -f apps/txsigner/pom.xml test -Dtest='SigningServiceWalletLimitTest,WalletRequestLimiterTest,ResilientKmsPortTest,AwsKmsAdapterTest'` |
+| TxSigner, rota interna com o limite | `sh apps/txsigner/mvnw -B -ntp -f apps/txsigner/pom.xml test-compile failsafe:integration-test failsafe:verify -Dit.test='WalletRateLimitIT'` |
+| Monólito, unidade | `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test -Dtest='BotWalletRateLimitsTest,HttpTxSignerClientTest,RealMetricsTest,RealOpsAlarmParityTest'` |
+| Monólito, integração | `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test-compile failsafe:integration-test failsafe:verify -Dit.test='BotWalletRateLimitIT,BotWalletRoutesIT,WithdrawalLimitIT'` |
+
 ## Cobertura
 
 80% de linhas em cada artefato: TxSigner, monólito e web. As exclusões ficam só na configuração do JaCoCo e do Jest: ponto de entrada, classes de configuração e código gerado do OpenAPI. Nenhum piso é reduzido.

@@ -182,6 +182,9 @@ public class InternalController {
         return switch (refusal) {
             case REAL_DISABLED -> problem(403, "REAL_DISABLED", correlationId, null);
             case RECOVERY_IN_PROGRESS -> problem(503, "RECOVERY_IN_PROGRESS", correlationId, null);
+            // NFR1.9 (Step 31 of the U1): the limit of ONE wallet; the api takes it as a refusal, never as a failure of
+            // the TxSigner, so it neither repeats it nor counts it in the circuit shared by every wallet.
+            case WALLET_RATE_LIMITED -> problem(429, "WALLET_RATE_LIMITED", correlationId, refusal.name());
             default -> problem(422, "SIGNING_POLICY_REFUSED", correlationId, refusal.name());
         };
     }

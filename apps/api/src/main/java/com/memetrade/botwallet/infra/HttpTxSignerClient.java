@@ -21,12 +21,16 @@ import java.util.UUID;
 /**
  * HTTP client of the TxSigner (contract R1 and its addendum, reliability-design.md): 2 s per call and ONE repetition
  * with the same request id; a circuit that counts only technical failures (timeout, connection, 5xx, 429), never a
- * refusal (4xx), so refusals provoked on purpose never block the withdrawals of everybody. The service token goes in
- * {@code Authorization}; the correlation id is repassed (NFR5.13). Bodies and tokens are never logged.
+ * refusal (4xx, and the {@code 429 WALLET_RATE_LIMITED} of one wallet), so refusals provoked on purpose never block the
+ * withdrawals of everybody. The service token goes in {@code Authorization}; the correlation id is repassed
+ * (NFR5.13). Bodies and tokens are never logged.
  */
 public class HttpTxSignerClient implements TxSignerPort {
 
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    /** NFR1.9: code of the TxSigner for a bot wallet above 60 signing requests per minute. */
+    static final String WALLET_RATE_LIMITED = "WALLET_RATE_LIMITED";
 
     private final HttpClient http;
     private final URI base;
@@ -212,10 +216,16 @@ public class HttpTxSignerClient implements TxSignerPort {
             throw new SignerUnavailableException("TxSigner call interrupted");
         }
         int status = response.statusCode();
+        JsonNode answer = readOrEmpty(response.body());
+        if (status == 429 && WALLET_RATE_LIMITED.equals(answer.path("code").asText(null))) {
+            // NFR1.9 (Step 31): the limit of ONE bot wallet is a refusal, never a failure of the TxSigner. It is not
+            // repeated and never counts in the circuit shared by every wallet, so a flood of one wallet can never
+            // block the withdrawals of everybody.
+            throw new SignerRefusedException(WALLET_RATE_LIMITED);
+        }
         if (status >= 500 || status == 429) {
             throw new SignerUnavailableException("TxSigner answered " + status);
         }
-        JsonNode answer = readOrEmpty(response.body());
         if (status >= 400) {
             String reason = answer.path("reason").asText(null);
             throw new SignerRefusedException(

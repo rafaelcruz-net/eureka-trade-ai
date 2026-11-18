@@ -16,8 +16,9 @@ import org.springframework.stereotype.Component;
 /**
  * Metrics of the bot wallet (observability-design.md, NFR5.1 to NFR5.4, NFR5.16): never a label with an address, a
  * tenant or a person. Counters of deposits by source and of withdrawals by state, the time to confirm, the unknown
- * deposits above 0.001 SOL, the reconciliation marks, and two gauges read from the database: the total balance of the
- * bot wallets and the age of the oldest unfinished withdrawal per state.
+ * deposits above 0.001 SOL, the reconciliation marks, and gauges read from the database: the total balance of the
+ * bot wallets, the age of the oldest unfinished withdrawal per state and, since the loop-back 1 of Build and Test, the
+ * number of ACTIVE bot wallets ({@code real_bot_wallets_active}, NFR5.1).
  */
 @Component
 public class RealMetrics {
@@ -33,6 +34,9 @@ public class RealMetrics {
         this.meters = meters;
         this.jdbc = jdbc;
         this.clock = clock;
+        Gauge.builder("real_bot_wallets_active", this::activeWallets)
+                .description("Bot wallets in the state ACTIVE (NFR5.1, size of the pilot)")
+                .register(meters);
         Gauge.builder("realwallet_balance_lamports_total", this::totalBalance)
                 .description("Sum of the REAL balances of every bot wallet, from the ledger")
                 .register(meters);
@@ -77,6 +81,12 @@ public class RealMetrics {
 
     public void reconciliationMark() {
         Counter.builder("realwallet_reconciliation_marks").register(meters).increment();
+    }
+
+    Long activeWallets() {
+        return jdbc.sql("select count(*) from bot_wallet_account where status = 'ACTIVE'")
+                .query(Long.class)
+                .single();
     }
 
     Long totalBalance() {

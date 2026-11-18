@@ -15,13 +15,19 @@ import com.memetrade.identity.api.AuthContext;
 import com.memetrade.identity.api.IdempotencyKey;
 import com.memetrade.identity.api.IdempotentResponse;
 import com.memetrade.shared.error.ApiException;
+import com.memetrade.shared.error.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,7 +40,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Routes R2 of the bot wallet (contract-summary.md) under {@code /api/v1/real}. The tenant and the person come only
- * from the authentication; the withdrawal has NO destination field: it always goes to the registered main wallet.
+ * from the authentication; the withdrawal has NO destination field: it always goes to the registered main wallet. The
+ * challenge, the activation and the partial withdrawal are limited per person (NFR1.9, {@link BotWalletRateLimits});
+ * the total withdrawal and the readings never are.
  */
 @RestController
 @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
@@ -53,13 +61,18 @@ public class BotWalletController {
     /** 261113-trading-real-bot U7 (BR8.1): whether the conditional exits are enabled in this environment. */
     private final ExitsAvailability exits;
 
+    /** NFR1.9: the limits per person of the challenge, the activation and the partial withdrawal. */
+    private final BotWalletRateLimits limits;
+
     public BotWalletController(
             BotWalletService service,
             RealStateQuery state,
             AuthContext auth,
             ObjectMapper json,
-            ExitsAvailability exits) {
+            ExitsAvailability exits,
+            BotWalletRateLimits limits) {
         this.exits = exits;
+        this.limits = limits;
         this.service = service;
         this.state = state;
         this.auth = auth;
@@ -91,10 +104,12 @@ public class BotWalletController {
         if (body.kind() == null) {
             throw ApiException.validation("kind", "Informe ACTIVATE, RAISE_MODE ou RAISE_CAP.");
         }
+        var person = auth.current();
+        limit(BotWalletRateLimits.Route.CHALLENGE, person.userId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .cacheControl(CacheControl.noStore())
                 .body(service.issueChallenge(
-                        auth.current(), body.kind(), body.mode(), lamports("capLamports", body.capLamports())));
+                        person, body.kind(), body.mode(), lamports("capLamports", body.capLamports())));
     }
 
     @Operation(
@@ -139,8 +154,10 @@ public class BotWalletController {
         if (body.challengeId() == null) {
             throw ApiException.validation("challengeId", "Obrigatório.");
         }
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(service.activate(auth.current(), body.challengeId(), signature(body.signature())));
+        String signature = signature(body.signature());
+        var person = auth.current();
+        limit(BotWalletRateLimits.Route.ACTIVATION, person.userId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.activate(person, body.challengeId(), signature));
     }
 
     @Operation(
@@ -192,8 +209,15 @@ public class BotWalletController {
         if (Boolean.FALSE.equals(body.amount().all())) {
             throw ApiException.validation("amount.all", "Use all: true ou lamports.");
         }
-        IdempotentResponse answer = service.requestWithdrawal(
-                auth.current(), key, lamports("amount.lamports", body.amount().lamports()), all);
+        Long lamports = lamports("amount.lamports", body.amount().lamports());
+        var person = auth.current();
+        // NFR1.9: only the partial withdrawal is limited; the total one is never barred by a limit of use. The limit is
+        // consumed only by a NEW request, after the idempotency check (Step 31, review R-11): a retry with the same
+        // Idempotency-Key replays the stored answer, and a 429 releases the key, storing nothing under it.
+        Runnable admitNew = all
+                ? BotWalletService.NO_LIMIT
+                : () -> limit(BotWalletRateLimits.Route.PARTIAL_WITHDRAWAL, person.userId());
+        IdempotentResponse answer = service.requestWithdrawal(person, key, lamports, all, admitNew);
         try {
             return ResponseEntity.status(answer.status())
                     .cacheControl(CacheControl.noStore())
@@ -225,6 +249,19 @@ public class BotWalletController {
             throw ApiException.validation("withdrawalId", "Deve ser um UUID.");
         }
         return service.withdrawal(auth.current(), id);
+    }
+
+    /** {@code 429 RATE_LIMITED} with {@code Retry-After} (RFC 7807) above the limit of the route for the person. */
+    private void limit(BotWalletRateLimits.Route route, UUID userId) {
+        Optional<Duration> wait = limits.acquire(route, userId);
+        if (wait.isPresent()) {
+            throw new ApiException(
+                    ErrorCode.RATE_LIMITED,
+                    "At most " + route.limit() + " requests in " + route.window() + " on this route.",
+                    List.of(),
+                    null,
+                    Map.of(HttpHeaders.RETRY_AFTER, Long.toString(wait.get().toSeconds())));
+        }
     }
 
     private static Long lamports(String field, String value) {
