@@ -144,6 +144,30 @@ class BotRoutesIT extends AbstractU5IT {
                 .isEqualTo("ACTIVE");
     }
 
+    /**
+     * 261113-trading-real-bot U4, Step 19 (U4-NFR8.5): the detail carries the market of the bot, PAPER for a bot of the
+     * wizard and REAL for a REAL bot; a person of another tenant still gets 404 and never the data.
+     */
+    @Test
+    void theDetailCarriesTheMarketOfTheBotAndAnotherTenantStillGets404() throws Exception {
+        Guest owner = signIn();
+        String paperBot = draft(owner);
+        UUID realBot = realBotRow(owner.principal());
+        Guest stranger = signIn();
+
+        JsonNode paper = body(call(owner, get("/api/v1/bots/" + paperBot)));
+        JsonNode real = body(call(owner, get("/api/v1/bots/" + realBot)));
+        MockHttpServletResponse foreign = call(stranger, get("/api/v1/bots/" + realBot));
+
+        assertThat(paper.get("market").asText()).isEqualTo("PAPER");
+        assertThat(real.get("market").asText()).isEqualTo("REAL");
+        assertThat(real.get("botId").asText()).isEqualTo(realBot.toString());
+        assertThat(foreign.getStatus()).isEqualTo(404);
+        assertThat(foreign.getContentAsString())
+                .doesNotContain(realBot.toString())
+                .doesNotContain("\"market\"");
+    }
+
     /** NFR5.3, BR2.9, AC4.2.5: a mode other than PAPER is 403 REAL_MODE_UNAVAILABLE, audited; nothing changes. */
     @Test
     void anotherModeIsForbiddenAndAudited() throws Exception {
@@ -352,6 +376,25 @@ class BotRoutesIT extends AbstractU5IT {
         String botId = validatedBot(guest);
         MockHttpServletResponse started = call(guest, idem(post("/api/v1/bots/" + botId + "/commands/start")));
         assertThat(started.getStatus()).as(started.getContentAsString()).isEqualTo(200);
+        return botId;
+    }
+
+    /** An ACTIVE REAL bot of the person, written as the U4 writes it (market fixed at creation). */
+    private UUID realBotRow(Principal person) {
+        UUID botId = UUID.randomUUID();
+        jdbc.sql("insert into bot_owner (tenant_id, owner_user_id, created_at) values (:t, :u, now())"
+                        + " on conflict do nothing")
+                .param("t", person.tenantId())
+                .param("u", person.userId())
+                .update();
+        jdbc.sql("""
+                        insert into bot (bot_id, tenant_id, owner_user_id, name, template_id, template_version, state,
+                          created_at, updated_at, market)
+                        values (:b, :t, :u, 'robo real', 'MOMENTUM_VOLUME', 'v1', 'ACTIVE', now(), now(), 'REAL')""")
+                .param("b", botId)
+                .param("t", person.tenantId())
+                .param("u", person.userId())
+                .update();
         return botId;
     }
 

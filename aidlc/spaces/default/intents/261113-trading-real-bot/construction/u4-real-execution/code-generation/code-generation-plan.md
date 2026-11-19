@@ -192,11 +192,30 @@ A U4 é núcleo financeiro e lógica do TxSigner. Os estados e a idempotência d
 
   *(U4-NFR8.10, infrastructure-specification)*
 - [x] **Step 17 — Medição informativa [depois].** Teste com 21 usuários e 4 decisões por segundo, que registra o p95 por etapa e da decisão ao envio, sem portão. *(U4-NFR3.1 a U4-NFR3.5)*
-- [ ] **Step 18 — Documentação e rastreabilidade.**
+- [x] **Step 18 — Documentação e rastreabilidade.**
   - Runbook `docs/runbooks/real-execution.md`: ambígua, pausa `UPSTREAM`, recusa da política e rollback com espera de 15 min.
   - Adendo da U4 no `contract-summary.md`: R1 `SWAP`, M6, `withPersonLock`, eventos do canal, campo `market`.
   - `code-summary.md`, com os textos para o responsável: job `txsigner`, `promtool` e `verify.sh`.
   - `traceability.json` e `source-manifest.json`.
+
+## Volta 1 do Build and Test (2026-11-18)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) marcou como não cumpridos o U4-NFR8.5 e os dois desvios U4-NFR8.4 e U4-NFR8.7. O responsável aceitou os dois desvios, e as metas foram revisadas em `nfr-requirements/tech-stack-decisions.md` (2026-11-18). As etapas 1 a 18 continuam como estão.
+
+- [x] **Step 19 — Campo `market` no detalhe do bot [depois].**
+  - Acrescentar `market` (`PAPER` ou `REAL`) ao `BotDetailDto`.
+  - Regenerar o OpenAPI do convidado e os tipos do `apps/web` (`gen:api`), e manter o `check:api` verde.
+  - Teste de rota: o detalhe traz o mercado do bot, e um bot de outro tenant continua dando 404.
+
+  *(U4-NFR8.5)*
+- [x] **Step 20 — Ritmo das ordens REAL contra o limite por carteira [testes antes].** Origem: a revisão da U1 (review-03, achado 2).
+  - Testes primeiro: o caminho de decisão e envio da U4 nunca pede mais de 60 assinaturas por minuto para a mesma carteira em operação normal. Se pedir, a recusa `WALLET_RATE_LIMITED` vira `FAILED` com `SIGNING_REFUSED`, sem segunda transação, e com o motivo registrado.
+  - Se o teste mostrar que o ritmo normal pode passar do limite, a recusa por limite passa a voltar para a fila em vez de falhar. Isso fica registrado como desvio no `code-summary.md`.
+
+  *(NFR1.9 da U1, idempotência REAL)*
+- [x] **Step 21 — Rastreabilidade no formato do sensor.**
+  - Reescrever `traceability.json` no formato que o `aidlc engine sensor-traceability` lê: uma linha por AC, BR e NFR da Unit, com os IDs como no requisito e um arquivo existente por alvo `OK`. Onde a medição está pendente, uma nota diz isso.
+  - Rodar o sensor até passar e atualizar o `code-summary.md`.
 
 ## Rastreabilidade história → etapas
 

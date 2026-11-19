@@ -2142,6 +2142,13 @@ components:
         limitsVersion:
           type: integer
           format: int32
+        market:
+          type: string
+          description: "261113-trading-real-bot U4 (U4-NFR8.5): mercado do bot, fixado\
+            \ na criação"
+          enum:
+          - PAPER
+          - REAL
         mode:
           type: string
         name:
@@ -2176,6 +2183,7 @@ components:
       required:
       - botId
       - draftStep
+      - market
       - mode
       - name
       - parameters

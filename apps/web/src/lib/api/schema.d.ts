@@ -992,6 +992,11 @@ export interface components {
       limits?: components['schemas']['BotLimits'];
       /** Format: int32 */
       limitsVersion?: number;
+      /**
+       * @description 261113-trading-real-bot U4 (U4-NFR8.5): mercado do bot, fixado na criação
+       * @enum {string}
+       */
+      market: 'PAPER' | 'REAL';
       mode: string;
       name: string;
       parameters: {

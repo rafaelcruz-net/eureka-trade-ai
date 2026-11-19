@@ -22,6 +22,7 @@ Um Maven por vez, sempre a partir da raiz. Não exporte `MEMETRADE_AUDIT_WALLET_
 | API, testes da U4 | `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test -Dtest='com.memetrade.realexecution.**.*Test,com.memetrade.realexecution.**.*IT,com.memetrade.pnl.real.**.*Test,com.memetrade.bots.**.RealBot*Test,com.memetrade.bots.**.RealBot*IT,com.memetrade.shared.solana.**.*Test,com.memetrade.shared.config.RuntimeSettingsGuard*Test,com.memetrade.architecture.ArchitectureTest'` |
 | TxSigner, política de swap | `sh apps/txsigner/mvnw -B -ntp -f apps/txsigner/pom.xml test -Dtest='*Swap*Test,*SolanaVector*Test'` |
 | TxSigner completo, com cobertura | `sh apps/txsigner/mvnw -B -ntp -f apps/txsigner/pom.xml verify` |
+| Volta 1 do Build and Test | `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test -Dtest='RealOrderRateIT,OrderDriverIT,BotRoutesIT,GuestOpenApiContractTest'`; no `apps/web`: `corepack pnpm@10.18.3 gen:api`, `typecheck`, `check:api` e `test` |
 | Alertas | `docker run --rm -v "$PWD/infra/observability:/rules" --entrypoint promtool prom/prometheus:v3.5.0 check rules /rules/real-execution-alerts.yml` |
 | Terraform | `terraform fmt -check` e `terraform validate` em `infra/terraform`, pela imagem `hashicorp/terraform:1.9.8` |
 
@@ -45,6 +46,8 @@ Um Maven por vez, sempre a partir da raiz. Não exporte `MEMETRADE_AUDIT_WALLET_
 | Métricas e paridade | 10 | não |
 | Medição informativa | 2 | não |
 | Ponta a ponta (`real-swap`) | 1 spec | não |
+| Volta 1: ritmo por carteira e recusa `WALLET_RATE_LIMITED` (`RealOrderRateIT`) | 4 | sim |
+| Volta 1: `market` no detalhe do bot (`BotRoutesIT`) | 1 | não |
 
 ## Testes obrigatórios por risco (`team.md`) tocados pela U4
 

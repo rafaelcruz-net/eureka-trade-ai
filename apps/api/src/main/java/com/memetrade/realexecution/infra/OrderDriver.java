@@ -324,7 +324,12 @@ public class OrderDriver {
         }
         crashes.reached("signature-received");
         if (answer instanceof RealExecutionWallet.SwapSigning.Refused refused) {
-            log.warn("REAL swap refused by the TxSigner: order={}, reason={}", order.realOrderId(), refused.code());
+            // Loop-back 1, Step 20 (U1 review-03, R-16): every refusal, WALLET_RATE_LIMITED included, fails the order
+            // once and for all (the TxSigner recorded and signed nothing, so there is never a second transaction); the
+            // code of the TxSigner is recorded in the audit event of the failure. RealOrderRateIT shows that normal
+            // operation never reaches the limit of 60 per minute per wallet, so the refusal is not retried.
+            String reason = refusalCode(refused.code());
+            log.warn("REAL swap refused by the TxSigner: order={}, reason={}", order.realOrderId(), reason);
             return transitions.move(
                     order,
                     RealOrderState.FAILED,
@@ -332,7 +337,8 @@ public class OrderDriver {
                     holder,
                     Map.of(),
                     Optional.empty(),
-                    properties.lease());
+                    properties.lease(),
+                    Map.of("signerRefusal", reason));
         }
         upstream.succeeded(order.tenantId(), order.userId(), RealExecutionMetrics.Provider.TXSIGNER);
         RealExecutionWallet.SwapSigning.Signed signed = (RealExecutionWallet.SwapSigning.Signed) answer;
@@ -360,6 +366,11 @@ public class OrderDriver {
             crashes.reached("signed");
         }
         return moved;
+    }
+
+    /** The refusal code of the TxSigner as recorded: an upper-case code of at most 64 characters, otherwise UNKNOWN. */
+    static String refusalCode(String code) {
+        return code != null && code.matches("[A-Z][A-Z0-9_]{0,63}") ? code : "UNKNOWN";
     }
 
     static SwapSigningRequest signingRequest(OrderRow order, String transactionBase64, SwapSigningRequest.Mode mode) {

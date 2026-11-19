@@ -56,6 +56,7 @@ export function detail(overrides: Partial<BotDetail> = {}): BotDetail {
     botId: BOT_ID,
     name: 'Meu bot',
     mode: 'PAPER',
+    market: 'PAPER',
     state: 'DRAFT',
     pauseReasons: [],
     draftStep: 1,

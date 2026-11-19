@@ -62,6 +62,25 @@ public class OrderTransitions {
             Map<String, Object> extra,
             Optional<UUID> person,
             Duration lease) {
+        return move(order, to, code, owner, extra, person, lease, Map.of());
+    }
+
+    /**
+     * The same move, with extra details of its audit event (loop-back 1 of the U4, Step 20: the refusal code of the
+     * TxSigner behind a SIGNING_REFUSED).
+     *
+     * @param auditDetails details added to the audit event of the transition; never a secret nor a transaction
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public boolean move(
+            OrderRow order,
+            RealOrderState to,
+            String code,
+            Optional<String> owner,
+            Map<String, Object> extra,
+            Optional<UUID> person,
+            Duration lease,
+            Map<String, String> auditDetails) {
         RealOrderStateMachine.requireMove(order.state(), to);
         Instant now = clock.instant();
         Map<String, Object> columns = new LinkedHashMap<>(extra);
@@ -87,7 +106,7 @@ public class OrderTransitions {
             }
             ledger.releaseIfFinal(moved, wallet, to);
         }
-        events.transition(moved, order.state(), to, code, person);
+        events.transition(moved, order.state(), to, code, person, auditDetails);
         return true;
     }
 

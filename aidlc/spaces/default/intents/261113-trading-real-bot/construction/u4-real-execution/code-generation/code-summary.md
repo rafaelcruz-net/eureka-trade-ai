@@ -241,7 +241,7 @@ A execução da CI do commit `605a8fb` (job "smoke") e o `verify.sh` local do me
 ## Pendências
 
 - **Swap no `verify.sh`:** a gravação em uso foi provada no validador local por simulação. A execução completa do spec `real-swap` (decisão do bot, TxSigner, envio e liquidação) depende da próxima rodada do `verify.sh`, que não foi rodado aqui.
-- **`BotDetail.market`** e a tela do app web para ordens, modo e P&L REAL (só os tipos foram gerados).
+- **`BotDetail.market`** (resolvido na Volta 1 do Build and Test, Step 19) e a tela do app web para ordens, modo e P&L REAL (feita na U6).
 - **Caminho das métricas até o CloudWatch** (pendência comum de U1 a U4) e o alarme do p95 (adiado).
 
 ## O que o responsável do projeto precisa aplicar ou rodar
@@ -300,3 +300,69 @@ bash infra/solana-fixtures/record.sh --mint <mint de um pool CPMM de um salto co
 ```
 
 O mint no `sim-a` e a estratégia de teste já leem o `recorded.env` sozinhos (seção "Swap gravado"). Grave com o padrão `--dexes "Raydium CP"`.
+
+## Volta 1 do Build and Test (2026-11-18)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) marcou o U4-NFR8.5 como não cumprido e os desvios U4-NFR8.4 e U4-NFR8.7. O responsável aceitou os dois desvios e as metas foram revisadas em `nfr-requirements/tech-stack-decisions.md`; o código deles não mudou. A revisão da U1 (review-03, R-16) pediu ainda a conferência do ritmo das ordens REAL contra o limite de 60 pedidos de assinatura por minuto por carteira. As etapas 1 a 18 não mudaram.
+
+### Step 19 — `market` no detalhe do bot [depois]
+
+- `BotDtos.BotDetailDto` ganhou `market` (`PAPER` ou `REAL`, obrigatório), lido de `Bot.market()`, logo depois de `mode`.
+- `apps/api/openapi/openapi-guest.yaml` regenerado pelo `GuestOpenApiContractTest` com `-Dopenapi.write=true` (8 linhas: o campo com o `enum` e a entrada em `required`). O `openapi-admin.yaml` não muda.
+- `apps/web/src/lib/api/schema.d.ts` regenerado com `corepack pnpm@10.18.3 --dir apps/web gen:api`. A fixture `detail()` de `apps/web/src/features/bots/fixtures.ts` ganhou `market: 'PAPER'`, porque o campo agora é obrigatório no tipo.
+- `BotRoutesIT.theDetailCarriesTheMarketOfTheBotAndAnotherTenantStillGets404`: o detalhe de um bot do assistente traz `PAPER`, o de um bot REAL traz `REAL`, e a pessoa de outro tenant recebe 404 sem o id nem o campo.
+
+### Step 20 — Ritmo das ordens REAL contra o limite por carteira [testes antes]
+
+**Conclusão: em operação normal, o caminho de decisão e envio da U4 não passa de 60 pedidos de assinatura por minuto para a mesma carteira.** O pior caso é o "vender tudo e sacar", que fica em até 30 pedidos por minuto. Por isso a recusa `WALLET_RATE_LIMITED` continua virando `FAILED` com `SIGNING_REFUSED` e não volta para a fila; não há desvio de comportamento.
+
+Por que o ritmo fica abaixo do limite:
+- a U4 pede uma assinatura por ordem; uma repetição usa o mesmo `signingRequestId` (`realOrderId`) e o TxSigner responde do registro, sem contar de novo;
+- as ordens de uma carteira só nascem de dois lugares: o ciclo dos bots e a liquidação;
+- o ciclo roda uma vez por bot por slot de 5 minutos (`memetrade.bots.slot-cron`, `bot_cycle` único por bot e slot), com uma decisão por ciclo, no máximo 3 bots ativos por pessoa (`BotStateMachine.ACTIVE_LIMIT`) e uma ordem em andamento por bot (`uq_real_order_bot_in_progress`): no máximo 3 ordens por minuto;
+- a liquidação cria uma venda por vez, só quando a pessoa não tem ordem em `PROPOSED`, `QUOTED`, `SIGNED` ou `SENT`, e enquanto ela roda as decisões dos bots são descartadas. Cada venda precisa de uma rodada da confirmação (a cada 2 s) antes da próxima: no máximo 31 por minuto, e 30 na simulação;
+- somadas de forma conservadora, 3 + 31 = 34 por minuto, abaixo de 60.
+
+A conta vale para um worker, a topologia do beta. Com mais de uma instância do worker, a confirmação (sem ShedLock) poderia rodar mais vezes por segundo; nesse caso a conta precisa ser refeita. Uma venda recusada pelo TxSigner não precisa de confirmação e a próxima sai na rodada seguinte da liquidação (1 s), mas isso não é operação normal, e a posição recusada não é vendida de novo.
+
+**Testes primeiro** (`apps/api/src/test/java/com/memetrade/realexecution/infra/RealOrderRateIT.java`):
+- `aWalletRateLimitedRefusalFailsTheOrderOnceWithoutATransactionAndRecordsTheReason`: com o TxSigner respondendo `WALLET_RATE_LIMITED`, a ordem fica `FAILED` com `SIGNING_REFUSED`, o TxSigner é chamado uma única vez (outra rodada do condutor, da confirmação e da conferência das ambíguas não pede de novo), nenhuma transação é enviada, a reserva é liberada e o evento de auditoria da falha traz `signerRefusal = WALLET_RATE_LIMITED`;
+- `theFastestLiquidationStaysUnderTheLimitOfTheWallet`: 40 posições, liquidação, e os trabalhos reais do worker rodando no ritmo configurado (`RealExecutionProperties.jobs`), com uma rede que finaliza tudo na hora e a venda, o envio e a confirmação no mesmo tique (o caso mais rápido). Conta toda chamada ao TxSigner, repetições incluídas, e confere que as 40 vendas foram assinadas e que o minuto mais cheio tem entre 30 e 31 pedidos, nunca mais de 60;
+- `theBotsAndTheLiquidationTogetherStayUnderTheLimit`: lê o cron dos slots e o ritmo dos trabalhos da configuração e confere a conta acima (3 + 31 = 34 < 60). Se alguém mudar o ritmo, o teste falha;
+- `aRefusalCodeOutsideTheFormatIsRecordedAsUnknown` (escrito junto com o código): um código fora do formato (nulo, minúsculas, mais de 64 caracteres) é gravado como `UNKNOWN`.
+
+**Vermelho registrado** (um Maven, `-Dtest=RealOrderRateIT`): 3 testes, 1 falha. O evento de auditoria não trazia o motivo: `Expecting actual: [null] to contain exactly: ["WALLET_RATE_LIMITED"]`. Os dois testes de ritmo passaram de primeira, porque o código já respeita o limite; eles provam isso e protegem a conta daqui para a frente. Na primeira execução, o teste de recusa deu erro antes da falha esperada, porque eu vencia o lease de uma ordem já final (o banco recusa a alteração de uma linha final); o teste foi corrigido para só rodar o condutor de novo.
+
+**Depois o código** (o único comportamento novo é o motivo no evento de auditoria):
+- `OrderDriver.askSignatureOrThrow`: na recusa do TxSigner, o código vai para o evento de auditoria da falha como `signerRefusal`, filtrado por `OrderDriver.refusalCode` (letras maiúsculas, números e `_`, até 64 caracteres; fora disso, `UNKNOWN`). O log usa o mesmo valor filtrado;
+- `OrderTransitions.move` e `RealExecutionEvents.transition` ganharam uma sobrecarga com detalhes extras do evento; a assinatura antiga delega para a nova com `Map.of()`. Os detalhes fixos (`from`, `to`, `code`, `side`, `origin`, `mode`) continuam e não são substituídos.
+
+**Verde:** `-Dtest='RealOrderRateIT,OrderDriverIT'`: 21 testes, 0 falhas.
+
+### Step 21 — Rastreabilidade no formato do sensor
+
+`traceability.json` reescrito no formato que o `aidlc engine sensor-traceability` lê, gerado por um script como nas U1 a U3: 95 linhas, uma por AC das histórias da U4 (24), por BR de `functional-design/rules.md` (22) e por NFRx.y de `nfr-requirements` (49, com os IDs `U4-NFRx.y` escritos como `NFRx.y`). Cada alvo `OK` é um único arquivo que existe; as notas dizem onde a medição está pendente (U4-NFR3.1 e U4-NFR3.2) e citam os testes.
+- U4-NFR8.4 e U4-NFR8.7 agora são `OK` pelas metas revisadas: `pnl/real/RealPnlCalculator.java` e `realexecution/infra/jupiter/JupiterClient.java`;
+- U4-NFR8.5 é `OK` em `bots/web/BotDtos.java`;
+- AC4.1.3 é `N/A` (estados da tela, U6) e U4-NFR5.13 é `Deferred` (alarme de p95 na nuvem, como na U3).
+
+O arquivo está em UTF-8, sem U+FFFD. Sensor (cópia em `C:/Users/rafae/.claude/jobs/ce4ac752/tmp/construction/u4-real-execution/code-generation/traceability.json`): `pass: true`, 0 achados.
+
+### Comandos e resultados desta volta
+
+| Comando | Resultado |
+|---|---|
+| `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test -Dtest=GuestOpenApiContractTest -Dopenapi.write=true` | `openapi-guest.yaml` regenerado |
+| `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test -Dtest='GuestOpenApiContractTest,AdminOpenApiContractTest,U8OpenApiContractTest,BotRoutesIT'` | 39 testes, 0 falhas |
+| `corepack pnpm@10.18.3 --dir apps/web gen:api`, `typecheck`, `check:api`, `prettier --check` e `eslint` nos arquivos mudados | sem erros; `schema.d.ts matches openapi-guest.yaml` |
+| `corepack pnpm@10.18.3 --dir apps/web test` | 67 suítes, 800 testes, 0 falhas |
+| `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test -Dtest=RealOrderRateIT` (vermelho) | 3 testes, 1 falha |
+| `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml test -Dtest='RealOrderRateIT,OrderDriverIT'` (verde) | 21 testes, 0 falhas |
+| Suíte da U4 (`unit-test-instructions.md`), mais `com.memetrade.audit.**.*Test` | 394 testes, 0 falhas |
+| `aidlc engine sensor-traceability --stage code-generation --output-path <cópia>` | `pass: true` |
+
+`spotless:apply` rodou nas mudanças da API. O `scripts/verify.sh`, o `ci.yml`, o estado do AI-DLC e o `apps/web/aidlc/` não foram tocados. Nada foi commitado.
+
+### Desvios
+
+Nenhum desvio de comportamento: o ritmo normal não passa do limite, então a recusa por limite não volta para a fila. O que muda é só o registro: o evento `REAL_ORDER_STATE_CHANGED` da falha passa a trazer `signerRefusal` com o código do TxSigner.

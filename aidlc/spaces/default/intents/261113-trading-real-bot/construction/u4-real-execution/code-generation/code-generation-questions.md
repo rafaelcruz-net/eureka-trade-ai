@@ -16,8 +16,8 @@ Approve the code plan for u4-real-execution?
 Full plan: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u4-real-execution/code-generation/code-generation-plan.md
 Test instructions: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u4-real-execution/code-generation/unit-test-instructions.md
 
-[Approval Fingerprint]: sha256:v3:027f9d47126b1303d84db6836a9f8f81ee5ef705da1e451d4b9145365a5a9da9
-[Planned Source]: 3c51b108582eb6d0ac63d353c12c44c340f2266c8ef0604a81b0d2cac7cb11dc
+[Approval Fingerprint]: sha256:v3:3ca3d38a3d51c883fa35abae0f6497cd6f6e28f245162992a490170647d7d45e
+[Planned Source]: 86dc0ba035a7af144345b8b97e6b4f3fb2a4e888de16be7839272a85f42acc69
 
 - A. Approve Plan
 - B. Request Changes

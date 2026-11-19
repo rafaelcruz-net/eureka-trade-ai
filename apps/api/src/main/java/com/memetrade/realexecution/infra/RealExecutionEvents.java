@@ -42,7 +42,21 @@ public class RealExecutionEvents {
      * @param person the person who caused the change (route of the person), or empty for the worker (actor system)
      */
     public void transition(OrderRow order, RealOrderState from, RealOrderState to, String code, Optional<UUID> person) {
-        Map<String, String> details = new LinkedHashMap<>();
+        transition(order, from, to, code, person, Map.of());
+    }
+
+    /**
+     * @param extra details added to the audit event (for example the refusal code of the TxSigner); they never replace
+     *     the fixed details of the transition
+     */
+    public void transition(
+            OrderRow order,
+            RealOrderState from,
+            RealOrderState to,
+            String code,
+            Optional<UUID> person,
+            Map<String, String> extra) {
+        Map<String, String> details = new LinkedHashMap<>(extra);
         details.put("from", from == null ? "NONE" : from.name());
         details.put("to", to.name());
         details.put("code", code == null ? "NONE" : code);

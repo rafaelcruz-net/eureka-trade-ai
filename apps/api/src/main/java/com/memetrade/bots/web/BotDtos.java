@@ -250,6 +250,12 @@ final class BotDtos {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
             String mode,
 
+            @Schema(
+                    requiredMode = Schema.RequiredMode.REQUIRED,
+                    allowableValues = {"PAPER", "REAL"},
+                    description = "261113-trading-real-bot U4 (U4-NFR8.5): mercado do bot, fixado na criação")
+            String market,
+
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
             String state,
 
@@ -292,6 +298,7 @@ final class BotDtos {
                     bot.botId(),
                     bot.name(),
                     "PAPER",
+                    bot.market().name(),
                     bot.status().state().name(),
                     summary.pauseReasons().stream().map(Enum::name).toList(),
                     summary.resumesAt(),

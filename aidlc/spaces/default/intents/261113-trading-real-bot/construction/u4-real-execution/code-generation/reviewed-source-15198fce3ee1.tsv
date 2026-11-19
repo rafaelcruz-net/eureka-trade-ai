@@ -1,0 +1,10 @@
+manifest	56cdfdd43dd662fbdff36ca2882e2acbd90026cc402691fd44cbbf7bcf08d45f	-
+	apps/api/openapi/openapi-guest.yaml	100644	7437700ffbba9270821b0e09681252b51c8e3687077a84b41f87b40b7e34500d
+	apps/api/src/main/java/com/memetrade/bots/web/BotDtos.java	100644	0c487bad3f43de2d6b43ebf1ba95346cebd42e10900ab2ed57df41d6b97ed3ee
+	apps/api/src/main/java/com/memetrade/realexecution/infra/OrderDriver.java	100644	c3de18129d0022ac480d5d0fcb130c6b22db0040f79cdd785140866f6ed9bc2a
+	apps/api/src/main/java/com/memetrade/realexecution/infra/OrderTransitions.java	100644	217a55114fcacb121f3a769064f1fcda0dc17202b80e4039cd58ed8ff8e02173
+	apps/api/src/main/java/com/memetrade/realexecution/infra/RealExecutionEvents.java	100644	32ac5c98358d22f97e68c0825e3817c6145e15c377cef76ce6e4d5dbeb23109d
+	apps/api/src/test/java/com/memetrade/bots/web/BotRoutesIT.java	100644	45bc5a5e64ccfcc8ed6489e263ed22036713b1937958f55206df5199e890a3df
+	apps/api/src/test/java/com/memetrade/realexecution/infra/RealOrderRateIT.java	100644	148a50d26e5a6789f853e9610574d255a9d641f41e8953589c7bc8bc79ca82f9
+	apps/web/src/features/bots/fixtures.ts	100644	a674a13436fbf4a79489b2c64f76c272ebe9e92281ad7109bdd03c7771355463
+	apps/web/src/lib/api/schema.d.ts	100644	040dfd86c655277e1ee56c0c52020facbe24ba8faf1c1f51c58cb818e6ac1d5b
