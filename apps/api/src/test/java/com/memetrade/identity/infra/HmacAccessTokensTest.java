@@ -39,7 +39,13 @@ class HmacAccessTokensTest {
     @Test
     void aTamperedTokenOrOneSignedWithAnotherKeyIsRefused() {
         String token = tokens.issue(claims);
-        String tampered = token.substring(0, token.length() - 2) + (token.endsWith("A") ? "BB" : "AA");
+        // The first character of the signature carries six significant bits; the last one of a base64url HMAC-SHA256
+        // only four, so changing the end could leave the decoded signature unchanged (regression of CI run
+        // 44451366746).
+        int signatureStart = token.lastIndexOf('.') + 1;
+        char first = token.charAt(signatureStart);
+        String tampered =
+                token.substring(0, signatureStart) + (first == 'A' ? 'B' : 'A') + token.substring(signatureStart + 1);
         HmacAccessTokens otherKey = new HmacAccessTokens(Base64.getEncoder().encodeToString(new byte[48]));
 
         assertThat(tokens.verify(tampered, NOW)).isEmpty();
