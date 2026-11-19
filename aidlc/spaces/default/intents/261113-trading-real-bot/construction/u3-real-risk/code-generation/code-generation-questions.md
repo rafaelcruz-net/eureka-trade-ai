@@ -15,8 +15,8 @@ Approve the code plan for u3-real-risk?
 Full plan: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u3-real-risk/code-generation/code-generation-plan.md
 Test instructions: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u3-real-risk/code-generation/unit-test-instructions.md
 
-[Approval Fingerprint]: sha256:v3:ed28c4fd6438582235504e99cfca781205a6cea3740f5e49c6b4a2a6e9bbfaea
-[Planned Source]: a84829108b1ede5c287b498e219e5b9387decacbb8e51a014e5ece0509580ddb
+[Approval Fingerprint]: sha256:v3:e64539c29eb8dd485f91457e9e1991aa1e3b3f27b0ba2e7ffdebf0176d6c0a65
+[Planned Source]: d75ce0e5aba1455e5aebc2005bc81da8c46f2a3a99da9de14e3a8956936ff971
 
 - A. Approve Plan
 - B. Request Changes

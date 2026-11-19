@@ -100,7 +100,7 @@ Revisão: `reviews/review-01.md`. Nas correções que tocam a lógica financeira
 
 ## Pendências
 
-- **Registro de retenção (U3-NFR3.7, parcial).** O expurgo existe e é conferido pelo gatilho, mas não acrescentei a declaração `RetentionEnforcerDeclaration` nem a linha no `RetentionCatalog`. O catálogo é a tabela da política de privacidade v2 e precisa bater com o `retention.tsv` da versão legal (`RetentionConformanceTest`). Acrescentar a linha "Avaliações da barreira REAL, 13 meses" exige uma nova versão do texto legal, que é decisão do responsável do projeto.
+- **Registro de retenção (U3-NFR3.7, parcial; resolvido na Volta 1 do Build and Test, ver abaixo).** O expurgo existe e é conferido pelo gatilho, mas não acrescentei a declaração `RetentionEnforcerDeclaration` nem a linha no `RetentionCatalog`. O catálogo é a tabela da política de privacidade v2 e precisa bater com o `retention.tsv` da versão legal (`RetentionConformanceTest`). Acrescentar a linha "Avaliações da barreira REAL, 13 meses" exige uma nova versão do texto legal, que é decisão do responsável do projeto.
 - **Posse do bot (U4, R-04).** Antes de chamar `evaluate`, a U4 confere que o `botId` pertence ao `tenantId` e ao `userId` da intenção. A pré-condição está no javadoc da M5 e no Adendo da U3; a BR6.3 do design pode ser ajustada para dizer que essa garantia é da U4.
 - **Falha de SQL na barreira (U4, R-02).** Com `RealGateUnavailable.transactionUsable() = false`, a U4 precisa desfazer o ciclo (a transação já foi abortada e está marcada para desfazer).
 - **`verify` completo (R-07).** Continua sem rodar por falta de memória. A cobertura de linhas não foi medida.
@@ -123,3 +123,62 @@ O `ci.yml` não muda nesta Unit (`cicd-pipeline.md`). A etapa do `promtool` suge
 ```
 
 Os testes da U3 rodam no `mvnw verify` que já existe. O `scripts/verify.sh` não muda.
+
+## Volta 1 do Build and Test (2026-11-18)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) marcou o U3-NFR3.7 como não cumprido: o expurgo de 13 meses funcionava, mas a retenção das avaliações do REAL não estava no catálogo nem na política de privacidade. Também pediu o `traceability.json` no formato do sensor. As etapas 1 a 14 não mudaram.
+
+### Step 15 — Retenção das avaliações do REAL no catálogo e na política [testes antes]
+
+**Testes primeiro.** Mudei e acrescentei os testes antes do código:
+- `RetentionCatalogTest`: o catálogo tem 13 linhas, a 13ª é `REAL_RISK_EVALUATIONS`, com 13 meses a partir da gravação (`CREATED`), fim `Apagar` e a limpeza `real-risk-purge`; ela não se confunde com a linha da barreira PAPER (30 dias).
+- `RetentionConformanceTest`: a linha do REAL bate com a declaração `real-risk-purge` (13 meses, `CREATED`) e está em `terms/v2/retention.tsv` com as mesmas palavras; sem a declaração, ou com 12 meses, a conferência acusa a divergência. O teste da tabela divergente passou a tirar a última linha (12 linhas contra 13).
+- `RetentionEnforcerDeclarationTest`: a lista das limpezas declaradas inclui `real-risk-purge`.
+- `RealRiskRetentionDeclarationConfigTest` (novo): a declaração usa o nome da trava do `RealRiskPurgeJob`, 13 meses e `CREATED`, existe em qualquer processo e a seleção do trabalho continua "13 months 1 day".
+- `privacy/infra/RetentionTableSourceTest` e `LegalDocumentsControllerIT`: a tabela servida tem 13 linhas, e a 13ª é a do REAL, com "13 meses" e "Apagar".
+
+**Vermelho registrado** (um Maven, `-Dtest` com `RetentionCatalogTest`, `RetentionConformanceTest`, `privacy.infra.RetentionTableSourceTest` e `RetentionEnforcerDeclarationTest`): **35 testes, 8 falhas, 2 erros**. Falharam a contagem de 13 linhas, a lista de limpezas, a linha do REAL (erro: `find` vazio), a declaração `real-risk-purge` ausente, a linha ausente no `retention.tsv`, a contagem 12/13 da tabela divergente e as duas contagens da fonte da tabela. Com o `RealRiskRetentionDeclarationConfigTest` e o `RetentionDeclarations` de apoio, a compilação falhou porque a classe `RealRiskRetentionDeclarationConfig` ainda não existia.
+
+**Depois o código:**
+- `RetentionCatalog`: a 13ª linha, `REAL_RISK_EVALUATIONS`, ao fim da tabela, para não mudar a ordem das 12 linhas anteriores.
+- `RealRiskRetentionDeclarationConfig` (novo, em `riskcontrol.real.infra`, sem `@ProcessRole`): declara `real-risk-purge` com `RealRiskPurgeJob.RETENTION` (13 meses) e `CREATED`, a idade que o gatilho da migração 0018 confere.
+- `RealRiskPurgeJob`: só a constante `RETENTION`; a seleção e o comportamento não mudaram.
+- `RetentionDeclarations` (apoio de teste): passa a carregar a configuração nova.
+- `terms/v2/retention.tsv`: a mesma linha, em português.
+- `terms/v2/privacy.txt`: uma frase em "Dados que tratamos e finalidade", porque a tabela passa a citar um dado que a lista não citava.
+
+Linha acrescentada (dado, finalidade, prazo, fim):
+
+| Dado | Finalidade | Prazo | Fim |
+|---|---|---|---|
+| Avaliações, reservas e totais do dia da barreira de risco do modo REAL | Provar o controle de risco aplicado às ordens com dinheiro real | 13 meses | Apagar |
+
+Frase acrescentada ao `privacy.txt` da v2: "Avaliações da barreira de risco das ordens do modo REAL, com os limites, os valores e o token de cada ordem: para provar o controle de risco aplicado às ordens com dinheiro real."
+
+**A v2 continua rascunho.** Não criei v3 e não mexi na v1 nem no `version.properties`: a v2 não tem `legalReviewedAt`, nunca fica ativa e não pede novo aceite. A revisão jurídica da v2, já pendente, passa a cobrir também esta linha e esta frase. Nenhum teste guarda hash ou cópia dos textos da v2; os testes que leem os textos (`LegalTextContentTest`, `TermsCatalogActivationTest`, `CurrentTermsActivationTest` e o `prohibited-terms.test.ts` do `apps/web`) continuam verdes.
+
+**Ponto para a revisão jurídica.** A seção "Tudo é simulado" da v2 ainda diz que todas as operações são simuladas e que não movimentamos fundos. Com o REAL, ela deixa de ser verdadeira. Não mudei essa seção, porque o pedido era de no máximo uma frase. A seção precisa ser reescrita na revisão jurídica da v2, junto com o resumo.
+
+**Verde:**
+- `-Dtest` com as 13 classes (os 4 testes do vermelho, `RealRiskRetentionDeclarationConfigTest`, `LegalTextContentTest`, `TermsCatalogActivationTest`, `CurrentTermsActivationTest`, `identity.infra.RetentionTableSourceTest`, `PrivacyArchitectureTest`, `RiskControlArchitectureTest`, `RealRiskArchitectureTest` e `ArchitectureTest`): **104 testes, 0 falhas**.
+- `-Dit.test` com `LegalDocumentsControllerIT` e `RealRiskPurgeJobIT`: **18 testes, 0 falhas**.
+- `apps/web`, `jest src/content/prohibited-terms.test.ts`: **5 testes, 0 falhas**.
+- `spotless:apply` e `spotless:check` sem pendências.
+
+### Step 16 — Rastreabilidade no formato do sensor
+
+- O `traceability.json` foi reescrito no formato que o `aidlc engine sensor-traceability` lê, com 80 IDs: os 16 critérios de aceite das histórias da Unit (AC2.1.1 a AC2.1.4, AC6.1.1 a AC6.1.6, AC6.2.1 a AC6.2.3, AC6.3.1 a AC6.3.3), as 23 regras do `rules.md` (BR1.1 a BR7.3) e os 41 NFRs da Unit.
+- **IDs dos NFRs.** Os requisitos chamam os NFRs de `U3-NFRx.y`. O sensor extrai deles a parte `NFRx.y` e cobra esse ID; por isso a tabela usa `NFR3.7` para o `U3-NFR3.7`, como fizeram a U1 e a U2.
+- As linhas das histórias (US2.1, US6.1 a US6.3) saíram; as histórias são rastreadas pelos critérios de aceite.
+- Cada linha `OK` aponta para um único arquivo existente que implementa ou testa o ID.
+- **Implementado, medição pendente.** O sensor só aceita um caminho de arquivo no alvo `OK`, então o aviso vai num campo `note` da linha:
+  - NFR3.1, NFR3.2, NFR3.4 e NFR3.5 apontam para o `RealRiskMeasurementIT`: a medição é sintética, local, na CI e sem portão (compra 10 ms, venda 5 ms, F3 213 ms, F4 371 ms); a medição na produção, pelas métricas, está pendente;
+  - NFR3.7: o `RealRiskPurgeJob`, com a nota da linha do catálogo e da v2 ainda em rascunho;
+  - NFR5.9, NFR5.10 e NFR5.12: a regra do Prometheus, com a nota do alarme correspondente no `real-risk.tf` e da forma do NFR5.12;
+  - AC6.1.5, AC6.3.3, NFR8.8 e NFR8.9: notas sobre o que fica na U4 ou onde está a evidência.
+- Linhas que não são `OK`, cada uma com o motivo:
+  - **AC2.1.1** e **AC2.1.2** `N/A`: o campo do teto e a recusa acima de 10 SOL são da U6 (mapa de Units: "US2.1: regra na U3, campo do teto na U6");
+  - **AC6.3.1** `N/A`: os dados reais da fonte paga são da U2;
+  - **NFR5.11** `Deferred`: o alarme de p95 na nuvem espera a decisão do caminho das métricas (observability-setup). A regra `RealRiskSlow` do Prometheus existe e passou no `promtool`.
+- O gerador fica fora do repositório, como os da U1 e da U2.
+- Sensor: `aidlc engine sensor-traceability --stage code-generation` sobre uma cópia em `construction/u3-real-risk/code-generation/` → `pass: true`, 0 achados.

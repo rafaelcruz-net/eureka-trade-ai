@@ -13,3 +13,4 @@ Chaves de idempotência	Evitar operações repetidas	24 horas	Apagar
 Desafios de login	Verificar a assinatura de entrada	24 horas após expirar	Apagar
 Sessões e renovações	Manter você conectado	30 dias após o fim ou a revogação	Apagar
 Pedidos de titular	Atender e comprovar o atendimento	12 meses após concluídos	Apagar
+Avaliações, reservas e totais do dia da barreira de risco do modo REAL	Provar o controle de risco aplicado às ordens com dinheiro real	13 meses	Apagar

@@ -16,6 +16,8 @@ Convite usado: para controlar o acesso ao beta fechado.
 
 Bots, limites e histórico de operações simuladas (PAPER): para executar a simulação e mostrar seus resultados.
 
+Avaliações da barreira de risco das ordens do modo REAL, com os limites, os valores e o token de cada ordem: para provar o controle de risco aplicado às ordens com dinheiro real.
+
 Comentários enviados pelo botão de feedback: para melhorar o produto.
 
 Registros de segurança e trilha de auditoria: para proteger as contas e atender a pedidos de titulares.

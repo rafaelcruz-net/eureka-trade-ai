@@ -87,10 +87,14 @@ class LegalDocumentsControllerIT extends AbstractPostgresIT {
         assertThat(body.get("deployment").get("dpoEmail").isNull()).isTrue();
         // u2-retention (BR2.9): the current version shows the retention catalog of the Privacy module (J5), in its
         // order, whatever table the test catalog declares.
-        assertThat(body.get("retention")).hasSize(12);
+        assertThat(body.get("retention")).hasSize(13);
         assertThat(body.get("retention").get(0).get("period").asText()).isEqualTo("Enquanto a conta existir");
         assertThat(body.get("retention").get(10).get("dataItem").asText()).isEqualTo("Sessões e renovações");
         assertThat(body.get("retention").get(10).get("period").asText()).isEqualTo("30 dias após o fim ou a revogação");
+        // 261113-trading-real-bot U3, loop-back 1 of Build and Test (U3-NFR3.7): the row of the REAL barrier.
+        assertThat(body.get("retention").get(12).get("dataItem").asText()).contains("modo REAL");
+        assertThat(body.get("retention").get(12).get("period").asText()).isEqualTo("13 meses");
+        assertThat(body.get("retention").get(12).get("endAction").asText()).isEqualTo("Apagar");
     }
 
     @Test

@@ -238,14 +238,56 @@ class RetentionConformanceTest {
         List<RetentionItem> table = new ArrayList<>(catalogItems());
         RetentionItem sessions = table.get(10);
         table.set(10, new RetentionItem(sessions.dataItem(), sessions.purpose(), "60 dias", sessions.endAction()));
-        table.remove(11);
+        table.removeLast();
 
         List<String> problems = tableDivergences("v9", table);
 
         assertThat(problems)
                 .containsExactly(
-                        "v9 has 11 retention rows; the catalog has 12",
+                        "v9 has 12 retention rows; the catalog has 13",
                         "v9 row 11 (SESSIONS): period is '60 dias'; the catalog says '30 dias após o fim ou a revogação'");
+    }
+
+    /**
+     * 261113-trading-real-bot U3, loop-back 1 of Build and Test (U3-NFR3.7): the row of the REAL barrier conforms to the
+     * declaration of {@code real-risk-purge}, and the policy table of v2 carries it with the same words.
+     */
+    @Test
+    void theRealBarrierRowConformsToItsPurgeAndIsInThePolicyTable() throws IOException {
+        assertThat(RetentionDeclarations.fromApplicationYml())
+                .filteredOn(declaration -> declaration.purgeId().equals("real-risk-purge"))
+                .singleElement()
+                .satisfies(declaration -> {
+                    assertThat(declaration.retention()).isEqualTo(RetentionTerm.months(13));
+                    assertThat(declaration.anchor()).isEqualTo(RetentionAnchor.CREATED);
+                });
+        RetentionItem expected =
+                RetentionCatalog.find("REAL_RISK_EVALUATIONS").orElseThrow().toItem();
+        Resource v2 = new PathMatchingResourcePatternResolver().getResource(LEGAL_CATALOG + "v2/retention.tsv");
+        assertThat(LegalTextParser.retention(text(v2), "retention.tsv of v2")).contains(expected);
+    }
+
+    @Test
+    void theRealRowWithoutItsPurgeOrWithAnotherPeriodFails() {
+        List<RetentionEnforcerDeclaration> without = RetentionDeclarations.fromApplicationYml().stream()
+                .filter(declaration -> !declaration.purgeId().equals("real-risk-purge"))
+                .toList();
+        List<RetentionEnforcerDeclaration> shorter = replace(
+                RetentionDeclarations.fromApplicationYml(),
+                RetentionEnforcerDeclaration.of("real-risk-purge", RetentionTerm.months(12), RetentionAnchor.CREATED));
+
+        assertThat(RetentionConformance.check(RetentionCatalog.rules(), without, PendingRetention.entries()))
+                .singleElement()
+                .satisfies(divergence -> {
+                    assertThat(divergence.ruleId()).isEqualTo("REAL_RISK_EVALUATIONS");
+                    assertThat(divergence.applied()).contains("no declaration of the purge real-risk-purge");
+                });
+        assertThat(RetentionConformance.check(RetentionCatalog.rules(), shorter, PendingRetention.entries()))
+                .singleElement()
+                .satisfies(divergence -> {
+                    assertThat(divergence.declared()).isEqualTo("13 months from CREATED");
+                    assertThat(divergence.applied()).isEqualTo("12 months from CREATED (real-risk-purge)");
+                });
     }
 
     /** BR2.11: the rows of a version, compared with the catalog in order, field by field. */

@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The retention catalog of the Privacy module (u2-retention, FR3.4, BR2.9): the 12 rows of the table of the privacy
- * policy v2, in the order of the policy, each with who applies its period (GUARD, PURGE or PLANNED). It is the source of
+ * The retention catalog of the Privacy module (u2-retention, FR3.4, BR2.9): the 13 rows of the table of the privacy
+ * policy v2 (the 13th, the REAL barrier, since 261113-trading-real-bot U3), in the order of the policy, each with who applies its period (GUARD, PURGE or PLANNED). It is the source of
  * the table the J5 port serves, and the conformance check holds it against the declarations of the purges (J7), the
  * pending list and the {@code retention.tsv} of every non-legacy version of the legal catalog. Immutable at run time.
  */
@@ -119,11 +119,22 @@ public final class RetentionCatalog {
                     RetentionPeriod.fixed(RetentionTerm.months(12), CONCLUDED, "12 meses após concluídos"),
                     DELETE,
                     // u4-data-requests (BR4.15): the purge of the closed requests now exists and declares itself.
-                    Enforcer.purge("dataSubjectRequestPurge")));
+                    Enforcer.purge("dataSubjectRequestPurge")),
+            // 261113-trading-real-bot U3, loop-back 1 of Build and Test (U3-NFR3.7): the evaluations, the closed
+            // reservations and the daily photos of the REAL barrier, deleted 13 months after they are written by the
+            // daily purge of the REAL barrier. They hold only internal ids, mints and amounts.
+            new RetentionRule(
+                    "REAL_RISK_EVALUATIONS",
+                    13,
+                    "Avaliações, reservas e totais do dia da barreira de risco do modo REAL",
+                    "Provar o controle de risco aplicado às ordens com dinheiro real",
+                    RetentionPeriod.fixed(RetentionTerm.months(13), CREATED, "13 meses"),
+                    DELETE,
+                    Enforcer.purge("real-risk-purge")));
 
     private RetentionCatalog() {}
 
-    /** The 12 rows, in the order of the policy. */
+    /** The 13 rows, in the order of the policy. */
     public static List<RetentionRule> rules() {
         return RULES;
     }

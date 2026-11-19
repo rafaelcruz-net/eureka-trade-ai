@@ -2,6 +2,7 @@ package com.memetrade.riskcontrol.real.infra;
 
 import com.memetrade.riskcontrol.infra.RiskRetentionDataSource;
 import com.memetrade.shared.config.ProcessRole;
+import com.memetrade.shared.retention.RetentionTerm;
 import com.memetrade.shared.web.CorrelationId;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -47,6 +48,12 @@ public class RealRiskPurgeJob {
     static final int BATCH_SIZE = 1000;
     static final Duration MAX_RUN = Duration.ofMinutes(30);
     static final Duration LOCK_AT_MOST_FOR = Duration.ofMinutes(45);
+
+    /**
+     * The retention the trigger of migration 0018 enforces and the purge declares (U3-NFR3.7, row
+     * {@code REAL_RISK_EVALUATIONS} of the retention catalog).
+     */
+    static final RetentionTerm RETENTION = RetentionTerm.months(13);
 
     /** The selection: one day more than the 13 months the trigger enforces. */
     static final String SELECTION = "13 months 1 day";

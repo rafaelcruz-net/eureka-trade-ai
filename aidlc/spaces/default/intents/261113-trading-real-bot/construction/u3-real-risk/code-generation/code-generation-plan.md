@@ -131,6 +131,24 @@ A U3 é núcleo financeiro: limites de risco, reservas, perda do dia e deduplica
 - [x] **Step 13 — Medição informativa [depois].** Teste de integração com 21 carteiras, 10 posições e 4 avaliações por segundo, que registra o p95 da compra e da venda sem portão. *(U3-NFR3.1 a U3-NFR3.4)*
 - [x] **Step 14 — Documentação e rastreabilidade.** Runbook `docs/runbooks/real-risk.md` (recusas, pausa por perda, reserva vencida, lista de bloqueio, silenciar o alerta de trabalho parado no rollback), `code-summary.md` (com a troca da forma do alerta U3-NFR5.12 e o namespace), `traceability.json` e `source-manifest.json`.
 
+## Volta 1 do Build and Test (2026-11-18)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) marcou o U3-NFR3.7 como não cumprido. O expurgo de 13 meses funciona, mas a retenção das avaliações do REAL não está no catálogo nem na política de privacidade. As etapas 1 a 14 continuam como estão.
+
+- [x] **Step 15 — Retenção das avaliações do REAL no catálogo e na política [testes antes].**
+  - Testes primeiro: o `RetentionCatalog` tem a linha das avaliações da barreira do REAL, com 13 meses e o mesmo fim do `RealRiskPurgeJob`, e o teste de paridade entre o catálogo e a tabela da política inclui essa linha.
+  - Depois:
+    - a linha no `RetentionCatalog`;
+    - a mesma linha em `terms/v2/retention.tsv`, com finalidade, prazo e fim em português;
+    - se o texto de `privacy.txt` precisar citar o REAL, uma frase nova no rascunho.
+  - A v2 ainda é rascunho, sem revisão jurídica e sem estar ativa, então a mudança não cria versão nova nem pede novo aceite. A revisão jurídica da v2, já pendente, passa a cobrir também esta linha.
+
+  *(U3-NFR3.7)*
+- [x] **Step 16 — Rastreabilidade no formato do sensor.**
+  - Reescrever `traceability.json` no formato que o `aidlc engine sensor-traceability` lê: uma linha por AC, BR e NFR da Unit, com os IDs como no requisito e um arquivo existente por alvo `OK`.
+  - O U3-NFR5.11 (alarme de p95 na nuvem) fica `Deferred`, com o motivo.
+  - Rodar o sensor até passar e atualizar o `code-summary.md`.
+
 ## Rastreabilidade história → etapas
 
 | História | Etapas |

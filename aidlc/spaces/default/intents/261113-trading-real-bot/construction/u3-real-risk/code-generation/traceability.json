@@ -1,75 +1,501 @@
 {
   "stage": "code-generation",
   "unit": "u3-real-risk",
-  "upstream_ids": ["BR1.1", "BR1.2", "BR1.3", "BR2.1", "BR2.2", "BR2.3", "BR2.4", "BR3.1", "BR3.2", "BR4.1", "BR4.2", "BR4.3", "BR4.4", "BR4.5", "BR5.1", "BR5.2", "BR5.3", "BR6.1", "BR6.2", "BR6.3", "BR7.1", "BR7.2", "BR7.3", "US2.1", "US6.1", "US6.2", "US6.3", "U3-NFR2.1", "U3-NFR3.1", "U3-NFR3.2", "U3-NFR3.3", "U3-NFR3.4", "U3-NFR3.5", "U3-NFR3.6", "U3-NFR3.7", "U3-NFR4.1", "U3-NFR4.2", "U3-NFR4.3", "U3-NFR4.4", "U3-NFR4.5", "U3-NFR4.6", "U3-NFR4.7", "U3-NFR4.8", "U3-NFR5.1", "U3-NFR5.2", "U3-NFR5.3", "U3-NFR5.4", "U3-NFR5.5", "U3-NFR5.6", "U3-NFR5.7", "U3-NFR5.8", "U3-NFR5.9", "U3-NFR5.10", "U3-NFR5.11", "U3-NFR5.12", "U3-NFR6.1", "U3-NFR6.2", "U3-NFR6.3", "U3-NFR8.1", "U3-NFR8.2", "U3-NFR8.3", "U3-NFR8.4", "U3-NFR8.5", "U3-NFR8.6", "U3-NFR8.7", "U3-NFR8.8", "U3-NFR8.9", "U3-NFR10.1"],
+  "upstream_ids": [
+    "AC2.1.1",
+    "AC2.1.2",
+    "AC2.1.3",
+    "AC2.1.4",
+    "AC6.1.1",
+    "AC6.1.2",
+    "AC6.1.3",
+    "AC6.1.4",
+    "AC6.1.5",
+    "AC6.1.6",
+    "AC6.2.1",
+    "AC6.2.2",
+    "AC6.2.3",
+    "AC6.3.1",
+    "AC6.3.2",
+    "AC6.3.3",
+    "BR1.1",
+    "BR1.2",
+    "BR1.3",
+    "BR2.1",
+    "BR2.2",
+    "BR2.3",
+    "BR2.4",
+    "BR3.1",
+    "BR3.2",
+    "BR4.1",
+    "BR4.2",
+    "BR4.3",
+    "BR4.4",
+    "BR4.5",
+    "BR5.1",
+    "BR5.2",
+    "BR5.3",
+    "BR6.1",
+    "BR6.2",
+    "BR6.3",
+    "BR7.1",
+    "BR7.2",
+    "BR7.3",
+    "NFR2.1",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.3",
+    "NFR3.4",
+    "NFR3.5",
+    "NFR3.6",
+    "NFR3.7",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR4.3",
+    "NFR4.4",
+    "NFR4.5",
+    "NFR4.6",
+    "NFR4.7",
+    "NFR4.8",
+    "NFR5.1",
+    "NFR5.2",
+    "NFR5.3",
+    "NFR5.4",
+    "NFR5.5",
+    "NFR5.6",
+    "NFR5.7",
+    "NFR5.8",
+    "NFR5.9",
+    "NFR5.10",
+    "NFR5.11",
+    "NFR5.12",
+    "NFR6.1",
+    "NFR6.2",
+    "NFR6.3",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR8.3",
+    "NFR8.4",
+    "NFR8.5",
+    "NFR8.6",
+    "NFR8.7",
+    "NFR8.8",
+    "NFR8.9",
+    "NFR10.1"
+  ],
   "coverage": [
-    {"id": "BR1.1", "status": "OK", "target": "riskcontrol/real/domain/RealRiskPolicy.stateAndSource (NO_BOT_WALLET, REAL_DISABLED, NOT_RELEASED, PAUSED_<motivo>, liquidação só para em KILL_SWITCH e DIVERGENCE); RealRiskPolicyTest$StateBR11; TransactionalRealRiskGateIT (S16, S17)"},
-    {"id": "BR1.2", "status": "OK", "target": "RealRiskPolicy.stateAndSource (SIMULATED_SOURCE_ACTIVE, detalhe NONE); RealGateInputsReader.source; RealRiskPolicyTest (S11); TransactionalRealRiskGateIT.aSimulatedSourceRefusesTheBuyAndTheSell"},
-    {"id": "BR1.3", "status": "OK", "target": "RealRiskPolicy.evaluate (ordem fixa; venda aprovada depois de estado e fonte); RealRiskPolicyTest.theFirstFailedCheckInTheFixedOrderIsTheAnswer e aSellThatPassesStateAndSourceIsApprovedWithoutTheOtherChecks"},
-    {"id": "BR2.1", "status": "OK", "target": "RealRiskPolicy (NO_ASSESSMENT); RealGateInputsReader.assess (falha ou null vira Unavailable); RealRiskPolicyTest (S8); RealGateInputsReaderTest"},
-    {"id": "BR2.2", "status": "OK", "target": "RealRiskPolicy (BLOCKED); JdbcRealRiskStore.isBlocked; RealRiskPolicyTest (S10); TransactionalRealRiskGateIT.theBlockListStopsTheBuyAndIsAuditedOnlyWhenItChanges"},
-    {"id": "BR2.3", "status": "OK", "target": "TransactionalRealRiskGate.blockToken e unblockToken (REQUIRED, ON CONFLICT DO NOTHING, motivo 1 a 500); RealRiskAudit (REAL_TOKEN_BLOCKED, REAL_TOKEN_UNBLOCKED); migração 0018 real_blocked_token; RealRiskArchitectureTest.BLOCK_LIST_CALLERS"},
-    {"id": "BR2.4", "status": "OK", "target": "RealRiskPolicy.positionPrices (POSITION_PRICE_UNKNOWN com detailMint); LamportPrice; RealRiskPolicyTest (S9, preço vencido)"},
-    {"id": "BR3.1", "status": "OK", "target": "RealRiskPolicy.signals (SIGNAL_UNKNOWN antes de SIGNAL_STALE, 60 s inclusivo); MarketDataQuery.volume24h; RealRiskPolicyTest (S12)"},
-    {"id": "BR3.2", "status": "OK", "target": "RealRiskPolicy: venda sem conferência de frescor; RealRiskPolicyTest.anOpenPositionWithAStalePriceBlocksTheBuyButNotTheSell"},
-    {"id": "BR4.1", "status": "OK", "target": "RealRiskPolicy (limite = piso(teto x bps / 10000)); RealRiskPolicyTest (S1, S4c, arredondamento)"},
-    {"id": "BR4.2", "status": "OK", "target": "JdbcRealRiskStore.approvedBuys (dia UTC, bot, tenant); RealRiskPolicy (DAILY_ORDER_COUNT); RealRiskPolicyTest (S2); JdbcRealRiskStoreIT"},
-    {"id": "BR4.3", "status": "OK", "target": "RealRiskPolicy.dailyLoss (base mínima, limite inclusivo); TransactionalRealRiskGate (pauseUser DAILY_LOSS na transação do ciclo); RealRiskJobs.runDailyLoss (F4); RealRiskPolicyTest (S3, S4, S4b); TransactionalRealRiskGateIT; RealRiskJobsIT; revisão R-01: saldo, posições e fluxos numa leitura única (RealLedger.view), RealLedgerPositionsIT.theViewReadsBalancePositionsAndFlowsInOneStatement, RealGateInputsReaderTest"},
-    {"id": "BR4.4", "status": "OK", "target": "RealRiskPolicy (foto FIRST_EVALUATION); RealRiskJobs.runDay (foto DAY_JOB, ON CONFLICT, takenAt da leitura de cada carteira, revisão R-01); RealRiskJobsIT; RealRiskJobsTest; TransactionalRealRiskGateIT"},
-    {"id": "BR4.5", "status": "OK", "target": "RealRiskJobs.runDay (retoma só a pausa DAILY_LOSS de dia UTC anterior, por pausedSince); RealRiskJobsIT.theJobOfTheDayResumesOnlyTheDailyLossPauseOfAPreviousDay"},
-    {"id": "BR5.1", "status": "OK", "target": "RealRiskPolicy (CAP e FREE_BALANCE, com reservas de ordem do ledger e reservas OPEN da barreira); RealRiskPolicyTest (S5b, S5, S6, S7, S15); TransactionalRealRiskGateIT (S5)"},
-    {"id": "BR5.2", "status": "OK", "target": "RealRiskPolicy.positionsValue (piso, custo quando unknown); LamportPrice.from (USD por token para lamports por unidade base, com SOL e casas decimais; revisão R-03: cotação positiva que arredonda para zero e casas fora de 0 a 18 viram Unknown); RealRiskPolicyTest$ValuationBR52AndBR72 (S14)"},
-    {"id": "BR5.3", "status": "OK", "target": "RealRiskPolicyTest.aCapBelowTheExposureBlocksOnlyBuys (S13)"},
-    {"id": "BR6.1", "status": "OK", "target": "WalletLock (pg_try_advisory_xact_lock, 20 ms, 1 s, por pessoa); TransactionalRealRiskGate (repetição devolve o gravado); WalletLockIT; TransactionalRealRiskGateIT (S5, S5c)"},
-    {"id": "BR6.2", "status": "OK", "target": "TransactionalRealRiskGate.handOver; JdbcRealRiskStore (reserva OPEN de 5 min, closeReservation, expireReservations); gatilho real_risk_reservation_transition; RealRiskJobs.runReservationExpiry (F5); TransactionalRealRiskGateIT; RealRiskJobsIT"},
-    {"id": "BR6.3", "status": "OK", "target": "RealGateInputsReader e JdbcRealRiskStore (toda consulta com tenant; só ledger REAL); RealStateService.readRealState; TransactionalRealRiskGateIT.anotherTenantSeesNoWalletAndWithoutRealBalanceTheBuyIsRefused; RealGateInputsReaderIT; revisão R-04: a posse do botId pelo tenant é pré-condição da U4 (javadoc de RealRiskGate.evaluate e Adendo da U3), porque a U3 não enxerga os bots"},
-    {"id": "BR7.1", "status": "OK", "target": "TransactionalRealRiskGate.record (avaliação, reserva, auditoria e pausa na transação do ciclo); RealRiskAudit (REAL_ORDER_REJECTED, mint no campo tipado); TransactionalRealRiskGateIT.aRolledBackCycleLeavesNothing e aRefusalIsAuditedWithTheMintOnlyInItsTypedField"},
-    {"id": "BR7.2", "status": "OK", "target": "lamports em long com Math.*Exact, preços BigDecimal, pontos-base, arredondamento contra a compra; RiskControlArchitectureTest (sem ponto flutuante, sem BigDecimal.ZERO) sobre riskcontrol.real"},
-    {"id": "BR7.3", "status": "OK", "target": "botwallet.api (RealStateQuery, RealPauses), ledger.api (positions, flowsSince, RealBalance por tipo), marketdata.api (referencePrices, decimalsOf, volume24h); RealRiskArchitectureTest.REAL_BOUNDARY; contract-summary.md (Adendo da U3)"},
-    {"id": "US2.1", "status": "OK", "target": "BR5.1 a BR5.3 na política e na barreira (S13, S14, S15)"},
-    {"id": "US6.1", "status": "OK", "target": "BR4.1 a BR4.3, BR6.1, BR6.2 (S1 a S6, S5b, S5c); RealRiskJobs (F3, F4, F5)"},
-    {"id": "US6.2", "status": "OK", "target": "BR2.1, BR2.2, BR2.4 (S8, S9, S10)"},
-    {"id": "US6.3", "status": "OK", "target": "BR1.2, BR3.1 e os códigos de recusa da M5 (S11, S12)"},
-    {"id": "U3-NFR2.1", "status": "OK", "target": "RealGateInputsReaderIT.thePaperLedgerIsNeverRead; RealRiskPolicyTest (S7); regra ArchUnit sem pacote PAPER"},
-    {"id": "U3-NFR3.1", "status": "OK", "target": "real_risk_evaluation_seconds{side=BUY} medido depois da trava; RealRiskMeasurementIT (informativo: p95 215 ms ponta a ponta, acima da meta informativa de 150 ms; ver code-summary)"},
-    {"id": "U3-NFR3.2", "status": "OK", "target": "venda lê só M1 e M4; RealRiskMeasurementIT (informativo: p95 13 ms)"},
-    {"id": "U3-NFR3.3", "status": "OK", "target": "WalletLock (20 ms, 1 s, sem SET lock_timeout); real_risk_lock_wait_seconds; WalletLockIT"},
-    {"id": "U3-NFR3.4", "status": "OK", "target": "real_risk_job_seconds{job}; RealRiskMeasurementIT (informativo: F3 e F4 em 340 ms com 21 carteiras)"},
-    {"id": "U3-NFR3.5", "status": "OK", "target": "trava por pessoa; RealRiskMeasurementIT com 21 carteiras, 10 posições e 4 avaliações por segundo"},
-    {"id": "U3-NFR3.6", "status": "OK", "target": "migração 0018: real_risk_evaluation (decision_id único, bot/dia/lado/resultado), real_risk_reservation (decision_id único, carteira/estado, parcial OPEN), real_risk_day (carteira, dia), real_blocked_token (rede, mint)"},
-    {"id": "U3-NFR3.7", "status": "Partial", "target": "RealRiskPurgeJob (04:00 UTC, ShedLock real-risk-purge, pool risk_retention, lotes de 1.000, real_risk_purge_run); gatilho de 13 meses; RealRiskPurgeJobIT. Falta a linha no registro de retenção (RetentionCatalog e política de privacidade v2): exige nova versão do texto legal, decisão do responsável (code-summary, pendências)"},
-    {"id": "U3-NFR4.1", "status": "OK", "target": "RealGateInputsReader (RealGateUnavailable por dependência); TransactionalRealRiskGate conta e relança; RealGateInputsReaderTest"},
-    {"id": "U3-NFR4.2", "status": "OK", "target": "TransactionalRealRiskGate (procura por decision_id antes de ler; ON CONFLICT na venda); TransactionalRealRiskGateIT (S5c, recusa repetida, duas vendas simultâneas)"},
-    {"id": "U3-NFR4.3", "status": "OK", "target": "TransactionalRealRiskGateIT.twoSimultaneousBuysNeverPassTheCapTogether e theHandOverAndACycleOfTheSameWalletNeverCountABuyTwiceNorMissIt"},
-    {"id": "U3-NFR4.4", "status": "OK", "target": "RealRiskJobs (ShedLock por trabalho, idempotentes, batimento só depois do sucesso); RealRiskSchedule (worker); RealRiskJobsIT"},
-    {"id": "U3-NFR4.5", "status": "OK", "target": "foto, reservas e pausa no banco (real_risk_day, real_risk_reservation, real_preferences.paused_since); nenhum estado só em memória; revisão R-06: savePreferences da U1 muda só o motivo USER, de forma atômica, e nunca apaga uma pausa DAILY_LOSS concorrente (RealStateQueryIT.savingThePreferencesOfThePersonNeverDropsAPauseOfTheBarrier)"},
-    {"id": "U3-NFR4.6", "status": "OK", "target": "MANDATORY em evaluate e handOver; TransactionalRealRiskGateIT.aRolledBackCycleLeavesNothing; RealRiskJobsIT.thePauseLostWithARolledBackCycleIsRedoneByTheJob"},
-    {"id": "U3-NFR4.7", "status": "OK", "target": "RealRiskArchitectureTest.BOTWALLET_WITHOUT_RISKCONTROL com BarrierUsingFixture"},
-    {"id": "U3-NFR4.8", "status": "OK", "target": "noRollbackFor RealGateUnavailable no estouro da trava; revisão R-02: RealGateUnavailable.transactionUsable() (false com erro de SQL, e então a transação é marcada para desfazer); WalletLockIT e TransactionalRealRiskGateIT (transação utilizável depois de 1 s); RealGateInputsReaderIT.aSqlFailureInAReadAbortsTheTransactionOfTheCallerAndTheFailureSaysSo"},
-    {"id": "U3-NFR5.1", "status": "OK", "target": "RealRiskMetrics.evaluated (real_risk_evaluations_total{side,outcome,code,detail}); RealRiskMetricsTest"},
-    {"id": "U3-NFR5.2", "status": "OK", "target": "real_risk_evaluation_seconds{side} com buckets 0,01 a 1 s; RealRiskMetricsTest.theEvaluationHasTheBucketsOfTheRequirement"},
-    {"id": "U3-NFR5.3", "status": "OK", "target": "real_risk_lock_wait_seconds (buckets até 1 s)"},
-    {"id": "U3-NFR5.4", "status": "OK", "target": "RealRiskReservationGauge (só no worker, a cada 30 s); RealRiskMetricsTest"},
-    {"id": "U3-NFR5.5", "status": "OK", "target": "real_risk_reservations_expired_total (F5 e handOver)"},
-    {"id": "U3-NFR5.6", "status": "OK", "target": "real_risk_daily_loss_pauses_total (barreira e F4)"},
-    {"id": "U3-NFR5.7", "status": "OK", "target": "real_risk_errors_total{dependency} registrado em zero para as cinco dependências"},
-    {"id": "U3-NFR5.8", "status": "OK", "target": "real_risk_job_runs_total, real_risk_job_last_success_seconds e real_risk_job_seconds por trabalho (day, daily-loss, reservation-expiry, purge)"},
-    {"id": "U3-NFR5.9", "status": "OK", "target": "alerta RealRiskReservationExpired e alarme real-risk-reservation-expired; RealRiskAlarmParityTest"},
-    {"id": "U3-NFR5.10", "status": "OK", "target": "alerta RealRiskErrors e alarme real-risk-errors; RealRiskAlarmParityTest"},
-    {"id": "U3-NFR5.11", "status": "Deferred", "target": "alerta RealRiskSlow no Prometheus; alarme na nuvem adiado (cloud: deferred) até a decisão do caminho das métricas, como no monitoring-design.md"},
-    {"id": "U3-NFR5.12", "status": "OK", "target": "três alertas RealRiskJobStalled* com real_risk_job_runs_total e absent(), e três alarmes com treat_missing_data = breaching (forma do monitoring-design.md no lugar da do requisito); RealRiskAlarmParityTest"},
-    {"id": "U3-NFR6.1", "status": "OK", "target": "tenant e pessoa da OrderIntent (bot ou autenticação); consultas com tenant; TransactionalRealRiskGateIT; RealStateQueryIT"},
-    {"id": "U3-NFR6.2", "status": "OK", "target": "RealRiskArchitectureTest.BLOCK_LIST_CALLERS com BlockListCallerFixture; auditoria de cada mudança efetiva"},
-    {"id": "U3-NFR6.3", "status": "OK", "target": "LogMasking no mint dos logs; figures só com inteiros da carteira; RealRiskMetricsTest.noLabelEverCarriesAMintAnAddressATenantOrAPerson"},
-    {"id": "U3-NFR8.1", "status": "OK", "target": "RealRiskArchitectureTest.REAL_BOUNDARY (exceção única: RiskRetentionDataSource do expurgo) com BoundaryViolationFixture"},
-    {"id": "U3-NFR8.2", "status": "OK", "target": "RiskControlArchitectureTest (ponto flutuante, BigDecimal.ZERO, rede) e ArchitectureTest valem para riskcontrol.real"},
-    {"id": "U3-NFR8.3", "status": "OK", "target": "RealRiskLimits.checked; RealRiskConfig; RealRiskLimitsTest; RealRiskStartupTest (cada chave)"},
-    {"id": "U3-NFR8.4", "status": "OK", "target": "pacotes riskcontrol.real.domain e riskcontrol.real.infra; M5 em riskcontrol.api"},
-    {"id": "U3-NFR8.5", "status": "OK", "target": "WalletLock pelo JdbcClient, sem SET lock_timeout"},
-    {"id": "U3-NFR8.6", "status": "OK", "target": "0018-real-risk.sql no db.changelog-master.yaml, com rollback por changeset; RealRiskPrivilegesIT"},
-    {"id": "U3-NFR8.7", "status": "OK", "target": "ShedLock existente (LockingTaskExecutor); auditoria pela saída existente (MANDATORY)"},
-    {"id": "U3-NFR8.8", "status": "OK", "target": "testes antes do código nas etapas 3 a 9 (vermelho registrado no code-summary); JUnit 5, AssertJ, Testcontainers, relógio injetável"},
-    {"id": "U3-NFR8.9", "status": "OK", "target": "limites, pausa, unknown nunca zero, REAL/PAPER, tenant e deduplicação cobertos (code-summary, testes obrigatórios por risco)"},
-    {"id": "U3-NFR10.1", "status": "OK", "target": "long, BigDecimal, pontos-base, arredondamento para baixo; RealRiskPolicyTest$ValuationBR52AndBR72"}
-  ]
+    {
+      "id": "AC2.1.1",
+      "status": "N/A",
+      "target": "o campo do teto no perfil é da U6 (unit-of-work-story-map.md: US2.1, regra na U3, campo do teto na U6); a U3 só aplica o teto salvo"
+    },
+    {
+      "id": "AC2.1.2",
+      "status": "N/A",
+      "target": "a recusa de um teto acima do máximo de 10 SOL acontece ao salvar o campo, na U6 (unit-of-work-story-map.md: US2.1, campo do teto na U6); a U3 só aplica o teto salvo"
+    },
+    {
+      "id": "AC2.1.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "AC2.1.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "AC6.1.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "AC6.1.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "AC6.1.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/JdbcRealRiskStore.java"
+    },
+    {
+      "id": "AC6.1.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/WalletLock.java"
+    },
+    {
+      "id": "AC6.1.5",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/JdbcRealRiskStore.java",
+      "note": "a reserva OPEN da barreira e a reserva de ordem do ledger contam no saldo até o handOver ou o vencimento; o estado da ordem ambígua é da U4"
+    },
+    {
+      "id": "AC6.1.6",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealGateInputsReader.java"
+    },
+    {
+      "id": "AC6.2.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "AC6.2.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "AC6.2.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/JdbcRealRiskStore.java"
+    },
+    {
+      "id": "AC6.3.1",
+      "status": "N/A",
+      "target": "os dados reais da fonte paga, com fonte, horário e atribuição, são da U2 (unit-of-work-story-map.md: US6.3, dados na U2, recusa da ordem na U3)"
+    },
+    {
+      "id": "AC6.3.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "AC6.3.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java",
+      "note": "a U3 recusa o sinal com mais de 60 s (SIGNAL_STALE); a cotação de 10 s é conferida na U4 (plano, seção Fora desta Unit)"
+    },
+    {
+      "id": "BR1.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "BR1.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealGateInputsReader.java"
+    },
+    {
+      "id": "BR1.3",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicyTest.java"
+    },
+    {
+      "id": "BR2.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "BR2.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/JdbcRealRiskStore.java"
+    },
+    {
+      "id": "BR2.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/TransactionalRealRiskGate.java"
+    },
+    {
+      "id": "BR2.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "BR3.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "BR3.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicyTest.java"
+    },
+    {
+      "id": "BR4.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "BR4.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/JdbcRealRiskStore.java"
+    },
+    {
+      "id": "BR4.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskJobs.java"
+    },
+    {
+      "id": "BR4.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskJobs.java"
+    },
+    {
+      "id": "BR4.5",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/RealRiskJobsIT.java"
+    },
+    {
+      "id": "BR5.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "BR5.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/LamportPrice.java"
+    },
+    {
+      "id": "BR5.3",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicyTest.java"
+    },
+    {
+      "id": "BR6.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/WalletLock.java"
+    },
+    {
+      "id": "BR6.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/TransactionalRealRiskGate.java"
+    },
+    {
+      "id": "BR6.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealGateInputsReader.java"
+    },
+    {
+      "id": "BR7.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/TransactionalRealRiskGate.java"
+    },
+    {
+      "id": "BR7.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicy.java"
+    },
+    {
+      "id": "BR7.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/api/RealStateQuery.java"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/RealGateInputsReaderIT.java"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/RealRiskMeasurementIT.java",
+      "note": "implementado; medição sintética local na CI (21 carteiras, 10 posições, 4 avaliações/s), sem portão (team.md, Desempenho); a medição na produção, pelas métricas, está pendente; p95 da compra 10 ms para a meta informativa de 150 ms"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/RealRiskMeasurementIT.java",
+      "note": "implementado; medição sintética local na CI (21 carteiras, 10 posições, 4 avaliações/s), sem portão (team.md, Desempenho); a medição na produção, pelas métricas, está pendente; p95 da venda 5 ms para a meta informativa de 30 ms"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/WalletLock.java"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/RealRiskMeasurementIT.java",
+      "note": "implementado; medição sintética local na CI (21 carteiras, 10 posições, 4 avaliações/s), sem portão (team.md, Desempenho); a medição na produção, pelas métricas, está pendente; F3 213 ms e F4 371 ms para a meta informativa de 5 s"
+    },
+    {
+      "id": "NFR3.5",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/RealRiskMeasurementIT.java",
+      "note": "implementado; medição sintética local na CI (21 carteiras, 10 posições, 4 avaliações/s), sem portão (team.md, Desempenho); a medição na produção, pelas métricas, está pendente"
+    },
+    {
+      "id": "NFR3.6",
+      "status": "OK",
+      "target": "apps/api/src/main/resources/db/changelog/changes/0018-real-risk.sql"
+    },
+    {
+      "id": "NFR3.7",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskPurgeJob.java",
+      "note": "expurgo de 13 meses (RealRiskPurgeJobIT); desde a Volta 1 do Build and Test, também a linha REAL_RISK_EVALUATIONS no RetentionCatalog, a declaração real-risk-purge e a linha em terms/v2/retention.tsv; a v2 continua rascunho, pendente da revisão jurídica"
+    },
+    {
+      "id": "NFR4.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealGateInputsReader.java"
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/TransactionalRealRiskGate.java"
+    },
+    {
+      "id": "NFR4.3",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/TransactionalRealRiskGateIT.java"
+    },
+    {
+      "id": "NFR4.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskJobs.java"
+    },
+    {
+      "id": "NFR4.5",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/botwallet/RealStateQueryIT.java"
+    },
+    {
+      "id": "NFR4.6",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/TransactionalRealRiskGateIT.java"
+    },
+    {
+      "id": "NFR4.7",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/RealRiskArchitectureTest.java"
+    },
+    {
+      "id": "NFR4.8",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/WalletLock.java"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskMetrics.java"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskMetrics.java"
+    },
+    {
+      "id": "NFR5.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskMetrics.java"
+    },
+    {
+      "id": "NFR5.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskReservationGauge.java"
+    },
+    {
+      "id": "NFR5.5",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskMetrics.java"
+    },
+    {
+      "id": "NFR5.6",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskMetrics.java"
+    },
+    {
+      "id": "NFR5.7",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskMetrics.java"
+    },
+    {
+      "id": "NFR5.8",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskMetrics.java"
+    },
+    {
+      "id": "NFR5.9",
+      "status": "OK",
+      "target": "infra/observability/real-risk-alerts.yml",
+      "note": "regra validada com promtool; o alarme correspondente está em infra/terraform/modules/observability/real-risk.tf"
+    },
+    {
+      "id": "NFR5.10",
+      "status": "OK",
+      "target": "infra/observability/real-risk-alerts.yml",
+      "note": "regra validada com promtool; o alarme correspondente está em infra/terraform/modules/observability/real-risk.tf"
+    },
+    {
+      "id": "NFR5.11",
+      "status": "Deferred",
+      "target": "o alarme de p95 da compra na nuvem fica adiado até a decisão do caminho das métricas (observability-setup); a regra RealRiskSlow do Prometheus existe em infra/observability/real-risk-alerts.yml e passou no promtool, e o real-risk.tf foi escrito sem esse alarme"
+    },
+    {
+      "id": "NFR5.12",
+      "status": "OK",
+      "target": "infra/observability/real-risk-alerts.yml",
+      "note": "regra validada com promtool; o alarme correspondente está em infra/terraform/modules/observability/real-risk.tf; forma do monitoring-design.md (real_risk_job_runs_total com absent()) no lugar da forma do requisito, como registra o code-summary.md"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/TransactionalRealRiskGateIT.java"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/RealRiskArchitectureTest.java"
+    },
+    {
+      "id": "NFR6.3",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/RealRiskMetricsTest.java"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/RealRiskArchitectureTest.java"
+    },
+    {
+      "id": "NFR8.2",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/architecture/RiskControlArchitectureTest.java"
+    },
+    {
+      "id": "NFR8.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/RealRiskLimits.java"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/api/RealRiskGate.java"
+    },
+    {
+      "id": "NFR8.5",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/WalletLock.java"
+    },
+    {
+      "id": "NFR8.6",
+      "status": "OK",
+      "target": "apps/api/src/main/resources/db/changelog/changes/0018-real-risk.sql"
+    },
+    {
+      "id": "NFR8.7",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskJobs.java"
+    },
+    {
+      "id": "NFR8.8",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/domain/RealRiskPolicyTest.java",
+      "note": "testes escritos antes do código nas etapas 3 a 9 e 15; a saída vermelha está no code-summary.md"
+    },
+    {
+      "id": "NFR8.9",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/TransactionalRealRiskGateIT.java",
+      "note": "limites, pausa, unknown nunca zero, REAL/PAPER, tenant e deduplicação; ver os testes obrigatórios por risco no code-summary.md"
+    },
+    {
+      "id": "NFR10.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/riskcontrol/real/domain/LamportPrice.java"
+    }
+  ],
+  "reverse": []
 }

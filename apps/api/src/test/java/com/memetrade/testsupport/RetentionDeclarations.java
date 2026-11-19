@@ -41,7 +41,9 @@ public final class RetentionDeclarations {
                         RiskControlRetentionDeclarationConfig.class,
                         IdentityRetentionDeclarationConfig.class,
                         // u4-data-requests (BR4.15): the purge of the closed data subject requests.
-                        com.memetrade.privacy.infra.PrivacyRetentionDeclarationConfig.class);
+                        com.memetrade.privacy.infra.PrivacyRetentionDeclarationConfig.class,
+                        // 261113-trading-real-bot U3 (U3-NFR3.7): the purge of the REAL barrier.
+                        com.memetrade.riskcontrol.real.infra.RealRiskRetentionDeclarationConfig.class);
     }
 
     /** The declarations of {@link #context()}, in bean-name order. */

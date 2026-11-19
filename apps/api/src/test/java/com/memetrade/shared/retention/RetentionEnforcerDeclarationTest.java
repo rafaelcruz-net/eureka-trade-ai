@@ -35,7 +35,10 @@ class RetentionEnforcerDeclarationTest {
                         "loginChallengePurge",
                         "sessionPurge",
                         // u4-data-requests (BR4.15).
-                        "dataSubjectRequestPurge");
+                        "dataSubjectRequestPurge",
+                        // 261113-trading-real-bot U3, loop-back 1 of Build and Test (U3-NFR3.7).
+                        "real-risk-purge");
+        assertDeclared(declared, "real-risk-purge", RetentionTerm.months(13), RetentionAnchor.CREATED);
         assertDeclared(declared, "dataSubjectRequestPurge", RetentionTerm.months(12), RetentionAnchor.CONCLUDED);
         assertDeclared(declared, "auditRetention", RetentionTerm.months(12), RetentionAnchor.CREATED);
         assertDeclared(declared, "auditOutboxCleanup", RetentionTerm.days(7), RetentionAnchor.DELIVERED);

@@ -1,0 +1,13 @@
+manifest	3221f4b479670d33d1fdd9050430a3f8e35a7407c046fe09f9b25f3f300a4502	-
+	apps/api/src/main/java/com/memetrade/privacy/domain/RetentionCatalog.java	100644	0868018251acb93efef54def795585b3cb13a626eed54e808028cadc6e066643
+	apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskPurgeJob.java	100644	3873eaaa4bc2b74153db409cbd5e8e1d1dbceae7e6645f449bb4ea88443ed69f
+	apps/api/src/main/java/com/memetrade/riskcontrol/real/infra/RealRiskRetentionDeclarationConfig.java	100644	382083ac83b4456c50b07810a0a5a986cb92ec996b572ac695dd7053259454b2
+	apps/api/src/main/resources/terms/v2/privacy.txt	100644	f5b647b165b114db6e4eb1678adfb687a2293fe72705ff68695413664b2c10eb
+	apps/api/src/main/resources/terms/v2/retention.tsv	100644	36ac382efba98393adaf2346c34cc698a84ca3266336d3ea7ede44327ad17c8c
+	apps/api/src/test/java/com/memetrade/identity/web/LegalDocumentsControllerIT.java	100644	9f494a328d0fbe9b0adaec15498339f5f398ea9c9fd897a83894d068998625ba
+	apps/api/src/test/java/com/memetrade/privacy/RetentionConformanceTest.java	100644	cadc2e8ce78a95bd1271396012edeb0e17a87bf3c8ef854b0d1011a28576593f
+	apps/api/src/test/java/com/memetrade/privacy/domain/RetentionCatalogTest.java	100644	d5786c7a0c73de5cc48e77b9763f59b02dc805941a0e8c013ac738deaea84993
+	apps/api/src/test/java/com/memetrade/privacy/infra/RetentionTableSourceTest.java	100644	e74aa65e6ffe3d59104efdc1c11d3b9723dfbb3153d7faa4bb056c0a6ae51178
+	apps/api/src/test/java/com/memetrade/riskcontrol/real/infra/RealRiskRetentionDeclarationConfigTest.java	100644	dcc6f7a0126806f3ec148db22cd6e83aabe695896e371aabc103d0f5aebbb496
+	apps/api/src/test/java/com/memetrade/shared/retention/RetentionEnforcerDeclarationTest.java	100644	cde3eb21b38fec9d1b0c301b9ab63b62563d3d68920dfc0c846bbaaa2e8a95a5
+	apps/api/src/test/java/com/memetrade/testsupport/RetentionDeclarations.java	100644	4e93c146b9e72f3a578b1618f06c64fa269da74d497bdefc745546103a0f9592
