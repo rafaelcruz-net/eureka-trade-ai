@@ -2,6 +2,23 @@
   "stage": "code-generation",
   "unit": "u5-real-operations",
   "upstream_ids": [
+    "AC3.4.1",
+    "AC3.4.2",
+    "AC7.1.1",
+    "AC7.1.2",
+    "AC7.1.3",
+    "AC7.1.4",
+    "AC7.2.1",
+    "AC7.2.2",
+    "AC7.3.1",
+    "AC8.1.1",
+    "AC8.1.2",
+    "AC8.1.3",
+    "AC8.1.4",
+    "AC8.2.1",
+    "AC8.2.2",
+    "AC8.4.1",
+    "AC8.4.2",
     "BR1.1",
     "BR1.2",
     "BR1.3",
@@ -23,550 +40,542 @@
     "BR6.2",
     "BR7.1",
     "BR7.2",
-    "S1",
-    "S2",
-    "S3",
-    "S4",
-    "S5",
-    "S6",
-    "S7",
-    "S8",
-    "S9",
-    "S10",
-    "S11",
-    "S12",
-    "S13",
-    "S14",
-    "S15",
-    "S16",
-    "S17",
-    "S18",
-    "S19",
-    "S20",
-    "S21",
-    "S22",
-    "S23",
-    "S24",
-    "S25",
-    "S26",
-    "S27",
-    "S28",
-    "S29",
-    "U5-NFR1.1",
-    "U5-NFR1.2",
-    "U5-NFR1.3",
-    "U5-NFR2.1",
-    "U5-NFR3.1",
-    "U5-NFR3.2",
-    "U5-NFR3.3",
-    "U5-NFR3.4",
-    "U5-NFR3.5",
-    "U5-NFR3.6",
-    "U5-NFR3.7",
-    "U5-NFR3.8",
-    "U5-NFR3.9",
-    "U5-NFR4.1",
-    "U5-NFR4.2",
-    "U5-NFR4.3",
-    "U5-NFR4.4",
-    "U5-NFR4.5",
-    "U5-NFR4.6",
-    "U5-NFR5.1",
-    "U5-NFR5.2",
-    "U5-NFR5.3",
-    "U5-NFR5.4",
-    "U5-NFR5.5",
-    "U5-NFR5.6",
-    "U5-NFR5.7",
-    "U5-NFR5.8",
-    "U5-NFR5.9",
-    "U5-NFR5.10",
-    "U5-NFR5.11",
-    "U5-NFR5.12",
-    "U5-NFR5.13",
-    "U5-NFR6.1",
-    "U5-NFR6.2",
-    "U5-NFR6.3",
-    "U5-NFR8.1",
-    "U5-NFR8.2",
-    "U5-NFR8.3",
-    "U5-NFR8.4",
-    "U5-NFR8.5",
-    "U5-NFR8.6",
-    "U5-NFR8.7",
-    "U5-NFR8.8",
-    "U5-NFR10.1"
+    "NFR1.1",
+    "NFR1.2",
+    "NFR1.3",
+    "NFR2.1",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.3",
+    "NFR3.4",
+    "NFR3.5",
+    "NFR3.6",
+    "NFR3.7",
+    "NFR3.8",
+    "NFR3.9",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR4.3",
+    "NFR4.4",
+    "NFR4.5",
+    "NFR4.6",
+    "NFR5.1",
+    "NFR5.2",
+    "NFR5.3",
+    "NFR5.4",
+    "NFR5.5",
+    "NFR5.6",
+    "NFR5.7",
+    "NFR5.8",
+    "NFR5.9",
+    "NFR5.10",
+    "NFR5.11",
+    "NFR5.12",
+    "NFR5.13",
+    "NFR6.1",
+    "NFR6.2",
+    "NFR6.3",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR8.3",
+    "NFR8.4",
+    "NFR8.5",
+    "NFR8.6",
+    "NFR8.7",
+    "NFR8.8",
+    "NFR10.1"
   ],
   "coverage": [
     {
+      "id": "AC3.4.1",
+      "status": "N/A",
+      "target": "a US3.4 (saídas automáticas) é da U7 (unit-of-work-story-map.md); a U5 só fornece o estado do kill switch que a U7 lê pela M7"
+    },
+    {
+      "id": "AC3.4.2",
+      "status": "N/A",
+      "target": "a US3.4 (saídas automáticas) é da U7 (unit-of-work-story-map.md); a venda pelo stop e o lançamento no ledger REAL são construídos lá"
+    },
+    {
+      "id": "AC7.1.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/RealReleases.java",
+      "note": "sem liberação ACTIVE o REAL não vale para ninguém; ReleaseAndGatesIT"
+    },
+    {
+      "id": "AC7.1.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/GatesService.java",
+      "note": "QUARANTINE de 24 horas e portões puros do GateEvaluator (CI verde e reconciliação sem divergência); ReleaseAndGatesIT, GateEvaluatorTest"
+    },
+    {
+      "id": "AC7.1.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/ReleaseRules.java",
+      "note": "FOUNDER_FIRST na MAINNET; ReleaseRulesTest"
+    },
+    {
+      "id": "AC7.1.4",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsStartupChecks.java",
+      "note": "MAINNET só com perfil de produção, fundador, BUILD_SHA e CI do GitHub; RealOpsStartupChecksTest"
+    },
+    {
+      "id": "AC7.2.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/CapService.java",
+      "note": "o teto baixa na hora e o LOWER_CAP vai ao TxSigner; CapAndCommandsIT"
+    },
+    {
+      "id": "AC7.2.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/administration/web/RealAdminController.java",
+      "note": "rota token-blocks pela M5 blockToken; a barreira da U3 (RealRiskPolicy) recusa a compra; RealAdminRoutesIT"
+    },
+    {
+      "id": "AC7.3.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/shared/wallet/WalletDisplay.java",
+      "note": "4 primeiros e 4 últimos caracteres, sem chave; RealAdminRoutesIT"
+    },
+    {
+      "id": "AC8.1.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/RealKillSwitchService.java",
+      "note": "a barreira da U3 recusa toda ordem nova com REAL_PAUSED KILL_SWITCH; KillSwitchIT"
+    },
+    {
+      "id": "AC8.1.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/KillSwitchCancelJob.java",
+      "note": "cancela as não enviadas; as enviadas seguem até o fim; KillSwitchIT"
+    },
+    {
+      "id": "AC8.1.3",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java",
+      "note": "construído pela U7, que lê o estado do kill switch da U5 (M7 RealKillSwitchState); a U5 só publica o estado; o cancelamento depende da TriggerPolicy da U7 (BR1.3), adiada pelo portão BR0; Unverified em cross-unit-traceability.md até a gravação real"
+    },
+    {
+      "id": "AC8.1.4",
+      "status": "OK",
+      "target": "apps/api/src/test/java/com/memetrade/botwallet/KillSwitchIT.java",
+      "note": "o saque continua com o kill switch e as posições ficam como estão"
+    },
+    {
+      "id": "AC8.2.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealReconciliationJob.java",
+      "note": "depois de cada ordem confirmada e a cada 15 minutos; ReconciliationIT"
+    },
+    {
+      "id": "AC8.2.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/DivergenceService.java",
+      "note": "alerta e pausa DIVERGENCE até a compensação; ReconciliationIT, e2e/real-ops/divergence.spec.ts"
+    },
+    {
+      "id": "AC8.4.1",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/BotWalletAnonymizationService.java",
+      "note": "recusa BALANCE, POSITION e ORDER_IN_PROGRESS; BotWalletAnonymizationIT"
+    },
+    {
+      "id": "AC8.4.2",
+      "status": "OK",
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/BotWalletAnonymizationService.java",
+      "note": "sem saldo e sem posição encerra a carteira do bot (DEACTIVATE); BotWalletAnonymizationIT"
+    },
+    {
       "id": "BR1.1",
       "status": "OK",
-      "target": "botwallet/domain/RealRelease, ReleaseState, RealReleases (isEffectiveAt só ACTIVE); migração 0021-real-release-state; ReleaseAndGatesIT, RealOpsMigrationIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/RealReleases.java",
+      "note": "isEffectiveAt só com ACTIVE; ReleaseAndGatesIT, RealOpsMigrationIT"
     },
     {
       "id": "BR1.2",
       "status": "OK",
-      "target": "botwallet/application/ReleaseService.release, domain/ReleaseRules (RELEASE_EXISTS, NO_BOT_WALLET, TERMS_V3_MISSING), índice uq_real_release_open; ReleaseRulesTest, ReleaseAndGatesIT, RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/ReleaseService.java",
+      "note": "RELEASE_EXISTS, NO_BOT_WALLET, TERMS_V3_MISSING; ReleaseRulesTest"
     },
     {
       "id": "BR1.3",
       "status": "OK",
-      "target": "ReleaseRules (FOUNDER_FIRST, PILOT_FULL, MAX_GUESTS 20), trava consultiva da MAINNET em JdbcRealOpsStore; ReleaseRulesTest, ReleaseAndGatesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/ReleaseRules.java",
+      "note": "FOUNDER_FIRST, PILOT_FULL e MAX_GUESTS 20; ReleaseRulesTest"
     },
     {
       "id": "BR1.4",
       "status": "OK",
-      "target": "botwallet/domain/GateEvaluator, application/GatesService, infra/GatesJob, infra/github/GitHubCiStatus, ConfiguredCiStatus; GateEvaluatorTest, GitHubCiStatusTest, ConfiguredCiStatusTest, ReleaseAndGatesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/GateEvaluator.java",
+      "note": "GateEvaluatorTest, GitHubCiStatusTest, ReleaseAndGatesIT"
     },
     {
       "id": "BR1.5",
       "status": "OK",
-      "target": "botwallet/infra/RealOpsStartupChecks, RealOpsConfig; RealOpsStartupChecksTest"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsStartupChecks.java",
+      "note": "RealOpsStartupChecksTest"
     },
     {
       "id": "BR1.6",
       "status": "OK",
-      "target": "ReleaseService.revoke (M6 cancelUnsent REAL_DISABLED), administration/web/RealAdminController.revoke sob RealRiskGate.withPersonLock; ReleaseAndGatesIT, RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/ReleaseService.java",
+      "note": "revoke com M6 cancelUnsent REAL_DISABLED; ReleaseAndGatesIT"
     },
     {
       "id": "BR2.1",
       "status": "OK",
-      "target": "botwallet/domain/ReconciliationPolicy, application/ReconciliationService, infra/RealReconciliationJob, ReconciliationReader, chain/RpcChainWatcher, M6 ordersInTransit; ReconciliationPolicyTest, ReconciliationIT, ChainWatcherOpsTest"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/ReconciliationPolicy.java",
+      "note": "ReconciliationPolicyTest, ReconciliationIT"
     },
     {
       "id": "BR2.2",
       "status": "OK",
-      "target": "application/DivergenceService (pausa DIVERGENCE, uma divergência aberta por carteira); ReconciliationIT, RealOpsGaugesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/DivergenceService.java",
+      "note": "uma divergência aberta por carteira; ReconciliationIT, RealOpsGaugesIT"
     },
     {
       "id": "BR2.3",
       "status": "OK",
-      "target": "domain/CompensationRules, DivergenceService.compensate, ledger RealEntry.compensation e RealEntryRules (token), RealAdminController.compensate; CompensationRulesTest, ReconciliationIT, RealAdminRoutesIT, e2e real-ops/divergence.spec.ts"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/CompensationRules.java",
+      "note": "CompensationRulesTest, ReconciliationIT, e2e/real-ops/divergence.spec.ts"
     },
     {
       "id": "BR2.4",
       "status": "OK",
-      "target": "domain/WithdrawalLimit, BotWalletService.reserve (WITHDRAWAL_LIMITED_BY_DIVERGENCE); WithdrawalLimitTest, WithdrawalLimitIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/WithdrawalLimit.java",
+      "note": "WITHDRAWAL_LIMITED_BY_DIVERGENCE; WithdrawalLimitTest, WithdrawalLimitIT"
     },
     {
       "id": "BR2.5",
       "status": "OK",
-      "target": "domain/RestoreCheck, application/RestoreService, infra/RestoreDetector, GlobalPauses, M6 knownTransactions, RealAdminController.confirmRestore; RestoreCheckTest, RestoreIT, RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/RestoreService.java",
+      "note": "RestoreCheckTest, RestoreIT"
     },
     {
       "id": "BR3.1",
       "status": "OK",
-      "target": "botwallet/api/RealKillSwitchState (M7), application/RealKillSwitchService, infra/KillSwitchRows, KillSwitchCancelJob, GlobalPauses, RealRiskPolicy (KILL_SWITCH), BotWalletViews (pausa global na visão da pessoa); KillSwitchIT, RealRiskPolicyGlobalPausesTest, RealStateGlobalPausesTest, RealExecutionRecheckTest"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/RealKillSwitchService.java",
+      "note": "KillSwitchIT, RealRiskPolicyGlobalPausesTest, RealStateGlobalPausesTest"
     },
     {
       "id": "BR3.2",
       "status": "OK",
-      "target": "RealKillSwitchService.deactivate; KillSwitchIT, RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/RealKillSwitchService.java",
+      "note": "deactivate; KillSwitchIT, RealAdminRoutesIT"
     },
     {
       "id": "BR4.1",
       "status": "OK",
-      "target": "domain/CapRules, application/CapService, TxSignerCommandService (LOWER_CAP reenviado), infra/TxSignerCommandJob; CapRulesTest, CapAndCommandsIT, RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/CapRules.java",
+      "note": "CapRulesTest, CapAndCommandsIT"
     },
     {
       "id": "BR4.2",
       "status": "OK",
-      "target": "riskcontrol M5 blockToken, unblockToken e blockedTokens; RealAdminController token-blocks; RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/administration/web/RealAdminController.java",
+      "note": "token-blocks pela M5 blockToken e unblockToken; RealAdminRoutesIT"
     },
     {
       "id": "BR4.6",
       "status": "OK",
-      "target": "TxSignerCommandService.deactivate (DEACTIVATE como consentimento CLOSE; WALLET_NOT_FOUND conta como confirmado), HttpTxSignerClient.close; CapAndCommandsIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/TxSignerCommandService.java",
+      "note": "DEACTIVATE como consentimento CLOSE; WALLET_NOT_FOUND conta como confirmado; CapAndCommandsIT"
     },
     {
       "id": "BR5.1",
       "status": "OK",
-      "target": "botwallet/application/RealAdministrationService (visão), shared/wallet/WalletDisplay, AdminViewStore em JdbcRealOpsStore, RealAdminController users; RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/RealAdministrationService.java",
+      "note": "visão do administrador; RealAdminRoutesIT"
     },
     {
       "id": "BR6.1",
       "status": "OK",
-      "target": "application/BotWalletAnonymizationService, api/RealAnonymization, privacy AnonymizationService (recusas BALANCE, POSITION, ORDER_IN_PROGRESS); BotWalletAnonymizationIT, NoWalletAddressAfterAnonymizationIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/BotWalletAnonymizationService.java",
+      "note": "BotWalletAnonymizationIT, NoWalletAddressAfterAnonymizationIT"
     },
     {
       "id": "BR6.2",
       "status": "OK",
-      "target": "função redact_real_wallet_audit da 0021, withdrawal.redacted_at, comando DEACTIVATE; BotWalletAnonymizationIT, RealOpsMigrationIT"
+      "target": "apps/api/src/main/resources/db/changelog/changes/0021-real-operations.sql",
+      "note": "função redact_real_wallet_audit; BotWalletAnonymizationIT, RealOpsMigrationIT"
     },
     {
       "id": "BR7.1",
       "status": "OK",
-      "target": "RealAudit.admin e RealAudit.global (liberação, kill switch, teto, divergência, encerramento); ReleaseAndGatesIT, KillSwitchIT, CapAndCommandsIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealAudit.java",
+      "note": "ReleaseAndGatesIT, KillSwitchIT, CapAndCommandsIT"
     },
     {
       "id": "BR7.2",
       "status": "OK",
-      "target": "RealAdminController (ADMIN, Idempotency-Key, motivo de 1 a 500), IdempotentOperation REAL_ADMIN_*, RealAdminErrors (RFC 7807); RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/administration/web/RealAdminController.java",
+      "note": "ADMIN, Idempotency-Key e motivo de 1 a 500; RealAdminRoutesIT"
     },
     {
-      "id": "S1",
+      "id": "NFR1.1",
       "status": "OK",
-      "target": "ReleaseAndGatesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/github/GitHubCiStatus.java",
+      "note": "token só no worker e fora do toString; GitHubCiStatusTest, RealOpsStartupChecksTest"
     },
     {
-      "id": "S2",
+      "id": "NFR1.2",
       "status": "OK",
-      "target": "ReleaseAndGatesIT"
+      "target": "apps/api/src/test/java/com/memetrade/botwallet/RealOpsArchitectureTest.java",
+      "note": "OPERATIONS_NEVER_SIGN: só LOWER_CAP e DEACTIVATE chegam ao TxSigner"
     },
     {
-      "id": "S3",
+      "id": "NFR1.3",
       "status": "OK",
-      "target": "ReleaseAndGatesIT, GateEvaluatorTest"
+      "target": "apps/api/src/main/resources/db/changelog/changes/0021-real-operations.sql",
+      "note": "privilégios e gatilhos da 0021; RealOpsMigrationIT"
     },
     {
-      "id": "S4",
+      "id": "NFR2.1",
       "status": "OK",
-      "target": "ReleaseAndGatesIT, GateEvaluatorTest"
+      "target": "apps/api/src/test/java/com/memetrade/botwallet/RealOpsArchitectureTest.java",
+      "note": "RECONCILIATION_WITHOUT_PAPER"
     },
     {
-      "id": "S5",
+      "id": "NFR3.1",
       "status": "OK",
-      "target": "ReleaseAndGatesIT, ReleaseRulesTest"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealReconciliationJob.java",
+      "note": "medição pendente: a Volta 1 do Build and Test marca a meta como Unverified (performance-validation); o comportamento está testado sem tempo, sem portão de desempenho (team.md, Desempenho); p95 de 5 s por carteira; ReconciliationIT"
     },
     {
-      "id": "S6",
+      "id": "NFR3.2",
       "status": "OK",
-      "target": "ReleaseAndGatesIT, ReleaseRulesTest"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/chain/RpcBudget.java",
+      "note": "medição pendente: a Volta 1 do Build and Test marca a meta como Unverified (performance-validation); o comportamento está testado sem tempo, sem portão de desempenho (team.md, Desempenho); 60 s por rodada; ChainWatcherOpsTest"
     },
     {
-      "id": "S7",
+      "id": "NFR3.3",
       "status": "OK",
-      "target": "ReleaseAndGatesIT, ReleaseRulesTest"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsMetrics.java",
+      "note": "medição pendente: a Volta 1 do Build and Test marca a meta como Unverified (performance-validation); o comportamento está testado sem tempo, sem portão de desempenho (team.md, Desempenho); 10 s por execução dos portões; RealOpsMetricsTest"
     },
     {
-      "id": "S8",
+      "id": "NFR3.4",
       "status": "OK",
-      "target": "RealOpsStartupChecksTest"
+      "target": "apps/api/src/test/java/com/memetrade/administration/RealAdminRoutesIT.java",
+      "note": "medição pendente: a Volta 1 do Build and Test marca a meta como Unverified (performance-validation); o comportamento está testado sem tempo, sem portão de desempenho (team.md, Desempenho); p95 de 500 ms das rotas de usuários"
     },
     {
-      "id": "S9",
+      "id": "NFR3.5",
       "status": "OK",
-      "target": "ReleaseAndGatesIT, RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/GlobalPauses.java",
+      "note": "leitura viva da M7 sem cache; KillSwitchIT"
     },
     {
-      "id": "S10",
+      "id": "NFR3.6",
       "status": "OK",
-      "target": "ReconciliationIT"
+      "target": "apps/api/src/main/resources/db/changelog/changes/0021-real-operations.sql",
+      "note": "índices da 0021; RealOpsMigrationIT"
     },
     {
-      "id": "S11",
+      "id": "NFR3.7",
       "status": "OK",
-      "target": "ReconciliationIT, e2e real-ops/divergence.spec.ts"
+      "target": "apps/api/src/main/resources/application-worker.yml",
+      "note": "33 conexões e 25 threads; ComposeFilesTest, WorkerProcessRoleContextIT, RuntimeSettingsGuardWorkerCountTest"
     },
     {
-      "id": "S12",
+      "id": "NFR3.8",
       "status": "OK",
-      "target": "ReconciliationIT, ReconciliationPolicyTest"
+      "target": "apps/api/src/main/resources/db/changelog/changes/0021-real-operations.sql",
+      "note": "índices únicos parciais da 0021; RealOpsMigrationIT"
     },
     {
-      "id": "S13",
+      "id": "NFR3.9",
       "status": "OK",
-      "target": "ReconciliationIT, RealAdminRoutesIT, e2e real-ops/divergence.spec.ts"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsPurgeJob.java",
+      "note": "pool risk_retention e NOT EXISTS; RealOpsPurgeJobIT"
     },
     {
-      "id": "S14",
+      "id": "NFR4.1",
       "status": "OK",
-      "target": "CompensationRulesTest, RealAdminRoutesIT, e2e real-ops/divergence.spec.ts (o valor errado é recusado com 422 COMPENSATION_MISMATCH; a divergência continua OPEN e a pausa continua)"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/KillSwitchRows.java",
+      "note": "compare-and-set; KillSwitchIT"
     },
     {
-      "id": "S15",
+      "id": "NFR4.2",
       "status": "OK",
-      "target": "WithdrawalLimitTest, WithdrawalLimitIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsPurgeJob.java",
+      "note": "ShedLock nos trabalhos; RealOpsPurgeJobIT, ReleaseAndGatesIT, CapAndCommandsIT"
     },
     {
-      "id": "S16",
+      "id": "NFR4.3",
       "status": "OK",
-      "target": "KillSwitchIT, RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/ReconciliationReader.java",
+      "note": "falha de RPC vira UNAVAILABLE, nunca divergência; ReconciliationIT"
     },
     {
-      "id": "S17",
+      "id": "NFR4.4",
       "status": "OK",
-      "target": "KillSwitchIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RestoreDetector.java",
+      "note": "bloqueia ordens novas e nunca o saque; RestoreIT"
     },
     {
-      "id": "S18",
+      "id": "NFR4.5",
       "status": "OK",
-      "target": "CapAndCommandsIT"
+      "target": "apps/api/src/test/java/com/memetrade/botwallet/WithdrawalLimitIT.java",
+      "note": "saque com cada trabalho da U5 parado; KillSwitchIT, RestoreIT"
     },
     {
-      "id": "S19",
+      "id": "NFR4.6",
       "status": "OK",
-      "target": "CapRulesTest, RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/CompensationRules.java",
+      "note": "ledger só de inclusão e recusa de valor diferente; CompensationRulesTest"
     },
     {
-      "id": "S20",
+      "id": "NFR5.1",
       "status": "OK",
-      "target": "barreira da U3 (RealRiskPolicy, token bloqueado) com a lista de R4; RealAdminRoutesIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsGaugesJob.java",
+      "note": "RealOpsMetricsTest, RealOpsGaugesIT"
     },
     {
-      "id": "S21",
+      "id": "NFR5.2",
       "status": "OK",
-      "target": "RealAdminRoutesIT, e2e real-ops/divergence.spec.ts"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsMetrics.java",
+      "note": "RealOpsMetricsTest"
     },
     {
-      "id": "S22",
+      "id": "NFR5.3",
       "status": "OK",
-      "target": "BotWalletAnonymizationIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsGaugesJob.java",
+      "note": "RealOpsGaugesIT"
     },
     {
-      "id": "S23",
+      "id": "NFR5.4",
       "status": "OK",
-      "target": "BotWalletAnonymizationIT, NoWalletAddressAfterAnonymizationIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsGaugesJob.java",
+      "note": "RealOpsGaugesIT"
     },
     {
-      "id": "S24",
+      "id": "NFR5.5",
       "status": "OK",
-      "target": "RestoreIT, RestoreCheckTest"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsGaugesJob.java",
+      "note": "RealOpsGaugesIT"
     },
     {
-      "id": "S25",
+      "id": "NFR5.6",
       "status": "OK",
-      "target": "decision JdbcDecisionRepository.NewDecision(mode), bots CycleRunner.decisionMode, migração 0021-widened-enums; RealBotDecisionModeTest, RecordedSwapCycleIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsMetrics.java",
+      "note": "zero na subida; RealOpsMetricsTest"
     },
     {
-      "id": "S26",
+      "id": "NFR5.7",
       "status": "OK",
-      "target": "KillSwitchIT"
+      "target": "infra/observability/real-ops-alerts.yml",
+      "note": "regra do Prometheus validada com promtool na CI e paridade em RealOpsAlarmParityTest (Met no build-and-test-summary.md); o alarme na nuvem está em infra/terraform/modules/observability/real-ops.tf e segue adiado até a decisão do caminho das métricas até o CloudWatch; o e2e/real-ops/divergence.spec.ts abre a divergência"
     },
     {
-      "id": "S27",
+      "id": "NFR5.8",
       "status": "OK",
-      "target": "ReleaseAndGatesIT"
+      "target": "infra/observability/real-ops-alerts.yml",
+      "note": "regra do Prometheus validada com promtool na CI e paridade em RealOpsAlarmParityTest (Met no build-and-test-summary.md); o alarme na nuvem está em infra/terraform/modules/observability/real-ops.tf e segue adiado até a decisão do caminho das métricas até o CloudWatch"
     },
     {
-      "id": "S28",
+      "id": "NFR5.9",
       "status": "OK",
-      "target": "RealOpsStartupChecksTest"
+      "target": "infra/observability/real-ops-alerts.yml",
+      "note": "regra do Prometheus validada com promtool na CI e paridade em RealOpsAlarmParityTest (Met no build-and-test-summary.md); o alarme na nuvem está em infra/terraform/modules/observability/real-ops.tf e segue adiado até a decisão do caminho das métricas até o CloudWatch"
     },
     {
-      "id": "S29",
+      "id": "NFR5.10",
       "status": "OK",
-      "target": "ReleaseAndGatesIT, GitHubCiStatusTest"
+      "target": "infra/observability/real-ops-alerts.yml",
+      "note": "regra do Prometheus validada com promtool na CI e paridade em RealOpsAlarmParityTest (Met no build-and-test-summary.md); o alarme na nuvem está em infra/terraform/modules/observability/real-ops.tf e segue adiado até a decisão do caminho das métricas até o CloudWatch"
     },
     {
-      "id": "U5-NFR1.1",
+      "id": "NFR5.11",
       "status": "OK",
-      "target": "infra/github/GitHubCiStatus (token só no worker, toString sem token), RealOpsStartupChecks, segredo github-actions-read-token em infra/terraform/modules/services/github-actions.tf; GitHubCiStatusTest, RealOpsStartupChecksTest"
+      "target": "infra/observability/real-ops-alerts.yml",
+      "note": "regra do Prometheus validada com promtool na CI e paridade em RealOpsAlarmParityTest (Met no build-and-test-summary.md); o alarme na nuvem está em infra/terraform/modules/observability/real-ops.tf e segue adiado até a decisão do caminho das métricas até o CloudWatch"
     },
     {
-      "id": "U5-NFR1.2",
+      "id": "NFR5.12",
       "status": "OK",
-      "target": "RealAdminController só ADMIN; route-registry ADMIN; AdminGuestRoutesIT, RealAdminRoutesIT"
+      "target": "infra/observability/real-ops-alerts.yml",
+      "note": "regra do Prometheus validada com promtool na CI e paridade em RealOpsAlarmParityTest (Met no build-and-test-summary.md); o alarme na nuvem está em infra/terraform/modules/observability/real-ops.tf e segue adiado até a decisão do caminho das métricas até o CloudWatch"
     },
     {
-      "id": "U5-NFR1.3",
+      "id": "NFR5.13",
       "status": "OK",
-      "target": "privilégios e gatilhos de idade da 0021; RealOpsMigrationIT"
+      "target": "infra/observability/real-ops-alerts.yml",
+      "note": "regra do Prometheus validada com promtool na CI e paridade em RealOpsAlarmParityTest (Met no build-and-test-summary.md); o alarme na nuvem está em infra/terraform/modules/observability/real-ops.tf e segue adiado até a decisão do caminho das métricas até o CloudWatch; o restore-check usa metric math no CloudWatch"
     },
     {
-      "id": "U5-NFR2.1",
+      "id": "NFR6.1",
       "status": "OK",
-      "target": "RealOpsArchitectureTest (fronteiras, sem rede na API, sem ponto flutuante)"
+      "target": "apps/api/src/main/java/com/memetrade/administration/web/RealAdminController.java",
+      "note": "só ADMIN pela entrada administrativa; RealOpsArchitectureTest, U8ArchitectureTest"
     },
     {
-      "id": "U5-NFR3.1",
+      "id": "NFR6.2",
       "status": "OK",
-      "target": "RealReconciliationJob (executor de 4 linhas, tick de 15 s); ReconciliationIT"
+      "target": "apps/api/src/test/java/com/memetrade/administration/RealAdminRoutesIT.java",
+      "note": "Idempotency-Key, motivo e evento de auditoria por mudança"
     },
     {
-      "id": "U5-NFR3.2",
+      "id": "NFR6.3",
       "status": "OK",
-      "target": "RpcBudget (cotas RECONCILIATION e RESTORE_CHECK); ChainWatcherOpsTest"
+      "target": "apps/api/src/main/java/com/memetrade/shared/wallet/WalletDisplay.java",
+      "note": "RealAdminRoutesIT confere o conteúdo da resposta"
     },
     {
-      "id": "U5-NFR3.3",
+      "id": "NFR8.1",
       "status": "OK",
-      "target": "histograma real_reconciliation (SLO de 0,5 a 30 s); RealOpsMetricsTest"
+      "target": "apps/api/src/test/java/com/memetrade/botwallet/RealOpsArchitectureTest.java",
+      "note": "NETWORK_ONLY_IN_GITHUB_AND_RPC"
     },
     {
-      "id": "U5-NFR3.4",
+      "id": "NFR8.2",
       "status": "OK",
-      "target": "RpcChainWatcher (getTokenAccountsByOwner nos programas Token e Token-2022, slot finalizado); ChainWatcherOpsTest"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsStartupChecks.java",
+      "note": "RealOpsStartupChecksTest"
     },
     {
-      "id": "U5-NFR3.5",
+      "id": "NFR8.3",
       "status": "OK",
-      "target": "leitura viva da M7 sem cache (GlobalPauses); KillSwitchIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/ReconciliationService.java",
+      "note": "liberação, reconciliação, divergência, saque, restauração e comandos em botwallet"
     },
     {
-      "id": "U5-NFR3.6",
+      "id": "NFR8.4",
       "status": "OK",
-      "target": "índices da 0021; RealOpsMigrationIT"
+      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/github/GitHubCiStatus.java",
+      "note": "RestClient do Spring com tempo limite de 5 s; desvios registrados no code-summary.md: o adaptador ficou em botwallet.infra.github e não usa Resilience4j (qualquer erro vira UNREACHABLE e bloqueia a liberação com CI_UNREACHABLE); as rotas R4 ficam em administration (RealAdminController)"
     },
     {
-      "id": "U5-NFR3.7",
+      "id": "NFR8.5",
       "status": "OK",
-      "target": "application-worker.yml (33 conexões, 25 threads), RuntimeSettingsGuard, docker-compose.yml; ComposeFilesTest, WorkerProcessRoleContextIT, U4..U8 SettingsTest, RuntimeSettingsGuardWorkerCountTest"
+      "target": "apps/api/src/main/java/com/memetrade/privacy/domain/anonymization/AnonymizationService.java",
+      "note": "chama a M1; NoWalletAddressAfterAnonymizationIT"
     },
     {
-      "id": "U5-NFR3.8",
+      "id": "NFR8.6",
       "status": "OK",
-      "target": "índices únicos parciais da 0021; RealOpsMigrationIT"
+      "target": "apps/api/src/main/resources/db/changelog/changes/0021-real-operations.sql",
+      "note": "só expansão, com pré-condição de duplicatas e rollback por changeset; RealOpsMigrationIT"
     },
     {
-      "id": "U5-NFR3.9",
+      "id": "NFR8.7",
       "status": "OK",
-      "target": "migração 0021 e infra/RealOpsPurgeJob (pool risk_retention, NOT EXISTS, divergências antes das reconciliações); RealOpsPurgeJobIT, RealOpsMigrationIT, RiskControlArchitectureTest, RealRiskArchitectureTest"
+      "target": "scripts/verify.sh",
+      "note": "aplicado pelo responsável na Volta 1 do Build and Test: e2e/real-ops na lista de specs do verify.sh; CI 44228007586 job e2e, 4 testes de e2e/real-ops/divergence.spec.ts verdes"
     },
     {
-      "id": "U5-NFR4.1",
+      "id": "NFR8.8",
       "status": "OK",
-      "target": "CAS do kill switch (KillSwitchRows); KillSwitchIT"
+      "target": ".github/workflows/ci.yml",
+      "note": "aplicado pelo responsável na Volta 1 do Build and Test: BUILD_SHA nos jobs smoke e e2e e real-ops-alerts no promtool (13 regras); os testes obrigatórios por risco da U5 (KillSwitchIT, WithdrawalLimitIT, BotWalletAnonymizationIT, RealOpsMigrationIT) passaram no CI 44228007586"
     },
     {
-      "id": "U5-NFR4.2",
+      "id": "NFR10.1",
       "status": "OK",
-      "target": "ShedLock nos trabalhos do worker e no real-ops-purge; RealOpsPurgeJobIT, ReleaseAndGatesIT, CapAndCommandsIT"
-    },
-    {
-      "id": "U5-NFR4.3",
-      "status": "OK",
-      "target": "ReconciliationReader (falha de RPC vira UNAVAILABLE, nunca divergência); ReconciliationIT"
-    },
-    {
-      "id": "U5-NFR4.4",
-      "status": "OK",
-      "target": "TxSignerCommandService (reenvio idempotente por commandId); CapAndCommandsIT"
-    },
-    {
-      "id": "U5-NFR4.5",
-      "status": "OK",
-      "target": "saque sempre disponível; KillSwitchIT, WithdrawalLimitIT, RestoreIT"
-    },
-    {
-      "id": "U5-NFR4.6",
-      "status": "OK",
-      "target": "RestoreDetector na subida e BotWalletJobs sem varredura durante CHECK_PENDING; RestoreIT"
-    },
-    {
-      "id": "U5-NFR5.1",
-      "status": "OK",
-      "target": "RealOpsMetrics e RealOpsGaugesJob (real_releases, real_release_blocked_oldest_seconds, real_release_blocks_total); RealOpsMetricsTest, RealOpsGaugesIT"
-    },
-    {
-      "id": "U5-NFR5.2",
-      "status": "OK",
-      "target": "real_reconciliations_total{result}, real_reconciliation_seconds; RealOpsMetricsTest"
-    },
-    {
-      "id": "U5-NFR5.3",
-      "status": "OK",
-      "target": "real_divergences_open, real_reconciliation_deferred_over_2h; RealOpsGaugesIT"
-    },
-    {
-      "id": "U5-NFR5.4",
-      "status": "OK",
-      "target": "real_kill_switch_active, real_kill_switch_unsent_orders (M6 unsentOrders), real_restore_pause_active{phase}; RealOpsGaugesIT"
-    },
-    {
-      "id": "U5-NFR5.5",
-      "status": "OK",
-      "target": "real_pending_txsigner_commands{kind}, real_pending_txsigner_oldest_seconds; RealOpsGaugesIT"
-    },
-    {
-      "id": "U5-NFR5.6",
-      "status": "OK",
-      "target": "real_ops_job_runs_total{job} e real_ops_job_seconds{job}, com zero na subida; RealOpsMetricsTest"
-    },
-    {
-      "id": "U5-NFR5.7",
-      "status": "OK",
-      "target": "real-ops-alerts.yml RealOpsDivergenceOpen e real-ops.tf; RealOpsAlarmParityTest, promtool"
-    },
-    {
-      "id": "U5-NFR5.8",
-      "status": "OK",
-      "target": "RealOpsRestorePause; RealOpsAlarmParityTest, promtool"
-    },
-    {
-      "id": "U5-NFR5.9",
-      "status": "OK",
-      "target": "RealOpsKillSwitchOn; RealOpsAlarmParityTest, promtool"
-    },
-    {
-      "id": "U5-NFR5.10",
-      "status": "OK",
-      "target": "RealOpsReconciliationDeferred; RealOpsAlarmParityTest, promtool"
-    },
-    {
-      "id": "U5-NFR5.11",
-      "status": "OK",
-      "target": "RealOpsTxsignerCommandPending; RealOpsAlarmParityTest, promtool"
-    },
-    {
-      "id": "U5-NFR5.12",
-      "status": "OK",
-      "target": "RealOpsReleaseBlocked; RealOpsAlarmParityTest, promtool"
-    },
-    {
-      "id": "U5-NFR5.13",
-      "status": "OK",
-      "target": "RealOpsJobStalled* (7 trabalhos; restore-check por metric math no CloudWatch); RealOpsAlarmParityTest, promtool, terraform validate"
-    },
-    {
-      "id": "U5-NFR6.1",
-      "status": "OK",
-      "target": "RealAdminController só pela M1, M5 e M7; RealOpsArchitectureTest, U8ArchitectureTest"
-    },
-    {
-      "id": "U5-NFR6.2",
-      "status": "OK",
-      "target": "idempotência comum em toda mudança de R4; RealAdminRoutesIT"
-    },
-    {
-      "id": "U5-NFR6.3",
-      "status": "OK",
-      "target": "visão sem chave e com a carteira principal abreviada (WalletDisplay); RealAdminRoutesIT"
-    },
-    {
-      "id": "U5-NFR8.1",
-      "status": "OK",
-      "target": "REAL desligado por padrão; liberação só vale ACTIVE; ReleaseAndGatesIT"
-    },
-    {
-      "id": "U5-NFR8.2",
-      "status": "OK",
-      "target": "MAINNET só com perfil de produção, fundador, BUILD_SHA e CI do GitHub; RealOpsStartupChecksTest"
-    },
-    {
-      "id": "U5-NFR8.3",
-      "status": "OK",
-      "target": "BUILD_SHA nos Dockerfiles da API e do TxSigner e no docker-compose.yml; ComposeFilesTest"
-    },
-    {
-      "id": "U5-NFR8.4",
-      "status": "OK",
-      "target": "openapi-admin.yaml regenerado e tipos do app administrativo; AdminOpenApiContractTest, check:api"
-    },
-    {
-      "id": "U5-NFR8.5",
-      "status": "OK",
-      "target": "route-registry (ADMIN e trabalhos GLOBAL); AdminGuestRoutesIT, testes do registro"
-    },
-    {
-      "id": "U5-NFR8.6",
-      "status": "OK",
-      "target": "migração 0021 com pré-condição de duplicatas e rollback do CHECK do saque; RealOpsMigrationIT; docs/runbooks/real-operations.md"
-    },
-    {
-      "id": "U5-NFR8.7",
-      "status": "PARTIAL",
-      "target": "e2e apps/web/e2e/real-ops/divergence.spec.ts, mint feito à mão em local-validator.ts, variáveis do worker em infra/docker-compose.real.yml; a inclusão no verify.sh é do responsável (texto no code-summary.md)"
-    },
-    {
-      "id": "U5-NFR8.8",
-      "status": "PARTIAL",
-      "target": "texto pronto do ci.yml (BUILD_SHA, real-ops-alerts no promtool) no code-summary.md; aplicação pelo responsável"
-    },
-    {
-      "id": "U5-NFR10.1",
-      "status": "OK",
-      "target": "docs/runbooks/real-operations.md"
+      "target": "apps/api/src/test/java/com/memetrade/architecture/BotWalletArchitectureTest.java",
+      "note": "sem ponto flutuante; lamports em long e instantes em UTC"
     }
-  ]
+  ],
+  "reverse": []
 }

@@ -138,3 +138,25 @@ O spec usa `SMOKE_WALLET_FILE`, `SMOKE_ADMIN_WALLET_FILE`, `API_BASE_URL` e `SOL
 - Divergência `OPEN` com rodada `CLEAN` seguinte (sem compensação) continua `OPEN`; decidir se deve virar `RESOLVED` sozinha.
 - Telas do administrador e do usuário para R4 ficam na U6; as condicionais do kill switch, na U7.
 - A tarefa do worker na nuvem, que consome o segredo `github-actions-read-token`, fica para o Environment Provisioning; o caminho das métricas até o CloudWatch continua pendente para U1 a U5.
+
+## Volta 1 do Build and Test (2026-11-19)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) mostrou que o sensor de rastreabilidade não lia o `traceability.json` desta Unit: os alvos eram listas de classes e testes, não um arquivo; os IDs de NFR levavam o prefixo `U5-`; faltavam os critérios de aceite; e U5-NFR8.7 e U5-NFR8.8 tinham o estado `PARTIAL`, que o sensor não aceita. O código de produto não mudou nesta volta, e as etapas 1 a 16 continuam como estão.
+
+### Step 17 — Rastreabilidade no formato do sensor
+
+- `traceability.json` reescrito em UTF-8, sem U+FFFD, no mesmo formato da U1 à U4: 82 linhas, uma por AC (17), BR (21) e NFRx.y (44) da Unit, com os IDs de NFR sem o prefixo `U5-`. Cada alvo `OK` é um único arquivo existente que implementa ou testa o ID; os demais testes ficam na nota.
+- As linhas de cenário (`S1` a `S29`) saíram da tabela: o sensor não as pede, e os testes que as cobrem continuam citados nas notas das regras.
+- **U5-NFR8.7** aponta para `scripts/verify.sh` (o `e2e/real-ops` na lista de specs, aplicado pelo responsável) e **U5-NFR8.8** para `.github/workflows/ci.yml` (`BUILD_SHA` nos jobs smoke e e2e e o `real-ops-alerts` no promtool). Os dois passaram na CI 44228007586 e estão `Met` no `build-and-test-summary.md`.
+- **U5-NFR3.1 a U5-NFR3.4** ficam `OK` com a nota de medição pendente: o comportamento está testado, mas as metas de tempo estão `Unverified` (performance-validation) no `build-and-test-summary.md`.
+- **U5-NFR5.7 a U5-NFR5.13** ficam `OK` em `infra/observability/real-ops-alerts.yml`, como no `build-and-test-summary.md` (promtool e `RealOpsAlarmParityTest`). A nota diz que o alarme na nuvem, em `real-ops.tf`, segue adiado até a decisão do caminho das métricas até o CloudWatch.
+- **AC3.4.1 e AC3.4.2** ficam `N/A`: a US3.4 é da U7 no `unit-of-work-story-map.md`, e a U5 só fornece o estado do kill switch (M7).
+- **AC8.1.3** aponta para `realexits/infra/ConditionalCancelJob.java`, da U7, que lê a M7 da U5 e cancela as condicionais.
+- **U5-NFR8.4** registra na nota os dois desvios já descritos acima: o adaptador do GitHub está em `botwallet.infra.github` e não usa Resilience4j.
+- `aidlc engine sensor-traceability --stage code-generation` passou sem achados (`pass: true`, 0 achados) no caminho temporário e no caminho do registro.
+- `source-manifest.json` desta volta tem `writes` vazio, porque nenhum arquivo de código mudou. O leitor do engine (`readUnitSourceManifest` em `.claude/tools/aidlc-lib.ts`) aceita uma lista vazia: ele só exige que `writes` seja uma lista.
+
+### Itens abertos atualizados
+
+- O primeiro item aberto acima (aplicar os textos no `ci.yml` e no `verify.sh`) está fechado. O responsável aplicou os dois, e o spec `e2e/real-ops/divergence.spec.ts` rodou na CI (4 testes verdes).
+- Continuam pendentes as medições de tempo de U5-NFR3.1 a U5-NFR3.4 e o caminho das métricas até o CloudWatch.

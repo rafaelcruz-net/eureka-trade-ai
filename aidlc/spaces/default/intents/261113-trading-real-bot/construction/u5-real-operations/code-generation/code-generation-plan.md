@@ -255,6 +255,15 @@ A U5 toca o núcleo financeiro (liberação, limites, reconciliação, compensa�
   - `code-summary.md`, com os textos para o responsável: `env BUILD_SHA` e `real-ops-alerts` no `ci.yml`; `--build-arg` e o spec `e2e/real-ops` no `verify.sh`.
   - `traceability.json` e `source-manifest.json`.
 
+## Volta 1 do Build and Test (2026-11-19)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) mostrou que o sensor de rastreabilidade não lê o formato da tabela desta Unit. As metas desta Unit que estavam pendentes (U5-NFR8.7 e U5-NFR8.8) já foram fechadas com evidência. As etapas 1 a 16 continuam como estão.
+
+- [x] **Step 17 — Rastreabilidade no formato do sensor.**
+  - Reescrever `traceability.json` no formato que o `aidlc engine sensor-traceability` lê: uma linha por AC, BR e NFRx.y da Unit, com os IDs como no requisito e um arquivo existente por alvo `OK`. Onde a medição está pendente, uma nota diz isso.
+  - Gravar o arquivo em UTF-8.
+  - Rodar o sensor até passar e atualizar o `code-summary.md`.
+
 ## Rastreabilidade história → etapas
 
 | História | Etapas |
