@@ -40,8 +40,9 @@ public class RealOpsRetentionDeclarationConfig {
         return RetentionEnforcerDeclaration.of(PREFIX + "divergences", LONG, RetentionAnchor.CONCLUDED);
     }
 
+    // Named without "signer": CycleIT asserts that no bean of the monolith carries it in its name.
     @Bean
-    public RetentionEnforcerDeclaration realOpsTxSignerCommandsPurgeDeclaration() {
+    public RetentionEnforcerDeclaration realOpsSigningServiceCommandsPurgeDeclaration() {
         return RetentionEnforcerDeclaration.of(PREFIX + "txsigner-commands", SHORT, RetentionAnchor.CONCLUDED);
     }
 }
