@@ -268,6 +268,21 @@ O portão BR0 vale do começo ao fim. A `TriggerPolicy` completa e o `JupiterTri
     - a lacuna aceita: o preenchimento sem e2e.
   - `traceability.json` e `source-manifest.json`.
 
+## Volta 1 do Build and Test (2026-11-20)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) marcou o BR3.5 como não verificado, porque não há teste da recusa da Jupiter (`TRIGGER_REJECTED`). Também mostrou que o sensor de rastreabilidade não lê o formato da tabela desta Unit: são 177 achados, faltam ACs e NFRx.y e os alvos são texto livre. As etapas 1 a 17 continuam como estão. O portão BR0 continua valendo: a TriggerPolicy e o adaptador real só entram depois da gravação real.
+
+- [x] **Step 18 — Teste da recusa da Jupiter (`TRIGGER_REJECTED`) [depois].**
+  - Teste de integração com o adaptador simulado devolvendo `Rejected` com um motivo. O pedido de condicional termina recusado com `TRIGGER_REJECTED` e o motivo, sem condicional aberta, sem sessão de assinatura, sem lançamento e com a reserva da barreira liberada.
+  - Se o teste mostrar uma falha, corrigir o código e registrar no `code-summary.md`.
+
+  *(BR3.5)*
+- [x] **Step 19 — Rastreabilidade no formato do sensor.**
+  - Reescrever `traceability.json` no formato que o `aidlc engine sensor-traceability` lê: uma linha por AC, BR e NFRx.y da Unit, com os IDs como no requisito (sem o prefixo `U7-`) e um arquivo existente por alvo `OK`. Os outros arquivos e testes ficam numa nota.
+  - Os itens do portão BR0 ficam `Deferred`, com o motivo.
+  - Gravar o arquivo em UTF-8.
+  - Rodar o sensor até passar e atualizar o `code-summary.md`.
+
 ## Rastreabilidade história → etapas
 
 | História | Etapas |

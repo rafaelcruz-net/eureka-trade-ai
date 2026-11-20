@@ -26,6 +26,8 @@ Um Maven por vez, sempre a partir da raiz. Não exporte `MEMETRADE_AUDIT_WALLET_
 | Alertas | `docker run --rm -v "$PWD/infra/observability:/rules" --entrypoint promtool prom/prometheus:v3.5.0 check rules /rules/real-exits-alerts.yml` |
 | Terraform | `terraform fmt -check` e `terraform validate`, pela imagem `hashicorp/terraform:1.9.8` |
 | Ponta a ponta | `bash scripts/verify.sh`, com os specs novos acrescentados pelo responsável |
+| Só o `ConditionalCreationIT` (inclui BR3.5, volta 1) | `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml verify -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=ConditionalCreationIT -Dfailsafe.failIfNoSpecifiedTests=false -Djacoco.skip=true` |
+| Rastreabilidade | `aidlc engine sensor-traceability --stage code-generation --output-path aidlc/spaces/default/intents/261113-trading-real-bot/construction/u7-exits-and-fiscal/code-generation/traceability.json` |
 
 ## Volume (Comprehensive)
 
@@ -35,6 +37,7 @@ Um Maven por vez, sempre a partir da raiz. Não exporte `MEMETRADE_AUDIT_WALLET_
 | `ConditionalStateMachine`, `TriggerValidation`, `needsUserCancellation` | 25 | sim |
 | Interfaces de extensão, venda dupla, `DEFERRED`, reconciliação, anonimização, flag | 30 | sim |
 | Criação, assinatura e cancelamento | 20 | sim |
+| Recusa da Jupiter e da política de assinatura na criação (BR3.5, volta 1 do Build and Test) | 2 | não (teste depois, Step 18) |
 | Preenchimento e `FillPosting` | 20 | sim |
 | Cancelamento automático | 15 | sim |
 | Exportação fiscal (escrita, mapeamento, conferência, isolamento, limite, fluxo) | 30 | sim |
@@ -62,3 +65,7 @@ Um Maven por vez, sempre a partir da raiz. Não exporte `MEMETRADE_AUDIT_WALLET_
 ## Cobertura
 
 80% de linhas na API, no TxSigner e no web, sem nenhuma exclusão nova.
+
+## Volta 1 do Build and Test
+
+O BR3.5 é coberto por `ConditionalCreationIT.br35TheRefusalOfTheProviderIsTriggerRejectedWithItsReasonAndLeavesNothingBehind`, com o `ScriptedTriggerPort` no papel do adaptador simulado devolvendo `Rejected`. O `SimulatedTriggerAdapter` de produção nunca recusa, por isso o teste usa a porta roteirizada da base `AbstractRealExitsIT`. O teste roda com os outros testes da U7 no primeiro comando e na API completa.

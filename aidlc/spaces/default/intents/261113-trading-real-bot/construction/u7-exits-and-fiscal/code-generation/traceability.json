@@ -1,998 +1,125 @@
 {
   "stage": "code-generation",
   "unit": "u7-exits-and-fiscal",
-  "upstream_ids": [
-    "BR0.1",
-    "BR0.2",
-    "BR0.3",
-    "BR0.4",
-    "BR0.5",
-    "BR1.1",
-    "BR1.2",
-    "BR1.3",
-    "BR1.4",
-    "BR2.1",
-    "BR2.2",
-    "BR2.3",
-    "BR2.4",
-    "BR2.5",
-    "BR2.6",
-    "BR3.1",
-    "BR3.2",
-    "BR3.3",
-    "BR3.4",
-    "BR3.5",
-    "BR3.6",
-    "BR3.7",
-    "BR3.8",
-    "BR4.1",
-    "BR4.2",
-    "BR4.3",
-    "BR4.4",
-    "BR5.1",
-    "BR5.2",
-    "BR5.3",
-    "BR5.3b",
-    "BR5.4",
-    "BR5.5",
-    "BR5.6",
-    "BR6.1",
-    "BR6.2",
-    "BR6.3",
-    "BR6.4",
-    "BR6.5",
-    "BR6.6",
-    "BR6.7",
-    "BR6.8",
-    "BR6.9",
-    "BR7.1",
-    "BR7.2",
-    "BR7.3",
-    "BR7.4",
-    "BR7.5",
-    "BR7.6",
-    "BR7.7",
-    "BR7.8",
-    "BR7.9",
-    "BR7.10",
-    "BR7.11",
-    "BR8.1",
-    "BR8.2",
-    "BR8.3",
-    "BR8.4",
-    "BR9.1",
-    "BR9.2",
-    "BR9.3",
-    "BR9.4",
-    "S1",
-    "S2",
-    "S3",
-    "S4",
-    "S5",
-    "S6",
-    "S7",
-    "S8",
-    "S9",
-    "S10",
-    "S11",
-    "S12",
-    "S13",
-    "S14",
-    "S15",
-    "S16",
-    "S17",
-    "S18",
-    "S19",
-    "S20",
-    "S21",
-    "S22",
-    "S23",
-    "S24",
-    "S25",
-    "S26",
-    "S27",
-    "S28",
-    "S29",
-    "S30",
-    "S31",
-    "S32",
-    "S33",
-    "S34",
-    "S35",
-    "S36",
-    "S37",
-    "S38",
-    "S39",
-    "S40",
-    "S41",
-    "S42",
-    "S43",
-    "S44",
-    "S45",
-    "S46",
-    "S47",
-    "S48",
-    "S49",
-    "S50",
-    "U7-NFR1.1",
-    "U7-NFR1.2",
-    "U7-NFR1.3",
-    "U7-NFR1.4",
-    "U7-NFR1.5",
-    "U7-NFR1.6",
-    "U7-NFR1.7",
-    "U7-NFR1.8",
-    "U7-NFR1.9",
-    "U7-NFR2.1",
-    "U7-NFR3.1",
-    "U7-NFR3.2",
-    "U7-NFR3.3",
-    "U7-NFR3.4",
-    "U7-NFR3.5",
-    "U7-NFR3.6",
-    "U7-NFR3.7",
-    "U7-NFR3.8",
-    "U7-NFR3.9",
-    "U7-NFR4.1",
-    "U7-NFR4.2",
-    "U7-NFR4.3",
-    "U7-NFR4.4",
-    "U7-NFR4.5",
-    "U7-NFR4.6",
-    "U7-NFR4.7",
-    "U7-NFR4.8",
-    "U7-NFR4.9",
-    "U7-NFR4.10",
-    "U7-NFR4.11",
-    "U7-NFR4.12",
-    "U7-NFR5.1",
-    "U7-NFR5.2",
-    "U7-NFR5.3",
-    "U7-NFR5.4",
-    "U7-NFR5.5",
-    "U7-NFR5.6",
-    "U7-NFR5.6b",
-    "U7-NFR5.7",
-    "U7-NFR5.8",
-    "U7-NFR5.9",
-    "U7-NFR5.10",
-    "U7-NFR5.11",
-    "U7-NFR7.1",
-    "U7-NFR8.1",
-    "U7-NFR8.2",
-    "U7-NFR8.3",
-    "U7-NFR8.4",
-    "U7-NFR8.5",
-    "U7-NFR8.6",
-    "U7-NFR10.1"
-  ],
+  "upstream_ids": ["AC3.4.1", "AC3.4.2", "AC4.3.1", "AC8.1.3", "BR0.1", "BR0.2", "BR0.3", "BR0.4", "BR0.5", "BR1.1", "BR1.2", "BR1.3", "BR1.4", "BR2.1", "BR2.2", "BR2.3", "BR2.4", "BR2.5", "BR2.6", "BR3.1", "BR3.2", "BR3.3", "BR3.4", "BR3.5", "BR3.6", "BR3.7", "BR3.8", "BR4.1", "BR4.2", "BR4.3", "BR4.4", "BR5.1", "BR5.2", "BR5.3", "BR5.3b", "BR5.4", "BR5.5", "BR5.6", "BR6.1", "BR6.2", "BR6.3", "BR6.4", "BR6.5", "BR6.6", "BR6.7", "BR6.8", "BR6.9", "BR7.1", "BR7.2", "BR7.3", "BR7.4", "BR7.5", "BR7.6", "BR7.7", "BR7.8", "BR7.9", "BR7.10", "BR7.11", "BR8.1", "BR8.2", "BR8.3", "BR8.4", "BR9.1", "BR9.2", "BR9.3", "BR9.4", "NFR1.1", "NFR1.2", "NFR1.3", "NFR1.4", "NFR1.5", "NFR1.6", "NFR1.7", "NFR1.8", "NFR1.9", "NFR2.1", "NFR3.1", "NFR3.2", "NFR3.3", "NFR3.4", "NFR3.5", "NFR3.6", "NFR3.7", "NFR3.8", "NFR3.9", "NFR4.1", "NFR4.2", "NFR4.3", "NFR4.4", "NFR4.5", "NFR4.6", "NFR4.7", "NFR4.8", "NFR4.9", "NFR4.10", "NFR4.11", "NFR4.12", "NFR5.1", "NFR5.2", "NFR5.3", "NFR5.4", "NFR5.5", "NFR5.6", "NFR5.6b", "NFR5.7", "NFR5.8", "NFR5.9", "NFR5.10", "NFR5.11", "NFR7.1", "NFR8.1", "NFR8.2", "NFR8.3", "NFR8.4", "NFR8.5", "NFR8.6", "NFR10.1"],
   "coverage": [
-    {
-      "id": "BR0.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerPort.java (suposições atrás da porta); apps/api/src/main/java/com/memetrade/realexits/infra/jupiter/package-info.java (sem adaptador real); docs/runbooks/real-exits.md seção 1"
-    },
-    {
-      "id": "BR0.2",
-      "status": "OK",
-      "target": "infra/solana-fixtures/record.sh (modo --trigger, sem assinar nem enviar; não rodado nesta Unit)"
-    },
-    {
-      "id": "BR0.3",
-      "status": "OK",
-      "target": "apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java, apps/api/src/main/java/com/memetrade/botwallet/infra/RealProperties.java, apps/api/src/main/java/com/memetrade/realexits/infra/SimulatedTriggerAdapter.java; SigningServiceTriggerTest, TriggerSignaturesIT, RealExitsSettingsTest, SimulatedTriggerAdapterTest"
-    },
-    {
-      "id": "BR0.4",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportController.java (sem dependência da Jupiter); FiscalExportIT"
-    },
-    {
-      "id": "BR0.5",
-      "status": "N/A",
-      "target": "regra de processo: revisão do desenho depois da gravação real; registrada em docs/runbooks/real-exits.md seção 1"
-    },
-    {
-      "id": "BR1.1",
-      "status": "Deferred",
-      "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só depois da gravação real (code-generation-plan.md \"Fora desta Unit\"); até lá o TxSigner recusa com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java)"
-    },
-    {
-      "id": "BR1.2",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/ConditionalService.java, apps/api/src/main/java/com/memetrade/realexits/application/ConsentMessage.java (caminho MESSAGE com signMessage da carteira principal); apps/api/src/test/java/com/memetrade/realexits/web/ConditionalCreationIT.java (s1, s2, s12); apps/web/src/features/real/components/ConditionalDialog.tsx"
-    },
-    {
-      "id": "BR1.3",
-      "status": "Deferred",
-      "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só depois da gravação real (code-generation-plan.md \"Fora desta Unit\"); até lá o TxSigner recusa com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java)"
-    },
-    {
-      "id": "BR1.4",
-      "status": "Deferred",
-      "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só depois da gravação real (code-generation-plan.md \"Fora desta Unit\"); até lá o TxSigner recusa com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java)"
-    },
-    {
-      "id": "BR2.1",
-      "status": "Deferred",
-      "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só depois da gravação real (code-generation-plan.md \"Fora desta Unit\"); até lá o TxSigner recusa com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java)"
-    },
-    {
-      "id": "BR2.2",
-      "status": "Deferred",
-      "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só depois da gravação real (code-generation-plan.md \"Fora desta Unit\"); até lá o TxSigner recusa com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java)"
-    },
-    {
-      "id": "BR2.3",
-      "status": "Deferred",
-      "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só depois da gravação real (code-generation-plan.md \"Fora desta Unit\"); até lá o TxSigner recusa com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java)"
-    },
-    {
-      "id": "BR2.4",
-      "status": "Deferred",
-      "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só depois da gravação real (code-generation-plan.md \"Fora desta Unit\"); até lá o TxSigner recusa com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java)"
-    },
-    {
-      "id": "BR2.5",
-      "status": "Deferred",
-      "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só depois da gravação real (code-generation-plan.md \"Fora desta Unit\"); até lá o TxSigner recusa com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java)"
-    },
-    {
-      "id": "BR2.6",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerValidation.java (limites da API e piso da saída mínima); TriggerValidationTest, ConditionalCreationIT.s4AndS5AndS43; a camada do TxSigner e o risco que sobra em docs/runbooks/real-exits.md seção 5"
-    },
-    {
-      "id": "BR3.1",
-      "status": "OK",
-      "target": "apps/api/src/main/resources/db/changelog/changes/0022-real-exits.sql (índice único parcial); RealExitsMigrationIT, ConditionalCreationIT.s8"
-    },
-    {
-      "id": "BR3.2",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/web/ConditionalDtos.java, apps/api/src/main/java/com/memetrade/realexits/domain/TriggerValidation.java; TriggerValidationTest; apps/web/src/features/real/conditionals.ts"
-    },
-    {
-      "id": "BR3.3",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/CurrentPrice.java; ConditionalCreationIT.s3, TriggerValidationTest"
-    },
-    {
-      "id": "BR3.4",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerValidation.java; TriggerValidationTest, ConditionalCreationIT.s4AndS5AndS43"
-    },
-    {
-      "id": "BR3.5",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerPort.java (Rejected), apps/api/src/main/java/com/memetrade/realexits/application/ConditionalService.java (TRIGGER_REJECTED)"
-    },
-    {
-      "id": "BR3.6",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/ConditionalService.java (maxSlippageBps do perfil no pedido); TriggerValidationTest.theFloorOfTheMinimumOutputIsTheStopValueLessTheSlippage"
-    },
-    {
-      "id": "BR3.7",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/ConditionalService.java (posição inteira do ledger); ConditionalCreationIT.s1"
-    },
-    {
-      "id": "BR3.8",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/web/ConditionalDtos.java (stopNotGuaranteed); apps/web/src/features/real/components/ConditionalDialog.tsx; ConditionalDialog.test.tsx"
-    },
-    {
-      "id": "BR4.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/ConditionalService.java (barreira M5); ConditionalCreationIT.s6, s7"
-    },
-    {
-      "id": "BR4.2",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/FillPosting.java (perda do dia no lançamento); FillPostingIT"
-    },
-    {
-      "id": "BR4.3",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/ExitGuardService.java, apps/api/src/main/java/com/memetrade/realexecution/api/PositionExitGuard.java, apps/api/src/main/java/com/memetrade/realexecution/infra/DecisionConsumer.java, apps/api/src/main/java/com/memetrade/realexecution/infra/LiquidationJob.java, apps/api/src/main/java/com/memetrade/realexecution/infra/SigningSessionService.java; ExitGuardIT, DecisionConsumerExitIT, LiquidationExitIT, PersonSaleExitIT"
-    },
-    {
-      "id": "BR4.4",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/web/ConditionalController.java (Idempotency-Key); ConditionalCreationIT.s9"
-    },
-    {
-      "id": "BR5.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalReadJob.java, apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsSchedule.java; FillPostingIT"
-    },
-    {
-      "id": "BR5.2",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalReadJob.java (conferência finalized); FillPostingIT.s15"
-    },
-    {
-      "id": "BR5.3",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/FillPosting.java (SWAP_FILL_OUT e NETWORK_FEE); FillPostingIT.s13"
-    },
-    {
-      "id": "BR5.3b",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/ExitGuardService.java, apps/api/src/main/java/com/memetrade/realexecution/infra/DecisionConsumer.java (posição do ledger); DecisionConsumerExitIT"
-    },
-    {
-      "id": "BR5.4",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/FillPosting.java (filled_side); FillPostingIT.theTakeProfitLegOfAnOcoIsRecordedAsTheFilledSide"
-    },
-    {
-      "id": "BR5.5",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/ExitEvents.java, apps/api/src/main/java/com/memetrade/bots/web/DashboardMarkPoller.java (real.conditional.state); apps/web/src/features/real/components/ConditionalsTab.tsx"
-    },
-    {
-      "id": "BR5.6",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsGaugesJob.java (real_conditional_unread_oldest_seconds), infra/observability/real-exits-alerts.yml; FillPostingIT.s27"
-    },
-    {
-      "id": "BR6.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java; ConditionalCancelJobIT.s16"
-    },
-    {
-      "id": "BR6.2",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java; ConditionalCancelJobIT.s17"
-    },
-    {
-      "id": "BR6.3",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java; ConditionalCancelJobIT.s18"
-    },
-    {
-      "id": "BR6.4",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java; ConditionalCancelJobIT.aCancellationNotConfirmedIsSentAgainEveryMinuteAndNeverGoesBackToOpen"
-    },
-    {
-      "id": "BR6.5",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/ConditionalStateMachine.java; ConditionalCancelJobIT.s36"
-    },
-    {
-      "id": "BR6.6",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/ConditionalStateMachine.java (FILLABLE); ConditionalCancelJobIT.s20, FillPostingIT.s20"
-    },
-    {
-      "id": "BR6.7",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/CancellationWatch.java; CancellationWatchTest; apps/web/src/features/real/components/ConditionalsTab.tsx"
-    },
-    {
-      "id": "BR6.8",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java; ConditionalCancelJobIT.theSaleOfTheRestOfTheFreeBalanceIsNeverBlockedByTheJob"
-    },
-    {
-      "id": "BR6.9",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/BotWalletAnonymizationService.java, apps/api/src/main/java/com/memetrade/botwallet/api/OpenExitsCheck.java; AnonymizationOpenExitsTest, ExitsExtensionsIT"
-    },
-    {
-      "id": "BR7.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java; FiscalCsvWriterTest, FiscalExportIT.s28"
-    },
-    {
-      "id": "BR7.2",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java (HEADER); FiscalCsvWriterTest"
-    },
-    {
-      "id": "BR7.3",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalRowMapper.java; FiscalRowMapperTest"
-    },
-    {
-      "id": "BR7.4",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalRowMapper.java, apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java; FiscalCsvWriterTest.numbersAreNeverEscapedAndAlwaysPositive"
-    },
-    {
-      "id": "BR7.5",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java (text); FiscalCsvWriterTest.s29"
-    },
-    {
-      "id": "BR7.6",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalBalance.java; FiscalBalanceTest, FiscalExportIT.s45; apps/web/e2e/real-exports/real-exports.spec.ts"
-    },
-    {
-      "id": "BR7.7",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalPeriod.java; FiscalPeriodTest, FiscalExportIT.s31; apps/web/src/features/real/components/FiscalExportPanel.tsx"
-    },
-    {
-      "id": "BR7.8",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportService.java (tenant do token, M1 botWalletIds); FiscalExportIT.s30AndS33"
-    },
-    {
-      "id": "BR7.9",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportLimiter.java, apps/api/src/main/java/com/memetrade/shared/web/PersonRouteRateLimiter.java; FiscalExportIT.s32, PersonRouteRateLimiterWindowTest"
-    },
-    {
-      "id": "BR7.10",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportService.java (fluxo, auditoria sem conteúdo); FiscalExportIT.theExportIsAuditedWithoutItsContent, FiscalStreamingTest"
-    },
-    {
-      "id": "BR7.11",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportController.java; FiscalExportIT.s34"
-    },
-    {
-      "id": "BR8.1",
-      "status": "OK",
-      "target": "apps/web/src/features/real/components/ModeSelector.tsx, apps/web/src/features/real/screens/ModeScreen.tsx, apps/api/src/main/java/com/memetrade/realexecution/infra/RealModeService.java; ModeSelectorExits.test.tsx, RealModeExitsTest"
-    },
-    {
-      "id": "BR8.2",
-      "status": "OK",
-      "target": "apps/web/src/features/real/components/ConditionalDialog.tsx, apps/web/src/features/real/screens/OverviewScreen.tsx, apps/web/src/features/real/components/RealPnlCard.tsx; ConditionalDialog.test.tsx, ExitsScreens.test.tsx"
-    },
-    {
-      "id": "BR8.3",
-      "status": "OK",
-      "target": "apps/web/src/features/real/components/ConditionalsTab.tsx, apps/web/src/features/real/screens/OrdersScreen.tsx; ConditionalsTab.test.tsx, ExitsScreens.test.tsx"
-    },
-    {
-      "id": "BR8.4",
-      "status": "OK",
-      "target": "apps/web/src/features/real/components/FiscalExportPanel.tsx; FiscalExportPanel.test.tsx; apps/web/e2e/real-exports/real-exports.spec.ts"
-    },
-    {
-      "id": "BR9.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerPort.java, apps/api/src/main/java/com/memetrade/realexits/infra/SimulatedTriggerAdapter.java, apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsConfig.java (UnavailableTriggerPort); SimulatedTriggerAdapterTest"
-    },
-    {
-      "id": "BR9.2",
-      "status": "Deferred",
-      "target": "as respostas gravadas só existem depois do record.sh --trigger (portão BR0); até lá os testes usam o apps/api/src/test/java/com/memetrade/realexits/ScriptedTriggerPort.java"
-    },
-    {
-      "id": "BR9.3",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealProperties.java, apps/api/src/main/resources/application.yml (MEMETRADE_REAL_EXITS_ENABLED=false); RealExitsSettingsTest, ConditionalCreationIT.s10"
-    },
-    {
-      "id": "BR9.4",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealProperties.java (toString mascara a chave); RealExitsSettingsTest.theJupiterKeyIsNeverPrinted"
-    },
-    {
-      "id": "S1",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s1AnOcoIsCreatedPendingSignatureWithItsSigningSession"
-    },
-    {
-      "id": "S2",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s2TheConsentSignedInTimeOpensTheConditional (caminho MESSAGE; a cossinatura pelo TxSigner fica para depois de BR0)"
-    },
-    {
-      "id": "S3",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s3; ConditionalDialog.test.tsx"
-    },
-    {
-      "id": "S4",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s4AndS5AndS43; TriggerValidationTest"
-    },
-    {
-      "id": "S5",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s4AndS5AndS43; TriggerValidationTest"
-    },
-    {
-      "id": "S6",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s6InTheSignedModeTheCreationIsRefused"
-    },
-    {
-      "id": "S7",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s7ABlockedTokenOrTheKillSwitchRefuseTheCreation"
-    },
-    {
-      "id": "S8",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s8; RealExitsMigrationIT.thePositionHasAtMostOneConditionalThatIsNotFinal"
-    },
-    {
-      "id": "S9",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s9TheSameIdempotencyKeyGivesTheSameConditional"
-    },
-    {
-      "id": "S10",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s10; ConditionalDialog.test.tsx"
-    },
-    {
-      "id": "S11",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s11; ConditionalCancelJobIT.aSigningSessionPastItsDeadlineExpires"
-    },
-    {
-      "id": "S12",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s12ASignatureOverAnotherMessageIsRefusedAndNothingIsSent"
-    },
-    {
-      "id": "S13",
-      "status": "OK",
-      "target": "FillPostingIT.s13TheFillEntersTheLedgerWithItsFeeAndClosesThePosition"
-    },
-    {
-      "id": "S14",
-      "status": "OK",
-      "target": "FillPostingIT.s14TheSameFillPostedTwiceEntersTheLedgerOnce"
-    },
-    {
-      "id": "S15",
-      "status": "OK",
-      "target": "FillPostingIT.s15AFillNotFinalizedOnTheNetworkWaitsAndEntersNothing"
-    },
-    {
-      "id": "S16",
-      "status": "OK",
-      "target": "ConditionalCancelJobIT.s16; apps/web/e2e/real-exits/real-exits.spec.ts (teste 3)"
-    },
-    {
-      "id": "S17",
-      "status": "OK",
-      "target": "ConditionalCancelJobIT.s17LeavingAutoExitsCancelsTheConditionalsOfThePerson"
-    },
-    {
-      "id": "S18",
-      "status": "OK",
-      "target": "ConditionalCancelJobIT.s18ARevokedReleaseCancelsTheConditionalsOfThePerson"
-    },
-    {
-      "id": "S19",
-      "status": "OK",
-      "target": "DecisionConsumerExitIT.aSaleOfAPositionWithAnOpenConditionalIsDeferredThirtySeconds, theSaleGoesOnAfterTheConditionalIsCancelled; ExitGuardIT"
-    },
-    {
-      "id": "S20",
-      "status": "OK",
-      "target": "ConditionalCancelJobIT.s20; FillPostingIT.s20"
-    },
-    {
-      "id": "S21",
-      "status": "Deferred",
-      "target": "teste de ataque da TriggerPolicy, escrito antes do código depois da gravação real (portão BR0); até lá apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java cobre a recusa POLICY_NOT_RECORDED"
-    },
-    {
-      "id": "S22",
-      "status": "Deferred",
-      "target": "teste de ataque da TriggerPolicy, escrito antes do código depois da gravação real (portão BR0); até lá apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java cobre a recusa POLICY_NOT_RECORDED"
-    },
-    {
-      "id": "S23",
-      "status": "Deferred",
-      "target": "teste de ataque da TriggerPolicy, escrito antes do código depois da gravação real (portão BR0); até lá apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java cobre a recusa POLICY_NOT_RECORDED"
-    },
-    {
-      "id": "S24",
-      "status": "Deferred",
-      "target": "teste de ataque da TriggerPolicy, escrito antes do código depois da gravação real (portão BR0); até lá apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java cobre a recusa POLICY_NOT_RECORDED"
-    },
-    {
-      "id": "S25",
-      "status": "Deferred",
-      "target": "teste de ataque da TriggerPolicy, escrito antes do código depois da gravação real (portão BR0); até lá apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java cobre a recusa POLICY_NOT_RECORDED"
-    },
-    {
-      "id": "S26",
-      "status": "Deferred",
-      "target": "teste de ataque da TriggerPolicy, escrito antes do código depois da gravação real (portão BR0); até lá apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java cobre a recusa POLICY_NOT_RECORDED"
-    },
-    {
-      "id": "S27",
-      "status": "OK",
-      "target": "FillPostingIT.s27; infra/observability/real-exits-alerts.yml (RealExitsConditionalUnread)"
-    },
-    {
-      "id": "S28",
-      "status": "OK",
-      "target": "FiscalExportIT.s28; FiscalCsvWriterTest.s28; apps/web/e2e/real-exports/real-exports.spec.ts"
-    },
-    {
-      "id": "S29",
-      "status": "OK",
-      "target": "FiscalCsvWriterTest.s29ATextThatLooksLikeAFormulaIsEscaped"
-    },
-    {
-      "id": "S30",
-      "status": "OK",
-      "target": "FiscalExportIT.s30AndS33OnlyTheRealLedgerOfThePersonAndNoAddress"
-    },
-    {
-      "id": "S31",
-      "status": "OK",
-      "target": "FiscalExportIT.s31; FiscalPeriodTest; FiscalExportPanel.test.tsx; apps/web/e2e/real-exports/real-exports.spec.ts"
-    },
-    {
-      "id": "S32",
-      "status": "OK",
-      "target": "FiscalExportIT.s32; FiscalExportPanel.test.tsx"
-    },
-    {
-      "id": "S33",
-      "status": "OK",
-      "target": "FiscalExportIT.s30AndS33OnlyTheRealLedgerOfThePersonAndNoAddress"
-    },
-    {
-      "id": "S34",
-      "status": "OK",
-      "target": "FiscalExportIT.s34TheExportWorksWithTheKillSwitchWithoutReleaseAndPaused"
-    },
-    {
-      "id": "S35",
-      "status": "OK",
-      "target": "FiscalCsvWriterTest.s35; FiscalRowMapperTest.s35"
-    },
-    {
-      "id": "S36",
-      "status": "OK",
-      "target": "ConditionalCancelJobIT.s36APendingSignatureIsCancelledWithoutATransaction"
-    },
-    {
-      "id": "S37",
-      "status": "OK",
-      "target": "DecisionConsumerExitIT.aSaleOfAPositionAlreadyFilledByTheConditionalEndsWithNothingToSell; PersonSaleExitIT.theSignatureOfASaleOfAPositionTheConditionalAlreadySoldAnswersNothingToSell"
-    },
-    {
-      "id": "S38",
-      "status": "OK",
-      "target": "CancellationWatchTest; RealExitsAlarmParityTest.theStalledCancellationUsesTheFifteenMinutesOfTheReadOfThePerson; ConditionalsTab.test.tsx"
-    },
-    {
-      "id": "S39",
-      "status": "OK",
-      "target": "ConditionalCancelJobIT.s39 (lado da API; a assinatura do TRIGGER_CANCEL no TxSigner fica para depois de BR0)"
-    },
-    {
-      "id": "S40",
-      "status": "Deferred",
-      "target": "teste de ataque da TriggerPolicy, escrito antes do código depois da gravação real (portão BR0); até lá apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java cobre a recusa POLICY_NOT_RECORDED"
-    },
-    {
-      "id": "S41",
-      "status": "Deferred",
-      "target": "teste de ataque da TriggerPolicy, escrito antes do código depois da gravação real (portão BR0); até lá apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java cobre a recusa POLICY_NOT_RECORDED"
-    },
-    {
-      "id": "S42",
-      "status": "Deferred",
-      "target": "teste de ataque da TriggerPolicy, escrito antes do código depois da gravação real (portão BR0); até lá apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java cobre a recusa POLICY_NOT_RECORDED"
-    },
-    {
-      "id": "S43",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s4AndS5AndS43; TriggerValidationTest.aTriggerOutOfTheBoundsOfTheApiIsRefused"
-    },
-    {
-      "id": "S44",
-      "status": "OK",
-      "target": "SigningServiceTriggerTest.s44; TriggerSignaturesIT.s44"
-    },
-    {
-      "id": "S45",
-      "status": "OK",
-      "target": "FiscalBalanceTest.s45; FiscalExportIT.s45"
-    },
-    {
-      "id": "S46",
-      "status": "OK",
-      "target": "FiscalRowMapperTest.s46TheFeeOfASaleIsOnlyInItsLine"
-    },
-    {
-      "id": "S47",
-      "status": "OK",
-      "target": "AnonymizationOpenExitsTest.anOpenConditionalRefusesWithOpenConditionalsAndWritesNothing; ExitsExtensionsIT"
-    },
-    {
-      "id": "S48",
-      "status": "OK",
-      "target": "ConditionalCreationIT.s48TheDeleteOfThePersonCancels; ConditionalsTab.test.tsx; apps/web/e2e/real-exits/real-exits.spec.ts (teste 2)"
-    },
-    {
-      "id": "S49",
-      "status": "OK",
-      "target": "ReconciliationPolicyEscrowTest; ExitsExtensionsIT.theCustodiesOfTheOpenAndCancellingConditionalsAreListedForTheReconciliation"
-    },
-    {
-      "id": "S50",
-      "status": "OK",
-      "target": "RealModeExitsTest; ConditionalCreationIT.s10"
-    },
-    {
-      "id": "U7-NFR1.1",
-      "status": "Deferred",
-      "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só depois da gravação real (code-generation-plan.md \"Fora desta Unit\"); até lá o TxSigner recusa com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java)"
-    },
-    {
-      "id": "U7-NFR1.2",
-      "status": "OK",
-      "target": "apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java; TriggerSignaturesIT"
-    },
-    {
-      "id": "U7-NFR1.3",
-      "status": "Deferred",
-      "target": "lado do TxSigner depois da gravação (BR0); o lado da API está em ConditionalCancelJobIT.s39 e theCancellationWorksWithTheExitsFlagOff"
-    },
-    {
-      "id": "U7-NFR1.4",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerValidation.java; TriggerValidationTest, ConditionalCreationIT.s4AndS5AndS43"
-    },
-    {
-      "id": "U7-NFR1.5",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealProperties.java; RealExitsSettingsTest.theJupiterKeyIsNeverPrinted; apps/web não tem variável da Jupiter"
-    },
-    {
-      "id": "U7-NFR1.6",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportService.java; FiscalExportIT.s30AndS33OnlyTheRealLedgerOfThePersonAndNoAddress"
-    },
-    {
-      "id": "U7-NFR1.7",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java; FiscalCsvWriterTest.s29ATextThatLooksLikeAFormulaIsEscaped, aTextWithTheSeparatorOrAQuoteIsQuoted"
-    },
-    {
-      "id": "U7-NFR1.8",
-      "status": "OK",
-      "target": "apps/api/src/test/java/com/memetrade/realexits/RealExitsArchitectureTest.java (onlyTheJupiterPackageReachesTheNetwork, theModuleNeverSigns)"
-    },
-    {
-      "id": "U7-NFR1.9",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/web/ConditionalController.java; ConditionalCreationIT.s9, anotherPersonNeverReachesTheConditional; apps/api/src/main/resources/tenancy/route-registry.yml"
-    },
-    {
-      "id": "U7-NFR2.1",
-      "status": "OK",
-      "target": "apps/api/src/test/java/com/memetrade/realexits/RealExitsArchitectureTest.java (theModuleNeverTouchesPaper); FiscalExportIT.s30AndS33"
-    },
-    {
-      "id": "U7-NFR3.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalReadJob.java (ciclo de 30 s); FillPostingIT, RealExitsMetricsTest.aFillCountsItsSideAndItsLag"
-    },
-    {
-      "id": "U7-NFR3.2",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java (1 min); ConditionalCancelJobIT.s16; apps/web/e2e/real-exits/real-exits.spec.ts"
-    },
-    {
-      "id": "U7-NFR3.3",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportService.java; FiscalStreamingTest, FiscalExportIT.twentyThousandEntriesAreExportedInAtMostTenSeconds"
-    },
-    {
-      "id": "U7-NFR3.4",
-      "status": "OK",
-      "target": "ConditionalCreationIT.theCreationUpToTheSigningSessionTakesAtMostThreeSecondsTwentyTimes"
-    },
-    {
-      "id": "U7-NFR3.5",
-      "status": "OK",
-      "target": "apps/api/src/main/resources/db/changelog/changes/0022-real-exits.sql; RealExitsMigrationIT.thePositionHasAtMostOneConditionalThatIsNotFinal"
-    },
-    {
-      "id": "U7-NFR3.6",
-      "status": "OK",
-      "target": "apps/api/src/main/resources/db/changelog/changes/0022-real-exits.sql (por bot_wallet_id e state, desvio registrado no code-summary.md); RealExitsMigrationIT.theIndexesOfTheJobsAndOfTheListExist"
-    },
-    {
-      "id": "U7-NFR3.7",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsPurgeJob.java; RealExitsPurgeJobIT, RealExitsMigrationIT.theRetentionLoginDeletesOnlyFinalConditionalsOlderThanFiveYears"
-    },
-    {
-      "id": "U7-NFR3.8",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/ledger/infra/JdbcRealLedger.java (streamEntries); FiscalExportIT"
-    },
-    {
-      "id": "U7-NFR3.9",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportLimiter.java; FiscalExportIT.s32TheEleventhExportInTheHourIsRateLimited"
-    },
-    {
-      "id": "U7-NFR4.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/JdbcConditionalStore.java (move e touch por compare-and-set) e o gatilho da 0022; FillPostingIT.aFillOfAConditionalMovedMeanwhileEntersNothing, RealExitsMigrationIT.theStateMovesOnlyAlongTheMachineOfTheEntities"
-    },
-    {
-      "id": "U7-NFR4.2",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/FillPosting.java; FillPostingIT.s14TheSameFillPostedTwiceEntersTheLedgerOnce"
-    },
-    {
-      "id": "U7-NFR4.3",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexecution/infra/DecisionConsumer.java, apps/api/src/main/java/com/memetrade/realexecution/infra/LiquidationJob.java, apps/api/src/main/java/com/memetrade/realexecution/infra/SigningSessionService.java; DecisionConsumerExitIT, LiquidationExitIT, PersonSaleExitIT"
-    },
-    {
-      "id": "U7-NFR4.4",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsSchedule.java (ShedLock realExitsRead, realExitsCancel, realExitsGauges); RealExitsMetricsTest.theGaugesFollowTheLastRunOfTheJob"
-    },
-    {
-      "id": "U7-NFR4.5",
-      "status": "OK",
-      "target": "ConditionalCancelJobIT.aCancellationNotConfirmedIsSentAgainEveryMinuteAndNeverGoesBackToOpen"
-    },
-    {
-      "id": "U7-NFR4.6",
-      "status": "OK",
-      "target": "FillPostingIT.s27TheProviderDownChangesNothingAndTheLastReadStays; ConditionalCancelJobIT.theProviderDownLeavesTheConditionalCancelling"
-    },
-    {
-      "id": "U7-NFR4.7",
-      "status": "OK",
-      "target": "ConditionalCancelJobIT.theSaleOfTheRestOfTheFreeBalanceIsNeverBlockedByTheJob; o saque da U1 não usa classe da U7 (RealExitsArchitectureTest.neitherTheExecutionNorTheBotWalletImportTheExits)"
-    },
-    {
-      "id": "U7-NFR4.8",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/ReconciliationPolicy.java, apps/api/src/main/java/com/memetrade/botwallet/api/EscrowBalances.java; ReconciliationPolicyEscrowTest, ExitsExtensionsIT"
-    },
-    {
-      "id": "U7-NFR4.9",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/botwallet/application/BotWalletAnonymizationService.java; AnonymizationOpenExitsTest"
-    },
-    {
-      "id": "U7-NFR4.10",
-      "status": "OK",
-      "target": "apps/api/src/main/resources/application.yml; RealExitsSettingsTest.theExitsAreOffByDefaultInTheSharedConfiguration, ConditionalCreationIT.s10, RealModeExitsTest"
-    },
-    {
-      "id": "U7-NFR4.11",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/domain/CancellationWatch.java; CancellationWatchTest.exactlyFifteenMinutesInCancellingIsTrue"
-    },
-    {
-      "id": "U7-NFR4.12",
-      "status": "OK",
-      "target": "FiscalExportIT.s34TheExportWorksWithTheKillSwitchWithoutReleaseAndPaused"
-    },
-    {
-      "id": "U7-NFR5.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java; RealExitsMetricsTest"
-    },
-    {
-      "id": "U7-NFR5.2",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java; RealExitsMetricsTest.aFillCountsItsSideAndItsLag"
-    },
-    {
-      "id": "U7-NFR5.3",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java; RealExitsMetricsTest"
-    },
-    {
-      "id": "U7-NFR5.4",
-      "status": "OK",
-      "target": "apps/txsigner/src/main/java/com/memetrade/txsigner/infra/TxSignerConfig.java; TriggerSignaturesIT"
-    },
-    {
-      "id": "U7-NFR5.5",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java; FiscalExportIT"
-    },
-    {
-      "id": "U7-NFR5.6",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java; RealExitsMetricsTest.everyCounterIsRegisteredWithZeroForEveryValueOfItsLabel"
-    },
-    {
-      "id": "U7-NFR5.6b",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsGaugesJob.java; RealExitsMetricsTest.theGaugesFollowTheLastRunOfTheJob"
-    },
-    {
-      "id": "U7-NFR5.7",
-      "status": "OK",
-      "target": "infra/observability/real-exits-alerts.yml, infra/terraform/modules/observability/real-exits.tf; RealExitsAlarmParityTest"
-    },
-    {
-      "id": "U7-NFR5.8",
-      "status": "OK",
-      "target": "infra/observability/real-exits-alerts.yml, infra/terraform/modules/observability/real-exits.tf; RealExitsAlarmParityTest"
-    },
-    {
-      "id": "U7-NFR5.9",
-      "status": "OK",
-      "target": "infra/observability/real-exits-alerts.yml (RealExitsTriggerPolicyRefused); RealExitsAlarmParityTest"
-    },
-    {
-      "id": "U7-NFR5.10",
-      "status": "OK",
-      "target": "infra/observability/real-exits-alerts.yml (RealExitsJobStalled); RealExitsAlarmParityTest.everyJobOfTheMetricsHasItsStalledRule"
-    },
-    {
-      "id": "U7-NFR5.11",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/application/ExitEvents.java; RealExitsMetricsTest.theLogOfAChangeOfStateMasksTheSignatureAndCarriesNoAddress, RealExitsSettingsTest.theJupiterKeyIsNeverPrinted"
-    },
-    {
-      "id": "U7-NFR7.1",
-      "status": "OK",
-      "target": "apps/api/src/test/java/com/memetrade/realexits/RealExitsArchitectureTest.java; apps/web/src/features/real/conditionals.ts (texto decimal e bigint); conditionals.test.ts"
-    },
-    {
-      "id": "U7-NFR8.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java (gravador próprio; nenhuma dependência nova de produção)"
-    },
-    {
-      "id": "U7-NFR8.2",
-      "status": "OK",
-      "target": "infra/solana-fixtures/record.sh (modo --trigger)"
-    },
-    {
-      "id": "U7-NFR8.3",
-      "status": "OK",
-      "target": "testes escritos antes do código nas etapas [testes antes]: ConditionalStateMachineTest, TriggerValidationTest, FillPostingIT, ExitGuardIT, FiscalBalanceTest, FiscalRowMapperTest, SigningServiceTriggerTest (code-summary.md, \"Ordem dos testes\")"
-    },
-    {
-      "id": "U7-NFR8.4",
-      "status": "OK",
-      "target": "testes depois do código: ConditionalCreationIT, FiscalExportIT, RealExitsMetricsTest, SimulatedTriggerAdapterTest e os testes Jest de apps/web/src/features/real/components/"
-    },
-    {
-      "id": "U7-NFR8.5",
-      "status": "OK",
-      "target": "apps/web/e2e/real-exports/real-exports.spec.ts, apps/web/e2e/real-exits/real-exits.spec.ts, infra/docker-compose.real.yml"
-    },
-    {
-      "id": "U7-NFR8.6",
-      "status": "OK",
-      "target": "JaCoCo da API e do TxSigner e limite do Jest do web, sem exclusão nova (code-summary.md, \"Cobertura\")"
-    },
-    {
-      "id": "U7-NFR10.1",
-      "status": "OK",
-      "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java (data_utc e data_local); FiscalCsvWriterTest.theLocalDateFollowsTheZoneOfThePerson"
-    }
+    {"id": "AC3.4.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/ConditionalService.java", "note": "ConditionalController.java, ConsentMessage.java e ConditionalDialog.tsx; no caminho simulado a carteira principal assina o consentimento com signMessage (BR1.2), e a transação cossinada da Jupiter real fica para depois do portão BR0; ConditionalCreationIT (S1, S2, S12), ConditionalDialog.test.tsx, apps/web/e2e/real-v2-exits/real-exits.spec.ts"},
+    {"id": "AC3.4.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/FillPosting.java", "note": "ConditionalReadJob.java confere o preenchimento na rede (finalized) e lança SWAP_FILL_OUT e NETWORK_FEE no ledger REAL; FillPostingIT (S13, S14, S15, S20, S27). Lacuna aceita no code-summary.md: o preenchimento não tem e2e, porque o adaptador simulado nunca preenche; o preenchimento na rede real depende da Jupiter real (portão BR0)"},
+    {"id": "AC4.3.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java", "note": "FiscalRowMapper.java e FiscalExportService.java (data, token, quantidade, preço, taxa e assinatura); FiscalCsvWriterTest, FiscalRowMapperTest (S35, S46), FiscalExportIT (S28), apps/web/e2e/real-v1-exports/real-exports.spec.ts"},
+    {"id": "AC8.1.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java", "note": "o kill switch cancela as condicionais abertas das carteiras do bot (CancelReason KILL_SWITCH); ConditionalCancelJobIT (S16, S36), apps/web/e2e/real-v2-exits/real-exits.spec.ts (teste 3)"},
+    {"id": "BR0.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerPort.java", "note": "as suposições sobre a Jupiter ficam atrás da porta X1; realexits/infra/jupiter/package-info.java sem adaptador real; docs/runbooks/real-exits.md seção 1"},
+    {"id": "BR0.2", "status": "Deferred", "target": "portão BR0: o modo --trigger do infra/solana-fixtures/record.sh existe (sem assinar nem enviar), mas a gravação real não foi feita; ela é rodada uma vez, com rede, pelo responsável do projeto (code-summary.md)"},
+    {"id": "BR0.3", "status": "OK", "target": "apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java", "note": "POLICY_NOT_RECORDED no TxSigner; RealProperties.java recusa o adaptador simulado fora da LOCALNET; SimulatedTriggerAdapter.java; SigningServiceTriggerTest (S44), TriggerSignaturesIT, RealExitsSettingsTest, SimulatedTriggerAdapterTest"},
+    {"id": "BR0.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportController.java", "note": "sem dependência da Jupiter; FiscalExportIT, apps/web/e2e/real-v1-exports/real-exports.spec.ts"},
+    {"id": "BR0.5", "status": "Deferred", "target": "portão BR0: a revisão do desenho depois da gravação real ainda não aconteceu (regra de processo, registrada em docs/runbooks/real-exits.md seção 1)"},
+    {"id": "BR1.1", "status": "Deferred", "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só entram depois da gravação real da Trigger (code-generation-plan.md, \"Fora desta Unit\"), com os testes de ataque escritos antes do código; até lá o TxSigner recusa TRIGGER_CREATE e TRIGGER_CANCEL com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; SigningServiceTriggerTest, TriggerSignaturesIT) e os testes da API usam o ScriptedTriggerPort"},
+    {"id": "BR1.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/ConsentMessage.java", "note": "caminho MESSAGE do ConditionalService.java com signMessage da carteira principal e ConditionalDialog.tsx; ConditionalCreationIT (S1, S2, S11, S12), ConditionalDialog.test.tsx"},
+    {"id": "BR1.3", "status": "Deferred", "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só entram depois da gravação real da Trigger (code-generation-plan.md, \"Fora desta Unit\"), com os testes de ataque escritos antes do código; até lá o TxSigner recusa TRIGGER_CREATE e TRIGGER_CANCEL com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; SigningServiceTriggerTest, TriggerSignaturesIT) e os testes da API usam o ScriptedTriggerPort"},
+    {"id": "BR1.4", "status": "Deferred", "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só entram depois da gravação real da Trigger (code-generation-plan.md, \"Fora desta Unit\"), com os testes de ataque escritos antes do código; até lá o TxSigner recusa TRIGGER_CREATE e TRIGGER_CANCEL com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; SigningServiceTriggerTest, TriggerSignaturesIT) e os testes da API usam o ScriptedTriggerPort"},
+    {"id": "BR2.1", "status": "Deferred", "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só entram depois da gravação real da Trigger (code-generation-plan.md, \"Fora desta Unit\"), com os testes de ataque escritos antes do código; até lá o TxSigner recusa TRIGGER_CREATE e TRIGGER_CANCEL com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; SigningServiceTriggerTest, TriggerSignaturesIT) e os testes da API usam o ScriptedTriggerPort. Cenários de ataque adiados com este item: S21 a S26, S40 a S42."},
+    {"id": "BR2.2", "status": "Deferred", "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só entram depois da gravação real da Trigger (code-generation-plan.md, \"Fora desta Unit\"), com os testes de ataque escritos antes do código; até lá o TxSigner recusa TRIGGER_CREATE e TRIGGER_CANCEL com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; SigningServiceTriggerTest, TriggerSignaturesIT) e os testes da API usam o ScriptedTriggerPort. Cenários de ataque adiados com este item: S21 a S26, S40 a S42."},
+    {"id": "BR2.3", "status": "Deferred", "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só entram depois da gravação real da Trigger (code-generation-plan.md, \"Fora desta Unit\"), com os testes de ataque escritos antes do código; até lá o TxSigner recusa TRIGGER_CREATE e TRIGGER_CANCEL com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; SigningServiceTriggerTest, TriggerSignaturesIT) e os testes da API usam o ScriptedTriggerPort. Cenários de ataque adiados com este item: S21 a S26, S40 a S42."},
+    {"id": "BR2.4", "status": "Deferred", "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só entram depois da gravação real da Trigger (code-generation-plan.md, \"Fora desta Unit\"), com os testes de ataque escritos antes do código; até lá o TxSigner recusa TRIGGER_CREATE e TRIGGER_CANCEL com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; SigningServiceTriggerTest, TriggerSignaturesIT) e os testes da API usam o ScriptedTriggerPort. Cenários de ataque adiados com este item: S21 a S26, S40 a S42."},
+    {"id": "BR2.5", "status": "Deferred", "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só entram depois da gravação real da Trigger (code-generation-plan.md, \"Fora desta Unit\"), com os testes de ataque escritos antes do código; até lá o TxSigner recusa TRIGGER_CREATE e TRIGGER_CANCEL com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; SigningServiceTriggerTest, TriggerSignaturesIT) e os testes da API usam o ScriptedTriggerPort. Cenários de ataque adiados com este item: S21 a S26, S40 a S42."},
+    {"id": "BR2.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerValidation.java", "note": "limites da API e piso da saída mínima; TriggerValidationTest, ConditionalCreationIT (S4, S5, S43); a camada do TxSigner fica com o portão BR0 e o risco que sobra está em docs/runbooks/real-exits.md seção 5, para a decisão do fundador"},
+    {"id": "BR3.1", "status": "OK", "target": "apps/api/src/main/resources/db/changelog/changes/0022-real-exits.sql", "note": "índice único parcial uq_real_conditional_order_open; RealExitsMigrationIT, ConditionalCreationIT (S8)"},
+    {"id": "BR3.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerValidation.java", "note": "ConditionalDtos.java e apps/web/src/features/real/conditionals.ts; TriggerValidationTest, conditionals.test.ts"},
+    {"id": "BR3.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/CurrentPrice.java", "note": "preço desconhecido nunca vira zero; ConditionalCreationIT (S3), TriggerValidationTest"},
+    {"id": "BR3.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerValidation.java", "note": "TriggerValidationTest, ConditionalCreationIT (S4, S5, S43)"},
+    {"id": "BR3.5", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/realexits/web/ConditionalCreationIT.java", "note": "teste novo da volta 1 do Build and Test: br35TheRefusalOfTheProviderIsTriggerRejectedWithItsReasonAndLeavesNothingBehind (TriggerPort.CreateResult.Rejected com motivo vira 422 TRIGGER_REJECTED em RFC 7807 com o motivo no detail; condicional FAILED, sem sessão de assinatura, sem lançamento e sem reserva aberta na barreira) e aRefusalOfTheSigningPolicyIsSigningPolicyRefused; código em ConditionalService.java (rejected) e TriggerPort.java; a distância mínima da Jupiter real é conferida depois do portão BR0"},
+    {"id": "BR3.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/ConditionalService.java", "note": "maxSlippageBps do perfil no pedido; ConditionalCreationIT (S1), TriggerValidationTest"},
+    {"id": "BR3.7", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/ConditionalService.java", "note": "posição inteira do ledger REAL; ConditionalCreationIT (S1, withoutAPositionOfTheMintTheCreationIsRefused)"},
+    {"id": "BR3.8", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/web/ConditionalDtos.java", "note": "stopNotGuaranteed e o aviso no ConditionalDialog.tsx; ConditionalCreationIT (S1), ConditionalDialog.test.tsx"},
+    {"id": "BR4.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/ConditionalService.java", "note": "barreira da U3 pela M1 e pela M5; ConditionalCreationIT (S6, S7)"},
+    {"id": "BR4.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/FillPosting.java", "note": "a condicional não consome limite nem teto; a venda entra na perda do dia no lançamento; FillPostingIT, ConditionalCreationIT (BR3.5: nenhuma reserva aberta)"},
+    {"id": "BR4.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/ExitGuardService.java", "note": "realexecution/api/PositionExitGuard.java, DecisionConsumer.java, LiquidationJob.java e SigningSessionService.java; ExitGuardIT, DecisionConsumerExitIT (S19, S37), LiquidationExitIT, PersonSaleExitIT"},
+    {"id": "BR4.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/web/ConditionalController.java", "note": "Idempotency-Key obrigatória; ConditionalCreationIT (S9, theCreationNeedsAnIdempotencyKey)"},
+    {"id": "BR5.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalReadJob.java", "note": "RealExitsSchedule.java (30 s); FillPostingIT"},
+    {"id": "BR5.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalReadJob.java", "note": "conferência finalized na rede; FillPostingIT (S15)"},
+    {"id": "BR5.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/FillPosting.java", "note": "SWAP_FILL_OUT e NETWORK_FEE com reference conditional:<id>; FillPostingIT (S13)"},
+    {"id": "BR5.3b", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/ExitGuardService.java", "note": "DecisionConsumer.java relê a posição no ledger; DecisionConsumerExitIT (S37), ReconciliationPolicyEscrowTest (S49)"},
+    {"id": "BR5.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/FillPosting.java", "note": "filled_side; FillPostingIT.theTakeProfitLegOfAnOcoIsRecordedAsTheFilledSide"},
+    {"id": "BR5.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/ExitEvents.java", "note": "evento real.conditional.state pelo bots/web/DashboardMarkPoller.java e ConditionalsTab.tsx; ConditionalsTab.test.tsx"},
+    {"id": "BR5.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsGaugesJob.java", "note": "real_conditional_unread_oldest_seconds e a regra de infra/observability/real-exits-alerts.yml; FillPostingIT (S27), RealExitsAlarmParityTest"},
+    {"id": "BR6.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java", "note": "ConditionalCancelJobIT (S16)"},
+    {"id": "BR6.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java", "note": "ConditionalCancelJobIT (S17)"},
+    {"id": "BR6.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java", "note": "ConditionalCancelJobIT (S18)"},
+    {"id": "BR6.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java", "note": "ConditionalCancelJobIT.aCancellationNotConfirmedIsSentAgainEveryMinuteAndNeverGoesBackToOpen"},
+    {"id": "BR6.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/ConditionalStateMachine.java", "note": "ConditionalCancelJobIT (S36), ConditionalStateMachineTest"},
+    {"id": "BR6.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/ConditionalStateMachine.java", "note": "FILLABLE; ConditionalCancelJobIT (S20), FillPostingIT (S20), ConditionalStateMachineTest"},
+    {"id": "BR6.7", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/CancellationWatch.java", "note": "needsUserCancellation e ConditionalsTab.tsx; CancellationWatchTest (S38), ConditionalsTab.test.tsx"},
+    {"id": "BR6.8", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java", "note": "ConditionalCancelJobIT.theSaleOfTheRestOfTheFreeBalanceIsNeverBlockedByTheJob"},
+    {"id": "BR6.9", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/botwallet/application/BotWalletAnonymizationService.java", "note": "botwallet/api/OpenExitsCheck.java; AnonymizationOpenExitsTest (S47), ExitsExtensionsIT"},
+    {"id": "BR7.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java", "note": "FiscalCsvWriterTest, FiscalExportIT (S28), apps/web/e2e/real-v1-exports/real-exports.spec.ts"},
+    {"id": "BR7.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java", "note": "HEADER; FiscalCsvWriterTest"},
+    {"id": "BR7.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalRowMapper.java", "note": "FiscalRowMapperTest (S35, S46)"},
+    {"id": "BR7.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java", "note": "FiscalRowMapper.java; FiscalCsvWriterTest.numbersAreNeverEscapedAndAlwaysPositive"},
+    {"id": "BR7.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java", "note": "escape de fórmula nos campos de texto; FiscalCsvWriterTest (S29)"},
+    {"id": "BR7.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalBalance.java", "note": "FiscalBalanceTest (S45), FiscalExportIT (S45), apps/web/e2e/real-v1-exports/real-exports.spec.ts"},
+    {"id": "BR7.7", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalPeriod.java", "note": "FiscalExportPanel.tsx; FiscalPeriodTest, FiscalExportIT (S31), FiscalExportPanel.test.tsx"},
+    {"id": "BR7.8", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportService.java", "note": "tenant do token e botWalletIds da M1; FiscalExportIT (S30, S33)"},
+    {"id": "BR7.9", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportLimiter.java", "note": "shared/web/PersonRouteRateLimiter.java com janela configurável; FiscalExportIT (S32), PersonRouteRateLimiterWindowTest, FiscalExportPanel.test.tsx"},
+    {"id": "BR7.10", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportService.java", "note": "fluxo e auditoria sem conteúdo; FiscalExportIT.theExportIsAuditedWithoutItsContent, FiscalStreamingTest"},
+    {"id": "BR7.11", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportController.java", "note": "FiscalExportIT (S34)"},
+    {"id": "BR8.1", "status": "OK", "target": "apps/web/src/features/real/components/ModeSelector.tsx", "note": "ModeScreen.tsx e realexecution/infra/RealModeService.java; ModeSelectorExits.test.tsx, RealModeExitsTest (S50)"},
+    {"id": "BR8.2", "status": "OK", "target": "apps/web/src/features/real/components/ConditionalDialog.tsx", "note": "rota GET /api/v1/real/conditional-orders/quote, OverviewScreen.tsx e RealPnlCard.tsx; ConditionalDialog.test.tsx, ExitsScreens.test.tsx, ConditionalCreationIT (theQuoteShowsOnlyThePositionOfThePersonOfTheToken)"},
+    {"id": "BR8.3", "status": "OK", "target": "apps/web/src/features/real/components/ConditionalsTab.tsx", "note": "OrdersScreen.tsx; ConditionalsTab.test.tsx, ExitsScreens.test.tsx, apps/web/e2e/real-v2-exits/real-exits.spec.ts"},
+    {"id": "BR8.4", "status": "OK", "target": "apps/web/src/features/real/components/FiscalExportPanel.tsx", "note": "FiscalExportPanel.test.tsx, apps/web/e2e/real-v1-exports/real-exports.spec.ts"},
+    {"id": "BR9.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/SimulatedTriggerAdapter.java", "note": "TriggerPort.java e RealExitsConfig.java (UnavailableTriggerPort); SimulatedTriggerAdapterTest"},
+    {"id": "BR9.2", "status": "Deferred", "target": "portão BR0: as respostas gravadas da Jupiter só existem depois do record.sh --trigger; até lá os testes usam o apps/api/src/test/java/com/memetrade/realexits/ScriptedTriggerPort.java"},
+    {"id": "BR9.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealProperties.java", "note": "apps/api/src/main/resources/application.yml (MEMETRADE_REAL_EXITS_ENABLED=false); RealExitsSettingsTest, ConditionalCreationIT (S10), RealModeExitsTest (S50)"},
+    {"id": "BR9.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealProperties.java", "note": "toString mascara a chave; RealExitsSettingsTest.theJupiterKeyIsNeverPrinted"},
+    {"id": "NFR1.1", "status": "Deferred", "target": "portão BR0: a TriggerPolicy completa e o JupiterTriggerAdapter real só entram depois da gravação real da Trigger (code-generation-plan.md, \"Fora desta Unit\"), com os testes de ataque escritos antes do código; até lá o TxSigner recusa TRIGGER_CREATE e TRIGGER_CANCEL com POLICY_NOT_RECORDED (apps/txsigner/src/main/java/com/memetrade/txsigner/domain/SigningService.java; SigningServiceTriggerTest, TriggerSignaturesIT) e os testes da API usam o ScriptedTriggerPort. Cenários de ataque adiados com este item: S21 a S26, S40 a S42."},
+    {"id": "NFR1.2", "status": "OK", "target": "apps/txsigner/src/test/java/com/memetrade/txsigner/domain/SigningServiceTriggerTest.java", "note": "TriggerSignaturesIT, TriggerProgramLoaderTest (S44)"},
+    {"id": "NFR1.3", "status": "Deferred", "target": "portão BR0: o lado do TxSigner (TRIGGER_CANCEL assinável com o kill switch ligado, o REAL desligado e a restauração em curso, inclusive o lado do TxSigner do S39) entra com a TriggerPolicy; o lado da API está em ConditionalCancelJobIT (S39, theCancellationWorksWithTheExitsFlagOff)"},
+    {"id": "NFR1.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/TriggerValidation.java", "note": "TriggerValidationTest, ConditionalCreationIT (S4, S5, S43)"},
+    {"id": "NFR1.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealProperties.java", "note": "RealExitsSettingsTest.theJupiterKeyIsNeverPrinted; o web não tem variável da Jupiter"},
+    {"id": "NFR1.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportService.java", "note": "FiscalExportIT (S30, S33)"},
+    {"id": "NFR1.7", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java", "note": "FiscalCsvWriterTest (S29, aTextWithTheSeparatorOrAQuoteIsQuoted)"},
+    {"id": "NFR1.8", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/realexits/RealExitsArchitectureTest.java", "note": "onlyTheJupiterPackageReachesTheNetwork e theModuleNeverSigns, cada regra com fixture que falha"},
+    {"id": "NFR1.9", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/web/ConditionalController.java", "note": "apps/api/src/main/resources/tenancy/route-registry.yml; ConditionalCreationIT (S9, anotherPersonNeverReachesTheConditional)"},
+    {"id": "NFR2.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/realexits/RealExitsArchitectureTest.java", "note": "theModuleNeverTouchesPaper; FiscalExportIT (S30, S33)"},
+    {"id": "NFR3.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalReadJob.java", "note": "ciclo de 30 s; FillPostingIT e RealExitsMetricsTest.aFillCountsItsSideAndItsLag com relógio fixo e o ScriptedTriggerPort. Medição pendente: o atraso de 90 s com as respostas gravadas da Jupiter só é medido depois da gravação real (portão BR0)"},
+    {"id": "NFR3.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java", "note": "ciclo de 1 min; ConditionalCancelJobIT (S16) com relógio fixo e apps/web/e2e/real-v2-exits/real-exits.spec.ts (teste 3). Medição pendente: a confirmação em até 5 min na rede real depende do TRIGGER_CANCEL assinado pelo TxSigner (portão BR0)"},
+    {"id": "NFR3.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportService.java", "note": "escrita em fluxo; FiscalStreamingTest, FiscalExportIT.twentyThousandEntriesAreExportedInAtMostTenSeconds (CI 44228007586)"},
+    {"id": "NFR3.4", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/realexits/web/ConditionalCreationIT.java", "note": "theCreationUpToTheSigningSessionTakesAtMostThreeSecondsTwentyTimes (máximo, não p95) com o ScriptedTriggerPort. Medição pendente: o tempo com a Jupiter gravada só é medido depois da gravação real (portão BR0)"},
+    {"id": "NFR3.5", "status": "OK", "target": "apps/api/src/main/resources/db/changelog/changes/0022-real-exits.sql", "note": "índice único parcial; RealExitsMigrationIT.thePositionHasAtMostOneConditionalThatIsNotFinal"},
+    {"id": "NFR3.6", "status": "OK", "target": "apps/api/src/main/resources/db/changelog/changes/0022-real-exits.sql", "note": "índices por bot_wallet_id e state (desvio registrado no code-summary.md) e por user_id e created_at; RealExitsMigrationIT.theIndexesOfTheJobsAndOfTheListExist"},
+    {"id": "NFR3.7", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsPurgeJob.java", "note": "pool risk_retention e gatilho de idade; RealExitsPurgeJobIT, RealExitsMigrationIT"},
+    {"id": "NFR3.8", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/ledger/infra/JdbcRealLedger.java", "note": "streamEntries por tenant, pessoa e created_at; FiscalPeriodTest (366 dias recusado, 365 aceito), FiscalExportIT"},
+    {"id": "NFR3.9", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportLimiter.java", "note": "FiscalExportIT.s32TheEleventhExportInTheHourIsRateLimited"},
+    {"id": "NFR4.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/JdbcConditionalStore.java", "note": "move e touch por compare-and-set e o gatilho da 0022; FillPostingIT.aFillOfAConditionalMovedMeanwhileEntersNothing, RealExitsMigrationIT.theStateMovesOnlyAlongTheMachineOfTheEntities"},
+    {"id": "NFR4.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/FillPosting.java", "note": "FillPostingIT (S14)"},
+    {"id": "NFR4.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexecution/infra/DecisionConsumer.java", "note": "LiquidationJob.java, SigningSessionService.java e ExitGuardService.java; DecisionConsumerExitIT (S19, S37), LiquidationExitIT, PersonSaleExitIT"},
+    {"id": "NFR4.4", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsSchedule.java", "note": "ShedLock realExitsRead, realExitsCancel e realExitsGauges; RealExitsMetricsTest.theGaugesFollowTheLastRunOfTheJob"},
+    {"id": "NFR4.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalCancelJob.java", "note": "ConditionalCancelJobIT.aCancellationNotConfirmedIsSentAgainEveryMinuteAndNeverGoesBackToOpen"},
+    {"id": "NFR4.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/ConditionalReadJob.java", "note": "FillPostingIT.s27TheProviderDownChangesNothingAndTheLastReadStays, ConditionalCancelJobIT.theProviderDownLeavesTheConditionalCancelling"},
+    {"id": "NFR4.7", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/realexits/RealExitsArchitectureTest.java", "note": "neitherTheExecutionNorTheBotWalletImportTheExits (o saque da U1 não usa classe da U7); ConditionalCancelJobIT.theSaleOfTheRestOfTheFreeBalanceIsNeverBlockedByTheJob"},
+    {"id": "NFR4.8", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/botwallet/domain/ReconciliationPolicy.java", "note": "botwallet/api/EscrowBalances.java; ReconciliationPolicyEscrowTest (S49), ExitsExtensionsIT"},
+    {"id": "NFR4.9", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/botwallet/application/BotWalletAnonymizationService.java", "note": "AnonymizationOpenExitsTest (S47)"},
+    {"id": "NFR4.10", "status": "OK", "target": "apps/api/src/main/resources/application.yml", "note": "flag desligado por padrão; RealExitsSettingsTest.theExitsAreOffByDefaultInTheSharedConfiguration, ConditionalCreationIT (S10), RealModeExitsTest (S50)"},
+    {"id": "NFR4.11", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/domain/CancellationWatch.java", "note": "CancellationWatchTest.exactlyFifteenMinutesInCancellingIsTrue (S38)"},
+    {"id": "NFR4.12", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalExportController.java", "note": "FiscalExportIT.s34TheExportWorksWithTheKillSwitchWithoutReleaseAndPaused"},
+    {"id": "NFR5.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java", "note": "RealExitsMetricsTest"},
+    {"id": "NFR5.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java", "note": "RealExitsMetricsTest.aFillCountsItsSideAndItsLag. Medição pendente: o histograma do atraso só tem valores reais com preenchimentos na rede, depois do portão BR0"},
+    {"id": "NFR5.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java", "note": "RealExitsMetricsTest"},
+    {"id": "NFR5.4", "status": "OK", "target": "apps/txsigner/src/main/java/com/memetrade/txsigner/infra/TxSignerConfig.java", "note": "txsigner_trigger_refusals_total; TriggerSignaturesIT"},
+    {"id": "NFR5.5", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java", "note": "FiscalExportIT"},
+    {"id": "NFR5.6", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsMetrics.java", "note": "RealExitsMetricsTest.everyCounterIsRegisteredWithZeroForEveryValueOfItsLabel"},
+    {"id": "NFR5.6b", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsGaugesJob.java", "note": "RealExitsMetricsTest.theGaugesFollowTheLastRunOfTheJob"},
+    {"id": "NFR5.7", "status": "OK", "target": "infra/observability/real-exits-alerts.yml", "note": "infra/terraform/modules/observability/real-exits.tf; RealExitsAlarmParityTest. Medição pendente: o disparo do alerta em um ambiente implantado (não há staging nem produção, team.md)"},
+    {"id": "NFR5.8", "status": "OK", "target": "infra/observability/real-exits-alerts.yml", "note": "infra/terraform/modules/observability/real-exits.tf; RealExitsAlarmParityTest. Medição pendente: o disparo do alerta em um ambiente implantado"},
+    {"id": "NFR5.9", "status": "OK", "target": "infra/observability/real-exits-alerts.yml", "note": "RealExitsTriggerPolicyRefused; RealExitsAlarmParityTest. Medição pendente: a recusa da TriggerPolicy só existe depois do portão BR0"},
+    {"id": "NFR5.10", "status": "OK", "target": "infra/observability/real-exits-alerts.yml", "note": "RealExitsJobStalled; RealExitsAlarmParityTest.everyJobOfTheMetricsHasItsStalledRule"},
+    {"id": "NFR5.11", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/application/ExitEvents.java", "note": "LogMasking; RealExitsMetricsTest.theLogOfAChangeOfStateMasksTheSignatureAndCarriesNoAddress, RealExitsSettingsTest.theJupiterKeyIsNeverPrinted"},
+    {"id": "NFR7.1", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/realexits/RealExitsArchitectureTest.java", "note": "sem double e float no domínio; apps/web/src/features/real/conditionals.ts em texto decimal e bigint; conditionals.test.ts, real-lint.test.ts"},
+    {"id": "NFR8.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java", "note": "gravador próprio; nenhuma dependência nova de produção (pom.xml e package.json sem mudança de dependência)"},
+    {"id": "NFR8.2", "status": "Deferred", "target": "portão BR0: a extensão do infra/solana-fixtures/record.sh (modo --trigger) está pronta, mas a gravação real não foi feita; o SDK Solana continua só no escopo de teste"},
+    {"id": "NFR8.3", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/realexits/domain/ConditionalStateMachineTest.java", "note": "testes escritos antes do código: TriggerValidationTest, FillPostingIT, ExitGuardIT, FiscalBalanceTest, FiscalRowMapperTest, SigningServiceTriggerTest (code-summary.md, \"Ordem dos testes\"); os testes de ataque da TriggerPolicy ficam com o portão BR0"},
+    {"id": "NFR8.4", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/realexits/web/ConditionalCreationIT.java", "note": "testes depois do código: FiscalExportIT, RealExitsMetricsTest, SimulatedTriggerAdapterTest e os testes Jest de apps/web/src/features/real/components/"},
+    {"id": "NFR8.5", "status": "OK", "target": "apps/web/e2e/real-v2-exits/real-exits.spec.ts", "note": "apps/web/e2e/real-v1-exports/real-exports.spec.ts e infra/docker-compose.real.yml; com a gravação real (portão BR0) o spec da condicional passa a usar a transação real"},
+    {"id": "NFR8.6", "status": "OK", "target": "apps/api/pom.xml", "note": "regra check do JaCoCo na API e no TxSigner e limite do Jest no web, sem exclusão nova; linhas: API 92,21%, web 94,68%, TxSigner acima de 80% (CI 44228007586)"},
+    {"id": "NFR10.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/realexits/fiscal/FiscalCsvWriter.java", "note": "data_utc e data_local no fuso da pessoa; FiscalCsvWriterTest.theLocalDateFollowsTheZoneOfThePerson"}
   ],
-  "reverse": [
-    {
-      "id": "GET /api/v1/real/conditional-orders/quote",
-      "status": "N/A",
-      "target": "leitura do preço e dos limites para o diálogo de BR8.2 (desvio registrado no code-summary.md e no adendo da U7 do contract-summary.md)"
-    },
-    {
-      "id": "PersonRouteRateLimiter com janela configurável",
-      "status": "N/A",
-      "target": "necessário para o limite por hora de BR7.9 com o limitador que já existe (PersonRouteRateLimiterWindowTest)"
-    }
-  ]
+  "reverse": []
 }

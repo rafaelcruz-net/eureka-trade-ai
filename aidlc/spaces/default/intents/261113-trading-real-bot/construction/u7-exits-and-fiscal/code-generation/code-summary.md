@@ -1,6 +1,6 @@
 # Code Summary — U7 `u7-exits-and-fiscal`
 
-Intent `261113-trading-real-bot`. Plano: `code-generation-plan.md` (Steps 1 a 17). Testing Contract: `custom`, `Comprehensive`, sha `sha256:98df078ab1ee44bde9eaa1e5c7f5f121064c1ad1d933fdf12d5563b3111d6400`. Instruções de teste: `unit-test-instructions.md`.
+Intent `261113-trading-real-bot`. Plano: `code-generation-plan.md` (Steps 1 a 17, mais os Steps 18 e 19 da volta 1 do Build and Test). Testing Contract: `custom`, `Comprehensive`, sha `sha256:98df078ab1ee44bde9eaa1e5c7f5f121064c1ad1d933fdf12d5563b3111d6400`. Instruções de teste: `unit-test-instructions.md`.
 
 **Escopo do portão BR0.** Esta Unit **não** tem a `TriggerPolicy` completa nem o `JupiterTriggerAdapter` real que envia transações. O TxSigner ganhou só a carga do `trigger-program.json`, com a conferência do hash, e a recusa `POLICY_NOT_RECORDED`. O flag `memetrade.real.exits.enabled` fica `false` por padrão. Ele só é ligado no perfil de teste local, com o adaptador simulado.
 
@@ -54,7 +54,7 @@ Nunca rodaram dois Maven ao mesmo tempo. A 2ª execução do `verify` da API foi
 | API | `realexits/application/ExitGuardIT`, `ExitsExtensionsIT`, `FillPostingIT` | 7, 4, 11 |
 | API | `realexecution/infra/DecisionConsumerExitIT`, `LiquidationExitIT`, `PersonSaleExitIT`, `RealModeExitsTest` | 5, 2, 2, 5 |
 | API | `botwallet/domain/ReconciliationPolicyEscrowTest`, `botwallet/application/AnonymizationOpenExitsTest` | 7, 4 |
-| API | `realexits/web/ConditionalCreationIT` | 19 |
+| API | `realexits/web/ConditionalCreationIT` | 21 (2 da volta 1, BR3.5) |
 | API | `realexits/infra/SimulatedTriggerAdapterTest`, `RealExitsSettingsTest`, `ConditionalCancelJobIT`, `RealExitsPurgeJobIT`, `RealExitsAlarmParityTest`, `RealExitsMetricsTest` | 5, 5, 12, 6, 5, 4 |
 | API | `realexits/fiscal/FiscalRowMapperTest`, `FiscalCsvWriterTest`, `FiscalBalanceTest`, `FiscalPeriodTest`, `FiscalStreamingTest`, `FiscalExportIT` | 10, 9, 3, 5, 2, 8 |
 | API | `shared/web/PersonRouteRateLimiterWindowTest`, `realexits/RealExitsArchitectureTest` | 5, 15 |
@@ -122,6 +122,24 @@ O Playwright (com `workers: 1`) roda os arquivos na ordem alfabética do caminho
 - **Pastas renomeadas:** `e2e/real-v1-exports` e `e2e/real-v2-exits`, para virem depois do `real-ui`.
 - **Venda total movida:** o "vender tudo e sacar" saiu do `real-swap` e virou o teste 4 do `real-v2-exits`. Assim a posição da compra gravada fica aberta para o `real-ui`, a exportação e as condicionais. O teste 4 também prova que voltar para AUTO_FULL cancela a condicional aberta (BR6.2) antes da venda.
 - **Lista do `verify.sh`:** precisa usar os nomes novos (texto acima).
+
+## Volta 1 do Build and Test (2026-11-20)
+
+O Build and Test marcou o BR3.5 como não verificado e mostrou que o `traceability.json` não estava no formato do sensor (177 achados). As etapas 1 a 17 não mudaram, e o portão BR0 continua valendo: nada da `TriggerPolicy` nem do adaptador real foi escrito.
+
+- **Step 18 — teste da recusa `TRIGGER_REJECTED` (BR3.5).** Dois testes novos no `ConditionalCreationIT`, com o `ScriptedTriggerPort` no papel do adaptador simulado (`AdapterKind.SIMULATED`, autorização `MESSAGE`) devolvendo `Rejected` na criação:
+  - `br35TheRefusalOfTheProviderIsTriggerRejectedWithItsReasonAndLeavesNothingBehind`: a assinatura do consentimento termina em `422 TRIGGER_REJECTED`, em `application/problem+json`, com `type`, `correlationId` e o motivo da Jupiter no `detail`. A condicional fica `FAILED` (com `final_at`, sem mensagem de assinatura e sem id na Jupiter). Não há lançamento da condicional nem lançamento novo na carteira do bot, e não há reserva `OPEN` na barreira (`real_risk_reservation`). Uma segunda assinatura responde `409`, e uma condicional nova na mesma posição é aceita (`201`).
+  - `aRefusalOfTheSigningPolicyIsSigningPolicyRefused`: com `signingPolicy=true`, a recusa é `422 SIGNING_POLICY_REFUSED`, também `FAILED` e sem lançamento.
+  - **Nenhuma falha encontrada.** O código da recusa (`ConditionalService.rejected`) já fazia o certo; nada no código de produção mudou.
+  - A "reserva da barreira liberada" foi conferida como ausência de reserva aberta: a condicional não reserva nada na M5 (BR4.2), então não há o que liberar.
+- **Step 19 — `traceability.json` no formato do sensor.** O arquivo foi reescrito por um gerador (como nas U1 a U6), em UTF-8 e sem U+FFFD. Ele tem 117 linhas: 4 ACs (AC3.4.1, AC3.4.2, AC4.3.1 e AC8.1.3), 62 BRs e 51 NFRx.y, com os ids sem o prefixo `U7-`. Cada linha `OK` aponta para um arquivo que existe, e os outros arquivos e testes ficam na nota. As linhas dos cenários S1 a S50 saíram, como nas outras Units; os testes delas estão nas notas. Ficaram `Deferred`, pelo portão BR0, com o motivo: BR0.2, BR0.5, BR1.1, BR1.3, BR1.4, BR2.1 a BR2.5, BR9.2, NFR1.1, NFR1.3 (inclusive o lado do TxSigner do S39) e NFR8.2. As medições pendentes estão nas notas de NFR3.1, NFR3.2, NFR3.4, NFR5.2, NFR5.7, NFR5.8 e NFR5.9. O BR3.5 aponta para o `ConditionalCreationIT`. O sensor `aidlc engine sensor-traceability --stage code-generation` passou: `pass: true`, 0 achados.
+- O caminho dos specs de ponta a ponta nas notas foi corrigido para `apps/web/e2e/real-v1-exports/` e `apps/web/e2e/real-v2-exits/` (as pastas foram renomeadas depois da primeira CI).
+
+| Comando | Resultado |
+|---|---|
+| `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml spotless:apply` | só o `ConditionalCreationIT.java` mudou |
+| `sh apps/api/mvnw -B -ntp -f apps/api/pom.xml verify -Dtest=NoSuchTest -Dsurefire.failIfNoSpecifiedTests=false -Dit.test=ConditionalCreationIT -Dfailsafe.failIfNoSpecifiedTests=false -Djacoco.skip=true` | 21 testes (19 que já existiam e 2 novos), 0 falhas |
+| `aidlc engine sensor-traceability --stage code-generation --output-path <traceability.json>` | `pass: true`, 0 achados (eram 177) |
 
 ## Lacuna aceita
 

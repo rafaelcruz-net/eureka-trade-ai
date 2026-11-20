@@ -16,8 +16,8 @@ Approve the code plan for u7-exits-and-fiscal?
 Full plan: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u7-exits-and-fiscal/code-generation/code-generation-plan.md
 Test instructions: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u7-exits-and-fiscal/code-generation/unit-test-instructions.md
 
-[Approval Fingerprint]: sha256:v3:09754ca61db86eab95dda5d9591e98456554971a76c21f2cc011ca7bc96ebe5c
-[Planned Source]: e356bd4fde9fa138a73ce7623933bfb0bc4d0c1b0606f213309846f272f1ab6b
+[Approval Fingerprint]: sha256:v3:be84fc531f3ed85265bcd709994cd74120ae449ca0051d5047a2816dda795571
+[Planned Source]: 9119dc1c13420fcec79637fa7cba2f4aa0b1144ccb6702f5c23e1ff3e06d54b8
 
 - A. Approve Plan
 - B. Request Changes

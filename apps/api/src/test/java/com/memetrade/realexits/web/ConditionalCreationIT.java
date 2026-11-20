@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.memetrade.botwallet.api.RealKillSwitchState;
 import com.memetrade.realexits.AbstractRealExitsIT;
 import com.memetrade.realexits.domain.AdapterKind;
+import com.memetrade.realexits.domain.TriggerPort;
 import com.memetrade.riskcontrol.api.RealRiskGate;
 import java.time.Duration;
 import java.util.Map;
@@ -332,6 +333,93 @@ class ConditionalCreationIT extends AbstractRealExitsIT {
         assertThat(trigger.calls).hasValue(0);
     }
 
+    /**
+     * BR3.5 (loop-back 1 of the Build and Test): the provider refuses the conditional with its reason. The request ends
+     * as {@code TRIGGER_REJECTED} in RFC 7807 with the reason; the conditional is FAILED (nothing left open), its
+     * signing session is gone, nothing reaches the ledger and the barrier holds nothing for the position (BR4.2: the
+     * conditional never reserves in the M5), so a new conditional on the same position is accepted.
+     */
+    @Test
+    void br35TheRefusalOfTheProviderIsTriggerRejectedWithItsReasonAndLeavesNothingBehind() throws Exception {
+        Signed signed = signedRealBot("AUTO_EXITS", 5_000L);
+        JsonNode created = body(create(signed.person(), UUID.randomUUID().toString(), oco(signed.setup())));
+        UUID id = UUID.fromString(created.path("conditionalOrderId").asText());
+        String message = created.path("signingSession").path("message").asText();
+        long entriesBefore = walletEntries(signed);
+        String reason = "stop price is below the minimum distance allowed by the provider";
+        trigger.nextCreate.set(new TriggerPort.CreateResult.Rejected(reason, false));
+
+        MockHttpServletResponse refused = sign(
+                signed.person(),
+                id,
+                Map.of("signature", signed.person().wallet().sign(message)));
+
+        assertThat(refused.getStatus()).isEqualTo(422);
+        assertThat(refused.getContentType()).startsWith("application/problem+json");
+        JsonNode problem = body(refused);
+        assertThat(problem.path("code").asText()).isEqualTo("TRIGGER_REJECTED");
+        assertThat(problem.path("type").asText()).isNotBlank();
+        assertThat(problem.path("correlationId").asText()).isNotBlank();
+        assertThat(problem.path("detail").asText())
+                .as("the reason of the provider")
+                .contains(reason);
+        assertThat(trigger.calls).as("one call: the creation at the provider").hasValue(1);
+        assertThat(conditionalState(id)).as("nothing left open").isEqualTo("FAILED");
+        assertThat(jdbc.sql("select signing_message is null and final_at is not null and jupiter_order_id is null"
+                                + " from real_conditional_order where conditional_order_id = :id")
+                        .param("id", id)
+                        .query(Boolean.class)
+                        .single())
+                .as("no signing session and no order at the provider")
+                .isTrue();
+        assertThat(conditionalEntries(id))
+                .as("no ledger entry of the conditional")
+                .isEmpty();
+        assertThat(walletEntries(signed)).as("no ledger entry at all").isEqualTo(entriesBefore);
+        assertThat(jdbc.sql("select count(*) from real_risk_reservation where bot_wallet_id = :w and state = 'OPEN'")
+                        .param("w", signed.setup().botWalletId())
+                        .query(Long.class)
+                        .single())
+                .as("the barrier holds no reservation for the wallet")
+                .isZero();
+        assertThat(sign(
+                                signed.person(),
+                                id,
+                                Map.of("signature", signed.person().wallet().sign(message)))
+                        .getStatus())
+                .as("the session is closed: a second signature is refused")
+                .isEqualTo(409);
+        assertThat(create(signed.person(), UUID.randomUUID().toString(), oco(signed.setup()))
+                        .getStatus())
+                .as("the position is free again")
+                .isEqualTo(201);
+    }
+
+    /** BR2.4 next to BR3.5: a refusal by the signing policy is SIGNING_POLICY_REFUSED, also FAILED. */
+    @Test
+    void aRefusalOfTheSigningPolicyIsSigningPolicyRefused() throws Exception {
+        Signed signed = signedRealBot("AUTO_EXITS", 5_000L);
+        JsonNode created = body(create(signed.person(), UUID.randomUUID().toString(), oco(signed.setup())));
+        UUID id = UUID.fromString(created.path("conditionalOrderId").asText());
+        trigger.nextCreate.set(new TriggerPort.CreateResult.Rejected("PROGRAM_NOT_ALLOWED", true));
+
+        MockHttpServletResponse refused = sign(
+                signed.person(),
+                id,
+                Map.of(
+                        "signature",
+                        signed.person()
+                                .wallet()
+                                .sign(created.path("signingSession")
+                                        .path("message")
+                                        .asText())));
+
+        assertThat(refused.getStatus()).isEqualTo(422);
+        assertThat(code(refused)).isEqualTo("SIGNING_POLICY_REFUSED");
+        assertThat(conditionalState(id)).isEqualTo("FAILED");
+        assertThat(conditionalEntries(id)).isEmpty();
+    }
+
     /** S48: the DELETE of an OPEN conditional answers CANCELLING; of a PENDING_SIGNATURE one, CANCELLED. */
     @Test
     void s48TheDeleteOfThePersonCancels() throws Exception {
@@ -452,6 +540,13 @@ class ConditionalCreationIT extends AbstractRealExitsIT {
         }
 
         assertThat(slowest).isLessThanOrEqualTo(3_000L);
+    }
+
+    private long walletEntries(Signed signed) {
+        return jdbc.sql("select count(*) from real_ledger_entry where bot_wallet_id = :w")
+                .param("w", signed.setup().botWalletId())
+                .query(Long.class)
+                .single();
     }
 
     private long conditionalCount(Signed signed) {
