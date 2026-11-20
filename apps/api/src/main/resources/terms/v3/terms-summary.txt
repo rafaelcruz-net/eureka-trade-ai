@@ -1,0 +1,7 @@
+O beta tem dois modos separados: PAPER, simulado com saldo virtual, e REAL, com dinheiro de verdade na carteira do bot.
+No REAL, você pode perder todo o valor depositado na carteira do bot, e não há promessa de lucro.
+A carteira do bot tem responsabilidade compartilhada: a chave fica no KMS e nunca é exportada; teto, depósito, modo e saque são decisões suas.
+O saque do SOL livre vai só para a sua carteira principal e está disponível a qualquer momento, inclusive com o kill switch.
+O REAL é liberado por pessoa, com quarentena de 24 horas, e respeita limites por ordem e por dia.
+A assinatura de login não autoriza nenhuma operação, e nunca pedimos sua frase secreta nem sua chave privada.
+Uma versão nova destes termos exige um novo aceite.

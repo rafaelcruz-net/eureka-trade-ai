@@ -213,8 +213,9 @@ class RetentionConformanceTest {
     }
 
     @Test
-    void theRetentionTableOfEveryNonLegacyVersionEqualsTheCatalog() throws IOException {
-        List<String> checked = new ArrayList<>();
+    void theRetentionTableOfEveryNonLegacyVersionEqualsTheCatalogOrIsAnEarlierPrefixOfIt() throws IOException {
+        List<String> current = new ArrayList<>();
+        List<String> earlier = new ArrayList<>();
         List<String> problems = new ArrayList<>();
         for (Resource descriptor :
                 new PathMatchingResourcePatternResolver().getResources(LEGAL_CATALOG + "*/version.properties")) {
@@ -225,12 +226,38 @@ class RetentionConformanceTest {
             String name = version.getProperty("version").trim();
             List<RetentionItem> table = LegalTextParser.retention(
                     text(descriptor.createRelative("retention.tsv")), "retention.tsv of " + name);
-            checked.add(name);
-            problems.addAll(tableDivergences(name, table));
+            // 261113-trading-real-bot U6, Step 19 (review-03 R-12): the version marked current (v3) equals the catalog
+            // row by row; an earlier non-legacy version (the draft v2, never published) is never edited, so it must be
+            // the catalog as it was then: an in-order prefix of it, word for word.
+            if (Boolean.parseBoolean(version.getProperty("current", "false").trim())) {
+                current.add(name);
+                problems.addAll(tableDivergences(name, table));
+            } else {
+                earlier.add(name);
+                problems.addAll(prefixDivergences(name, table));
+            }
         }
 
-        assertThat(checked).as("non-legacy versions of the legal catalog").isNotEmpty();
+        assertThat(current).as("the non-legacy version marked current").containsExactly("v3");
+        assertThat(earlier).as("earlier non-legacy versions").contains("v2");
         assertThat(problems).as(String.join("\n", problems)).isEmpty();
+    }
+
+    @Test
+    void anEarlierTableThatIsNotAPrefixOfTheCatalogIsReported() {
+        List<RetentionItem> table = new ArrayList<>(catalogItems().subList(0, 13));
+        RetentionItem sessions = table.get(10);
+        table.set(10, new RetentionItem(sessions.dataItem(), sessions.purpose(), "60 dias", sessions.endAction()));
+
+        assertThat(prefixDivergences("v8", catalogItems().subList(0, 13))).isEmpty();
+        assertThat(prefixDivergences("v8", table))
+                .containsExactly(
+                        "v8 row 11 (SESSIONS): period is '60 dias'; the catalog says '30 dias após o fim ou a revogação'");
+        List<RetentionItem> longer = new ArrayList<>(catalogItems());
+        longer.add(new RetentionItem("Dado a mais", "Finalidade", "1 dia", "Apagar"));
+        assertThat(prefixDivergences("v8", longer))
+                .containsExactly("v8 has " + longer.size() + " retention rows; the catalog has only "
+                        + catalogItems().size());
     }
 
     @Test
@@ -244,7 +271,8 @@ class RetentionConformanceTest {
 
         assertThat(problems)
                 .containsExactly(
-                        "v9 has 12 retention rows; the catalog has 13",
+                        "v9 has " + (catalogItems().size() - 1) + " retention rows; the catalog has "
+                                + catalogItems().size(),
                         "v9 row 11 (SESSIONS): period is '60 dias'; the catalog says '30 dias após o fim ou a revogação'");
     }
 
@@ -265,6 +293,41 @@ class RetentionConformanceTest {
                 RetentionCatalog.find("REAL_RISK_EVALUATIONS").orElseThrow().toItem();
         Resource v2 = new PathMatchingResourcePatternResolver().getResource(LEGAL_CATALOG + "v2/retention.tsv");
         assertThat(LegalTextParser.retention(text(v2), "retention.tsv of v2")).contains(expected);
+    }
+
+    /**
+     * 261113-trading-real-bot U6, Step 19 (Build and Test loop-back 2): the table of v3 keeps every row of v2 in the
+     * same order and words, the REAL barrier row included, and so stays in parity with the catalog.
+     */
+    @Test
+    void theTableOfV3KeepsEveryRowOfV2IncludingTheRealBarrierRowAndAddsTheRealRows() throws IOException {
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        List<RetentionItem> v2 =
+                LegalTextParser.retention(text(resolver.getResource(LEGAL_CATALOG + "v2/retention.tsv")), "v2");
+        List<RetentionItem> v3 =
+                LegalTextParser.retention(text(resolver.getResource(LEGAL_CATALOG + "v3/retention.tsv")), "v3");
+
+        assertThat(v3.subList(0, v2.size())).containsExactlyElementsOf(v2);
+        assertThat(v3)
+                .contains(RetentionCatalog.find("REAL_RISK_EVALUATIONS")
+                        .orElseThrow()
+                        .toItem());
+        // review-03 R-12: every datum of the REAL that the policy v3 lists has its row.
+        for (String id : List.of(
+                "REAL_BOT_WALLET",
+                "REAL_LEDGER",
+                "REAL_ORDERS",
+                "REAL_DECISION_REQUESTS",
+                "REAL_CONDITIONAL_EXITS",
+                "REAL_RELEASES",
+                "REAL_RECONCILIATIONS",
+                "REAL_DIVERGENCES",
+                "REAL_TXSIGNER_COMMANDS")) {
+            assertThat(v3)
+                    .as(id)
+                    .contains(RetentionCatalog.find(id).orElseThrow().toItem());
+        }
+        assertThat(tableDivergences("v3", v3)).isEmpty();
     }
 
     @Test
@@ -308,6 +371,17 @@ class RetentionConformanceTest {
             compare(problems, row, "endAction", actual.endAction(), expected.endAction());
         }
         return problems;
+    }
+
+    /** An earlier version: at most as many rows as the catalog, each equal to the catalog row of the same position. */
+    private static List<String> prefixDivergences(String version, List<RetentionItem> table) {
+        List<RetentionRule> rules = RetentionCatalog.rules();
+        if (table.size() > rules.size()) {
+            return List.of(version + " has " + table.size() + " retention rows; the catalog has only " + rules.size());
+        }
+        return tableDivergences(version, table).stream()
+                .filter(problem -> !problem.startsWith(version + " has "))
+                .toList();
     }
 
     private static void compare(List<String> problems, String row, String field, String actual, String expected) {

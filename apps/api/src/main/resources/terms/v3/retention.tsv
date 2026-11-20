@@ -1,0 +1,26 @@
+# Retention table of the privacy policy (FR3.4), tab-separated: dataItem, purpose, period, endAction.
+# v3: the 13 rows of v2, then the 9 rows of the REAL data (261113-trading-real-bot U6, Step 19), equal to the
+# RetentionCatalog of the Privacy module row by row (RetentionConformanceTest).
+dataItem	purpose	period	endAction
+Conta, endereço público da carteira e provedor	Identificar sua conta	Enquanto a conta existir	Anonimizar: o endereço e o provedor são apagados
+Bots e histórico de operações PAPER	Executar a simulação e mostrar resultados	Enquanto a conta existir	Manter sem vínculo com você depois da anonimização
+Aceites dos termos	Provar o aceite de cada versão	Enquanto a conta existir	Manter sem vínculo com você depois da anonimização
+Trilha de auditoria	Segurança e exercício de direitos	12 meses	Apagar
+Saída da trilha de auditoria	Entregar os eventos da trilha	7 dias após a entrega	Apagar
+Comentários de feedback	Melhorar o produto	180 dias	Apagar
+Decisões HOLD e NO_TRADE dos bots	Explicar as decisões recentes	30 dias	Apagar
+Avaliações aprovadas da barreira de risco	Conferir as ordens simuladas	30 dias	Apagar
+Chaves de idempotência	Evitar operações repetidas	24 horas	Apagar
+Desafios de login	Verificar a assinatura de entrada	24 horas após expirar	Apagar
+Sessões e renovações	Manter você conectado	30 dias após o fim ou a revogação	Apagar
+Pedidos de titular	Atender e comprovar o atendimento	12 meses após concluídos	Apagar
+Avaliações, reservas e totais do dia da barreira de risco do modo REAL	Provar o controle de risco aplicado às ordens com dinheiro real	13 meses	Apagar
+Carteira do bot: endereço, carteira principal registrada, teto, modo e consentimentos assinados	Criar e operar a carteira do bot e provar cada autorização	Enquanto a conta existir	Anonimizar: na API, a carteira do bot é encerrada, e o endereço, a carteira principal e as mensagens de consentimento são apagados; o serviço de assinatura guarda, sem exclusão, a política da carteira do bot e o registro de cada assinatura (endereço da carteira do bot, carteira principal e transações assinadas), como prova do que foi assinado
+Ledger, depósitos e saques do modo REAL	Mostrar saldo e resultado, conferir com a rede e permitir a exportação	Enquanto a conta existir	Manter sem vínculo com você depois da anonimização; o ledger nunca é apagado nem editado
+Ordens, envios e vendas totais do modo REAL	Executar as ordens e provar o que foi feito	5 anos	Apagar
+Pedidos de decisão do bot no modo REAL	Levar a decisão do bot até a ordem	13 meses após o fechamento	Apagar
+Ordens condicionais de saída do modo REAL	Executar o stop e o alvo e provar o que foi feito	5 anos após o fim	Apagar
+Liberações do modo REAL	Provar quem liberou o REAL para você e quando	5 anos após a revogação	Apagar
+Conferências do ledger do modo REAL com a rede	Detectar divergências entre o ledger e a rede	13 meses, ou mais enquanto uma divergência depender dela	Apagar
+Divergências da conferência do modo REAL	Provar como cada divergência foi resolvida	5 anos após a resolução	Apagar
+Comandos do modo REAL ao serviço de assinatura	Criar, ajustar e encerrar a carteira do bot	13 meses após a confirmação	Apagar

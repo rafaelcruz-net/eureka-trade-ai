@@ -1,0 +1,14 @@
+manifest	28f178a6aeea81dd9294dad1812ef83a1519921582f9a69d0a8146fa81f72f37	-
+	apps/api/src/main/resources/terms/v2/version.properties	100644	007e4e397bea0754909d6fd0ce9570a5aa6b4b3b62d508b2a930ab0417298cac
+	apps/api/src/main/resources/terms/v3/privacy-summary.txt	100644	379c28f8badca4fd69b67e04567c85fd7ce8b91433f4700cd3dc6d20c3e89012
+	apps/api/src/main/resources/terms/v3/privacy.txt	100644	355dee4bd0c735e3b92f8a4db5c16730e28a75a2d10d8b1c4331c5597e557eea
+	apps/api/src/main/resources/terms/v3/retention.tsv	100644	f4e02a52d11be9c21cc0a9d911f261ecaf78ebff48696625088ada0326dce5c2
+	apps/api/src/main/resources/terms/v3/risk-notice.txt	100644	b3280138e7f8a62954a188f2d52db67f38aad51a940ba85c790b75c1fb5c672d
+	apps/api/src/main/resources/terms/v3/terms-summary.txt	100644	840dc84aa8bd2aea473aac2897d9b24ebed96bb245c0d309ab19d392ef99162d
+	apps/api/src/main/resources/terms/v3/terms.txt	100644	3cf25014373d1939e3e90d4f1c02655fe43f6fb8a6c963e9bc6778993f69cc1a
+	apps/api/src/main/resources/terms/v3/version.properties	100644	02213992c314f3e9133aa7c3e314d18e087b9c59f9eacf839389bd7cb5c21364
+	apps/api/src/test/java/com/memetrade/identity/infra/TermsV3ContentTest.java	100644	ca2bc16a036fec93865e672bcd03746a6bb29a4d0646eaa51d687e1f24a4f397
+	apps/api/src/test/java/com/memetrade/identity/web/TermsV3ReacceptanceTest.java	100644	85700c603afb27b13055def99e42d27e2a034577957beabf8f7d53ba0281af58
+	apps/api/src/test/java/com/memetrade/privacy/RetentionConformanceTest.java	100644	4eaa667ef10e00520eacdb470c3998d123bbb6608d45f98c2a6f9519692a9cba
+	apps/web/src/content/prohibited-terms.test.ts	100644	552604bc85f575bf9c0b544f1f44e0cb8343ad80013c76a06a3171b5dd16343d
+	docs/api/u1-legal-documents.md	100644	c6a33b835b9a7615ebecb45e8605281a69de45feaba693f757a0296859d25fe7

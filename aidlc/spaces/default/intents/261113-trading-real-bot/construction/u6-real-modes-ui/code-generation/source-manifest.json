@@ -2,5 +2,81 @@
   "stage": "code-generation",
   "unit": "u6-real-modes-ui",
   "version": 1,
-  "writes": []
+  "writes": [
+    {
+      "path": "apps/api/src/main/java/com/memetrade/botwallet/infra/RealOpsRetentionDeclarationConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/privacy/domain/RetentionCatalog.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/realexecution/infra/RealExecutionRetentionDeclarationConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/realexits/infra/RealExitsRetentionDeclarationConfig.java"
+    },
+    {
+      "path": "apps/api/src/main/resources/terms/v2/version.properties"
+    },
+    {
+      "path": "apps/api/src/main/resources/terms/v3/privacy-summary.txt"
+    },
+    {
+      "path": "apps/api/src/main/resources/terms/v3/privacy.txt"
+    },
+    {
+      "path": "apps/api/src/main/resources/terms/v3/retention.tsv"
+    },
+    {
+      "path": "apps/api/src/main/resources/terms/v3/risk-notice.txt"
+    },
+    {
+      "path": "apps/api/src/main/resources/terms/v3/terms-summary.txt"
+    },
+    {
+      "path": "apps/api/src/main/resources/terms/v3/terms.txt"
+    },
+    {
+      "path": "apps/api/src/main/resources/terms/v3/version.properties"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/botwallet/infra/RealOpsRetentionDeclarationConfigTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/infra/TermsV3ContentTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/web/LegalDocumentsControllerIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/identity/web/TermsV3ReacceptanceTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/RetentionConformanceTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/domain/RetentionCatalogTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/privacy/infra/RetentionTableSourceTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/realexecution/infra/RealExecutionRetentionDeclarationConfigTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/realexits/infra/RealExitsRetentionDeclarationConfigTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/shared/retention/RetentionEnforcerDeclarationTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/RetentionDeclarations.java"
+    },
+    {
+      "path": "apps/web/src/content/prohibited-terms.test.ts"
+    },
+    {
+      "path": "docs/api/u1-legal-documents.md"
+    }
+  ]
 }

@@ -1,0 +1,21 @@
+## Perda total no REAL
+
+No modo REAL, você pode perder todo o valor depositado na carteira do bot. As operações vão para a rede Solana e não podem ser desfeitas.
+
+O teto, os limites por ordem e por dia e o kill switch reduzem a perda possível, mas não a eliminam. Deposite só o que você aceita perder.
+
+## Volatilidade
+
+Tokens de memes são extremamente voláteis e podem perder todo o valor em minutos. Muitos são criados para enganar compradores.
+
+## Execução e taxas
+
+O preço pode mudar entre a cotação e a execução. Uma ordem pode falhar, ficar sem confirmação ou ser executada a um preço pior, dentro da derrapagem máxima. As taxas da rede são pagas por você e reduzem o seu resultado.
+
+## Limites das avaliações
+
+Os indicadores e as avaliações do MemeTrade Analytics são estimativas a partir de dados públicos, que podem faltar ou estar errados. Eles não são recomendação de investimento, não preveem resultados e não identificam todas as fraudes. Dados ausentes aparecem como "unknown", nunca como zero, e nunca são tratados como seguros.
+
+## Sem promessa de lucro
+
+Não há promessa de lucro. Resultados obtidos no modo PAPER são simulados e não indicam resultados futuros com dinheiro real. Resultados passados no REAL também não indicam resultados futuros.

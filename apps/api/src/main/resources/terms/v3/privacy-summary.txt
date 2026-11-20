@@ -1,0 +1,6 @@
+No PAPER as operações são simuladas; no REAL, o bot opera com o SOL da carteira do bot. Não guardamos dados de pagamento.
+Guardamos o endereço público da carteira, o aceite dos termos, seus bots e o que você envia pelo feedback.
+No REAL, guardamos o endereço da carteira do bot, os consentimentos, as ordens, as transações e o ledger, para operar e conferir o resultado.
+As transações do REAL ficam públicas na rede Solana; a chave da carteira do bot fica só no KMS.
+A tabela de retenção mostra o prazo de cada grupo de dados; o ledger do REAL nunca é apagado nem editado. Não vendemos seus dados e não usamos rastreamento.
+Com login, você faz pedidos de acesso, correção ou exclusão pela Conta; sem login, pelo e-mail do encarregado de dados.

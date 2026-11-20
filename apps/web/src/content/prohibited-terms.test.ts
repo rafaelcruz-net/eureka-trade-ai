@@ -71,7 +71,13 @@ describe('prohibited terms', () => {
       ...catalogTexts(messages.account, 'messages.account'),
     ];
 
-    expect(versions).toEqual(expect.arrayContaining(['v1', 'v2']));
+    expect(versions).toEqual(expect.arrayContaining(['v1', 'v2', 'v3']));
+    // 261113-trading-real-bot U6, Step 19: v3 (the REAL text, in effect) has all six text files, none of them a draft.
+    const v3Files = files.filter(({ path: file }) => file.startsWith('terms/v3/'));
+    expect(v3Files.map(({ path: file }) => file).sort()).toEqual(
+      names.map((name) => `terms/v3/${name}`).sort(),
+    );
+    expect(v3Files.every(({ text }) => !text.startsWith('## Versão em rascunho'))).toBe(true);
     // The legacy v1 is provisional; the draft v2 opens with its "Versão em rascunho" section until the legal review.
     expect(
       files

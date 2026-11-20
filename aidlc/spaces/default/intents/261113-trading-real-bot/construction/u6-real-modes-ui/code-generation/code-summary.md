@@ -155,3 +155,78 @@ O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) 
 
 - O primeiro item aberto acima (linha do `e2e/real-ui` no `verify.sh`) está fechado: o responsável aplicou a linha, e o spec rodou na CI 44228007586.
 - Novo item: o texto dos termos v3 com as três frases do AC1.1.3, para a redação jurídica.
+
+## Volta 2 do Build and Test (2026-11-20)
+
+O Build and Test (Loop-back 2 em `construction/build-and-test/test-results.md`) deixou o AC1.1.3 como não cumprido, e o rascunho v2 ainda dizia que tudo era simulado. O responsável pediu os textos aqui, com a autorização do advogado. Durante a etapa, ele mudou a instrução: a v3 deve ficar **ativa**, com campos de revisão genéricos.
+
+### Step 19 — Versão v3 dos termos com o REAL
+
+- **Testes primeiro (Red registrado).** `TermsV3ContentTest` (catálogo real), `TermsV3ReacceptanceTest` (filtro de novo aceite sobre o catálogo real em 2026-11-20 e a não exposição dos campos de revisão), um teste novo em `RetentionConformanceTest` (a tabela da v3 igual à da v2, com a linha REAL_RISK_EVALUATIONS) e a v3 no `prohibited-terms.test.ts`. Antes dos textos, a execução deu 17 falhas e 1 erro, todos porque a v3 não existia e a v2 ainda estava marcada.
+- **Textos.** Criada a pasta `apps/api/src/main/resources/terms/v3/` com os termos, o aviso de risco, a política de privacidade, os dois resumos, a tabela de retenção (as 13 linhas da v2) e o `version.properties`, no formato que o `LegalTextParser` espera. Os textos descrevem o PAPER e o REAL como existem e trazem as três frases do AC1.1.3. A responsabilidade compartilhada tem seção própria, com a nossa parte e a sua parte. A política diz que dados do REAL tratamos e por quê: o endereço da carteira do bot, os consentimentos, as ordens, as transações e o ledger. Nenhum texto promete lucro ou garante a detecção de fraude.
+- **Versões.** A v3 tem `current=true`, `effectiveAt=2026-11-20T00:00:00Z`, `legalReviewedAt=2026-11-20` e `legalReviewedBy=Assessoria jurídica do projeto` (o acento vai como escape Unicode, porque o `Properties` lê em ISO-8859-1). A v2 passou a `current=false`, como rascunho nunca publicado e substituído pela v3.
+- **Campos de revisão internos.** Só o `LegalCatalogReader` e o `LegalVersion` leem esses campos. Nenhum DTO de `LegalDtos` e nenhuma tela dos apps os mostra (conferido por busca e pelo `TermsV3ReacceptanceTest`).
+- **Efeito.** Em produção, a partir de 2026-11-20 a v3 é a vigente, e quem aceitou só a v1 recebe `403 TERMS_REACCEPTANCE_REQUIRED` com `currentVersion=v3`, menos em `GET /api/v1/real/bot-wallet` e nas rotas de saque.
+- **Testes de integração e e2e sem mudança.** Os ITs usam o relógio fixo 2026-10-28, em que a v3 é futura e a v1 continua vigente. Por isso `TestAccounts.CURRENT_TERMS_VERSION="v1"` e o `U3ContextIT` continuam corretos. O e2e do `verify.sh` monta o catálogo de teste `terms-test/reviewed` (`infra/docker-compose.test.yml`), não o real. O `SmokeAccountSeeder` aceita a versão vigente efetiva lida na hora, e o `RealTestSeeder` aceita a `required-terms-version` (v3). Nenhum arquivo de e2e, seed ou script mudou.
+- **Rastreabilidade.** AC1.1.3 passou a `OK`, com o alvo `apps/api/src/main/resources/terms/v3/terms.txt`. O sensor `sensor-traceability` passou sem achados no caminho temporário e no caminho do registro.
+- **Execuções.** As classes de catálogo, termos, retenção e filtro deram 132 testes verdes. Os ITs `U3ContextIT`, `TermsAcceptanceIT`, `TermsReacceptanceRoutesIT`, `LegalDocumentsControllerIT`, `LegalDocumentsControllerLegacyIT` (33) e `BotWalletRoutesIT` (14) ficaram verdes. O `prohibited-terms` do web deu 5 de 5. `spotless:check` e `prettier --check` também passaram.
+
+### Itens abertos atualizados
+
+- O item "texto dos termos v3" da volta 1 está fechado.
+- Em produção com `MEMETRADE_LEGAL_REQUIRE_PUBLISHABLE=true`, os três campos de implantação precisam estar definidos. Sem eles, a v3 é ignorada como não publicável e a v1 continua vigente.
+- ~~A tabela de retenção não tem linhas próprias para os dados do REAL.~~ Fechado no reparo da revisão 03, abaixo.
+
+### Reparo da revisão 03 (Step 19, NOT-READY: 3 Major e 3 Minor)
+
+- **Testes primeiro (Red registrado).** Antes de mudar o código e os textos:
+  - `TermsV3ContentTest` ganhou quatro testes, com as frases corrigidas e asserções negativas para as frases falsas;
+  - `RetentionCatalogTest` passou a exigir as 22 linhas e os prazos das linhas do REAL;
+  - `RetentionConformanceTest` passou a comparar o catálogo com a versão vigente (v3) e a exigir que a v2 seja o começo do catálogo, com um teste de que essa checagem acha a diferença;
+  - os testes das declarações J7 das três purgas do REAL são novos.
+
+  A execução falhou na compilação, porque as configurações de declaração ainda não existiam.
+- **R-10 (Major).** Os termos agora dizem que os limites (teto, limite por ordem, perda do dia, número de compras do dia, avaliação e bloqueio do token, frescor) valem antes de cada **compra**. As vendas não passam por eles e só param por estado: REAL desligado ou não liberado, fonte não ativa, pausa ou kill switch. Não existe "lista de tokens permitidos" (`RealRiskPolicy.evaluate`).
+- **R-11 (Major).** O bot nunca compra token com dado `unknown`, e as compras param se faltar o preço de uma posição aberta. Uma posição que a pessoa já tem pode ser vendida mesmo com dado ausente.
+- **R-12 (Major).** Foram acrescentadas 9 linhas do REAL ao `RetentionCatalog` e à `retention.tsv` da v3 (22 linhas em cada uma):
+
+  | Linha | Prazo | Fonte |
+  |---|---|---|
+  | Carteira do bot | enquanto a conta existir; a anonimização encerra a carteira e apaga os dados | guarda |
+  | Ledger, depósitos e saques | enquanto a conta existir; nunca é apagado nem editado | guarda |
+  | Ordens | 5 anos | gatilho da 0019 |
+  | Pedidos de decisão | 13 meses após o fechamento | gatilho da 0019 |
+  | Saídas condicionais | 5 anos após o fim | gatilho da 0022 |
+  | Liberações | 5 anos após a revogação | gatilho da 0021 |
+  | Conferências | 13 meses, ou mais enquanto uma divergência depender dela | gatilho da 0021 |
+  | Divergências | 5 anos após a resolução | gatilho da 0021 |
+  | Comandos ao TxSigner | 13 meses após a confirmação | gatilho da 0021 |
+
+  Cada tabela de purga declara o seu prazo (J7) em `RealExecutionRetentionDeclarationConfig`, `RealExitsRetentionDeclarationConfig` e `RealOpsRetentionDeclarationConfig`. Quando uma purga tem prazos diferentes, o ID é `<lock>/<tabela>`. A v2 não mudou. A paridade do teste vale agora contra a versão vigente, e a v2 continua conferida como o começo do catálogo. Nenhuma checagem foi apagada. A política e o resumo não dizem mais "cada dado tem um prazo". Eles apontam para a tabela e dizem que o ledger e os depósitos nunca são apagados.
+- **R-13.** A venda total não é executada com o kill switch, uma divergência ou uma restauração. Nesses casos, só o saque do SOL livre fica garantido.
+- **R-14.** A ordem condicional de saída ainda aberta entrou nos motivos de recusa da anonimização.
+- **R-15.** A taxa da rede sai da carteira principal no modo Assinada e da carteira do bot quando ela executa a ordem. Nos dois casos, ela entra no cálculo do resultado do REAL (`RealPnlService` soma a taxa de toda ordem liquidada).
+- **Execuções.**
+  - Testes de unidade e de arquitetura: 282 testes. A primeira rodada teve 1 falha esperada, no `RetentionEnforcerDeclarationTest`, que lista todas as declarações. Ele foi estendido com as 7 novas e os seus valores.
+  - Testes de retenção e purga: 100 de 100.
+  - ITs `LegalDocumentsControllerIT`, `TermsReacceptanceRoutesIT`, `U3ContextIT`, `ProcessRoleContextIT`, `WorkerProcessRoleContextIT` e `RealApiWiringIT`: 27 de 27.
+  - `prohibited-terms` do web: 5 de 5.
+- **Rastreabilidade.** A nota de AC1.1.3 foi atualizada. O sensor passou sem achados nos dois caminhos. Nenhum ID novo da U6.
+
+### Reparo da revisão 04 (READY, com 1 Major e 2 Minor nos textos)
+
+- **Testes primeiro (Red registrado).** O `TermsV3ContentTest` ganhou dois testes, com asserções negativas para as frases antigas. Antes da correção, a execução deu 2 falhas, as esperadas.
+- **Major: registros do TxSigner.** O banco do TxSigner (`apps/txsigner`, migração 0001) guarda sem exclusão três tabelas:
+  - `wallet_policy`, com a carteira principal e o endereço da carteira do bot, protegida pelo gatilho `wallet_policy_no_delete_trg`;
+  - `policy_change`;
+  - `signing_record`, só por inclusão.
+
+  A anonimização só envia DEACTIVATE. O fim da linha "Carteira do bot", no `RetentionCatalog` e na `retention.tsv` da v3, agora diz que **na API** o endereço, a carteira principal e as mensagens de consentimento são apagados. Diz também que o serviço de assinatura guarda, sem exclusão, a política da carteira do bot e o registro de cada assinatura (endereço, carteira principal e transações assinadas), como prova do que foi assinado. A política de privacidade ganhou um parágrafo com o mesmo conteúdo. O TxSigner não mudou.
+- **Sem linha nova no catálogo para o TxSigner.** A paridade não pede, porque o catálogo descreve o banco da API, e uma guarda só aceita "Enquanto a conta existir", que não descreve um registro sem prazo. A informação está no fim da linha da carteira do bot e no parágrafo da política.
+- **Minor: venda total.** As duas frases agora listam todos os casos de `RealRiskPolicy.stateAndSource` para uma venda pedida pela pessoa: REAL desligado, REAL não liberado, fonte de preços do REAL inativa, kill switch, divergência e restauração. A seção de limites diz também que as outras pausas não impedem essa venda.
+- **`consent_challenge`.** Não tem purga, e a linha "Desafios de login" não a cobre: ela trata só de `login_challenge`. A anonimização apaga só a coluna `message`, e as linhas ficam. A paridade não pede linha nova. O dado está coberto em texto pela linha "Carteira do bot" ("consentimentos assinados", enquanto a conta existir). Fica como item aberto: criar uma purga para os desafios de consentimento ou dizer na tabela que eles ficam.
+- **Execuções.**
+  - Unidade e arquitetura (conteúdo, reaceitação, catálogo, conformidade, declarações e fonte da tabela): 97 de 97.
+  - `LegalDocumentsControllerIT`: 12 de 12.
+  - `prohibited-terms` do web: 5 de 5.
+  - `spotless:check` passou.

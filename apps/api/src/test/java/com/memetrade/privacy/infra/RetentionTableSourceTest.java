@@ -64,7 +64,7 @@ class RetentionTableSourceTest {
                                 "sessionPurge", RetentionTerm.days(30), RetentionAnchor.ENDED))
                 .run(context -> assertThat(
                                 context.getBean(RetentionTableSource.class).items())
-                        .hasSize(13));
+                        .hasSize(22));
     }
 
     @Test
@@ -73,7 +73,7 @@ class RetentionTableSourceTest {
                 new org.springframework.beans.factory.support.StaticListableBeanFactory()
                         .getBeanProvider(RetentionEnforcerDeclaration.class));
 
-        assertThat(source.items()).isSameAs(source.items()).hasSize(13);
+        assertThat(source.items()).isSameAs(source.items()).hasSize(22);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> source.items().clear())
                 .isInstanceOf(UnsupportedOperationException.class);
     }

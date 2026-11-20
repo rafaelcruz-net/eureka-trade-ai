@@ -1,0 +1,109 @@
+## O que é o MemeTrade Analytics
+
+O MemeTrade Analytics é um beta fechado, por convite, de ferramentas de análise e de operações com tokens da rede Solana.
+
+Ele tem dois modos, sempre separados: o PAPER, uma simulação com saldo virtual, e o REAL, em que o bot opera com dinheiro de verdade. O saldo, as ordens, o ledger, as posições e o resultado de um modo nunca se misturam com os do outro.
+
+## Quem pode usar
+
+O acesso é pessoal e depende de um convite de uso único. Não compartilhe o link do convite.
+
+Você precisa ter idade e capacidade legal para aceitar estes termos.
+
+## Entrada com carteira
+
+Para entrar, você conecta uma carteira Phantom ou Solflare e assina uma mensagem de login. Essa assinatura só identifica você e não autoriza nenhuma operação, nem no PAPER nem no REAL.
+
+Nunca pedimos sua frase secreta nem sua chave privada, em nenhuma tela e em nenhum contato. Quem pedir está tentando enganar você.
+
+## Modo PAPER
+
+No PAPER, os bots operam só com saldo virtual, dentro dos limites que você define. Nenhuma ordem do PAPER é enviada à rede e nenhum dinheiro seu é usado.
+
+Os resultados do PAPER são calculados sobre preços de fontes públicas, que podem faltar ou estar atrasados. Resultados simulados não indicam resultados futuros com dinheiro real.
+
+## Modo REAL
+
+No REAL, o bot compra e vende tokens com o SOL que você deposita. Essas operações são reais, vão para a rede Solana e não podem ser desfeitas.
+
+O REAL só funciona para quem foi liberado. A liberação é individual, aprovada pelo responsável do projeto, e só passa a valer 24 horas depois de registrada (quarentena de 24 horas). O REAL pode ser desligado para você ou para todos a qualquer momento.
+
+Para usar o REAL, você precisa aceitar esta versão dos termos.
+
+## Carteira do bot
+
+Cada pessoa tem no máximo uma carteira do bot. Ela é criada pelo sistema quando você a ativa e confirma com uma mensagem de consentimento assinada na sua carteira principal. Essa mensagem é diferente da mensagem de login.
+
+A chave da carteira do bot é gerada e guardada dentro de um serviço de gestão de chaves (KMS). Ela nunca é exportada: nem nós nem você vemos ou recebemos essa chave. Só um serviço de assinatura separado pode pedir ao KMS que assine, e ele só assina o que as regras abaixo permitem.
+
+## Teto, depósito e saque
+
+Você escolhe o seu teto no perfil, até o máximo autorizado. O administrador pode baixar o seu teto a qualquer momento.
+
+Você deposita SOL na carteira do bot a partir da sua carteira principal. O bot só opera até o teto. O que passar do teto fica parado e disponível só para saque. Uma pequena reserva de SOL fica separada para pagar as taxas da rede.
+
+O saque vai só para a sua carteira principal registrada. Qualquer outro destino é recusado. O saque do SOL livre está disponível a qualquer momento, inclusive com o kill switch acionado, com o REAL desligado, sem a liberação vigente e sem o aceite de uma versão nova destes termos.
+
+Com posições abertas, o saque libera só o SOL livre. Você também pode pedir para vender tudo e sacar, mas essa venda não é executada enquanto o REAL estiver desligado ou não liberado para você, a fonte de preços do REAL não estiver ativa, o kill switch estiver acionado, houver uma divergência na conferência com a rede ou uma restauração estiver em andamento. Nesses casos, só o saque do SOL livre fica garantido.
+
+## Os três modos de operação
+
+Assinada é o modo padrão. O servidor monta cada ordem e você a assina na sua carteira. Nada é executado sem a sua assinatura.
+
+Automática nas saídas: o stop e o alvo de uma posição viram ordens condicionais da Jupiter, que você assina uma vez e que podem ser executadas sem você estar online.
+
+Automática total: o bot compra e vende sozinho com a carteira do bot, dentro dos limites, sem pedir a sua assinatura em cada ordem.
+
+Voltar para um modo mais restrito vale na hora. Subir de modo exige um novo consentimento assinado na sua carteira principal.
+
+## Execução das ordens
+
+As ordens do REAL são executadas pela Jupiter, um roteador de trocas da rede Solana. Cada ordem usa uma cotação recente e uma derrapagem máxima. Se o preço andar além dessa derrapagem, a ordem não é executada.
+
+As taxas da rede são pagas por você. No modo Assinada, a taxa sai da sua carteira principal, que assina a ordem. Quando a carteira do bot executa a ordem, a taxa sai da carteira do bot e reduz o saldo dela. Nos dois casos, a taxa entra no cálculo do seu resultado do REAL.
+
+Uma ordem pode falhar ou ficar sem confirmação. Uma ordem sem confirmação é conferida na rede antes de qualquer nova tentativa, para que a mesma ordem nunca seja executada duas vezes.
+
+## Limites e kill switch
+
+Antes de cada compra do REAL, conferimos o teto, o limite por ordem, a perda máxima do dia, o número de compras do dia, a avaliação e o bloqueio do token e o frescor dos dados. Se uma dessas checagens falhar, a compra é recusada. Ao atingir a perda máxima do dia, o bot pausa até o dia seguinte (UTC).
+
+As vendas não passam pelos limites de compra: o teto, o limite por ordem, a perda do dia, o número de compras e a avaliação do token nunca impedem a venda de uma posição. Uma venda só é recusada quando o REAL está desligado ou não liberado para você, quando a fonte de preços do REAL não está ativa, ou quando há uma pausa ou o kill switch acionado. Quando você mesmo pede para vender tudo, a venda só é recusada quando o REAL está desligado ou não liberado para você, quando a fonte de preços do REAL não está ativa, ou quando há o kill switch acionado, uma divergência na conferência com a rede ou uma restauração em andamento; as outras pausas não impedem essa venda.
+
+Token com dado "unknown" (dado ausente) nunca é tratado como seguro e o bot nunca o compra no REAL. Se faltar o preço de alguma posição aberta, as novas compras também são recusadas. Uma posição que você já tem pode ser vendida mesmo com dado ausente, para você conseguir sair. Os limites reduzem a perda possível, mas não a eliminam.
+
+O kill switch interrompe as novas ordens do REAL de todas as pessoas, inclusive as vendas, e cancela as ordens condicionais abertas. As posições abertas ficam como estão e o saque do SOL livre continua disponível.
+
+## Responsabilidade compartilhada na carteira do bot
+
+A carteira do bot tem responsabilidade compartilhada: uma parte cabe a nós e outra parte cabe a você.
+
+A nossa parte é guardar a chave no KMS sem exportá-la, assinar só o que a política de assinatura permite, aplicar os limites e o kill switch, mandar o saque só para a sua carteira principal e registrar cada operação no ledger.
+
+A sua parte é decidir se ativa a carteira do bot, quanto deposita, qual teto e qual modo usa, quais bots liga e quando saca. Também cabe a você proteger a sua carteira principal, porque ela é o único destino do saque.
+
+O resultado das operações depende do mercado, e o risco desse resultado é seu.
+
+## Riscos do REAL
+
+Você pode perder todo o valor depositado na carteira do bot. Tokens de memes são extremamente voláteis, podem perder todo o valor em minutos e muitos são criados para enganar compradores.
+
+Não há promessa de lucro. Nada neste produto promete lucro, e os resultados passados, simulados ou reais, não indicam resultados futuros.
+
+As avaliações do scanner são estimativas a partir de dados públicos, que podem faltar ou estar errados. Elas não são recomendação de investimento e não identificam todas as fraudes.
+
+Leia também o Aviso de risco, que faz parte destes termos.
+
+## Dados e privacidade
+
+O tratamento dos seus dados, inclusive os do REAL, está descrito na Política de privacidade, que faz parte destes termos.
+
+## Disponibilidade do beta
+
+O beta pode mudar, ficar indisponível ou ser encerrado a qualquer momento. As informações exibidas podem estar incompletas, atrasadas ou incorretas, e dados ausentes aparecem como "unknown".
+
+## Mudanças nestes termos
+
+Quando estes termos mudarem, publicaremos uma nova versão com data de vigência. Você precisará aceitar a versão nova antes de continuar usando o beta. Sem esse aceite, você ainda consegue ver a carteira do bot e sacar.
+
+O histórico das versões publicadas fica disponível nesta página.

@@ -42,4 +42,4 @@ Os specs anteriores (esqueleto, auditoria, identidade, descoberta, bots, ledger,
 
 ## 5. Resultado de referência
 
-Run `ci` 44228007586: 42/42 no job `smoke` (16,0 min) e 42/42 no job `e2e` (18,5 min), 0 pulados. O `real-swap` não foi pulado (a gravação existe desde o commit `605a8fb`).
+Run `ci` 44688329451 (commit `d7e6a17`): 42/42 no job `smoke` (13,4 min) e 42/42 no job `e2e` (14,3 min), 0 pulados. O `real-swap` não foi pulado (a gravação existe desde o commit `605a8fb`).

@@ -1,0 +1,77 @@
+## O que é simulado e o que é real
+
+O MemeTrade Analytics tem dois modos separados. No PAPER, as operações são simuladas, com saldo virtual. No REAL, o bot opera com o SOL que você deposita na carteira do bot. Não guardamos dados de pagamento, como cartão ou conta bancária.
+
+## Dados que tratamos e finalidade
+
+Endereço público da carteira e provedor da carteira (Phantom ou Solflare): para identificar sua conta na entrada e, no REAL, como a carteira principal, o único destino permitido para o saque.
+
+Versão dos termos aceita e horário do aceite: para provar o aceite e pedir um novo aceite quando os termos mudarem.
+
+Convite usado: para controlar o acesso ao beta fechado.
+
+Bots, limites e histórico de operações simuladas (PAPER): para executar a simulação e mostrar seus resultados.
+
+Endereço da carteira do bot e mensagens de consentimento assinadas na sua carteira principal: para criar a carteira do bot, provar que você autorizou a ativação e cada subida de modo, e operar no REAL. A chave da carteira do bot fica só dentro do KMS e nunca é vista por nós.
+
+Ordens, envios à rede, vendas totais, ordens condicionais de saída, depósitos, saques e transações do REAL, com a assinatura de cada transação na rede, o token, a quantidade, o preço e as taxas: para executar as ordens, conferir o resultado na rede e permitir que você exporte o seu histórico.
+
+Ledger do REAL (lançamentos de saldo, posições e resultado): para mostrar seu saldo e seu resultado e para a conferência com a rede, que detecta divergências.
+
+Pedidos de decisão do bot, conferências com a rede, divergências e comandos ao serviço de assinatura: para levar a decisão do bot até a ordem, provar como cada divergência foi resolvida e criar, ajustar e encerrar a carteira do bot.
+
+Teto, modo escolhido e liberação do REAL: para aplicar os limites e as regras de cada ordem e provar quem liberou o REAL para você.
+
+Avaliações da barreira de risco das ordens do modo REAL, com os limites, os valores e o token de cada ordem: para provar o controle de risco aplicado às ordens com dinheiro real.
+
+Comentários enviados pelo botão de feedback: para melhorar o produto.
+
+Registros de segurança e trilha de auditoria: para proteger as contas e atender a pedidos de titulares.
+
+## Base legal
+
+Tratamos os dados para executar o contrato de uso do beta que você aceita nestes termos, inclusive as operações do REAL que você autoriza, para cumprir obrigações legais e, no caso da trilha de auditoria e dos registros de segurança, por legítimo interesse na segurança das contas e no exercício de direitos.
+
+## Retenção
+
+A tabela de retenção desta página mostra, para cada grupo de dados, por quanto tempo ele fica guardado e o que acontece no fim do prazo: o dado é apagado ou deixa de ter vínculo com você. Os dados do REAL têm linhas próprias na tabela.
+
+O ledger do REAL e os depósitos nunca são apagados nem editados. O ledger só recebe lançamentos novos, e uma correção é feita por um lançamento compensatório. Eles ficam guardados enquanto a conta existir e, depois da anonimização, sem vínculo com você.
+
+A anonimização da conta é recusada enquanto houver ordem condicional de saída ainda aberta, ou enquanto a carteira do bot tiver saldo, posição, ordem ou saque em andamento, para você encerrar ou sacar primeiro. Na anonimização, a carteira do bot é encerrada e, na API, o endereço, a carteira principal e as mensagens de consentimento ligados a ela são apagados, as liberações são revogadas e a trilha de auditoria perde o endereço da carteira do bot.
+
+O serviço de assinatura guarda, sem exclusão, a política da carteira do bot e o registro de cada assinatura: o endereço da carteira do bot, a carteira principal registrada e as transações assinadas. Esses registros não são apagados na anonimização nem depois dela, como prova do que foi assinado. Eles ficam num serviço separado e não aparecem nas telas.
+
+Transações já registradas na rede Solana são públicas e não podem ser apagadas por nós nem por ninguém.
+
+## Compartilhamento
+
+Não vendemos nem alugamos seus dados. Não os compartilhamos com anunciantes.
+
+Os dados ficam com o provedor de hospedagem que opera a infraestrutura do beta, só para manter o serviço funcionando, e podem ser entregues a autoridades quando a lei exigir.
+
+No REAL, as transações são enviadas à rede Solana, que é pública: o endereço da carteira do bot e as transações dela ficam visíveis na rede para qualquer pessoa. Para executar as ordens, consultamos a Jupiter e provedores de acesso à rede (RPC), que recebem os dados da ordem e o endereço da carteira do bot, mas nunca a chave.
+
+## Seus direitos e como pedir
+
+Você pode pedir acesso aos seus dados, correção, exclusão e outras informações sobre o tratamento.
+
+Com login, faça o pedido na sua Conta, pelo botão "Fazer um pedido". Respondemos em até 15 dias corridos.
+
+Se você não consegue entrar (conta anonimizada ou carteira perdida), faça o pedido pelo e-mail do encarregado de dados mostrado nesta página.
+
+## Encarregado de dados
+
+O e-mail do encarregado de dados aparece nesta página, junto dos dados de implantação. Ele recebe pedidos de titulares e dúvidas sobre esta política.
+
+## Local de armazenamento e transferência internacional
+
+O local de armazenamento dos dados e a existência de transferência internacional dependem da hospedagem do ambiente e aparecem nesta página, junto dos dados de implantação.
+
+## Não usamos rastreamento
+
+Não usamos cookies de publicidade, pixels de rastreamento nem ferramentas de análise de terceiros. O único cookie é o de renovação da sessão, necessário para manter você conectado.
+
+## Mudanças nesta política
+
+Quando esta política mudar, publicaremos uma nova versão com data de vigência, e o histórico de versões continua disponível nesta página.

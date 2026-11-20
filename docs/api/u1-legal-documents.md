@@ -38,9 +38,19 @@ Se a marcada não for ativável, vale a ativável de vigência mais recente **an
 
 O aceite no convite só aceita a versão vigente efetiva, e a Conta só acha versões do histórico. Uma versão ignorada ou futura nunca é aceita nem exibida (BR1.16).
 
-## Situação da v2 (rascunho)
+## Situação das versões
 
-A pasta `terms/v2/` traz o **rascunho** da v2, redigido a partir do que o sistema faz (dados, prazos da tabela de retenção, direitos e canal). Cada texto abre com a seção "Versão em rascunho". A v2 está marcada como vigente, mas **não tem** `legalReviewedAt` nem `legalReviewedBy`. Por isso ela não é ativada: a v1 (legacy) continua vigente, e cada subida registra `Legal version v2 ignored: not legally reviewed`.
+- **v1 (legacy):** textos provisórios do beta PAPER. Vigente até 2026-11-20 e mantida no histórico.
+- **v2 (rascunho, nunca publicado):** redigida a partir do que o sistema fazia no beta PAPER. Foi **substituída pela v3** e ficou com `current=false`, sem `legalReviewedAt` nem `legalReviewedBy`. Ela nunca é ativada nem listada, e cada subida registra `Legal version v2 ignored: not legally reviewed`. A pasta continua porque uma versão nunca é apagada nem reescrita como outro texto.
+- **v3 (vigente, intent `261113-trading-real-bot`, U6, etapa 19):** termos, aviso de risco e política de privacidade com o REAL. Os textos descrevem a carteira do bot com a chave no KMS, o teto, o saque só para a carteira principal, os três modos, a Jupiter, as taxas da rede, os limites e o kill switch. Eles trazem as três frases do AC1.1.3: perda de todo o valor depositado, responsabilidade compartilhada da carteira do bot e nenhuma promessa de lucro. A tabela de retenção mantém as 13 linhas da v2 e acrescenta 9 linhas dos dados do REAL (revisão 03, R-12): carteira do bot, ledger, ordens, pedidos de decisão, saídas condicionais, liberações, conferências, divergências e comandos ao TxSigner. Os prazos são os das purgas e dos gatilhos das migrações 0019, 0021 e 0022, e o ledger e os depósitos nunca são apagados. O `RetentionCatalog` tem as mesmas 22 linhas, e cada tabela das purgas do REAL declara o seu prazo (J7). O `RetentionConformanceTest` compara o catálogo com a versão vigente linha por linha e confere que a tabela da v2, nunca editada, é o começo do catálogo. O responsável do projeto autorizou a ativação em 2026-11-20, depois da autorização do advogado: `effectiveAt=2026-11-20T00:00:00Z`, `legalReviewedAt=2026-11-20` e `legalReviewedBy=Assessoria jurídica do projeto`. Esses campos são genéricos por escolha do responsável.
+
+Os campos de revisão são **internos**. Só o `LegalCatalogReader` e o `LegalVersion` os leem, para decidir a ativação (BR1.1). Nenhuma resposta da API (`LegalDtos`) e nenhuma tela os mostra, e o `TermsV3ReacceptanceTest` confere isso. Em `version.properties`, os acentos vão como escape Unicode (`í`), porque o arquivo é lido em ISO-8859-1.
+
+Os textos da v3 dizem o que o código faz (revisão 03): os limites valem antes de cada compra, e as vendas não passam por eles. O bot nunca compra token com dado `unknown`, mas uma posição aberta pode ser vendida. A venda total para com o kill switch, uma divergência ou uma restauração, e só o saque do SOL livre fica garantido. A taxa da rede sai da carteira principal no modo Assinada e da carteira do bot quando ela executa a ordem.
+
+Com a v3 vigente, todo convidado que aceitou só a v1 recebe `403 TERMS_REACCEPTANCE_REQUIRED` com `currentVersion=v3` em todas as rotas fora dos prefixos permitidos. As exceções são a leitura da carteira do bot (`GET /api/v1/real/bot-wallet`) e as rotas de saque. Com `MEMETRADE_LEGAL_REQUIRE_PUBLISHABLE=true` e algum campo de implantação ausente, a v3 é ignorada como não publicável e a v1 continua vigente.
+
+Os testes de integração usam o relógio fixo 2026-10-28. Nesse instante a v3 é futura e a v1 é a vigente do catálogo real, o que mantém esses testes determinísticos. A v3 como vigente é provada com o relógio em 2026-11-20 no `TermsV3ContentTest` e no `TermsV3ReacceptanceTest`.
 
 Os testes, o smoke e o ponta a ponta usam o catálogo de teste `apps/api/src/test/resources/terms-test/reviewed/`, com uma v2 marcada como revisada só para teste. O `infra/docker-compose.test.yml` monta esse catálogo, só para leitura, e ele nunca vai para a imagem.
 
@@ -48,10 +58,10 @@ Os testes, o smoke e o ponta a ponta usam o catálogo de teste `apps/api/src/tes
 
 Antes de abrir o beta aos convidados:
 
-1. **Texto final revisado:** a assessoria jurídica revisa e aprova os textos da v2. Os textos aprovados substituem os arquivos de `terms/v2/`, sem a seção "Versão em rascunho".
-2. **Revisão registrada na v2:** em `terms/v2/version.properties`, acrescentar `legalReviewedAt=<aaaa-mm-dd>` e `legalReviewedBy=<quem revisou>`, e ajustar `effectiveAt` para a data de publicação (UTC).
+1. **Texto final:** feito na v3 (2026-11-20). Um texto novo vira uma pasta nova (`terms/v4/`), nunca uma edição da v3.
+2. **Revisão registrada:** feita em `terms/v3/version.properties`, com `legalReviewedAt`, `legalReviewedBy` e `effectiveAt`.
 3. **Campos de implantação:** definir `MEMETRADE_LEGAL_STORAGE_LOCATION`, `MEMETRADE_LEGAL_INTERNATIONAL_TRANSFER` e `MEMETRADE_LEGAL_DPO_EMAIL` no ambiente (Parameter Store na nuvem) e ligar `MEMETRADE_LEGAL_REQUIRE_PUBLISHABLE=true` em produção.
-4. **Conferência:** o componente de saúde `legalDocuments` mostra `UP`, `currentVersion=v2` e `publishable=true`. `/privacidade` não mostra "a definir" nem o aviso de versão não publicada, e o log de subida não traz `WARN Legal version`.
+4. **Conferência:** o componente de saúde `legalDocuments` mostra `UP`, `currentVersion=v3` e `publishable=true`. `/privacidade` não mostra "a definir" nem o aviso de versão não publicada, e o log de subida só traz `WARN Legal version v2 ignored: not legally reviewed` (o rascunho substituído).
 5. **Banco novo:** os dados de desenvolvimento e teste são descartados antes da abertura (ambiente novo, FR3.3 do intent).
 6. **Rede interna da nuvem:** `MEMETRADE_LEGAL_RATE_LIMIT_INTERNAL_NETWORKS` recebe só as sub-redes privadas dos apps `web` e `admin`, nunca a do balanceador.
 7. **Retenção e auditoria (U2):** cumprir o checklist de `docs/privacy/u2-retencao-e-auditoria.md`: chave HMAC da auditoria no gerenciador de segredos e as duas consultas de conferência vazias. A tabela de retenção de `/privacidade` vem do catálogo do Privacy.

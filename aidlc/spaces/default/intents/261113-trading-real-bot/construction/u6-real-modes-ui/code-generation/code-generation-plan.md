@@ -236,6 +236,31 @@ O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) 
   - Gravar o arquivo em UTF-8.
   - Rodar o sensor até passar e atualizar o `code-summary.md`.
 
+## Volta 2 do Build and Test (2026-11-20)
+
+O Build and Test (Loop-back 2 em `construction/build-and-test/test-results.md`) deixou o AC1.1.3 como não cumprido. Os termos não dizem que a pessoa pode perder todo o valor depositado, que a carteira do bot tem responsabilidade compartilhada e que não há promessa de lucro. Além disso, o rascunho v2 ainda diz que tudo é simulado e que não movimentamos fundos.
+
+O responsável pediu que os textos fossem escritos aqui e informou que o advogado deu autorização. As etapas 1 a 18 continuam como estão.
+
+- [x] **Step 19 — Versão v3 dos termos com o REAL [testes antes].**
+  - **Testes primeiro.** Escrever os testes de conteúdo e de catálogo antes dos textos:
+    - os termos da v3 contêm as três frases do AC1.1.3: perda de todo o valor depositado, responsabilidade compartilhada da carteira do bot e nenhuma promessa de lucro;
+    - nenhum arquivo da v3 diz que tudo é simulado, que o REAL está indisponível ou que não movimentamos fundos;
+    - a v3 é a versão vigente e a única com `current=true`;
+    - ativar a v3 exige novo aceite em todas as rotas, menos na leitura da carteira do bot e nas rotas de saque (teste obrigatório por risco);
+    - os termos proibidos do web continuam fora dos textos.
+  - **Textos.** Criar a pasta `apps/api/src/main/resources/terms/v3/` com termos, aviso de risco, política de privacidade, os dois resumos e a tabela de retenção, partindo da v2. Os textos devem:
+    - descrever o PAPER e o REAL como existem hoje: a carteira do bot com teto, a chave no KMS, o saque só para a carteira principal, os três modos, a execução pela Jupiter, os limites e o kill switch;
+    - trazer as três frases do AC1.1.3;
+    - manter na tabela de retenção as linhas da v2, inclusive a do REAL;
+    - ser escritos em português simples, sem prometer lucro nem garantia de detecção de fraude.
+  - **Versões.**
+    - A v2 passa a `current=false`. Ela fica como rascunho nunca publicado, sem revisão e sem efeito.
+    - O `version.properties` da v3 recebe `effectiveAt` e `legalReviewedAt`/`legalReviewedBy`, com o nome e a data que o responsável informar na aprovação deste plano. Sem esses dois campos, a v3 não ativa.
+  - **Fechamento.** Atualizar `docs/api/u1-legal-documents.md`, o `code-summary.md`, o `traceability.json` (AC1.1.3 `OK`) e o `source-manifest.json`.
+
+  *(AC1.1.3, BR2.1)*
+
 ## Rastreabilidade história → etapas
 
 | História | Etapas |

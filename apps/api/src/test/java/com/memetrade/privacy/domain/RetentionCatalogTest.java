@@ -13,16 +13,16 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Passo 8 of u2-retention (US1.4, BR2.9; tests written after this layer): the retention catalog of the Privacy module
- * holds the 12 rows of the policy v2 in its order, each with who applies it, and refuses an inconsistent row.
+ * holds the rows of the policy (13 of v2, 22 of v3 since 261113-trading-real-bot U6) in its order, each with who applies it, and refuses an inconsistent row.
  */
 @Tag("u2-retention")
 class RetentionCatalogTest {
 
     @Test
-    void theCatalogHasExactlyTheThirteenRowsOfThePolicyInTheirOrder() {
+    void theCatalogHasExactlyTheTwentyTwoRowsOfThePolicyInTheirOrder() {
         List<RetentionRule> rules = RetentionCatalog.rules();
 
-        assertThat(rules).hasSize(13);
+        assertThat(rules).hasSize(22);
         assertThat(rules)
                 .extracting(RetentionRule::id)
                 .containsExactly(
@@ -39,10 +39,20 @@ class RetentionCatalogTest {
                         "SESSIONS",
                         "DATA_SUBJECT_REQUESTS",
                         // 261113-trading-real-bot U3, loop-back 1 of Build and Test (U3-NFR3.7).
-                        "REAL_RISK_EVALUATIONS");
+                        "REAL_RISK_EVALUATIONS",
+                        // 261113-trading-real-bot U6, Step 19 (review-03 R-12): the data of the REAL in the policy v3.
+                        "REAL_BOT_WALLET",
+                        "REAL_LEDGER",
+                        "REAL_ORDERS",
+                        "REAL_DECISION_REQUESTS",
+                        "REAL_CONDITIONAL_EXITS",
+                        "REAL_RELEASES",
+                        "REAL_RECONCILIATIONS",
+                        "REAL_DIVERGENCES",
+                        "REAL_TXSIGNER_COMMANDS");
         assertThat(rules)
                 .extracting(RetentionRule::order)
-                .containsExactlyElementsOf(IntStream.rangeClosed(1, 13).boxed().toList());
+                .containsExactlyElementsOf(IntStream.rangeClosed(1, 22).boxed().toList());
     }
 
     @Test
@@ -51,7 +61,7 @@ class RetentionCatalogTest {
 
         assertThat(rules.stream().filter(rule -> rule.enforcer().kind() == Enforcer.Kind.GUARD))
                 .extracting(RetentionRule::id)
-                .containsExactly("ACCOUNT", "PAPER_HISTORY", "TERMS_ACCEPTANCES");
+                .containsExactly("ACCOUNT", "PAPER_HISTORY", "TERMS_ACCEPTANCES", "REAL_BOT_WALLET", "REAL_LEDGER");
         // u4-data-requests (BR4.15): the data subject requests are no longer PLANNED; their purge exists.
         assertThat(rules.stream().filter(rule -> rule.enforcer().kind() == Enforcer.Kind.PLANNED))
                 .isEmpty();
@@ -67,7 +77,72 @@ class RetentionCatalogTest {
                         "loginChallengePurge",
                         "sessionPurge",
                         "dataSubjectRequestPurge",
-                        "real-risk-purge");
+                        "real-risk-purge",
+                        "real-execution-purge/orders",
+                        "real-execution-purge/decisions",
+                        "real-exits-purge",
+                        "real-ops-purge/releases",
+                        "real-ops-purge/reconciliations",
+                        "real-ops-purge/divergences",
+                        "real-ops-purge/txsigner-commands");
+    }
+
+    /**
+     * 261113-trading-real-bot U6, Step 19 (review-03 R-12), written before the rows: the data of the REAL that the policy
+     * v3 lists has its own row, with the period the code applies. The bot wallet and the ledger are never purged: they
+     * stay while the account exists (the ledger is append-only, deposits too) and the anonymization closes the wallet
+     * and clears its addresses and consents. Orders, conditional exits, releases and divergences go 5 years after their
+     * anchor (the triggers of 0019, 0021 and 0022); decision requests, reconciliations and commands to the TxSigner go
+     * after 13 months.
+     */
+    @Test
+    void theRealRowsStateWhatTheCodeKeepsAndWhatItsPurgesDelete() {
+        assertGuard("REAL_BOT_WALLET", "Carteira do bot", "Anonimizar");
+        assertGuard("REAL_LEDGER", "Ledger", "nunca é apagado nem editado");
+        assertPurge("REAL_ORDERS", RetentionTerm.months(60), RetentionAnchor.CREATED, "real-execution-purge/orders");
+        assertPurge(
+                "REAL_DECISION_REQUESTS",
+                RetentionTerm.months(13),
+                RetentionAnchor.CONCLUDED,
+                "real-execution-purge/decisions");
+        assertPurge("REAL_CONDITIONAL_EXITS", RetentionTerm.months(60), RetentionAnchor.ENDED, "real-exits-purge");
+        assertPurge("REAL_RELEASES", RetentionTerm.months(60), RetentionAnchor.ENDED, "real-ops-purge/releases");
+        assertPurge(
+                "REAL_RECONCILIATIONS",
+                RetentionTerm.months(13),
+                RetentionAnchor.CREATED,
+                "real-ops-purge/reconciliations");
+        assertPurge(
+                "REAL_DIVERGENCES", RetentionTerm.months(60), RetentionAnchor.CONCLUDED, "real-ops-purge/divergences");
+        assertPurge(
+                "REAL_TXSIGNER_COMMANDS",
+                RetentionTerm.months(13),
+                RetentionAnchor.CONCLUDED,
+                "real-ops-purge/txsigner-commands");
+        assertThat(RetentionCatalog.find("REAL_ORDERS").orElseThrow().toItem().period())
+                .isEqualTo("5 anos");
+        assertThat(RetentionCatalog.find("REAL_CONDITIONAL_EXITS")
+                        .orElseThrow()
+                        .toItem()
+                        .period())
+                .isEqualTo("5 anos após o fim");
+    }
+
+    private static void assertGuard(String id, String dataItemPart, String endActionPart) {
+        RetentionRule rule = RetentionCatalog.find(id).orElseThrow();
+        assertThat(rule.enforcer().kind()).as(id).isEqualTo(Enforcer.Kind.GUARD);
+        assertThat(rule.period().kind()).as(id).isEqualTo(RetentionPeriod.Kind.WHILE_ACCOUNT_EXISTS);
+        assertThat(rule.dataItem()).as(id).contains(dataItemPart);
+        assertThat(rule.endAction()).as(id).contains(endActionPart);
+    }
+
+    private static void assertPurge(String id, RetentionTerm term, RetentionAnchor anchor, String purgeId) {
+        RetentionRule rule = RetentionCatalog.find(id).orElseThrow();
+        assertThat(rule.enforcer().purgeId()).as(id).contains(purgeId);
+        assertThat(rule.period().term()).as(id).contains(term);
+        assertThat(rule.period().anchor()).as(id).contains(anchor);
+        assertThat(rule.endAction()).as(id).isEqualTo("Apagar");
+        assertThat(rule.dataItem()).as(id).contains("REAL");
     }
 
     /**

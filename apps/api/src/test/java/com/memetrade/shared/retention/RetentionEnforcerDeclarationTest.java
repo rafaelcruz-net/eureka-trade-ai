@@ -37,8 +37,25 @@ class RetentionEnforcerDeclarationTest {
                         // u4-data-requests (BR4.15).
                         "dataSubjectRequestPurge",
                         // 261113-trading-real-bot U3, loop-back 1 of Build and Test (U3-NFR3.7).
-                        "real-risk-purge");
+                        "real-risk-purge",
+                        // 261113-trading-real-bot U6, Step 19 (review-03 R-12): one declaration per table of the
+                        // purges of the REAL execution, exits and operations.
+                        "real-execution-purge/orders",
+                        "real-execution-purge/decisions",
+                        "real-exits-purge",
+                        "real-ops-purge/releases",
+                        "real-ops-purge/reconciliations",
+                        "real-ops-purge/divergences",
+                        "real-ops-purge/txsigner-commands");
         assertDeclared(declared, "real-risk-purge", RetentionTerm.months(13), RetentionAnchor.CREATED);
+        assertDeclared(declared, "real-execution-purge/orders", RetentionTerm.months(60), RetentionAnchor.CREATED);
+        assertDeclared(declared, "real-execution-purge/decisions", RetentionTerm.months(13), RetentionAnchor.CONCLUDED);
+        assertDeclared(declared, "real-exits-purge", RetentionTerm.months(60), RetentionAnchor.ENDED);
+        assertDeclared(declared, "real-ops-purge/releases", RetentionTerm.months(60), RetentionAnchor.ENDED);
+        assertDeclared(declared, "real-ops-purge/reconciliations", RetentionTerm.months(13), RetentionAnchor.CREATED);
+        assertDeclared(declared, "real-ops-purge/divergences", RetentionTerm.months(60), RetentionAnchor.CONCLUDED);
+        assertDeclared(
+                declared, "real-ops-purge/txsigner-commands", RetentionTerm.months(13), RetentionAnchor.CONCLUDED);
         assertDeclared(declared, "dataSubjectRequestPurge", RetentionTerm.months(12), RetentionAnchor.CONCLUDED);
         assertDeclared(declared, "auditRetention", RetentionTerm.months(12), RetentionAnchor.CREATED);
         assertDeclared(declared, "auditOutboxCleanup", RetentionTerm.days(7), RetentionAnchor.DELIVERED);

@@ -87,7 +87,7 @@ class LegalDocumentsControllerIT extends AbstractPostgresIT {
         assertThat(body.get("deployment").get("dpoEmail").isNull()).isTrue();
         // u2-retention (BR2.9): the current version shows the retention catalog of the Privacy module (J5), in its
         // order, whatever table the test catalog declares.
-        assertThat(body.get("retention")).hasSize(13);
+        assertThat(body.get("retention")).hasSize(22);
         assertThat(body.get("retention").get(0).get("period").asText()).isEqualTo("Enquanto a conta existir");
         assertThat(body.get("retention").get(10).get("dataItem").asText()).isEqualTo("Sessões e renovações");
         assertThat(body.get("retention").get(10).get("period").asText()).isEqualTo("30 dias após o fim ou a revogação");
@@ -95,6 +95,10 @@ class LegalDocumentsControllerIT extends AbstractPostgresIT {
         assertThat(body.get("retention").get(12).get("dataItem").asText()).contains("modo REAL");
         assertThat(body.get("retention").get(12).get("period").asText()).isEqualTo("13 meses");
         assertThat(body.get("retention").get(12).get("endAction").asText()).isEqualTo("Apagar");
+        // 261113-trading-real-bot U6, Step 19 (review-03 R-12): the rows of the REAL data follow, the ledger last kept.
+        assertThat(body.get("retention").get(13).get("dataItem").asText()).startsWith("Carteira do bot");
+        assertThat(body.get("retention").get(14).get("endAction").asText()).contains("nunca é apagado nem editado");
+        assertThat(body.get("retention").get(15).get("period").asText()).isEqualTo("5 anos");
     }
 
     @Test

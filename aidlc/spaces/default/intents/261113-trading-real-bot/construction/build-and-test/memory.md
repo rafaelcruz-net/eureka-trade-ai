@@ -6,6 +6,8 @@
 
 ## Deviations
 
+- 2026-11-20: a reexecução do Build and Test sobrou com o AC1.1.3 Not Met (texto dos termos v3). O responsável escolheu "Retry with fix" e pediu que os textos fossem escritos pelo assistente, com autorização do advogado. É a volta 2, para a Code Generation da U6 (Loop-back 2 em test-results.md).
+
 - 2026-11-18: Build and Test falhou (workflow security vermelho por GHSA-fc5q-39xc-vjpf e 10 metas Not Met da Code Generation). O responsável escolheu "Retry with fix": volta 1 para a Code Generation da U1, U3, U4 e U7, com as tabelas de rastreabilidade (Loop-back 1 em test-results.md).
 <!-- example: 2026-05-29T10:14:32Z — skipped the optional caching layer the stage prose suggested; the dataset is small enough that it adds risk -->
 
