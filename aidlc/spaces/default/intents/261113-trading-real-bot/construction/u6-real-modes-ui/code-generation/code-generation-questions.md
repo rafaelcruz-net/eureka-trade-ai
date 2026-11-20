@@ -12,13 +12,12 @@ Approve the code plan for u6-real-modes-ui?
 - Tests: cerca de 260 testes — dinheiro, assinatura byte a byte com todos os desfechos e adendo do servidor escritos antes do código; componentes e cliente com piso de 80% no `apps/web` e no `apps/ad...
 - Conversa: português (Brasil). Fontes:
 - `construction/u6-real-modes-ui/functional-design/`: BR1 a BR9, S1 a S44, adendo de contrato;
-- Already changed before you approved (2 files): apps/admin/src/lib/api/schema.d.ts, apps/admin/tsconfig.tsbuildinfo.
 
 Full plan: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u6-real-modes-ui/code-generation/code-generation-plan.md
 Test instructions: aidlc/spaces/default/intents/261113-trading-real-bot/construction/u6-real-modes-ui/code-generation/unit-test-instructions.md
 
-[Approval Fingerprint]: sha256:v3:b1d3293652310e1c387bb088e3840dc7e2208b6c43071ac9b00ebd55701f5666
-[Planned Source]: bd58ddab2113a930d10207663802979882dedb57ee4cded41ea085cb8043f40d
+[Approval Fingerprint]: sha256:v3:bd1b9b0c189cb041049b01d96fff74ec574e9a77cc5fdd0f65c58f72b615d859
+[Planned Source]: 9119dc1c13420fcec79637fa7cba2f4aa0b1144ccb6702f5c23e1ff3e06d54b8
 
 - A. Approve Plan
 - B. Request Changes

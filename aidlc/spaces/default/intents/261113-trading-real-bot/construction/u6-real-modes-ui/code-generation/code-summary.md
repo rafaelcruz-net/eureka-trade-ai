@@ -135,3 +135,23 @@ O spec usa `SMOKE_WALLET_FILE`, `SMOKE_ADMIN_WALLET_FILE`, `ADMIN_BASE_URL` e `A
 - Avaliar uma rota de leitura da liquidação (`GET /api/v1/real/liquidations/{id}`) para o acompanhamento exato da venda total.
 - A ordem no modo Assinada assinada pela faixa continua fora do e2e (limite do validador local; ver `docs/runbooks/real-ui.md`, seção 3).
 - Os specs `real-swap` e `real-ops` mantêm as cópias locais das esperas do login; podem passar a usar `e2e/support/login-limit.ts`.
+
+## Volta 1 do Build and Test (2026-11-20)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) mostrou que o sensor de rastreabilidade não lia o `traceability.json` desta Unit: 185 achados, porque os alvos eram texto livre (listas de arquivos, classes e testes) em vez de um arquivo, os IDs de NFR levavam o prefixo `U6-` e faltavam os critérios de aceite. O código de produto não mudou nesta volta, e as etapas 1 a 17 continuam como estão.
+
+### Step 18 — Rastreabilidade no formato do sensor
+
+- `traceability.json` reescrito em UTF-8, sem U+FFFD, no mesmo formato da U1 à U5: 108 linhas, uma por AC (15), BR (46) e NFRx.y (47) da Unit, com os IDs de NFR sem o prefixo `U6-`. Cada alvo `OK` é um único arquivo existente que implementa ou testa o ID; os demais arquivos e testes ficam na nota, com o mesmo mapeamento da tabela anterior.
+- As linhas de cenário (`S1` a `S44`) saíram da tabela: o sensor não as pede, e os testes que as cobrem continuam citados nas notas das regras e dos critérios, com o número do cenário.
+- **U6-NFR1.1b** e **U6-NFR3.5b** não viraram linhas próprias (o sensor não as pede): ficam na nota de NFR1.1 e de NFR3.5, com os arquivos e testes delas. **BR5.2b** continua como linha.
+- Critérios de aceite das histórias da U6 (US1.1, US3.1, US3.2, US4.1): os alvos são as telas e os componentes desta Unit; a nota diz quando a regra no servidor é da U1 ou da U4 (recusa sem a v3, cancelamento no rebaixamento, envio da transação assinada).
+- **AC1.1.3** fica `Deferred`: o texto final dos termos v3 (perda de todo o valor, responsabilidade compartilhada, sem promessa de lucro) não existe no catálogo (`apps/api/src/main/resources/terms` só tem v1 e v2) e depende da redação jurídica. A U6 mostra o texto vigente do catálogo no passo 1 da ativação, com a caixa "posso perder todo o valor depositado".
+- `aidlc engine sensor-traceability --stage code-generation` passou sem achados (`pass: true`, 0 achados) no caminho temporário e no caminho do registro.
+- `source-manifest.json` desta volta tem `writes` vazio, porque nenhum arquivo de código mudou.
+- As etapas 1 a 17 estavam sem marca no plano; foram marcadas, porque estão no HEAD e verdes na CI 44228007586.
+
+### Itens abertos atualizados
+
+- O primeiro item aberto acima (linha do `e2e/real-ui` no `verify.sh`) está fechado: o responsável aplicou a linha, e o spec rodou na CI 44228007586.
+- Novo item: o texto dos termos v3 com as três frases do AC1.1.3, para a redação jurídica.

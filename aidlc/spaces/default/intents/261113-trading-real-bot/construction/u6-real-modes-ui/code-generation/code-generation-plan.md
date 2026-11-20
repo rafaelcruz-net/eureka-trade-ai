@@ -227,6 +227,15 @@ A U6 é quase toda interface: o padrão é implementar e depois testar (**[depoi
   - `code-summary.md`, com o texto pronto da linha do `verify.sh` (`e2e/real-ui` depois de `e2e/real-ops`).
   - `traceability.json` e `source-manifest.json`.
 
+## Volta 1 do Build and Test (2026-11-20)
+
+O Build and Test (Loop-back 1 em `construction/build-and-test/test-results.md`) mostrou que o sensor de rastreabilidade não lê o formato da tabela desta Unit. A tabela tem 185 achados: faltam ACs e NFRx.y, e os alvos são texto livre em vez de um arquivo. Todas as metas desta Unit já estão cumpridas. As etapas 1 a 17 continuam como estão.
+
+- [x] **Step 18 — Rastreabilidade no formato do sensor.**
+  - Reescrever `traceability.json` no formato que o `aidlc engine sensor-traceability` lê: uma linha por AC, BR e NFRx.y da Unit, com os IDs como no requisito (sem o prefixo `U6-`) e um arquivo existente por alvo `OK`. Os outros arquivos e testes ficam numa nota.
+  - Gravar o arquivo em UTF-8.
+  - Rodar o sensor até passar e atualizar o `code-summary.md`.
+
 ## Rastreabilidade história → etapas
 
 | História | Etapas |
