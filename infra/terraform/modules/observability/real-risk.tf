@@ -1,18 +1,19 @@
 # Alarms of the REAL risk barrier (261113-trading-real-bot U3, monitoring-design.md). The same names, thresholds and
 # windows as infra/observability/real-risk-alerts.yml (Prometheus, checked by promtool); RealRiskAlarmParityTest compares
-# both files. The api and the worker publish their Micrometer metrics to the namespace Eureka/RealRisk with the
-# dimension job for the jobs (never a mint, an address nor a person); how the metrics reach CloudWatch (Micrometer
-# registry or an agent) is the decision still pending for U1, U2 and U3, to take before the mainnet. If it changes the
-# namespace or the dimensions, this file and the parity test change together.
+# both files. The CloudWatch Agent sidecar of the api+worker task publishes the Micrometer metrics of the api and the
+# worker to the namespace Eureka/App with the dimension job for the jobs (never a mint, an address nor a person):
+# Observability Setup Q1, allow-list in app-metrics.tf. If the namespace or the dimensions change, this file, the
+# allow-list and the parity test change together.
 #
-# The p95 of the evaluation (RealRiskSlow) has no alarm here yet: it needs the metric as a distribution (deferred,
-# monitoring-design.md). Every alarm of the U3 goes to the one SNS topic of the pilot (e-mail and SMS); the severity is
-# in the description.
+# The p95 of the evaluation (RealRiskSlow, U3-NFR5.11) is below, created only with var.p95_alarms_enabled: the code
+# publishes the time of the evaluation as a histogram, which the agent drops, so the alarm reads the summary of gap
+# OBS-G1 (alarms.md) that a code change has to add. Every alarm of the U3 goes to the one SNS topic of the pilot (e-mail
+# and SMS); the severity is in the description.
 
 # U3-NFR5.12: one alarm per job of the worker, on the counter of successful runs, with missing data breaching so a job
 # that never published also alarms.
 locals {
-  real_risk_namespace = "Eureka/RealRisk"
+  real_risk_namespace = "Eureka/App"
 }
 
 resource "aws_cloudwatch_metric_alarm" "real_risk_errors" {
@@ -36,7 +37,7 @@ resource "aws_cloudwatch_metric_alarm" "real_risk_job_stalled_daily_loss" {
   metric_name         = "real_risk_job_runs_total"
   dimensions          = { job = "daily-loss" }
   statistic           = "Sum"
-  period              = 300
+  period              = 480
   evaluation_periods  = 1
   threshold           = 1
   comparison_operator = "LessThanThreshold"
@@ -51,7 +52,7 @@ resource "aws_cloudwatch_metric_alarm" "real_risk_job_stalled_day" {
   metric_name         = "real_risk_job_runs_total"
   dimensions          = { job = "day" }
   statistic           = "Sum"
-  period              = 900
+  period              = 960
   evaluation_periods  = 1
   threshold           = 1
   comparison_operator = "LessThanThreshold"
@@ -66,7 +67,7 @@ resource "aws_cloudwatch_metric_alarm" "real_risk_job_stalled_reservation_expiry
   metric_name         = "real_risk_job_runs_total"
   dimensions          = { job = "reservation-expiry" }
   statistic           = "Sum"
-  period              = 900
+  period              = 960
   evaluation_periods  = 1
   threshold           = 1
   comparison_operator = "LessThanThreshold"
@@ -83,6 +84,27 @@ resource "aws_cloudwatch_metric_alarm" "real_risk_reservation_expired" {
   period              = 900
   evaluation_periods  = 1
   threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_topic_arn]
+}
+
+# U3-NFR5.11 (RealRiskSlow, Q3): p95 of the evaluation of a REAL buy above 150 ms for 10 minutes (warning). Reads the
+# quantile 0.95 of the summary real_risk_evaluation_p95_seconds{side,quantile} (gap OBS-G1: not published yet), the
+# worst value of each 5 minutes, twice in a row. Off until the code publishes it (var.p95_alarms_enabled).
+resource "aws_cloudwatch_metric_alarm" "real_risk_slow" {
+  count = var.p95_alarms_enabled ? 1 : 0
+
+  alarm_name          = "${var.name}-real-risk-slow"
+  alarm_description   = "U3-NFR5.11: the p95 of the REAL buy evaluation is above 150 ms for 10 minutes (warning, informative target)."
+  namespace           = local.real_risk_namespace
+  metric_name         = "real_risk_evaluation_p95_seconds"
+  dimensions          = { side = "BUY", quantile = "0.95" }
+  statistic           = "Maximum"
+  period              = 300
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 0.15
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [var.alarm_topic_arn]

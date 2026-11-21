@@ -1,10 +1,12 @@
 # Secret of the real market source (261113-trading-real-bot U2, infrastructure-specification.md "Infrastructure
-# Services", BR1.10). Only the worker reads it: the policy below is attached to the execution role of the worker task
-# when the worker gets its own task (today the api and the worker share the U1 task; see the U2 code-summary). The value
+# Services", BR1.10). Only the worker reads it: the policy below is attached to the execution role of the api+worker
+# task (iam.tf) and only the worker container definition injects it (api-worker.tf; Environment Provisioning). The value
 # is written by hand, never by Terraform, so it never lands in the state. Manual rotation every 90 days; on a leak:
 # revoke the key at CoinGecko, store the new one here and force a new deployment of the worker.
 
 resource "aws_secretsmanager_secret" "coingecko_api_key" {
+  # checkov:skip=CKV_AWS_149:The AWS managed key of Secrets Manager; a customer key adds cost and no control the pilot uses.
+  # checkov:skip=CKV2_AWS_57:Manual rotation every 90 days by the runbook; no rotation Lambda in the pilot.
   name                    = "${var.name}/coingecko-api-key"
   description             = "CoinGecko API key of the worker (COINGECKO_API_KEY); value set by hand, rotated every 90 days"
   recovery_window_in_days = 7

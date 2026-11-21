@@ -4,6 +4,12 @@ Cada título abaixo é o nome canônico do componente (usado também no bloco Sc
 [dependencies.md](dependencies.md); rotas e contratos em [api-documentation.md](api-documentation.md); tabelas em
 [architecture.md](architecture.md#inventário-de-dados). "Profundidade" registra quanto esta varredura leu de cada um.
 
+Atualização de 2026-11-21: a varredura focada do intent `261121-paper-real-unico` releu a fundo `bots`, `ledger`,
+`pnl`, `realexecution`, `realexits`, `web-bots`, `web-real`, `web-dashboard` e `web-pnl-route`. As demais entradas
+descrevem o estado de 2026-11-13. Existem hoje componentes que este inventário ainda não descreve: o módulo `botwallet`
+(carteira do bot, depósito, saque, liberação, reconciliação com a rede), o subpacote `riskcontrol/real` (barreira REAL
+`RealRiskGate`) e o app `apps/txsigner` (assinatura isolada com o KMS).
+
 ## Backend (`apps/api`)
 
 ### shared
@@ -83,7 +89,15 @@ Cada título abaixo é o nome canônico do componente (usado também no bloco Sc
   decisões.
 - **Relevância para o Trading REAL**: o ciclo é o orquestrador de decisão, barreira e execução, hoje numa única
   transação de banco.
-- **Profundidade**: profunda no ciclo, contratos e estados; superficial no canal ao vivo e nos repositórios.
+- **REAL (2026-11-21)**: `bot.market` (`BotMarket`: `PAPER` ou `REAL`, fixo desde a criação); criação REAL exige
+  carteira do bot ATIVA; bot REAL não financia conta PAPER nem fecha posições ao parar; no worker, `RealCycle` lê o saldo
+  e as posições da carteira do bot inteira (M1 e M2) e `RealDecisionStep` passa pela barreira REAL e grava a decisão no
+  M6 na transação do ciclo; a venda usa a quantidade inteira do mint na carteira; `RealBotOwnership` (api) responde ao
+  M6 se o bot é REAL, ATIVO e da pessoa; `BotSummary` traz `mode` fixo `PAPER` e `market`.
+- **Relevância para o intent `261121-paper-real-unico`**: a lista de bots já devolve os dois modos; o ciclo REAL é o
+  ponto onde "vender só a própria quantidade" muda.
+- **Profundidade**: profunda (2026-11-21) no ramo REAL do ciclo, nos comandos, no modelo e nas rotas; superficial no
+  canal ao vivo, nos repositórios e na carga.
 
 ### decision
 - **Local**: `apps/api/src/main/java/com/memetrade/decision/`
@@ -99,8 +113,16 @@ Cada título abaixo é o nome canônico do componente (usado também no bloco Sc
   (`FillRecorder`, `LedgerEntries`, `PositionAccounting`), fechamento pendente (`PendingCloseJob`), compensação,
   leitura pública (`LedgerReadModel`), rotas de leitura, marcas de mudança, contagem de ordens para a privacidade.
 - **Relevância para o Trading REAL**: modelo de ledger append-only e chave única com `mode` reaproveitáveis; todas as
-  tabelas aceitam só `PAPER`.
-- **Profundidade**: profunda na interface e na execução; superficial nos repositórios e na carga.
+  tabelas aceitam só `PAPER`. (Estado de 2026-11-13.)
+- **REAL (2026-11-21)**: ledger REAL próprio (M2: `RealLedger`, `JdbcRealLedger`, tabela `real_ledger_entry` com
+  `CHECK (mode = 'REAL')`), por carteira do bot e sem `bot_id`; convenção de sinal (`RealEntryRules`), saldo e reserva
+  (`RealBalances`, `RealBalance`), posições por custo médio da carteira (`RealPositions`: só a perna em SOL, parte
+  vendida para baixo), fluxos, saldos de token para a reconciliação e leitura em fluxo para a exportação fiscal. As
+  tabelas PAPER continuam só PAPER.
+- **Relevância para o intent `261121-paper-real-unico`**: o P&L PAPER por bot se apoia na conta, nas posições e no
+  realizado por fill de cada bot; o REAL não tem nada por bot no ledger.
+- **Profundidade**: profunda (2026-11-21) nas interfaces PAPER e REAL, no domínio e na gravação REAL; superficial nos
+  repositórios PAPER e na carga.
 
 ### pnl
 - **Local**: `apps/api/src/main/java/com/memetrade/pnl/`
@@ -108,7 +130,44 @@ Cada título abaixo é o nome canônico do componente (usado também no bloco Sc
   (`PortfolioRiskViewImpl`, `RiskSnapshotCalculator`), pico de patrimônio (`EquityPeakUpdater`, `EquityMarkingJob`),
   reconciliação agendada e sob demanda (`ReconciliationService`, `ReconciliationJob`), saúde dos jobs do ledger.
 - **Relevância para o Trading REAL**: a reconciliação compara só fatos internos; a visão de risco usa saldo virtual.
-- **Profundidade**: profunda na interface; superficial nas classes (lidas por classe).
+- **REAL (2026-11-21)**: P&L REAL da pessoa (`RealPnlService`, `real/RealPnlCalculator`, `RealPnlController` em
+  `GET /api/v1/real/pnl`), por custo médio por mint com taxa e aluguel no custo, a partir das ordens assentadas do M6
+  (não do ledger REAL), sem período nem bot; não inclui as vendas das saídas condicionais.
+- **Relevância para o intent `261121-paper-real-unico`**: dono do P&L por bot e por modo; o P&L PAPER por bot já existe
+  (`GET /api/v1/pnl?botId=`); o REAL por bot, o rateio e o total por modo começam aqui.
+- **Profundidade**: profunda (2026-11-21) no P&L PAPER e REAL; superficial na visão de risco, no pico e na
+  reconciliação.
+
+### realexecution
+- **Local**: `apps/api/src/main/java/com/memetrade/realexecution/`
+- **Responsabilidade**: ordens REAL (M6, `RealExecutionPort`): fila de decisões dos bots (`DecisionConsumer`), máquina
+  de estados `PROPOSED` → `QUOTED` → `SIGNED` → `SENT` → `CONFIRMED`/`FAILED`/`AMBIGUOUS`/`CANCELLED`
+  (`RealOrderStateMachine`, `OrderTransitions`, `OrderDriver`), cotação e swap pela Jupiter (`JupiterClient`,
+  `SwapRouter`, `QuoteMath`), montagem da mensagem Solana sem SDK (`domain/solana`), sessão de assinatura do modo
+  Assinada (`SigningSessionService`, `SigningDeadlineJob`), confirmação e ordem ambígua (`ConfirmationJob`,
+  `AmbiguousJob`), assentamento e lançamentos no ledger REAL (`OrderSettlement`, `RealOrderLedger`,
+  `RealLedgerEntries`), modo da pessoa (`RealModeService`), liquidação "vender tudo e sacar" (`LiquidationService`,
+  `LiquidationJob`), métricas, expurgo e saúde das dependências (`UpstreamHealthJob`).
+- **Dados**: `real_decision_request`, `real_order` (origem `BOT` com `bot_id` ou `USER_LIQUIDATION` sem `bot_id`),
+  `real_liquidation` (0019).
+- **Relevância para o intent `261121-paper-real-unico`**: `real_order.bot_id` é a única ligação entre uma venda ou
+  compra REAL e um bot; as vendas da liquidação ficam sem bot.
+- **Profundidade**: profunda nas interfaces, no modelo, na liquidação e nos lançamentos; superficial no `OrderDriver`,
+  no cliente da Jupiter e nos jobs.
+
+### realexits
+- **Local**: `apps/api/src/main/java/com/memetrade/realexits/`
+- **Responsabilidade**: saídas condicionais da API Trigger da Jupiter (stop, alvo, OCO; `ConditionalService`,
+  `ConditionalStateMachine`, `TriggerPort`, `SimulatedTriggerAdapter`), uma por posição (mint) da carteira do bot;
+  leitura e cancelamento (`ConditionalReadJob`, `ConditionalCancelJob`); gravação da venda executada no ledger REAL
+  (`FillPosting`: `SWAP_FILL_OUT` e `NETWORK_FEE` com a referência `conditional:<id>`); `ExitGuardService` implementa o
+  `PositionExitGuard` do M6; eventos do canal ao vivo; exportação fiscal CSV (`fiscal/*`, `VENDA_CONDICIONAL` para as
+  referências `conditional:`); métricas e expurgo.
+- **Dados**: `real_conditional_order` (0022), sem `bot_id`.
+- **Relevância para o intent `261121-paper-real-unico`**: a venda condicional não cria `real_order`, então fica fora do
+  P&L REAL e não tem bot; é uma das "vendas sem bot" que o intent manda ratear.
+- **Profundidade**: profunda no modelo, na gravação da venda, nas interfaces e no mapeamento fiscal; superficial nos jobs
+  e na criação.
 
 ### administration
 - **Local**: `apps/api/src/main/java/com/memetrade/administration/`
@@ -167,7 +226,49 @@ Cada título abaixo é o nome canônico do componente (usado também no bloco Sc
   scanner com avaliação, bots (lista, assistente, detalhe), P&L, ledger e reconciliação, documentos legais, reaceite,
   pedidos de titular, feedback; CSP com nonce; token só em memória; tipos gerados do OpenAPI guest.
 - **Profundidade**: profunda em `package.json`, `jest.config.ts`, `middleware.ts` e `features/auth/wallets.ts`;
-  superficial no restante.
+  superficial no restante. (Estado de 2026-11-13; as partes abaixo foram relidas em 2026-11-21. Desde o intent
+  `261113-trading-real-bot` o app também tem a área REAL em `src/app/real/` e `src/features/real/`.)
+
+### web-bots
+- **Local**: `apps/web/src/features/bots/`, `apps/web/src/app/bots/`
+- **Responsabilidade**: lista de bots com estado, motivos de pausa e ações válidas (`BotList`), criação com modelo e
+  nome (`BotCreate`), assistente de configuração e limites (`BotWizard`, `LimitFields`, `validation.ts`), detalhe do bot
+  com comandos, decisões, ordens e posições abertas pelo P&L PAPER do bot (`BotDetail`, que chama
+  `api.getPnl({ from, to, botId })` e usa `features/pnl/BotTradesTable`); rotas `/bots`, `/bots/new`,
+  `/bots/new/[botId]`, `/bots/[botId]`.
+- **Relevância para o intent `261121-paper-real-unico`**: toda a feature é PAPER: títulos "Bots PAPER", botão "Iniciar
+  bot PAPER", nenhuma escolha nem exibição de `market`; `createBot` não envia `market`.
+- **Profundidade**: profunda nas telas, chamadas e textos; superficial nos testes.
+
+### web-real
+- **Local**: `apps/web/src/features/real/`
+- **Responsabilidade**: área REAL do convidado: visão geral com o cartão do P&L REAL (`OverviewScreen`, `RealPnlCard`),
+  ativação da carteira do bot, depósito e saque, modo de operação, ordens e assinatura do modo Assinada
+  (`SigningBanner`, `SigningDialog`, `sign-transaction.ts`), saídas condicionais (`ConditionalDialog`,
+  `ConditionalsTab`), exportação fiscal (`FiscalExportPanel`), cartão REAL do painel (`DashboardRealPnl`, só com
+  carteira ativa); valores em `bigint` (`money.ts`), DTOs convertidos em `api.ts`, `real-lint.test.ts` com as proibições
+  da pasta.
+- **Relevância para o intent `261121-paper-real-unico`**: o P&L REAL é mostrado por posição (mint), sem bot; a
+  conversão `toPnl` e o cartão são o ponto de partida do P&L REAL por bot e do total REAL.
+- **Profundidade**: profunda em `api.ts`, `money.ts` e nos cartões de P&L; superficial nas telas de carteira, modo,
+  ordens e assinatura.
+
+### web-dashboard
+- **Local**: `apps/web/src/features/dashboard/`
+- **Responsabilidade**: painel `/` com o cartão de bots (`BotsCard`, `BotRow`), o cartão do P&L PAPER do dia
+  (`PnlCard`, rótulo "MODO PAPER (simulado)") e o cartão REAL (`DashboardRealPnl`) lado a lado, nunca somados; estado
+  (`dashboard-reducer.ts`, `dashboard-loader.ts`, `DashboardProvider`), canal ao vivo por `fetch` (`sse-reader.ts`,
+  `stream-client.ts`, `envelopes.ts`, que já aceita `market` no resumo do bot), avisos de dados.
+- **Relevância para o intent `261121-paper-real-unico`**: o cartão de bots se chama "Bots PAPER" e o de P&L é só PAPER;
+  o total por modo e a lista única passam por aqui.
+- **Profundidade**: profunda na tela, nos cartões, nos textos e nos envelopes; superficial no cliente do canal e nos
+  testes.
+
+### web-pnl-route
+- **Local**: `apps/web/src/app/pnl/`
+- **Responsabilidade**: rota `/pnl`, página fina que monta `features/pnl/PnlScreen` (P&L, ledger e reconciliação
+  PAPER).
+- **Profundidade**: profunda na página; `features/pnl` não foi lida nesta execução.
 
 ### admin-app
 - **Local**: `apps/admin/`

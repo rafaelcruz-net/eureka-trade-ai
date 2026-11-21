@@ -2,61 +2,73 @@
 
 ## Run Record
 
-- Date: 2026-11-13
-- Commit: 40e25530928b5fcb5d82bcc4b7afc283a6e12369
+- Date: 2026-11-21
+- Commit: 3497b2bc49052f01adb93de7094a05880532222b
 
-Varredura completa (full rescan) do repositório para o intent `261113-trading-real-bot`, profundidade Comprehensive,
-feita só por leitura de arquivos (nenhum teste, build ou programa do projeto executado). Esta execução substitui por
-inteiro os 9 artefatos do mapa anterior (2026-11-08, commit `ffde88f`), que foi lido só como contexto.
+Varredura focada para o intent `261121-paper-real-unico`, profundidade Standard, feita só por leitura de arquivos
+(nenhum teste, build ou programa do projeto executado). Ela mescla na base de conhecimento existente, que estava
+desatualizada: os caminhos analisados mudaram desde a construção de 2026-11-13 (commit `40e2553`, intent
+`261113-trading-real-bot`, varredura completa). A prosa anterior fora da área analisada foi preservada e marcada como
+estado de 2026-11-13; a cobertura profunda anterior (`./`) não pôde ser reconfirmada e foi rebaixada a superficial, aqui
+expressa pelas pastas e arquivos de topo que ela cobria.
 
-Ficaram fora, sem abrir: saídas de build e dependências (`node_modules/`, `.next/`, `target/`, `coverage/`,
-relatórios de teste), ferramentas locais e IDE (`.tools/`, `.vscode/`), `.env`, relatórios gerados (`docs/perf/`,
-`load-test-report.json`), a cópia PDF do PRD, os lockfiles, os tipos gerados `schema.d.ts` e a instalação do AI-DLC
-(`.claude/`, `.codex/`, `.agents/`, `aidlc/` e as seções do AI-DLC em `AGENTS.md` e `.gitignore`).
+Área analisada a fundo nesta execução: os módulos de backend `bots`, `pnl`, `realexecution`, `ledger` e `realexits` e,
+no app web, as features `bots`, `real` e `dashboard` e as rotas `app/pnl` e `app/bots`. Percorridos sem leitura a fundo:
+as migrações do Liquibase, os testes do backend (contagens e nomes), o spec `e2e/real-swap`, `features/pnl`,
+`app/real` e `lib/api`. Ficaram fora, sem abrir: saídas de build e dependências (`node_modules/`, `.next/`, `target/`,
+`coverage/`, relatórios de teste), os tipos gerados `schema.d.ts` e a instalação do AI-DLC (`.claude/`, `.codex/`,
+`.agents/`, `aidlc/` e as seções do AI-DLC em `AGENTS.md` e `.gitignore`).
 
-A cobertura detalhada (o que foi lido a fundo e o que foi só percorrido) está no handoff
-`aidlc/spaces/default/intents/261113-trading-real-bot/inception/reverse-engineering/developer-scan.md`. A profundidade
+Existem hoje componentes que nenhuma varredura descreveu a fundo: o módulo `botwallet`, o subpacote `riskcontrol/real`
+e o app `apps/txsigner`.
+
+A cobertura detalhada está no handoff
+`aidlc/spaces/default/intents/261121-paper-real-unico/inception/reverse-engineering/developer-scan.md`. A profundidade
 de cada componente está em [component-inventory.md](component-inventory.md).
 
 ## Scope of Analysis
 
 ```yaml
 scope_version: 1
-kind: full
-intent: 261113-trading-real-bot
-fingerprint: 633944d96db12b9877eb7b6f746a51f5dae21b6d
+kind: partial
+intent: 261121-paper-real-unico
+fingerprint: c0bfeabe1720bcc4fb50677036b3e28665fa6785
 analyzed:
   paths:
-    - ./
+    - apps/api/src/main/java/com/memetrade/bots/
+    - apps/api/src/main/java/com/memetrade/pnl/
+    - apps/api/src/main/java/com/memetrade/realexecution/
+    - apps/api/src/main/java/com/memetrade/ledger/
+    - apps/api/src/main/java/com/memetrade/realexits/
+    - apps/web/src/features/bots/
+    - apps/web/src/features/real/
+    - apps/web/src/features/dashboard/
+    - apps/web/src/app/pnl/
+    - apps/web/src/app/bots/
   components:
-    - shared
-    - identity
-    - audit
-    - marketdata
-    - scanner
-    - riskassessment
-    - riskcontrol
     - bots
-    - decision
-    - ledger
     - pnl
-    - administration
-    - feedback
-    - privacy
-    - ops
-    - db-migrations
-    - api-resources
-    - api-tests
-    - web-app
-    - admin-app
-    - e2e-tests
-    - db-bootstrap
-    - compose-stack
-    - ci-workflows
-    - dev-scripts
-    - project-docs
+    - realexecution
+    - ledger
+    - realexits
+    - web-bots
+    - web-real
+    - web-dashboard
+    - web-pnl-route
 shallow:
   paths:
+    - apps/api/
+    - apps/web/
+    - apps/admin/
+    - infra/
+    - scripts/
+    - docs/
+    - .github/
+    - .githooks/
+    - security/
+    - docker-compose.yml
+    - .env.example
+    - PRD_MemeTrade_Analytics_v1.3_SaaS.md
     - apps/api/src/main/java/com/memetrade/identity/
     - apps/api/src/main/java/com/memetrade/audit/
     - apps/api/src/main/java/com/memetrade/privacy/
@@ -69,8 +81,11 @@ shallow:
     - apps/web/e2e/
     - apps/admin/src/
     - infra/postgres/
-    - scripts/
-    - docs/
     - README.md
     - PromptInicial.txt
+    - apps/api/src/main/resources/db/changelog/changes/
+    - apps/web/e2e/real-swap/
+    - apps/web/src/features/pnl/
+    - apps/web/src/app/real/
+    - apps/web/src/lib/api/
 ```

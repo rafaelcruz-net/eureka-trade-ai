@@ -67,7 +67,9 @@ O saque do SOL livre continua disponível o tempo todo. O token da custódia só
 | `RealExitsJobStalled{job="purge"}` (26 h) | o expurgo diário (05:30 UTC, processo da API) não rodou | conferir a API e o lock `real-exits-purge`; o expurgo só remove condicionais finais com mais de 5 anos |
 | `RealExitsTriggerPolicyRefused` | o TxSigner recusou um pedido de condicional | antes da gravação é esperado zero pedidos: qualquer recusa indica o flag ligado sem a política; desligar o flag (seção 2) |
 
-A paridade entre as regras do Prometheus (`infra/observability/real-exits-alerts.yml`) e os alarmes do CloudWatch (`infra/terraform/modules/observability/real-exits.tf`, `Eureka/RealExits`) é conferida pelo `RealExitsAlarmParityTest`. Na nuvem, os alarmes só disparam quando o caminho comum de métricas do worker e do TxSigner existir (pendência comum de U1 a U7).
+As janelas da tabela são as do Prometheus local. Na nuvem, o agente lê as métricas a cada 120 s, e as janelas dos alarmes `real-exits-job-stalled-*` são de 4 min (`read`, `cancel`, `exits-gauges`) e 26 h (`purge`) (`operation/observability-setup/alarms.md`, seção 1).
+
+A paridade entre as regras do Prometheus (`infra/observability/real-exits-alerts.yml`) e os alarmes do CloudWatch (`infra/terraform/modules/observability/real-exits.tf`, namespace `Eureka/App`) é conferida pelo `RealExitsAlarmParityTest`. O caminho das métricas até o CloudWatch existe na IaC desde o Observability Setup (contêiner auxiliar do CloudWatch Agent) e só fica verificado depois do primeiro `apply` da devnet.
 
 ## 5. Risco que sobra de BR2.6 (decisão do fundador)
 

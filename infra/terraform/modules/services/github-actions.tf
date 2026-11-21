@@ -1,11 +1,13 @@
 # Read-only token of GitHub Actions for the CI gate of the REAL releases (261113-trading-real-bot U5,
 # infrastructure-specification.md "Segredo", BR1.4). Only the worker reads it (MEMETRADE_GITHUB_ACTIONS_TOKEN); the
-# worker task does not exist in Terraform yet (pending since the U2), so this secret has no consumer today: when the
-# task is created (Environment Provisioning), its execution role receives the policy below. The value is written by
+# policy below is attached to the execution role of the api+worker task created by the Environment Provisioning
+# (iam.tf), and only the worker container definition injects it (api-worker.tf). The value is written by
 # hand, never by Terraform, so it never lands in the state. It is a fine-grained token with "Actions: read" on this
 # repository only; rotated every 90 days with docs/runbooks/real-operations.md "Troca do token do GitHub".
 
 resource "aws_secretsmanager_secret" "github_actions_read_token" {
+  # checkov:skip=CKV_AWS_149:The AWS managed key of Secrets Manager; a customer key adds cost and no control the pilot uses.
+  # checkov:skip=CKV2_AWS_57:Manual rotation every 90 days by the runbook; no rotation Lambda in the pilot.
   name                    = "${var.name}/github-actions-read-token"
   description             = "GitHub Actions read-only token of the worker (MEMETRADE_GITHUB_ACTIONS_TOKEN); set by hand, rotated every 90 days"
   recovery_window_in_days = 7

@@ -1,0 +1,31 @@
+# Example of the devnet state (261113-trading-real-bot Environment Provisioning). Copy to devnet.tfvars OUTSIDE the
+# repository or keep it here only with these non-secret values. NO secret goes here: passwords, keys, tokens and RPC
+# URLs are set by hand in Secrets Manager (terraform output secret_arns). Values in <> are the founder's to decide.
+#
+#   terraform init -backend-config="bucket=<state bucket of the devnet account>" \
+#                  -backend-config="key=eureka-real/devnet.tfstate" -backend-config="region=<region>"
+#   terraform plan -var-file=environments/devnet.tfvars -out=devnet.plan
+
+environment = "devnet"
+account_id  = "<12-digit id of the devnet member account>"
+region      = "<allowed region of the SCP>"
+zone        = "<region>a"
+zone_b      = "<region>b"
+
+initial_image_tag      = "<40-character SHA of the first images pushed by hand>"
+db_bootstrap_image_tag = "<same SHA>"
+
+api_domain      = "api.devnet.<domain>"
+web_domain      = "app.devnet.<domain>"
+admin_domain    = "admin.devnet.<domain>"
+certificate_arn = "<ACM certificate of the region covering the three hosts>"
+
+admin_wallet_addresses       = "<public address of the founder's admin wallet>"
+legal_storage_location       = "<to define>"
+legal_international_transfer = "<to define>"
+legal_dpo_email              = "<to define>"
+
+alarm_email = "<e-mail of the founder>"
+
+# First apply: 0 (no task before the bootstrap and the migrations); afterwards 1.
+service_desired_count = 0

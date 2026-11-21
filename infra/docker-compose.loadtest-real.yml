@@ -1,0 +1,20 @@
+# Overlay of the load scenario "real" of 261113-trading-real-bot (operation/performance-validation, Q1 to Q5), used ONLY
+# by scripts/load-test.sh with LOAD_SCENARIO=real, ON TOP of docker-compose.yml, infra/docker-compose.test.yml and
+# infra/docker-compose.real.yml. It changes measurement and cadence only, never a limit nor a target:
+#   - the worker reconciles every minute instead of every 15 s of the e2e overlay (production: 15 minutes), so a 25-minute
+#     run has about 25 rounds of the 21 wallets for U5-NFR3.1 and U5-NFR3.2, more pressure than production;
+#   - the worker turns on the cycle stopwatch of the loadtest profile (CycleStopwatch, loadtest.bots.* timers) without the
+#     bot seed of the api, which stays off (LOADTEST_U5_ENABLED of the api keeps the false of scripts/load-test.sh);
+#   - the TxSigner publishes the buckets of txsigner_latency and txsigner_kms_sign, read inside its container by the
+#     scenario (the TxSigner keeps publishing no port, NFR1.2).
+# Not used by scripts/verify.sh nor by the e2e run.
+services:
+  worker:
+    environment:
+      MEMETRADE_REAL_OPS_RECONCILIATION_INTERVAL: PT1M
+      LOADTEST_U5_ENABLED: 'true'
+
+  txsigner:
+    environment:
+      # Flat property names with the bracket notation: the meter names carry "_", which a plain map key would lose.
+      SPRING_APPLICATION_JSON: '{"management.metrics.distribution.percentiles-histogram[txsigner_latency]":true,"management.metrics.distribution.percentiles-histogram[txsigner_kms_sign]":true}'

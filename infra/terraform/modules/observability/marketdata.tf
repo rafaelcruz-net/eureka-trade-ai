@@ -1,23 +1,23 @@
 # Alarms of the real market source (261113-trading-real-bot U2, monitoring-design.md). The same names, thresholds and
 # windows as infra/observability/marketdata-alerts.yml (Prometheus, checked by promtool); CoinGeckoAlarmParityTest
-# compares both files. The worker publishes its Micrometer metrics to the namespace Eureka/MarketData with the
-# dimension source (never the key nor a mint); how the metrics reach CloudWatch (Micrometer registry or an agent) is
-# set when the worker gets its own task. High alarms page by e-mail and SMS, medium ones by e-mail: both use the SNS
-# topic of the pilot until a separate e-mail-only topic exists.
+# compares both files. The CloudWatch Agent sidecar of the api+worker task publishes the worker's Micrometer metrics to
+# the namespace Eureka/App with the dimension source (never the key nor a mint): Observability Setup Q1, allow-list in
+# app-metrics.tf. High alarms page by e-mail and SMS, medium ones by e-mail: both use the SNS topic of the pilot until a
+# separate e-mail-only topic exists.
 
 locals {
-  marketdata_namespace = "Eureka/MarketData"
+  marketdata_namespace = "Eureka/App"
 }
 
 resource "aws_cloudwatch_metric_alarm" "market_source_failed" {
   alarm_name          = "${var.name}-market-source-failed"
-  alarm_description   = "The real market source is FAILED for more than 2 minutes (high)."
+  alarm_description   = "The real market source is FAILED in both reads of 4 minutes (Prometheus: 2 minutes) (high)."
   namespace           = local.marketdata_namespace
   metric_name         = "marketdata_source_state"
   dimensions          = { source = "coingecko", state = "FAILED" }
-  statistic           = "Maximum"
-  period              = 60
-  evaluation_periods  = 2
+  statistic           = "Minimum"
+  period              = 240
+  evaluation_periods  = 1
   threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "breaching"
@@ -25,13 +25,15 @@ resource "aws_cloudwatch_metric_alarm" "market_source_failed" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "real_price_stale" {
-  alarm_name          = "${var.name}-real-price-stale"
-  alarm_description   = "The oldest price is older than 60 s for 3 rounds of 30 s; REAL refuses orders (high)."
-  namespace           = local.marketdata_namespace
-  metric_name         = "marketdata_oldest_price_age_seconds"
-  statistic           = "Minimum"
-  period              = 30
-  evaluation_periods  = 3
+  alarm_name        = "${var.name}-real-price-stale"
+  alarm_description = "The oldest price is older than 60 s in both reads of 4 minutes (Prometheus: 3 rounds of 30 s); REAL refuses orders (high)."
+  namespace         = local.marketdata_namespace
+  metric_name       = "marketdata_oldest_price_age_seconds"
+  statistic         = "Minimum"
+  # Observability Setup: the agent reads every 120 s, so a window with missing data breaching must hold two reads:
+  # the window of the Prometheus rule (90 s) is rounded up to 240 s, one period (CoinGeckoAlarmParityTest).
+  period              = 240
+  evaluation_periods  = 1
   threshold           = 60
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "breaching"
@@ -45,8 +47,8 @@ resource "aws_cloudwatch_metric_alarm" "market_call_counter_unavailable" {
   metric_name         = "marketdata_provider_conservative_mode"
   dimensions          = { source = "coingecko" }
   statistic           = "Minimum"
-  period              = 60
-  evaluation_periods  = 5
+  period              = 300
+  evaluation_periods  = 1
   threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"

@@ -21,6 +21,13 @@ Monorepo com três aplicações e um banco, tudo local:
 em `127.0.0.1`. Não há nuvem, fila, cache, gerenciador de segredos, KMS, RPC Solana nem fornecedor externo: as fontes de
 mercado são adaptadores simulados dentro do processo.
 
+**Atualização de 2026-11-21 (varredura focada)**: a descrição acima é a de 2026-11-13. O intent
+`261113-trading-real-bot` acrescentou depois os módulos `botwallet`, `riskcontrol/real`, `realexecution` e `realexits`,
+o app `apps/txsigner` (assinatura isolada) e o cliente da Jupiter. Esta execução releu a fundo só `bots`, `pnl`,
+`ledger`, `realexecution` e `realexits` no backend e as features `bots`, `real` e `dashboard` do app web; `botwallet`,
+`riskcontrol/real`, `apps/txsigner`, a infraestrutura e a nuvem não foram relidos e continuam descritos pelo estado
+anterior ou não descritos.
+
 ### Architectural Style
 
 **Monólito modular** com fronteiras verificadas por ArchUnit (`apps/api/src/test/java/com/memetrade/architecture/`,
@@ -101,6 +108,55 @@ usam `ledger` (financiamento e fechamento) e `pnl` (visão de risco); `administr
 com `decision`, passa pela barreira `riskcontrol` (que lê `marketdata` e `pnl`) e executa em `ledger`. Os dois
 processos usam o mesmo PostgreSQL. A lista completa de dependências está em [dependencies.md](dependencies.md).
 
+#### Módulos REAL na área analisada (2026-11-21)
+
+```mermaid
+flowchart LR
+  subgraph NAV["apps/web"]
+    WBOT["features/bots"]
+    WREAL["features/real"]
+    WDASH["features/dashboard"]
+  end
+  BOTS["bots: ciclo e comandos"]
+  RE["realexecution M6"]
+  RX["realexits"]
+  LEDR["ledger: RealLedger M2"]
+  LEDP["ledger: PaperExecution C15"]
+  PNL["pnl"]
+  BW["botwallet"]
+  RG["riskcontrol: RealRiskGate"]
+  JUP["Jupiter API"]
+  WBOT -->|"REST /bots e /pnl"| BOTS
+  WREAL -->|"REST /real/*"| RE
+  WREAL -->|"REST /real/conditional-orders"| RX
+  WREAL -->|"GET /real/pnl"| PNL
+  WDASH -->|"canal ao vivo e /pnl"| BOTS
+  BOTS -->|"bot PAPER"| LEDP
+  BOTS -->|"bot REAL: recordDecision"| RE
+  BOTS --> RG
+  BOTS -->|"saldo e posicoes da carteira"| LEDR
+  BOTS --> BW
+  RE --> RG
+  RE --> BW
+  RE -->|"lancamentos order:id"| LEDR
+  RE --> JUP
+  RE -->|"RealBotOwnership"| BOTS
+  RX -->|"implementa PositionExitGuard e RealExitChanges"| RE
+  RX -->|"lancamentos conditional:id"| LEDR
+  RX --> BW
+  PNL -->|"PAPER: LedgerReadModel"| LEDP
+  PNL -->|"REAL: settledOrders"| RE
+```
+
+Texto alternativo: a feature `bots` do app web fala com o módulo `bots` (rotas de bots) e com o `pnl` (P&L PAPER); a
+feature `real` fala com `realexecution`, `realexits` e com o `pnl` (P&L REAL); o painel usa o canal ao vivo do módulo
+`bots`. No backend, o ciclo de um bot PAPER executa pelo `PaperExecution` do ledger; o de um bot REAL lê saldo e
+posições da carteira do bot pelo `RealLedger`, passa pela barreira REAL e grava a decisão no `realexecution`, que cota e
+envia pela Jupiter e lança no ledger REAL com a referência `order:<id>`. O `realexits` implementa as interfaces de
+extensão do `realexecution` e lança as vendas condicionais no ledger REAL com a referência `conditional:<id>`. O `pnl`
+calcula o P&L PAPER pelo `LedgerReadModel` e o P&L REAL pelas ordens assentadas do `realexecution` (não pelo ledger
+REAL).
+
 ### Data Flow
 
 1. **Entrada**: o app pede um desafio (`POST /api/v1/auth/challenge`), a carteira assina a mensagem (Wallet Standard,
@@ -123,7 +179,26 @@ processos usam o mesmo PostgreSQL. A lista completa de dependências está em [d
 
 ### Estado atual do modo REAL
 
-| Camada | Onde | Comportamento |
+Nas áreas analisadas em 2026-11-21 (`bots`, `pnl`, `ledger`, `realexecution`, `realexits` e o app web), o REAL existe
+e funciona atrás de flags e da liberação da pessoa:
+
+| Camada | Onde | Comportamento hoje |
+|---|---|---|
+| Bot | `bot.market` (0019, `CHECK (market IN ('PAPER','REAL'))`), `bots/domain/BotMarket` | Escolhido na criação, nunca alterado; `bot.mode` continua `CHECK (mode = 'PAPER')` (0010) e o `BotSummary` devolve sempre `mode = "PAPER"` |
+| Criação | `bots/application/BotCommandService.create` | `market = REAL` exige carteira do bot ATIVA (`RealStateQuery`), senão `422 VALIDATION_FAILED` em `market`; a chave de idempotência ganha o sufixo `:REAL` |
+| Início e parada | `BotCommandService.start` e `stop` | Bot REAL não financia conta PAPER e não fecha posições ao parar: as posições ficam na carteira do bot e saem por "vender tudo e sacar" |
+| Ciclo | `bots/worker/CycleRunner`, `RealCycle`, `application/RealDecisionStep` | Bot REAL decide sobre o saldo operável e as posições da carteira do bot inteira; a decisão é gravada com `decision.mode = 'REAL'`; aprovada pela barreira REAL vira `RealDecisionRequest` PENDING na mesma transação; sem preço do SOL o slot é `REAL_UNAVAILABLE` |
+| Ledger | `real_ledger_entry` (0016), `ledger/api/RealLedger` | Tabela própria, append-only, `CHECK (mode = 'REAL')`, por `bot_wallet_id` (sem `bot_id`); `ledger_entry` continua só PAPER |
+| Ordens | `real_order`, `real_decision_request`, `real_liquidation` (0019) | `origin IN ('BOT','USER_LIQUIDATION')`; `BOT` exige `bot_id`, `USER_LIQUIDATION` exige `liquidation_id`, sem `bot_id`, só `SELL`; uma ordem em andamento por bot |
+| Saídas | `real_conditional_order` (0022), `realexits` | Uma condicional não final por posição (mint) da carteira do bot; sem `bot_id` |
+| P&L | `pnl/application/RealPnlService`, `GET /api/v1/real/pnl` | Por pessoa e por mint, sem período e sem bot; não lê PAPER |
+| Interface | `features/real/*`, `DashboardRealPnl` | Área `/real` (ativação, depósito e saque, modo, ordens) e cartão REAL no painel, só para quem tem carteira ativa; a criação de bot (`features/bots/BotCreate`) não oferece REAL |
+
+As linhas abaixo são o estado de 2026-11-13. As camadas HTTP (`ModeGuardFilter`), conta, termos, build e arquitetura
+não foram relidas nesta execução e podem ter mudado com o intent `261113-trading-real-bot` (por exemplo, os termos v3
+com o modo REAL e o `ModeGuardFilter`).
+
+| Camada | Onde | Comportamento em 2026-11-13 |
 |---|---|---|
 | Banco | `0008-ledger-pnl.sql`, `0009-risk-control.sql`, `0010-bots-decision.sql` | `mode varchar(8) NOT NULL DEFAULT 'PAPER'` com `CHECK (mode = 'PAPER')` em 13 tabelas: `paper_account`, `paper_order`, `fill`, `ledger_entry`, `position`, `pnl_daily`, `equity_peak`, `reconciliation_check`, `order_evaluation`, `order_rejection`, `rejection_reason_detail`, `bot`, `decision` |
 | HTTP | `shared/web/ModeGuardFilter` | Qualquer `mode` diferente de `PAPER` na query ou no corpo JSON de `/api/**` → `403 REAL_MODE_UNAVAILABLE`, auditado como `REQUEST_FORBIDDEN` |
@@ -155,9 +230,43 @@ Inventário dono deste tema (outros artefatos apontam para cá). Tabelas por mig
 | `kill_switch_state`, `kill_switch_change` (0011) | `administration` | Estado único ON/OFF com versão e histórico | Linha única; histórico append-only |
 | `feedback_entry` (0011, 0015) | `feedback` | Comentário, tela, pessoa | Apagado após 180 dias pelo papel `feedback_retention`; função `erase_feedback_of_user` para a anonimização |
 | `data_subject_request`, `data_subject_verification`, `privacy_job_run` (0014) | `privacy` | Pedidos de titular e verificação por assinatura | Um pedido aberto por tipo e pessoa; expurgo 12 meses após o fechamento |
+| `bot.market` (0019) | `bots` | Coluna nova do bot: `PAPER` (padrão) ou `REAL` | Fixa desde a criação |
+| `real_ledger_entry` (0016) | `ledger` (M2) | Lançamentos REAL por carteira do bot: `DEPOSIT`, `WITHDRAWAL`, `NETWORK_FEE`, `RENT`, `SWAP_FILL_IN`, `SWAP_FILL_OUT`, `COMPENSATION`, `RESERVE`, `RESERVE_RELEASE`; lamports `bigint`, quantidade `numeric(30,0)`, `reference` (`order:<id>`, `conditional:<id>`, `wd:<id>`, `dep:<assinatura>`) | `mode = 'REAL'`; append-only pela mesma função do ledger PAPER; chave de idempotência única; sinal conferido por `CHECK` e por `RealEntryRules` |
+| `real_decision_request`, `real_order`, `real_liquidation` (0019) | `realexecution` (M6) | Fila de decisões dos bots, ordens com estado, cotação, assinatura, saída lida da rede, taxa, quem pagou e aluguel; liquidações da pessoa | Origem `BOT` com `bot_id` ou `USER_LIQUIDATION` sem `bot_id`; índice único de ordem em andamento por bot |
+| `real_conditional_order` (0022) | `realexits` | Condicionais por posição (mint) da carteira do bot, com estado, lado executado e assinaturas | Uma não final por posição; sem `bot_id` |
+| `decision.mode` (0021) | `decision` | Passa a aceitar `REAL` | As linhas PAPER não mudam |
 
 Logs: JSON no stdout, com qualquer palavra Base58 de 32 a 44 caracteres mascarada (`Base58AddressValueMasker`) e
 `WalletAddress.toString()` sempre mascarado. Navegador: token de acesso só em memória.
+
+### Como o P&L é calculado hoje
+
+Seção dona deste tema (2026-11-21). Os diagramas estão em [Interaction Diagrams](#interaction-diagrams).
+
+| Aspecto | P&L PAPER | P&L REAL |
+|---|---|---|
+| Rota | `GET /api/v1/pnl?from&to&botId` (`pnl/web/PnlController`) | `GET /api/v1/real/pnl` (`pnl/web/RealPnlController`), sem parâmetros |
+| Serviço | `PnlQueryService.report` em `REPEATABLE READ`, só leitura | `RealPnlService.pnl(tenant, user)` |
+| Fonte | Ledger PAPER pelo `LedgerReadModel`: `pnl_daily` para os dias UTC inteiros, `fill` para os dias parciais, `position` para o não realizado | Ordens assentadas do M6 (`RealExecutionPort.settledOrders`: `real_order` com assinatura e estado `CONFIRMED` ou `FAILED`, ordenadas por `updated_at, real_order_id`) e preços de `MarketDataQuery` |
+| Granularidade | Por pessoa, com filtro opcional por bot (cada bot tem a sua conta PAPER); linhas por token | Por pessoa; posições por mint da carteira do bot; nenhum filtro por bot |
+| Período | `[from, to)`, até 366 dias | Todo o histórico |
+| Custo médio | No momento do fill (`ledger/domain/PositionAccounting`): custo total por bot e token, taxa fora do custo, parte vendida `HALF_EVEN` em 6 casas; o realizado fica gravado em cada `fill` | Na leitura (`pnl/real/RealPnlCalculator`): por mint, custo = lamports gastos + taxa (inclusive a paga pela carteira principal no modo Assinada) + aluguel; parte vendida arredondada para CIMA |
+| Não realizado | Valor de saída agora (`ExitValuation`, preço de referência) menos o custo; `UNKNOWN` com motivo, nunca zero | Preço em lamports por unidade base = `tokenUsd × 10^9 / (solUsd × 10^decimais)`, 18 casas, para baixo; qualquer peça ausente deixa a posição e o total `UNKNOWN` |
+| Unidade | USDC, texto decimal com 6 casas | Lamports, texto inteiro com sinal |
+| Ordem FAILED na rede | Não existe (simulado) | Conta só a taxa |
+| Venda da liquidação | Não existe | Entra (é um `real_order` com `origin = 'USER_LIQUIDATION'`, sem bot) |
+| Venda de saída condicional | Não existe | **Não entra**: `FillPosting` grava `SWAP_FILL_OUT` no ledger REAL sem criar `real_order`, e o P&L não lê o ledger |
+| Reconciliação | `ReconciliationService` compara ordens, lançamentos, posições e resumo PAPER | Reconciliação da carteira com a rede no `botwallet`/U5 (fora desta execução); o P&L REAL não é conferido com o ledger REAL por nenhum teste encontrado |
+
+Consequências para o P&L REAL por bot:
+
+- a origem por bot existe em `real_order.bot_id` para as ordens `BOT`; a liquidação e a condicional não têm bot;
+- o ledger REAL e as posições (`RealLedger.positions`, `RealPositions`) são da carteira do bot, compartilhada por todos
+  os bots REAL da pessoa;
+- o ciclo de um bot REAL vende a posição inteira do mint na carteira (`RealCycle.order`, ramo SELL), inclusive o que
+  outro bot comprou, e o `PositionExitGuard` cancela a condicional da posição antes de qualquer venda a mercado;
+- dois custos médios REAL convivem: `RealPositions` (só a perna em SOL, parte vendida para baixo, usado pela barreira e
+  pelo ciclo) e `RealPnlCalculator` (SOL + taxa + aluguel, parte vendida para cima, usado pelo P&L).
 
 ### Key Design Decisions
 
@@ -187,9 +296,20 @@ Logs: JSON no stdout, com qualquer palavra Base58 de 32 a 44 caracteres mascarad
 - As fronteiras de módulo são verificadas por ArchUnit módulo a módulo, sem uma regra única que cubra os módulos novos
   automaticamente.
 - Não há fila nem worker de execução assíncrona: tudo o que o PRD §12 prevê para execução e reconciliação on-chain
-  ainda não tem lugar na arquitetura.
+  ainda não tem lugar na arquitetura. (Estado de 2026-11-13; o `realexecution` passou a ter fila de decisões e jobs de
+  execução no worker.)
+- (2026-11-21) O P&L REAL não lê o ledger REAL: as vendas condicionais ficam de fora e nenhum teste confere o P&L REAL
+  contra o ledger REAL.
+- (2026-11-21) O custo médio REAL existe em duas versões com regras de custo e de arredondamento diferentes
+  (`RealPositions` e `RealPnlCalculator`).
+- (2026-11-21) O ledger, as posições e as condicionais REAL são por carteira do bot, sem `bot_id`; atribuir resultado a
+  um bot exige partir de `real_order.bot_id` e ratear o que não tem bot.
+- (2026-11-21) O bot guarda o modo em `market` e mantém `mode` fixo em `PAPER`; o contrato `BotSummary` expõe os dois.
 
 ### Pontos de extensão e bloqueios para o Trading REAL
+
+Registro histórico de 2026-11-13, antes da construção do intent `261113-trading-real-bot`; o estado atual das áreas
+analisadas está em [Estado atual do modo REAL](#estado-atual-do-modo-real).
 
 | Peça existente | Reaproveitável | Limite atual |
 |---|---|---|
@@ -322,3 +442,126 @@ sequenceDiagram
 Texto alternativo: o app consulta o convite e recebe os textos vigentes; pede um desafio; a carteira assina a
 mensagem; o app envia assinatura, código e versão aceita; a API confere a assinatura com Ed25519 nativo, consome o
 desafio e, numa transação, cria pessoa, carteira, uso do convite, aceite, evento de auditoria e sessão.
+
+### P&L REAL hoje (leitura, 2026-11-21)
+
+```mermaid
+sequenceDiagram
+  participant W as apps/web RealPnlCard
+  participant C as RealPnlController
+  participant S as RealPnlService
+  participant P as RealExecutionPort settledOrders
+  participant DB as PostgreSQL real_order
+  participant M as MarketDataQuery
+  participant K as RealPnlCalculator
+  W->>C: GET /api/v1/real/pnl com token de acesso
+  C->>S: pnl tenant e pessoa do token
+  S->>P: settledOrders tenant e pessoa
+  P->>DB: real_order com tx_signature, CONFIRMED ou FAILED, por updated_at
+  DB-->>S: ordens BOT e USER_LIQUIDATION, sem as vendas condicionais
+  S->>S: FAILED vira fill so com a taxa, BUY com lamports, taxa e aluguel, SELL com lamports recebidos
+  S->>M: precos em dolar dos mints e do SOL embrulhado, decimais dos mints
+  S->>K: of fills e precos em lamports por unidade base
+  K-->>S: realizado, nao realizado ou vazio, taxas, aluguel, posicoes por mint
+  C-->>W: texto inteiro em lamports, UNKNOWN quando falta preco, Cache-Control no-store
+```
+
+Texto alternativo: o cartão REAL do app pede `GET /api/v1/real/pnl`. O controlador pega tenant e pessoa do token e chama
+o serviço, que lê pelo M6 todas as ordens da pessoa que chegaram à rede (confirmadas ou falhas com assinatura), em
+ordem de atualização. São ordens dos bots e da liquidação; as vendas das saídas condicionais não estão ali. Uma ordem
+falha vira só taxa; uma compra soma lamports gastos, taxa e aluguel ao custo; uma venda realiza os lamports recebidos
+menos a taxa e o custo médio da parte vendida. O serviço converte o preço em dólar de cada mint em lamports por unidade
+base com o preço do SOL embrulhado e os decimais; qualquer peça ausente deixa o preço desconhecido. O cálculo devolve o
+realizado, o não realizado (ou desconhecido), as taxas e as posições por mint, sem divisão por bot.
+
+### P&L PAPER por bot (leitura)
+
+```mermaid
+sequenceDiagram
+  participant W as apps/web BotDetail ou PnlScreen
+  participant C as PnlController
+  participant Q as PnlQueryService
+  participant L as LedgerReadModel
+  participant PM as PortfolioMarks e ExitValuation
+  participant K as PnlCalculator
+  W->>C: GET /api/v1/pnl com from, to e botId
+  C->>Q: report pessoa, periodo e bot
+  Q->>L: account botId, confere tenant e dono
+  alt bot de outra pessoa
+    Q-->>C: 404 NOT_FOUND
+  else bot sem conta PAPER
+    Q-->>C: relatorio vazio
+  end
+  Q->>L: dailySummary dos dias UTC inteiros do bot
+  Q->>L: fills dos dias parciais do bot
+  Q->>L: openPositions do bot
+  Q->>PM: valor de saida agora de cada posicao aberta
+  Q->>K: report linhas por token com realizado, taxas e marca
+  K-->>Q: totais, UNKNOWN quando uma linha nao tem preco
+  C-->>W: realizado, nao realizado, taxas e linhas por token em USDC
+```
+
+Texto alternativo: o detalhe do bot (ou a tela de P&L) pede `GET /api/v1/pnl` com o período e o `botId`. O serviço, numa
+leitura `REPEATABLE READ`, confere que a conta PAPER do bot é da pessoa (outro dono dá 404; sem conta, relatório
+vazio), soma o realizado e as taxas do resumo diário nos dias UTC inteiros e dos fills nos dias parciais, lê as posições
+abertas do bot e as avalia pelo valor de saída agora. O cálculo monta as linhas por token e os totais; uma linha sem
+preço deixa o não realizado total desconhecido. O realizado já vem gravado em cada fill, porque o custo médio por bot é
+aplicado no momento do preenchimento.
+
+### Venda de uma saída condicional no ledger REAL
+
+```mermaid
+sequenceDiagram
+  participant J as ConditionalReadJob
+  participant T as TriggerPort Jupiter
+  participant F as FillPosting
+  participant DB as PostgreSQL
+  participant L as RealLedger M2
+  J->>T: le a condicional aberta da posicao
+  T-->>J: executada, com a assinatura da execucao
+  J->>F: post condicional, lado e efeito lido na rede
+  F->>DB: compare-and-set OPEN ou CANCELLING para FILLED
+  F->>L: SWAP_FILL_OUT lamports recebidos e tokens vendidos, referencia conditional:id
+  F->>L: NETWORK_FEE quando a carteira do bot pagou
+  F->>DB: evento real.conditional.state
+  Note over F,L: nenhum real_order e criado, entao o P&L REAL nao ve esta venda
+```
+
+Texto alternativo: o job de leitura consulta a condicional na Jupiter; quando ela foi executada, `FillPosting` muda o
+estado para `FILLED` por compare-and-set e, na mesma transação, grava no ledger REAL a venda (`SWAP_FILL_OUT`) e,
+quando for o caso, a taxa, com a referência `conditional:<id>`, e anuncia a mudança no canal ao vivo. Nenhuma ordem
+`real_order` é criada: as posições do ledger REAL e a exportação fiscal veem a venda, o P&L REAL não.
+
+### Ciclo de um bot REAL (worker)
+
+```mermaid
+sequenceDiagram
+  participant CR as CycleRunner
+  participant RC as RealCycle
+  participant BW as RealStateQuery botwallet
+  participant L as RealLedger view
+  participant DE as DecisionEngine
+  participant RS as RealDecisionStep
+  participant G as RealRiskGate
+  participant RE as RealExecutionPort
+  CR->>RC: inputs do bot REAL
+  RC->>BW: estado REAL da pessoa e carteira do bot
+  RC->>L: saldo e posicoes da carteira inteira
+  RC-->>CR: saldo operavel e posicoes em dolar com o preco do SOL
+  CR->>DE: decide
+  CR->>CR: grava decision com mode REAL
+  CR->>RC: order BUY em lamports ou SELL da posicao inteira do mint
+  RC->>RS: submit candidato
+  RS->>RE: ordem em andamento do bot ou liquidacao ativa descartam
+  RS->>G: evaluate na transacao do ciclo
+  G-->>RS: Approved com reserva ou Rejected
+  RS->>RE: recordDecision PENDING
+  CR->>CR: BUY gravado abre bot_holding, commit unico
+```
+
+Texto alternativo: no worker, o ciclo de um bot REAL lê o estado REAL da pessoa e, pelo `RealLedger`, o saldo e as
+posições da carteira do bot inteira (de todos os bots REAL da pessoa), convertidos em dólar com o preço do SOL. O motor
+decide; a decisão é gravada com `mode = 'REAL'`. Uma compra vira lamports; uma venda usa a quantidade inteira do mint
+na carteira. O passo REAL descarta a decisão quando o bot já tem ordem em andamento ou a pessoa tem uma liquidação
+ativa, confere a posse do bot, passa pela barreira REAL e grava a decisão PENDING no M6, tudo na transação do ciclo.
+A execução (cotação, assinatura, envio e confirmação) acontece depois, fora do ciclo, no `realexecution`.

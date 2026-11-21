@@ -59,7 +59,7 @@ O build está bom quando:
 4. o `scripts/verify.sh` termina com código 0 e todos os specs passam;
 5. o workflow `security` (Gitleaks, CodeQL, Dependency-Check e `pnpm audit`) termina verde.
 
-Na execução de referência (commit `d7e6a17997aa242c4ad2a7693336c6e58f281521`, reexecução depois da volta 1), os itens 1 a 4 estão verdes no run `ci` 44688329451, e o item 5 está verde no run `security` 44688329359 (tentativa 2; a tentativa 1 falhou só por erro de rede ao baixar o Maven). Ver `test-results.md`.
+Na execução de referência (commit `3497b2bc49052f01adb93de7094a05880532222b`, reexecução depois da volta 2), os itens 1 a 4 estão verdes no run `ci` 44765239890 (tentativa 2; a tentativa 1 falhou só no job `contract`, por erro de rede ao baixar o Maven), e o item 5 está verde no run `security` 44765240176. Ver `test-results.md`.
 
 ## 6. Regra de execução nesta máquina
 

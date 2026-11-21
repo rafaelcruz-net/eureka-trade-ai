@@ -60,3 +60,12 @@ apps/api/target/site/jacoco*/
 
 # Load test output (scripts/load-test.sh); kept as a CI artifact, never committed
 /load-test-report.json
+
+# Terraform (261113-trading-real-bot Environment Provisioning): local plugin cache, state and plans never enter the
+# repository (the state lives in the S3 bucket of each account); the *.tfvars.example files stay versioned.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.plan
+infra/terraform/**/*.tfvars

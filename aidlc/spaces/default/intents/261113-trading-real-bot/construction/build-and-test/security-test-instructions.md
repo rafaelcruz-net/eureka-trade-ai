@@ -44,4 +44,4 @@ As exceções ficam em `security/exceptions.yml` (justificativa, `approvedBy`, `
 
 ## 4. Resultado de referência
 
-Run `security` 44688329359 do commit `d7e6a17`, tentativa 2: os quatro jobs verdes (`secrets`, as duas análises `sast` e `dependencies`). O `pnpm audit` do `apps/web` e do `apps/admin` não tem achado Alto nem Crítico, só 6 Moderados (aviso). O GHSA-fc5q-39xc-vjpf (`picomatch`) foi retirado pelo GitHub em 2026-11-18 e está coberto pela EX-014 e pelo `pnpm.auditConfig.ignoreGhsas`. A tentativa 1 falhou no job `dependencies` só por erro de rede (wget) ao baixar o Maven de repo.maven.apache.org. Diagnóstico e opções em `test-results.md`.
+Run `security` 44765240176 do commit `3497b2b`, tentativa 1: os quatro jobs verdes (`secrets`, as duas análises `sast` e `dependencies`). O `pnpm audit` do `apps/web` e do `apps/admin` não tem achado Alto nem Crítico, só 6 Moderados (aviso). O GHSA-fc5q-39xc-vjpf (`picomatch`) foi retirado pelo GitHub em 2026-11-18 e está coberto pela EX-014 e pelo `pnpm.auditConfig.ignoreGhsas`. Diagnóstico e opções em `test-results.md`.

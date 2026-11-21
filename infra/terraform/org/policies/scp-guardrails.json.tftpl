@@ -1,0 +1,143 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyEverythingOutsideTheAllowedRegion",
+      "Effect": "Deny",
+      "NotAction": [
+        "account:*",
+        "budgets:*",
+        "ce:*",
+        "cloudfront:*",
+        "health:*",
+        "iam:*",
+        "organizations:*",
+        "route53:*",
+        "route53domains:*",
+        "sts:*",
+        "support:*",
+        "trustedadvisor:*",
+        "s3:GetAccountPublicAccessBlock",
+        "s3:ListAllMyBuckets",
+        "tag:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": { "aws:RequestedRegion": ["${allowed_region}"] }
+      }
+    },
+    {
+      "Sid": "DenyKeyDeletionWithoutMfa",
+      "Effect": "Deny",
+      "Action": ["kms:ScheduleKeyDeletion", "kms:DisableKey", "kms:PutKeyPolicy"],
+      "Resource": "*",
+      "Condition": {
+        "BoolIfExists": { "aws:MultiFactorAuthPresent": "false" }
+      }
+    },
+    {
+      "Sid": "DenyKeyTagChangesWithoutMfa",
+      "Effect": "Deny",
+      "Action": ["kms:TagResource", "kms:UntagResource"],
+      "Resource": "*",
+      "Condition": {
+        "BoolIfExists": { "aws:MultiFactorAuthPresent": "false" },
+        "ArnNotLike": { "aws:PrincipalArn": "arn:aws:iam::*:role/${name}-txsigner" }
+      }
+    },
+    {
+      "Sid": "DenyFounderOnlyRoleChangesWithoutMfa",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachRolePolicy",
+        "iam:DeleteRole",
+        "iam:DeleteRolePermissionsBoundary",
+        "iam:DeleteRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePermissionsBoundary",
+        "iam:PutRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:UpdateRole",
+        "iam:UpdateRoleDescription"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/${name}-txsigner",
+        "arn:aws:iam::*:role/${name}-txsigner-*",
+        "arn:aws:iam::*:role/${name}-db-bootstrap-exec"
+      ],
+      "Condition": {
+        "BoolIfExists": { "aws:MultiFactorAuthPresent": "false" }
+      }
+    },
+    {
+      "Sid": "DenyPassingFounderOnlyRolesWithoutMfa",
+      "Effect": "Deny",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::*:role/${name}-txsigner",
+        "arn:aws:iam::*:role/${name}-txsigner-*",
+        "arn:aws:iam::*:role/${name}-db-bootstrap-exec"
+      ],
+      "Condition": {
+        "BoolIfExists": { "aws:MultiFactorAuthPresent": "false" }
+      }
+    },
+    {
+      "Sid": "DenyPassingTheTxSignerRoleOutsideEcs",
+      "Effect": "Deny",
+      "Action": "iam:PassRole",
+      "Resource": "arn:aws:iam::*:role/${name}-txsigner",
+      "Condition": {
+        "StringNotEquals": { "iam:PassedToService": "ecs-tasks.amazonaws.com" }
+      }
+    },
+    {
+      "Sid": "DenyAssumingTheTxSignerRoleWithoutMfa",
+      "Effect": "Deny",
+      "Action": "sts:AssumeRole*",
+      "Resource": "arn:aws:iam::*:role/${name}-txsigner",
+      "Condition": {
+        "BoolIfExists": {
+          "aws:MultiFactorAuthPresent": "false",
+          "aws:PrincipalIsAWSService": "false"
+        }
+      }
+    },
+    {
+      "Sid": "DenyLeavingTheOrganization",
+      "Effect": "Deny",
+      "Action": "organizations:LeaveOrganization",
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyTurningTheAuditOff",
+      "Effect": "Deny",
+      "Action": [
+        "cloudtrail:DeleteTrail",
+        "cloudtrail:StopLogging",
+        "cloudtrail:UpdateTrail",
+        "cloudtrail:PutEventSelectors"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "BoolIfExists": { "aws:MultiFactorAuthPresent": "false" }
+      }
+    },
+    {
+      "Sid": "DenyDeletingTheTrailLogsWithoutMfa",
+      "Effect": "Deny",
+      "Action": [
+        "logs:DeleteLogGroup",
+        "logs:DeleteMetricFilter",
+        "logs:DeleteRetentionPolicy",
+        "logs:PutRetentionPolicy"
+      ],
+      "Resource": "arn:aws:logs:*:*:log-group:/${name}/cloudtrail*",
+      "Condition": {
+        "BoolIfExists": { "aws:MultiFactorAuthPresent": "false" }
+      }
+    }
+  ]
+}

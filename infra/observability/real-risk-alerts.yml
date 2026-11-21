@@ -7,9 +7,9 @@
 #
 # Each alert carries the annotations `threshold` and `window_seconds` (and `job` for the stalled jobs);
 # RealRiskAlarmParityTest compares them with the expression below and with the CloudWatch alarm of the same name in
-# infra/terraform/modules/observability/real-risk.tf. The slow-barrier alarm has no CloudWatch twin yet (`cloud:
-# deferred`): its p95 needs the metric as a distribution, part of the pending decision on how the metrics of Micrometer
-# reach CloudWatch.
+# infra/terraform/modules/observability/real-risk.tf. The slow-barrier rule reads the histogram; the CloudWatch Agent
+# drops histograms, so its CloudWatch twin reads the summary named in `cloud_metric` (gap OBS-G1 of the Observability
+# Setup: the code still has to publish it) and is created only with p95_alarms_enabled.
 #
 # U3-NFR5.12 (stalled job) uses the counter of successful runs, `real_risk_job_runs_total{job}`, with `absent()` for a
 # job that never published, instead of `time() - real_risk_job_last_success_seconds`: the same form then exists as a
@@ -77,4 +77,4 @@ groups:
           summary: The p95 of the REAL buy evaluation is above 150 ms for 10 minutes (informative target, no gate).
           threshold: "0.15"
           window_seconds: "600"
-          cloud: deferred
+          cloud_metric: real_risk_evaluation_p95_seconds

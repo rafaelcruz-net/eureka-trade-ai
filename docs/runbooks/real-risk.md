@@ -39,7 +39,7 @@ Erro técnico em qualquer leitura (carteira, ledger, mercado, avaliação) ou tr
 - **O que para:** as compras e as vendas do bot. A liquidação "vender tudo e sacar" da pessoa continua, e o saque também.
 - **Quando volta:** o trabalho `day` retoma a pausa a partir de 00:00 UTC do dia seguinte. Nenhuma ação manual é necessária.
 - **Se o ciclo foi desfeito:** a pausa some junto com a decisão, mas o trabalho `daily-loss` recalcula e pausa em até 1 minuto.
-- **Retomar antes da hora:** não há rota para isso nesta Unit. A retomada manual de uma pausa `DAILY_LOSS` exige decisão do fundador e fica para a área do administrador (U5).
+- **Retomar antes da hora:** não há rota para isso; a área do administrador da U5 também não criou uma. A pausa `DAILY_LOSS` volta às 00:00 UTC do dia seguinte.
 
 ## 3. Reserva vencida (alerta `RealRiskReservationExpired`)
 
@@ -47,7 +47,7 @@ Erro técnico em qualquer leitura (carteira, ledger, mercado, avaliação) ou tr
 2. O alerta indica que a U4 não consumiu a decisão a tempo. O trabalho `reservation-expiry` passou a reserva a `EXPIRED`, e o teto voltou a ficar livre. Uma reserva vencida nunca vira ordem: `handOver` responde `RESERVATION_EXPIRED`.
 3. O que conferir:
    - o consumidor da fila da U4 e os seus logs;
-   - o alerta `WorkerDown` da U1;
+   - o alerta `WorkerDown` da U1 (na nuvem, `metrics-absent-worker`);
    - a consulta `select state, count(*) from real_risk_reservation where created_at > now() - interval '1 hour' group by state`.
 4. Nada precisa ser corrigido no banco. As tabelas são append-only, e a reserva só muda de `OPEN` para um estado final.
 
@@ -56,7 +56,7 @@ Erro técnico em qualquer leitura (carteira, ledger, mercado, avaliação) ou tr
 - Só a área do administrador (U5, módulo `administration`) chama `blockToken` e `unblockToken`. Uma regra ArchUnit impede outro módulo de chamá-las.
 - Bloquear: o token deixa de ser comprado por qualquer bot REAL, e as vendas continuam. Repetir o bloqueio não muda nada. O motivo é obrigatório e tem até 500 caracteres. Não escreva endereço de carteira, chave ou dado pessoal no motivo, porque ele vai para a trilha de auditoria (que recusa endereço completo).
 - Desbloquear: apaga a linha e gera o evento `REAL_TOKEN_UNBLOCKED` com o motivo anterior.
-- Até a U5 existir, não há rota. Em emergência, use o kill switch REAL ou desligue o REAL (seção 6), e nunca edite `real_blocked_token` à mão.
+- A U5 criou as rotas e a tela: administração → "REAL" → "Tokens bloqueados" (`GET` e `POST /api/v1/admin/real/token-blocks`, `DELETE /api/v1/admin/real/token-blocks/{mint}`). Nunca edite `real_blocked_token` à mão.
 
 ## 5. Erros da barreira (alerta `RealRiskErrors`) e lentidão (`RealRiskSlow`)
 
@@ -80,11 +80,13 @@ Os três trabalhos do worker publicam `real_risk_job_runs_total{job}` só depois
 | `daily-loss` (perda do dia) | a cada minuto | 5 min |
 | `reservation-expiry` (vencimento das reservas) | a cada minuto | 15 min |
 
+Essas são as janelas do Prometheus local. Na nuvem, com o agente lendo a cada 120 s, os alarmes `real-risk-job-stalled-*` usam 16 min (`day` e `reservation-expiry`) e 8 min (`daily-loss`) (`operation/observability-setup/alarms.md`, seção 1).
+
 O expurgo (`purge`) roda às 04:00 UTC na API e grava cada execução em `real_risk_purge_run`.
 
 Quando um alerta de trabalho parado dispara:
 
-1. Confira se o worker está no ar (alerta `WorkerDown` da U1) e os logs `REAL risk job failed`, que trazem o nome do trabalho e a classe do erro.
+1. Confira se o worker está no ar (alerta `WorkerDown` da U1 no local; `metrics-absent-worker` na nuvem) e os logs `REAL risk job failed`, que trazem o nome do trabalho e a classe do erro.
 2. Uma falha numa carteira não para as outras, mas a execução não conta como sucesso e o alerta continua até a falha sumir.
 
 **Rollback da U3** (`infrastructure-specification.md`):

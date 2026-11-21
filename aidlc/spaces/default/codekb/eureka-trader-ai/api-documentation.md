@@ -71,6 +71,35 @@ Inventário dono das rotas REST e dos contratos internos. Componentes em
 | POST | `/api/v1/privacy/requests` | CLIENT | privacy | Novo pedido |
 | GET | `/api/v1/privacy/requests/{requestId}` | CLIENT | privacy | Um pedido |
 
+### Mudanças e rotas REAL nas áreas analisadas (2026-11-21)
+
+A contagem "32 operações" acima é de 2026-11-13. Nas áreas relidas nesta execução:
+
+- `POST /api/v1/bots` aceita `market` opcional (`PAPER` padrão ou `REAL`); `REAL` sem carteira do bot ATIVA devolve
+  `422 VALIDATION_FAILED` no campo `market`. O app web não envia `market`.
+- `BotSummary` (lista, comandos, canal ao vivo) traz `mode` sempre `PAPER` e `market` (`PAPER` ou `REAL`).
+- `GET /api/v1/pnl` continua só PAPER, com `botId`, `from` e `to` opcionais; um bot sem conta PAPER (por exemplo um bot
+  REAL) dá relatório vazio, um bot de outra pessoa dá `404`.
+- Rotas REAL dos módulos analisados (tenant e pessoa sempre do token):
+
+| Método | Caminho | Módulo | Finalidade |
+|---|---|---|---|
+| GET | `/api/v1/real/pnl` | pnl | P&L REAL da pessoa: `realizedLamports`, `unrealizedLamports` (ausente quando desconhecido) e `unrealizedStatus` (`KNOWN`/`UNKNOWN`), `feesLamports`, `positions[]` por mint (`baseUnits`, `costLamports`, `valueLamports`, `unrealizedLamports`, `priceStatus`); inteiros como texto; sem `botId` nem período; `Cache-Control: no-store` |
+| GET | `/api/v1/real/orders` | realexecution | Ordens REAL recentes da pessoa |
+| GET | `/api/v1/real/orders/{realOrderId}` | realexecution | Uma ordem (estado, origem, bot ou liquidação, entrada, saída, taxa, quem pagou) |
+| GET, POST | `/api/v1/real/orders/{realOrderId}/signing-session` | realexecution | Sessão de assinatura do modo Assinada (o navegador só assina) |
+| POST | `/api/v1/real/orders/{realOrderId}/reject` | realexecution | A pessoa recusa assinar a ordem |
+| PUT | `/api/v1/real/mode` | realexecution | Modo de operação da pessoa (`SIGNED`, `AUTO_EXITS`, `AUTO_FULL`) |
+| POST | `/api/v1/real/liquidations` | realexecution | "Vender tudo e sacar": cancela as ordens não enviadas, vende cada posição e saca |
+| POST, GET | `/api/v1/real/conditional-orders` | realexits | Cria e lista condicionais (stop, alvo, OCO) por posição da carteira do bot |
+| GET | `/api/v1/real/conditional-orders/quote` | realexits | Posição e preço atual em USD (com fonte e horário) para definir stop e alvo |
+| POST | `/api/v1/real/conditional-orders/{conditionalOrderId}/signature` | realexits | Assinatura da criação |
+| DELETE | `/api/v1/real/conditional-orders/{conditionalOrderId}` | realexits | Cancela a condicional |
+| GET | `/api/v1/real/exports/fiscal` | realexits | CSV fiscal do ledger REAL por período |
+
+As rotas REAL da carteira do bot (`/api/v1/real/bot-wallet`, depósitos, saques, liberação) são do módulo `botwallet`,
+não relido nesta execução.
+
 ## Rotas do administrador (`openapi-admin.yaml`, 24 operações)
 
 | Método | Caminho | Módulo | Finalidade |
@@ -117,6 +146,18 @@ regras ArchUnit impedem um módulo de importar o que não está em `api` de outr
 | J1 a J7 | `identity.api.PersonDataPort`, `AccountAnonymizationPort`, `bots.api.BotOwnerDataPort`, `feedback.api.FeedbackOwnerDataPort`, `ledger.api.PaperOrderCountPort`, `audit.api.AuditEventPublisher`, `shared.retention` | → privacy | Resumo de acesso e anonimização sem ler tabelas de outro módulo |
 | Auditoria | `audit.api.AuditEventPublisher`, `AuditActions`, `AuditEventCommand` | audit → todos | Grava na saída na transação de quem chama; `AuditEventValidator` recusa chaves `nonce`, `signature`, `token`, `privatekey`, `seedphrase`, `mnemonic` e valores com JWT, Bearer ou sequência Base58 de 80 a 90 caracteres |
 
+#### Contratos REAL nas áreas analisadas (2026-11-21)
+
+| Contrato | Interface | Dono → consumidores | Regras relevantes |
+|---|---|---|---|
+| M2 | `ledger.api.RealLedger` (`record`, `balance`, `positions`, `flowsSince`, `view`, `tokenBalances`, `streamEntries`) | ledger → botwallet, bots, realexecution, realexits, riskcontrol | Grava na transação de quem chama; `false` quando a chave de idempotência já existe; leituras sempre por tenant e carteira do bot; `positions` por custo médio da carteira (`RealPositions`); nunca PAPER |
+| M6 | `realexecution.api.RealExecutionPort` (`recordDecision`, `hasOrderInProgress`, `liquidationActive`, `cancelUnsent`, `ordersInTransit`, `unsentOrders`, `knownTransactions`, `recentOrders`, `settledOrders`, `changeMark`, `changedSince`) | realexecution → bots, pnl, botwallet, realexits, riskcontrol | `recordDecision` exige a transação do ciclo (`MANDATORY`) e é idempotente por `decisionId`; `settledOrders` devolve as ordens `CONFIRMED` ou `FAILED` com assinatura, inclusive as da liquidação |
+| M6 (visão) | `RealOrderView` | realexecution → pnl, web | `botId` e `liquidationId` opcionais, `origin`, `side`, `mint`, entrada, saída lida da rede, taxa, `feePayer`, `rentLamports`, `operationMode`; nunca endereço |
+| — | `realexecution.api.PositionExitGuard.releaseForSale(tenant, user, mint)` | declarado pelo realexecution, implementado pelo realexits | Antes de toda venda a mercado de uma posição (bot, liquidação, assinatura); `READY` ou `WAIT`; não trava nem chama a rede |
+| — | `realexecution.api.RealExitChanges` | declarado pelo realexecution, implementado pelo realexits | Marca e mudanças das condicionais para o canal ao vivo |
+| — | `bots.api.RealBotOwnership.activeRealBotOf(tenant, user, bot)` | bots → realexecution | Bot REAL, ATIVO, sem motivo de pausa, da pessoa |
+| C15 | `ledger.api.PaperExecution` | ledger → bots | Continua só PAPER; bot REAL nunca o chama |
+
 ### Eventos de domínio (síncronos, na transação de quem publica)
 
 | Evento | Publicado por | Ouvido por | Efeito |
@@ -124,6 +165,11 @@ regras ArchUnit impedem um módulo de importar o que não está em `api` de outr
 | `MarketCollectionCompleted(sourceId, status, completedAt)` | `MarketCollectorJob` | `RiskRecalculator`, `EquityMarkingJob`, `PendingCloseJob` | Recalcula risco, marca patrimônio, conclui fechamentos pendentes |
 | `PaperAccountFunded` | `FundingService` | `EquityPeakUpdater` | Cria o pico inicial |
 | `FillRecorded` | `FillRecorder` | `EquityPeakUpdater` | Recalcula o pico; falha do ouvinte desfaz o preenchimento |
+
+Canal ao vivo (2026-11-21): além dos eventos do painel PAPER, `bots/web/DashboardEvents` define `real.order.state`
+(`RealOrderStateChanged`), `real.signing.requested` (`RealSigningSessionOpened`) e `real.conditional.state`
+(`RealConditionalStateChanged`), lidos por marcas gravadas na mesma transação de cada mudança. Não há evento de P&L
+REAL: o cartão REAL recarrega pela rota.
 
 ### Ações de auditoria
 
@@ -136,6 +182,13 @@ regras ArchUnit impedem um módulo de importar o que não está em `api` de outr
 
 ## APIs externas
 
-Nenhuma chamada externa existe em produção. As integrações previstas pelo PRD (§12: descoberta, preços, Solana
-RPC/WebSocket, roteador de swap, pagamentos) não têm adaptador; a única porta pronta é `MarketSourceAdapter`. No
-navegador, o app usa o Wallet Standard só para `connect` e `solana:signMessage`.
+Estado de 2026-11-13: nenhuma chamada externa existia em produção. As integrações previstas pelo PRD (§12: descoberta,
+preços, Solana RPC/WebSocket, roteador de swap, pagamentos) não tinham adaptador; a única porta pronta era
+`MarketSourceAdapter`. No navegador, o app usava o Wallet Standard só para `connect` e `solana:signMessage`.
+
+Atualização de 2026-11-21, nas áreas analisadas: o `realexecution` chama a API da Jupiter (cotação e swap) por um
+cliente HTTP próprio (`infra/jupiter/JupiterClient`, `JupiterConfig`) e monta a mensagem da transação Solana sem SDK
+(`domain/solana`); o `realexits` fala com a API Trigger da Jupiter pela porta `TriggerPort`, com o adaptador simulado
+(`SimulatedTriggerAdapter`) no perfil de teste; o app web assina transações do modo Assinada
+(`features/real/sign-transaction.ts`). RPC Solana, KMS e TxSigner ficam no `botwallet` e no `apps/txsigner`, fora desta
+execução.

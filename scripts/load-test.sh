@@ -120,21 +120,46 @@ case "$LOAD_SCENARIO" in
     SMOKE_INVITE_CODES="$(node -e "const c=require('node:crypto');console.log(Array.from({length:Number(process.env.USERS||20)},()=>c.randomBytes(32).toString('base64url')).join(','))")"
     export SMOKE_INVITE_CODES
     ;;
-  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs, u6, u5, legal, reacceptance or data-requests" >&2; exit 1 ;;
+  # 261113-trading-real-bot (operation/performance-validation, Q1 to Q5): real runs the REAL stack of the e2e (the
+  # overlay infra/docker-compose.real.yml: TxSigner, kms-sim, local Solana validator, recorded Jupiter) plus
+  # infra/docker-compose.loadtest-real.yml, with the pilot times 2: 21 bot wallets (the smoke account as the founder and
+  # 20 invited people), 3 REAL bots each, 20 people on the screen and an administrator for 15 minutes, "vender tudo e
+  # sacar" in 5 wallets for 5 minutes and a burst of 21 withdrawals in 10 s every minute for 5 minutes
+  # (scripts/load/real.mjs; the targets in scripts/load/real-stats.mjs are those of the requirements, never relaxed).
+  # Nothing here talks to devnet, mainnet or a real KMS; the TxSigner secrets are ephemeral, as in scripts/verify.sh.
+  real)
+    export MARKET_SIMULATED_TOKENS_PER_SOURCE="${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}"
+    export REAL_STEADY_S="${REAL_STEADY_S:-900}" REAL_PEAK_S="${REAL_PEAK_S:-300}" REAL_BURST_S="${REAL_BURST_S:-300}"
+    export DURATION_S=$((REAL_STEADY_S + REAL_PEAK_S + REAL_BURST_S))
+    [ -f infra/solana-fixtures/recorded.env ] || { echo "real needs infra/solana-fixtures/recorded.env (record.sh)" >&2; exit 1; }
+    export RECORDED_FIXTURES="$ROOT/infra/solana-fixtures/recorded.env" SOLANA_RPC_URL="http://127.0.0.1:8899"
+    COMPOSE+=(-f infra/docker-compose.real.yml -f infra/docker-compose.loadtest-real.yml)
+    export TXSIGNER_DB_OWNER_PASSWORD="${TXSIGNER_DB_OWNER_PASSWORD:-$(random_secret)}"
+    export TXSIGNER_DB_PASSWORD="${TXSIGNER_DB_PASSWORD:-$(random_secret)}"
+    export TXSIGNER_SERVICE_TOKEN="${TXSIGNER_SERVICE_TOKEN:-$(openssl rand -hex 32)}"
+    docker build --build-arg BUILD_SHA="${BUILD_SHA:-}" -t "memetrade-txsigner:${IMAGE_TAG:-local}" apps/txsigner
+    ;;
+  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs, u6, u5, legal, reacceptance, data-requests or real" >&2; exit 1 ;;
 esac
-# Only data-requests seeds the synthetic requests and needs an administrator: its throw-away wallet has the format of
-# scripts/verify.sh (test-scope tool), the key file lives in the temporary directory of this run and is deleted with it.
-if [ "$LOAD_SCENARIO" = "data-requests" ]; then
+# Only data-requests seeds the synthetic requests, and data-requests and real need an administrator: its throw-away
+# wallet has the format of scripts/verify.sh (test-scope tool), the key file lives in the temporary directory of this
+# run and is deleted with it.
+if [ "$LOAD_SCENARIO" = "data-requests" ] || [ "$LOAD_SCENARIO" = "real" ]; then
   ADMIN_KEY_FILE="$KEY_DIR/smoke-admin-wallet.json"
   sh apps/api/mvnw -q -B -ntp -f apps/api/pom.xml exec:java \
     -Dexec.classpathScope=test -Dexec.mainClass=com.memetrade.tools.SmokeWalletTool -Dexec.args="$ADMIN_KEY_FILE" >/dev/null
   ADMIN_WALLET_ADDRESSES="$(sed -n 's/.*"address":"\([^"]*\)".*/\1/p' "$ADMIN_KEY_FILE")"
   [ -n "$ADMIN_WALLET_ADDRESSES" ] || { echo "administrator wallet generation failed" >&2; exit 1; }
   export ADMIN_WALLET_ADDRESSES SMOKE_ADMIN_WALLET_FILE="$ADMIN_KEY_FILE"
-else
-  export LOADTEST_DATA_REQUESTS_SEED=0
 fi
+[ "$LOAD_SCENARIO" = "data-requests" ] || export LOADTEST_DATA_REQUESTS_SEED=0
 case "$LOAD_SCENARIO" in
+  real)
+    # One throw-away invitation per invited person (21 wallets = the smoke account plus 20), never written to a file.
+    SMOKE_INVITE_CODES="$(node -e "const c=require('node:crypto');console.log(Array.from({length:20},()=>c.randomBytes(32).toString('base64url')).join(','))")"
+    export SMOKE_INVITE_CODES
+    export LOADTEST_LEDGER_PEOPLE=0 LOADTEST_FILLS_PER_PERSON=0 LOADTEST_CYCLE_BOTS=0 LOADTEST_CLOSE_BOTS=0
+    ;;
   u5)
     # As in u7: one throw-away invitation per person besides the smoke account, never written to a file.
     SMOKE_INVITE_CODES="$(node -e "const c=require('node:crypto');console.log(Array.from({length:Math.max(0,Number(process.env.LOADTEST_U5_PEOPLE)-1)},()=>c.randomBytes(32).toString('base64url')).join(','))")"
@@ -157,14 +182,21 @@ if [ "$LOAD_SCENARIO" != "u5" ]; then
 fi
 export SCANNER_RATE_LIMIT_PER_MINUTE="${SCANNER_RATE_LIMIT_PER_MINUTE:-10000}" LOAD_SCENARIO
 
-"${COMPOSE[@]}" up -d --build --wait --wait-timeout 300
+# real adds the TxSigner (60 s of start period after its migration) and the validator: more time to become healthy.
+WAIT_TIMEOUT_S=300
+[ "$LOAD_SCENARIO" = "real" ] && WAIT_TIMEOUT_S=420
+"${COMPOSE[@]}" up -d --build --wait --wait-timeout "$WAIT_TIMEOUT_S"
 API_CONTAINER="$("${COMPOSE[@]}" ps -q api)"
 POSTGRES_CONTAINER="$("${COMPOSE[@]}" ps -q postgres)"
+# real: the TxSigner publishes no port (NFR1.2); its actuator is read inside its own container (wget of the image).
+TXSIGNER_CONTAINER=""
+[ "$LOAD_SCENARIO" = "real" ] && TXSIGNER_CONTAINER="$("${COMPOSE[@]}" ps -q txsigner)"
 # U5: the worker container (docker stats, JSON logs of the stopwatch) and its actuator, published on loopback 8082
 # by the test overlay only.
 WORKER_CONTAINER="$("${COMPOSE[@]}" ps -q worker)"
 SMOKE_WALLET_FILE="$KEY_FILE" API_BASE_URL="http://127.0.0.1:8080" \
   API_CONTAINER="$API_CONTAINER" POSTGRES_CONTAINER="$POSTGRES_CONTAINER" \
   WORKER_CONTAINER="$WORKER_CONTAINER" WORKER_MANAGEMENT_URL="http://127.0.0.1:8082" \
+  TXSIGNER_CONTAINER="$TXSIGNER_CONTAINER" \
   DB_SUPERUSER="$POSTGRES_USER" DB_NAME="${POSTGRES_DB:-memetrade}" COMPOSE_LOGS_SERVICE=api \
   node scripts/load/load-test.mjs

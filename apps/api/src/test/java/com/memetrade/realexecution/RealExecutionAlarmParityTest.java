@@ -23,8 +23,9 @@ import org.yaml.snakeyaml.Yaml;
  * alert rules of the REAL execution in {@code infra/observability/real-execution-alerts.yml} (Prometheus, promtool) and
  * the CloudWatch alarms in {@code infra/terraform/modules/observability/real-execution.tf} have the same name,
  * threshold, window and dimension ({@code job} or {@code provider}), rule by rule. The seven stalled-job alarms come
- * from one {@code for_each} over the map {@code real_execution_jobs}. The slow-execution rule is the only one without an
- * alarm, marked {@code cloud: deferred}. The tests of the U2 and the U3 are not changed.
+ * from one {@code for_each} over the map {@code real_execution_jobs}. Observability Setup: the slow-execution rule
+ * (U4-NFR5.13) has its twin too, on the p95 summary named in {@code cloud_metric} (gap OBS-G2: the agent drops
+ * histograms), created only with {@code var.p95_alarms_enabled}; every alarm moved to the namespace Eureka/App.
  */
 @Tag("u4-real-execution")
 class RealExecutionAlarmParityTest {
@@ -53,7 +54,7 @@ class RealExecutionAlarmParityTest {
             long windowSeconds,
             String job,
             String provider,
-            boolean deferred) {}
+            String cloudMetric) {}
 
     /** An alarm; {@code dimension} is {@code job=<job>} or {@code provider=<provider>}, or null. */
     record Alarm(String name, BigDecimal threshold, long windowSeconds, String dimension) {}
@@ -73,7 +74,9 @@ class RealExecutionAlarmParityTest {
                         Long.parseLong(String.valueOf(annotations.get("window_seconds"))),
                         annotations.containsKey("job") ? String.valueOf(annotations.get("job")) : null,
                         annotations.containsKey("provider") ? String.valueOf(annotations.get("provider")) : null,
-                        "deferred".equals(annotations.get("cloud"))));
+                        annotations.containsKey("cloud_metric")
+                                ? String.valueOf(annotations.get("cloud_metric"))
+                                : null));
             }
         }
         return rules;
@@ -132,19 +135,23 @@ class RealExecutionAlarmParityTest {
     }
 
     @Test
-    void everyRuleButTheDeferredOneHasAnAlarmWithTheSameNameThresholdWindowAndDimension() throws IOException {
+    void everyRuleHasAnAlarmWithTheSameNameThresholdWindowAndDimension() throws IOException {
         List<Rule> rules = rules();
         Map<String, Alarm> alarms = alarms();
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
 
         assertThat(rules).hasSize(14);
-        List<Rule> inCloud = rules.stream().filter(rule -> !rule.deferred()).toList();
         assertThat(alarms.keySet())
                 .containsExactlyInAnyOrderElementsOf(
-                        inCloud.stream().map(Rule::name).toList());
-        for (Rule rule : inCloud) {
+                        rules.stream().map(Rule::name).toList());
+        for (Rule rule : rules) {
             Alarm alarm = alarms.get(rule.name());
             assertThat(alarm.threshold()).as(rule.name()).isEqualByComparingTo(rule.threshold());
-            assertThat(alarm.windowSeconds()).as(rule.name()).isEqualTo(rule.windowSeconds());
+            assertThat(alarm.windowSeconds())
+                    .as(rule.name())
+                    .isEqualTo(com.memetrade.infra.CloudWatchWindows.cloudWindow(
+                            rule.windowSeconds(),
+                            com.memetrade.infra.CloudWatchWindows.twoReads(terraform, rule.name())));
             assertThat(alarm.dimension()).as(rule.name()).isEqualTo(dimensionOf(rule));
         }
     }
@@ -186,11 +193,24 @@ class RealExecutionAlarmParityTest {
                 .containsExactlyInAnyOrder("queue", "driver", "confirmation");
     }
 
+    /** U4-NFR5.13: the p95 twin reads the summary of OBS-G2, the worst minute 10 times in a row, and is off by default. */
     @Test
-    void onlyTheSlowExecutionIsDeferredAndTheAlarmsUseTheNamespaceOfTheU4() throws IOException {
-        assertThat(rules()).filteredOn(Rule::deferred).extracting(Rule::name).containsExactly("real-execution-slow");
-        assertThat(group(NAMESPACE, Files.readString(ALARMS, StandardCharsets.UTF_8)))
-                .isEqualTo("Eureka/RealExecution");
+    void theSlowExecutionReadsThePercentileSummaryAndTheAlarmsUseTheNamespaceOfTheAgent() throws IOException {
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
+        assertThat(rules())
+                .filteredOn(rule -> rule.cloudMetric() != null)
+                .extracting(Rule::name, Rule::cloudMetric)
+                .containsExactly(org.assertj.core.groups.Tuple.tuple(
+                        "real-execution-slow", "real_order_decision_to_send_p95_seconds"));
+        String block = terraform.substring(
+                terraform.indexOf("resource \"aws_cloudwatch_metric_alarm\" \"real_execution_slow\""));
+        assertThat(block)
+                .contains("count = var.p95_alarms_enabled ? 1 : 0")
+                .contains("metric_name         = \"real_order_decision_to_send_p95_seconds\"")
+                .contains("dimensions          = { mode = \"AUTO_FULL\", quantile = \"0.95\" }")
+                .contains("statistic           = \"Maximum\"")
+                .contains("datapoints_to_alarm = 2");
+        assertThat(group(NAMESPACE, terraform)).isEqualTo("Eureka/App");
     }
 
     @Test

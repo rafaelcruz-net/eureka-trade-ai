@@ -21,8 +21,9 @@ import org.yaml.snakeyaml.Yaml;
  * Step 11 of the U3 (monitoring-design.md "Paridade", U3-NFR5.9 to U3-NFR5.12): the alert rules of the REAL barrier in
  * {@code infra/observability/real-risk-alerts.yml} (Prometheus, promtool) and the CloudWatch alarms in
  * {@code infra/terraform/modules/observability/real-risk.tf} have the same name, threshold, window and job dimension,
- * rule by rule. The slow-barrier rule is the only one without an alarm, marked {@code cloud: deferred}. The test of the
- * U2 is not changed.
+ * rule by rule. Observability Setup: the slow-barrier rule (U3-NFR5.11) has its twin too, on the p95 summary named in
+ * {@code cloud_metric} (gap OBS-G1: the agent drops histograms), created only with {@code var.p95_alarms_enabled}; and
+ * every alarm moved to the namespace of the CloudWatch Agent sidecar, Eureka/App. The test of the U2 is not changed.
  */
 class RealRiskAlarmParityTest {
 
@@ -45,7 +46,7 @@ class RealRiskAlarmParityTest {
             BigDecimal threshold,
             long windowSeconds,
             String job,
-            boolean deferred) {}
+            String cloudMetric) {}
 
     record Alarm(String name, BigDecimal threshold, long windowSeconds, String job) {}
 
@@ -63,7 +64,9 @@ class RealRiskAlarmParityTest {
                         new BigDecimal(String.valueOf(annotations.get("threshold"))),
                         Long.parseLong(String.valueOf(annotations.get("window_seconds"))),
                         annotations.containsKey("job") ? String.valueOf(annotations.get("job")) : null,
-                        "deferred".equals(annotations.get("cloud"))));
+                        annotations.containsKey("cloud_metric")
+                                ? String.valueOf(annotations.get("cloud_metric"))
+                                : null));
             }
         }
         return rules;
@@ -106,19 +109,23 @@ class RealRiskAlarmParityTest {
     }
 
     @Test
-    void everyRuleButTheDeferredOneHasAnAlarmWithTheSameNameThresholdWindowAndJob() throws IOException {
+    void everyRuleHasAnAlarmWithTheSameNameThresholdWindowAndJob() throws IOException {
         List<Rule> rules = rules();
         Map<String, Alarm> alarms = alarms();
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
 
         assertThat(rules).hasSize(6);
-        List<Rule> inCloud = rules.stream().filter(rule -> !rule.deferred()).toList();
         assertThat(alarms.keySet())
                 .containsExactlyInAnyOrderElementsOf(
-                        inCloud.stream().map(Rule::name).toList());
-        for (Rule rule : inCloud) {
+                        rules.stream().map(Rule::name).toList());
+        for (Rule rule : rules) {
             Alarm alarm = alarms.get(rule.name());
             assertThat(alarm.threshold()).as(rule.name()).isEqualByComparingTo(rule.threshold());
-            assertThat(alarm.windowSeconds()).as(rule.name()).isEqualTo(rule.windowSeconds());
+            assertThat(alarm.windowSeconds())
+                    .as(rule.name())
+                    .isEqualTo(com.memetrade.infra.CloudWatchWindows.cloudWindow(
+                            rule.windowSeconds(),
+                            com.memetrade.infra.CloudWatchWindows.twoReads(terraform, rule.name())));
             assertThat(alarm.job()).as(rule.name()).isEqualTo(rule.job());
         }
     }
@@ -140,11 +147,24 @@ class RealRiskAlarmParityTest {
         }
     }
 
+    /** U3-NFR5.11: the p95 twin reads the summary of OBS-G1, the worst minute 10 times in a row, and is off by default. */
     @Test
-    void onlyTheSlowBarrierIsDeferredAndTheAlarmsUseTheNamespaceOfTheU3() throws IOException {
-        assertThat(rules()).filteredOn(Rule::deferred).extracting(Rule::name).containsExactly("real-risk-slow");
-        assertThat(group(NAMESPACE, Files.readString(ALARMS, StandardCharsets.UTF_8)))
-                .isEqualTo("Eureka/RealRisk");
+    void theSlowBarrierReadsThePercentileSummaryAndTheAlarmsUseTheNamespaceOfTheAgent() throws IOException {
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
+        assertThat(rules())
+                .filteredOn(rule -> rule.cloudMetric() != null)
+                .extracting(Rule::name, Rule::cloudMetric)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("real-risk-slow", "real_risk_evaluation_p95_seconds"));
+        String block =
+                terraform.substring(terraform.indexOf("resource \"aws_cloudwatch_metric_alarm\" \"real_risk_slow\""));
+        assertThat(block)
+                .contains("count = var.p95_alarms_enabled ? 1 : 0")
+                .contains("metric_name         = \"real_risk_evaluation_p95_seconds\"")
+                .contains("dimensions          = { side = \"BUY\", quantile = \"0.95\" }")
+                .contains("statistic           = \"Maximum\"")
+                .contains("datapoints_to_alarm = 2");
+        assertThat(group(NAMESPACE, terraform)).isEqualTo("Eureka/App");
     }
 
     @Test

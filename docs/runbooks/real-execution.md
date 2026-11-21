@@ -26,7 +26,7 @@ Regra de ouro: **uma única transação por ordem**. Nenhum passo deste runbook 
 
 **Passos.**
 1. Abra o painel da execução e confira `real_orders_ambiguous_open` e `real_orders_ambiguous_oldest_seconds`.
-2. Confira o alerta `RealExecutionJobStalledAmbiguous`. Se ele também disparou, o trabalho parou: veja o worker (`WorkerDown`) e os logs `REAL order step stopped`.
+2. Confira o alerta `RealExecutionJobStalledAmbiguous`. Se ele também disparou, o trabalho parou: veja o worker (`WorkerDown` no local; `metrics-absent-worker` na nuvem) e os logs `REAL order step stopped`.
 3. Confira os provedores de RPC (`real_upstream_failures_total{provider="RPC"}`). Com os dois provedores fora, nada se resolve até um voltar; a ordem continua `AMBIGUOUS`, e isso é o correto.
 4. Para uma ordem específica, leia no banco (somente leitura): `select state, failure_code, sent_at, last_valid_block_height from real_order where real_order_id = '<id>'` e as tentativas em `real_order_attempt`. Procure a assinatura num explorador público pela assinatura mascarada do log só se o RPC estiver fora por muito tempo.
 5. **Nunca** reenvie a transação nem crie uma ordem nova para "compensar". Se a ambígua passar de 1 hora com os provedores saudáveis, abra incidente: é um defeito do trabalho, não da rede.
@@ -42,7 +42,7 @@ Regra de ouro: **uma única transação por ordem**. Nenhum passo deste runbook 
 2. **Jupiter:** confira o status público da Jupiter e o `MEMETRADE_JUPITER_BASE_URL` (só `lite-api.jup.ag` ou `api.jup.ag` fora dos perfis de teste). Só 5xx, 429 e tempo esgotado contam como indisponível; um outro 4xx falha só aquela ordem com `NO_ROUTE` (a Jupiter recusou a rota) e nunca conta para a pausa.
 3. **RPC:** confira os dois provedores configurados (`MEMETRADE_RPC_PRIMARY_URL` e `MEMETRADE_RPC_SECONDARY_URL`).
 4. **TxSigner:** siga `docs/runbooks/txsigner-recovery.md`. Com o TxSigner fora, as ordens em Automática total falham `UPSTREAM_UNAVAILABLE`; as do modo Assinada ficam `QUOTED` com a sessão aberta, e o trabalho de prazo repete o mesmo pedido.
-5. Não há rota para retirar a pausa `UPSTREAM` antes da hora. Se for preciso, o fundador decide e usa a área do administrador (U5).
+5. Não há rota para retirar a pausa `UPSTREAM` antes da hora; a área do administrador da U5 também não criou uma. Ela sai sozinha depois de 5 minutos com o fornecedor saudável. Se for preciso parar tudo antes disso, o fundador liga o kill switch REAL.
 
 ## 3. Recusa da política do TxSigner (alerta `RealExecutionPolicyRefused`, crítico)
 
@@ -74,4 +74,4 @@ A ordem de implantação é: migração 0019, TxSigner, worker, API. O rollback 
 
 ## 5. Trabalho parado (alertas `RealExecutionJobStalled*`)
 
-Cada trabalho conta `real_execution_job_runs_total{job}` quando uma rodada termina sem falha. Fila, condutor e confirmação têm janela de 1 minuto; ambíguas, prazo, saúde e liquidação, de 5 minutos. Um alerta indica worker fora, pool de agendamento cheio (o worker precisa de 19 threads e 27 conexões, verificado na subida pelo `RuntimeSettingsGuard`) ou falha repetida na rodada (log `REAL order step stopped` com a classe do erro). O expurgo diário da API (`purge`, 04:30 UTC) não tem alerta; o registro de cada rodada fica em `real_execution_purge_run`.
+Cada trabalho conta `real_execution_job_runs_total{job}` quando uma rodada termina sem falha. Fila, condutor e confirmação têm janela de 1 minuto; ambíguas, prazo, saúde e liquidação, de 5 minutos. Essas são as janelas do Prometheus local; na nuvem, com o agente lendo a cada 120 s, os alarmes `real-execution-job-stalled-*` usam 4 e 8 minutos (`operation/observability-setup/alarms.md`, seção 1). Um alerta indica worker fora, pool de agendamento cheio (o mínimo é conferido na subida pelo `RuntimeSettingsGuard`; desde a U7, 28 threads e 36 conexões no worker) ou falha repetida na rodada (log `REAL order step stopped` com a classe do erro). O expurgo diário da API (`purge`, 04:30 UTC) não tem alerta; o registro de cada rodada fica em `real_execution_purge_run`.

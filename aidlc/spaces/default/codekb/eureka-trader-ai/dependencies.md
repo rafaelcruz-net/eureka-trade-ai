@@ -19,9 +19,11 @@ referências por nome completo encontradas na leitura. `shared` não depende de 
 | `riskassessment` | `marketdata.api` (26), `audit.api` (4), `identity.api` (3), `shared` |
 | `decision` | `marketdata.api` (26), `riskassessment.api` (6) |
 | `riskcontrol` | `marketdata.api` (14), `identity.api` (7), `pnl.api` (5), `audit.api` (4), `scanner.web` (1: `MarketValueDto` em `RejectionDtos`), `ledger.loadtest` (5, só no pacote `loadtest`), `shared` |
-| `ledger` | `identity.api` (30), `marketdata.api` (18), `audit.api` (8), `shared` |
-| `pnl` | `ledger.api` (24), `identity.api` (13), `marketdata.api` (9), `audit.api` (3), `scanner.web` (1: `MarketValueDto` em `PnlDtos`), `shared` |
-| `bots` | `identity.api` (28), `decision.domain` (20), `decision.infra` (11), `ledger.api` (14), `marketdata.api` (12), `riskcontrol.api` (6), `audit.api` (8), `pnl.api` (1), `riskassessment.api` (1), `shared` |
+| `ledger` (2026-11-21) | `identity.api` (30), `marketdata.api` (18), `audit.api` (8), `shared` |
+| `pnl` (2026-11-21) | `ledger.api` (24), `identity.api` (15), `marketdata.api` (12), `realexecution.api` (4: `RealExecutionPort`, `RealOrderView`, `RealOrderState`, `RealSide` em `RealPnlService`), `audit.api` (3), `scanner.web` (1: `MarketValueDto` em `PnlDtos`), `shared` |
+| `bots` (2026-11-21) | `identity.api` (28), `decision.domain` (28), `decision.infra` (11), `ledger.api` (17, inclusive `RealLedger`), `marketdata.api` (16), `riskcontrol.api` (10, inclusive `RealRiskGate`), `audit.api` (8), `realexecution.api` (3), `botwallet.api` (2: `RealStateQuery`), `pnl.api` (1), `riskassessment.api` (1), `shared` |
+| `realexecution` (2026-11-21) | `botwallet.api` (43), `identity.api` (12), `riskcontrol.api` (9), `ledger.api` (8: `RealLedger`), `audit.api` (6), `marketdata.api` (3), `bots.api` (1: `RealBotOwnership`), `riskcontrol.infra` (1: `RiskRetentionDataSource` no `RealExecutionPurgeJob`), `shared` (inclusive `shared.solana`) |
+| `realexits` (2026-11-21) | `botwallet.api` (22), `identity.api` (14), `ledger.api` (8: `RealLedger`), `marketdata.api` (6), `audit.api` (6), `realexecution.api` (2: implementa `PositionExitGuard` e `RealExitChanges`), `riskcontrol.api` (1), `riskcontrol.infra` (1: `RiskRetentionDataSource` no `RealExitsPurgeJob`), `shared`; nenhum módulo o importa |
 | `administration` | `identity.api` (19), `bots.api` (7), `audit.api` (3), `marketdata.api` (3), `riskcontrol.api` (`RejectionCounts`, por nome completo), `shared` |
 | `feedback` | `identity.api` (15), `audit.api` (2), `shared` |
 | `privacy` | `identity.api` (56), `audit.api` (12), `bots.api` (3), `feedback.api` (3), `ledger.api` (1), `shared` |
@@ -71,6 +73,43 @@ Observações:
 - **Carga**: `riskcontrol.loadtest` usa `ledger.loadtest`; ambos só existem com o perfil `loadtest`.
 - **Ledger não conhece o P&L**: `LedgerArchitectureTest.theLedgerNeverDependsOnThePnl`; o P&L reage aos eventos
   `FillRecorded` e `PaperAccountFunded`.
+
+### Dependências REAL na área analisada (2026-11-21)
+
+O diagrama acima é de 2026-11-13. Entre os módulos relidos nesta execução, as dependências REAL são:
+
+```mermaid
+flowchart TD
+  bots --> realexecution
+  bots --> ledger
+  bots --> botwallet
+  bots --> riskcontrol
+  realexecution --> bots
+  realexecution --> ledger
+  realexecution --> botwallet
+  realexecution --> riskcontrol
+  realexits --> realexecution
+  realexits --> ledger
+  realexits --> botwallet
+  realexits --> riskcontrol
+  pnl --> realexecution
+  pnl --> ledger
+```
+
+Texto alternativo: `bots` usa `realexecution` (gravar a decisão), `ledger` (o `RealLedger` da carteira), `botwallet`
+(estado REAL) e `riskcontrol` (barreira REAL); `realexecution` usa `bots` (só `RealBotOwnership`), `ledger`, `botwallet`
+e `riskcontrol`; `realexits` usa `realexecution` (implementa as interfaces de extensão), `ledger`, `botwallet` e
+`riskcontrol`; `pnl` usa `realexecution` (ordens assentadas) e `ledger` (PAPER).
+
+- **Ciclo `bots` ↔ `realexecution`**: `bots` chama o M6 e o M6 consulta `bots.api.RealBotOwnership`; os dois lados
+  passam só por pacotes `api`.
+- **`realexits` por inversão**: nenhum módulo importa `realexits`; ele implementa `PositionExitGuard` e
+  `RealExitChanges`, declarados em `realexecution.api`.
+- **P&L REAL não lê o ledger REAL**: `pnl` depende de `realexecution.api` para o P&L REAL e não chama
+  `RealLedger`; por isso as vendas lançadas só no ledger (saídas condicionais) não aparecem no P&L.
+- **Expurgos REAL usam a fonte de retenção do `riskcontrol`**: `realexecution` e `realexits` importam
+  `riskcontrol.infra.RiskRetentionDataSource`, a única importação de um pacote `infra` de outro módulo encontrada nos
+  cinco módulos relidos.
 
 ## Dependências entre aplicações
 
@@ -122,5 +161,10 @@ Nenhum pacote de RPC Solana, `@solana/web3.js`, `@solana/kit` ou SDK da Jupiter.
 
 ## Serviços externos
 
-Nenhum em produção. Imagens de contêiner: `postgres:17-alpine`, `eclipse-temurin:21-jdk-alpine` e `21-jre-alpine`,
-`node:24-alpine`, todas fixadas por digest. Ações do GitHub fixadas por SHA.
+Estado de 2026-11-13: nenhum em produção. Imagens de contêiner: `postgres:17-alpine`, `eclipse-temurin:21-jdk-alpine`
+e `21-jre-alpine`, `node:24-alpine`, todas fixadas por digest. Ações do GitHub fixadas por SHA.
+
+Atualização de 2026-11-21, nas áreas analisadas: o `realexecution` chama a API de cotação e swap da Jupiter e o
+`realexits` foi desenhado para a API Trigger da Jupiter (hoje com o adaptador simulado no perfil de teste). O RPC
+Solana, o KMS e o TxSigner são usados pelo `botwallet` e pelo `apps/txsigner`, que esta execução não releu. As
+dependências Maven e npm, as imagens e as exceções de segurança não foram relidas nesta execução.

@@ -1,23 +1,23 @@
 # Alarms of the operations of the REAL (261113-trading-real-bot U5, monitoring-design.md). The same names, thresholds
 # and windows as infra/observability/real-ops-alerts.yml (Prometheus, checked by promtool); RealOpsAlarmParityTest
-# compares both files. The worker and the api publish their Micrometer metrics to the namespace Eureka/RealOps with the
-# dimensions job and phase only (never a mint, an address, a signature nor a person); how the metrics reach CloudWatch is
-# the decision still pending for U1 to U5, to take before the mainnet. If it changes the namespace or the dimensions,
-# this file and the parity test change together. Every alarm goes to the one SNS topic of the pilot; the severity is in
+# compares both files. The CloudWatch Agent sidecar of the api+worker task publishes the Micrometer metrics of the worker
+# and the api to the namespace Eureka/App with the dimensions job and phase only (never a mint, an address, a signature
+# nor a person): Observability Setup Q1, allow-list in app-metrics.tf. If the namespace or the dimensions change, this
+# file, the allow-list and the parity test change together. Every alarm goes to the one SNS topic of the pilot; the severity is in
 # the description.
 
 locals {
-  real_ops_namespace = "Eureka/RealOps"
+  real_ops_namespace = "Eureka/App"
 
   # U5-NFR5.13: one alarm per job on the counter of successful runs, with missing data breaching so a job that never
   # published also alarms. The window is period x evaluations; the purge looks at 26 hours as 26 periods of 1 hour,
   # every one of them without a run. The restore check has its own metric math alarm below.
   real_ops_jobs = {
-    gates              = { period = 600, evaluations = 1 }
-    reconciliation     = { period = 1800, evaluations = 1 }
-    kill-switch-cancel = { period = 180, evaluations = 1 }
-    txsigner-resend    = { period = 180, evaluations = 1 }
-    ops-gauges         = { period = 120, evaluations = 1 }
+    gates              = { period = 720, evaluations = 1 }
+    reconciliation     = { period = 1920, evaluations = 1 }
+    kill-switch-cancel = { period = 240, evaluations = 1 }
+    txsigner-resend    = { period = 240, evaluations = 1 }
+    ops-gauges         = { period = 240, evaluations = 1 }
     purge              = { period = 3600, evaluations = 26 }
   }
 }
@@ -28,7 +28,7 @@ resource "aws_cloudwatch_metric_alarm" "real_ops_divergence_open" {
   namespace           = local.real_ops_namespace
   metric_name         = "real_divergences_open"
   statistic           = "Maximum"
-  period              = 60
+  period              = 180
   evaluation_periods  = 1
   threshold           = 0
   comparison_operator = "GreaterThanThreshold"
@@ -60,7 +60,7 @@ resource "aws_cloudwatch_metric_alarm" "real_ops_restore_pause" {
       metric_name = "real_restore_pause_active"
       dimensions  = { phase = "RESTORE" }
       stat        = "Maximum"
-      period      = 60
+      period      = 180
     }
   }
 
@@ -71,7 +71,7 @@ resource "aws_cloudwatch_metric_alarm" "real_ops_restore_pause" {
       metric_name = "real_restore_pause_active"
       dimensions  = { phase = "CHECK_PENDING" }
       stat        = "Maximum"
-      period      = 60
+      period      = 180
     }
   }
 }
@@ -111,7 +111,7 @@ resource "aws_cloudwatch_metric_alarm" "real_ops_txsigner_command_pending" {
   namespace           = local.real_ops_namespace
   metric_name         = "real_pending_txsigner_oldest_seconds"
   statistic           = "Maximum"
-  period              = 60
+  period              = 180
   evaluation_periods  = 1
   threshold           = 900
   comparison_operator = "GreaterThanThreshold"
@@ -176,7 +176,7 @@ resource "aws_cloudwatch_metric_alarm" "real_ops_job_stalled_restore_check" {
       metric_name = "real_restore_pause_active"
       dimensions  = { phase = "CHECK_PENDING" }
       stat        = "Maximum"
-      period      = 180
+      period      = 240
     }
   }
 
@@ -187,7 +187,7 @@ resource "aws_cloudwatch_metric_alarm" "real_ops_job_stalled_restore_check" {
       metric_name = "real_ops_job_runs_total"
       dimensions  = { job = "restore-check" }
       stat        = "Sum"
-      period      = 180
+      period      = 240
     }
   }
 }

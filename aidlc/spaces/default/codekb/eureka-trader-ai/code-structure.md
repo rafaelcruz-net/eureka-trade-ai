@@ -54,10 +54,12 @@ subpacote (commit de referência):
 | `scanner` | — | 7 | — | 3 | 5 | — | — | 1.259 |
 | `riskassessment` | 15 | 10 | — | 8 | — | — | — | 1.819 |
 | `riskcontrol` | 9 | 16 | — | 15 | 2 | — | 4 | 3.622 |
-| `bots` | 6 | 14 | 9 | 10 | 7 | 12 | 2 | 6.592 |
+| `bots` (2026-11-21) | 7 | 16 | 11 | 10 | 7 | 14 | 2 | 7.478 |
 | `decision` | — | 21 | — | 2 | — | — | — | 1.589 |
-| `ledger` | 9 | 9 | 8 | 8 | 2 | — | 5 | 4.717 |
-| `pnl` | 2 | 5 | 6 | 5 | 4 | — | — | 2.000 |
+| `ledger` (2026-11-21) | 17 | 13 | 8 | 9 | 2 | — | 5 | 5.433 |
+| `pnl` (2026-11-21) | 2 | 5 | 7 | 5 | 5 (+ `real`: 1) | — | — | 2.323 |
+| `realexecution` (2026-11-21) | 10 | 17 (com `domain/solana`: 10) | — | 27 (com `infra/jupiter`: 2) | 2 | — | — | 6.310 |
+| `realexits` (2026-11-21) | 1 | 12 | 7 | 11 | 2 (+ `fiscal`: 9) | — | — | 4.112 |
 | `administration` | 1 | 8 | — | 9 | 4 | — | — | 2.135 |
 | `feedback` | 2 | 5 | — | 10 | 3 | — | — | 1.220 |
 | `privacy` | — | 39 (em `anonymization`, `purge`, `request` e catálogo de retenção) | — | 26 | 5 | — | 1 | 6.298 |
@@ -65,6 +67,30 @@ subpacote (commit de referência):
 
 `decision` não tem pacote `api`: o módulo `bots` importa diretamente `decision.domain` e `decision.infra`
 (`BotsArchitectureTest` trata os dois como uma unidade).
+
+As linhas marcadas com 2026-11-21 foram recontadas nesta varredura focada (arquivos `.java` de produção por
+subpacote). As demais são do commit de 2026-11-13; os módulos `botwallet` (com `api`, `application`, `domain`, `infra`,
+`web`) e `riskcontrol/real` existem hoje e não foram contados, e o app `apps/txsigner` também ficou fora desta execução.
+
+### Arquivos-chave da área de P&L e REAL (2026-11-21)
+
+| Módulo | Arquivo | Papel |
+|---|---|---|
+| `pnl` | `real/RealPnlCalculator.java` | Cálculo puro do P&L REAL por custo médio por mint, em `long` |
+| `pnl` | `application/RealPnlService.java` | Monta os fills a partir de `RealExecutionPort.settledOrders` e os preços em lamports |
+| `pnl` | `web/RealPnlController.java` | `GET /api/v1/real/pnl` |
+| `pnl` | `application/PnlQueryService.java`, `domain/PnlCalculator.java`, `web/PnlController.java` | P&L PAPER por período, com `botId` opcional |
+| `ledger` | `api/RealLedger.java`, `infra/JdbcRealLedger.java` | M2: gravação e leituras do ledger REAL por carteira do bot |
+| `ledger` | `domain/RealPositions.java`, `domain/RealBalances.java`, `domain/RealEntryRules.java` | Posições por custo médio, saldo e convenção de sinal do REAL |
+| `ledger` | `domain/PositionAccounting.java`, `application/FillRecorder.java` | Custo médio PAPER por bot no momento do fill |
+| `realexecution` | `api/RealExecutionPort.java`, `api/RealOrderView.java`, `api/RealDecision.java` | M6 e as visões públicas das ordens |
+| `realexecution` | `infra/JdbcRealExecutionStore.java` (762 linhas) | Tabelas `real_decision_request`, `real_order`, `real_liquidation` |
+| `realexecution` | `infra/OrderDriver.java`, `infra/OrderSettlement.java`, `infra/RealOrderLedger.java`, `domain/RealLedgerEntries.java` | Máquina de passos da ordem e os lançamentos `order:<id>` |
+| `realexecution` | `infra/LiquidationService.java`, `infra/LiquidationJob.java` | "Vender tudo e sacar" |
+| `realexits` | `application/ConditionalService.java`, `application/FillPosting.java`, `infra/ConditionalReadJob.java` | Condicionais e a gravação da venda condicional no ledger REAL |
+| `realexits` | `fiscal/*` | Exportação fiscal CSV pelo `RealLedger.streamEntries` |
+| `bots` | `worker/RealCycle.java`, `application/RealDecisionStep.java`, `domain/RealSizing.java` | Ramo REAL do ciclo |
+| `bots` | `domain/BotMarket.java`, `application/RealBotOwnershipImpl.java` | Modo do bot e posse para o M6 |
 
 ## Classificação dos arquivos
 
@@ -102,6 +128,17 @@ subpacote (commit de referência):
 - **Configuração validada na subida**: `*Properties` recusam valores fora de faixa citando a variável, nunca o valor.
 - **Logs e métricas sem dado pessoal**: rótulos só de listas fechadas; carteira mascarada; correlação por `cycleId` ou
   `correlationId`.
+- **REAL em inteiros (2026-11-21)**: lamports e unidades base em `long` com `Math.addExact`/`subtractExact`, frações
+  por `BigInteger` (`ceilShare` no P&L, divisão para baixo nas posições); preços em `BigDecimal` com 18 casas para baixo;
+  nunca ponto flutuante.
+- **Inversão de dependência para o REAL (2026-11-21)**: o `realexecution` declara `PositionExitGuard` e
+  `RealExitChanges` e o `realexits` as implementa, com implementação vazia quando o módulo está desligado; nenhum módulo
+  importa `realexits`.
+- **Lançamentos REAL com referência e chave estáveis (2026-11-21)**: `order:<realOrderId>` com chave
+  `<realOrderId>:<KIND>`; `conditional:<id>` com chave `cond:<assinatura>:fill` e `:fee`; o mesmo fato nunca entra duas
+  vezes.
+- **Máquinas de estado com compare-and-set (2026-11-21)**: `RealOrderStateMachine` e `ConditionalStateMachine`, com
+  transição gravada só quando o estado de origem confere.
 
 ## Organização dos frontends
 
@@ -117,3 +154,24 @@ subpacote (commit de referência):
   app e a origem da API, `frame-ancestors 'none'` e `no-store` nas páginas privadas.
 - **Textos de interface** em pt-BR em `src/lib/i18n/messages.ts` e `messages.ts` por feature; termos proibidos de
   promessa de lucro em `src/content/prohibited-terms.json` (com teste).
+
+### Features analisadas em 2026-11-21
+
+- **`src/features/bots`** (16 arquivos, 3 testes): `BotList`, `BotCreate`, `BotWizard`, `BotDetail`, `LimitFields`,
+  `Dialog`, `states.ts`, `validation.ts`, `decimal.ts`, `messages.ts`. Todos os textos dizem "PAPER" ("Bots PAPER",
+  "Iniciar bot PAPER"); `BotCreate` chama `api.createBot({ templateId, name })` sem `market`; `BotDetail` busca o P&L do
+  bot por `api.getPnl({ from, to, botId })` e mostra as posições abertas com `BotTradesTable` (de `features/pnl`).
+- **`src/features/real`** (50 arquivos, 17 testes): `api.ts` (conversão dos DTOs REAL, `realReads`, erros), `money.ts`
+  (lamports e unidades base em `bigint`, a exceção nomeada à regra de decimal), `session-real.ts`, `sign-transaction.ts`,
+  `conditionals.ts`, `hooks/` (`useLoad`, `useMoneyAction`, `useSigningSession`, `useTracking`), `components/`
+  (`RealPnlCard`, `DashboardRealPnl`, `ConditionalDialog`, `ConditionalsTab`, `FiscalExportPanel`, `SigningBanner`,
+  `SigningDialog`, `ModeSelector`, `RealBadge` e outros), `screens/` (`OverviewScreen`, `ActivationScreen`,
+  `DepositWithdrawScreen`, `ModeScreen`, `OrdersScreen`), `real-lint.test.ts`.
+- **`src/features/dashboard`** (28 arquivos, 7 testes): `DashboardScreen` (cartões `BotsCard`, `PnlCard` PAPER e
+  `DashboardRealPnl`), `DashboardProvider`, `dashboard-reducer.ts`, `dashboard-loader.ts`, leitor SSE por `fetch`
+  (`sse-reader.ts`, `stream-client.ts`), `envelopes.ts` (validação dos eventos; o resumo do bot já traz `market`),
+  `lint-rules.test.ts`.
+- **`src/app/bots`** (`page.tsx`, `[botId]/page.tsx`, `new/page.tsx`, `new/[botId]/page.tsx`) e **`src/app/pnl`**
+  (`page.tsx` que monta `features/pnl/PnlScreen`): páginas finas, com comentários "PAPER beta".
+- **Área REAL** em `src/app/real/` (`/real`, `/real/ativacao`, `/real/carteira`, `/real/deposito-saque`, `/real/modo`,
+  `/real/ordens`), listada e não lida nesta execução.

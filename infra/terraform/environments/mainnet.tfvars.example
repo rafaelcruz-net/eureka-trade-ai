@@ -1,0 +1,31 @@
+# Example of the mainnet state (261113-trading-real-bot Environment Provisioning). Separate AWS member account from
+# the devnet (Q2): never a mainnet key in the devnet account. NO secret goes here: passwords, keys, tokens and RPC URLs
+# are set by hand in Secrets Manager (terraform output secret_arns). Values in <> are the founder's to decide.
+#
+#   terraform init -backend-config="bucket=<state bucket of the mainnet account>" \
+#                  -backend-config="key=eureka-real/mainnet.tfstate" -backend-config="region=<region>"
+#   terraform plan -var-file=environments/mainnet.tfvars -out=mainnet.plan
+
+environment = "mainnet"
+account_id  = "<12-digit id of the mainnet member account>"
+region      = "<allowed region of the SCP>"
+zone        = "<region>a"
+zone_b      = "<region>b"
+
+initial_image_tag      = "<40-character SHA already green on the devnet>"
+db_bootstrap_image_tag = "<same SHA>"
+
+api_domain      = "api.<domain>"
+web_domain      = "app.<domain>"
+admin_domain    = "admin.<domain>"
+certificate_arn = "<ACM certificate of the region covering the three hosts>"
+
+admin_wallet_addresses       = "<public address of the founder's admin wallet>"
+founder_user_id              = "<UUID of the founder's user, required on the mainnet>"
+legal_storage_location       = "<to define>"
+legal_international_transfer = "<to define>"
+legal_dpo_email              = "<to define>"
+
+alarm_email = "<e-mail of the founder>"
+
+service_desired_count = 0

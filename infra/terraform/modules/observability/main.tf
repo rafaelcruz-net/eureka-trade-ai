@@ -11,15 +11,23 @@ variable "alarm_topic_arn" {
 }
 
 resource "aws_s3_bucket" "trail" {
-  bucket              = "${var.name}-cloudtrail"
+  # checkov:skip=CKV_AWS_144:One region by design (SCP of the account); the object lock is the protection of the trail.
+  # checkov:skip=CKV_AWS_18:Access logging of the audit bucket left out of the pilot; the bucket policy allows CloudTrail only.
+  # checkov:skip=CKV2_AWS_62:No consumer of object events.
+  # checkov:skip=CKV_AWS_145:SSE-S3 (AES256) on purpose (security-posture-review.md SP-08, approved by the security reviewer) - the AWS managed key aws/s3 does not accept the CloudTrail service, so SSE-KMS would stop the delivery; the object lock COMPLIANCE of 1 year is the control of this bucket.
+  # 261113-trading-real-bot Environment Provisioning: the account id makes the name unique, since the devnet and the
+  # mainnet accounts use the same prefix (S3 bucket names are global). The trail itself is in trail.tf.
+  bucket              = "${var.name}-cloudtrail-${data.aws_caller_identity.current.account_id}"
   object_lock_enabled = true
 }
 
+# SP-08: SSE-S3. With aws:kms and the AWS managed key aws/s3 (the previous setting) CloudTrail cannot write the files,
+# and the only copy of the trail would be the log group.
 resource "aws_s3_bucket_server_side_encryption_configuration" "trail" {
   bucket = aws_s3_bucket.trail.id
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "aws:kms"
+      sse_algorithm = "AES256"
     }
   }
 }
@@ -30,6 +38,33 @@ resource "aws_s3_bucket_public_access_block" "trail" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# Object lock already turns versioning on; declared so the state and the scanners see it (Environment Provisioning).
+resource "aws_s3_bucket_versioning" "trail" {
+  bucket = aws_s3_bucket.trail.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Versions are removed only after the one year of COMPLIANCE retention of the object lock (plus a margin).
+resource "aws_s3_bucket_lifecycle_configuration" "trail" {
+  bucket = aws_s3_bucket.trail.id
+  rule {
+    id     = "expire-after-the-lock"
+    status = "Enabled"
+    filter {}
+    expiration {
+      days = 400
+    }
+    noncurrent_version_expiration {
+      noncurrent_days = 400
+    }
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
 }
 
 resource "aws_s3_bucket_object_lock_configuration" "trail" {
@@ -43,6 +78,7 @@ resource "aws_s3_bucket_object_lock_configuration" "trail" {
 }
 
 resource "aws_cloudwatch_log_group" "trail" {
+  # checkov:skip=CKV_AWS_158:CloudWatch Logs encrypts at rest with its own key; a customer key adds cost and no control the pilot uses.
   name              = "/${var.name}/cloudtrail"
   retention_in_days = 365
 }
@@ -84,10 +120,10 @@ resource "aws_cloudwatch_metric_alarm" "kms_admin" {
 
 # NFR5.19 (loop-back 1 of Build and Test): more than 3 KMS calls of the TxSigner throttled or failed in 5 minutes, the
 # twin of the rule TxSignerKmsErrors in infra/observability/real-alerts.yml (RealOpsAlarmParityTest compares both). The
-# TxSigner publishes txsigner_kms_errors_total with the dimension kind (THROTTLED, ERROR) only; how its metrics reach
-# CloudWatch is the decision still pending for U1 to U4, to take before the mainnet.
+# CloudWatch Agent sidecar of the TxSigner task publishes txsigner_kms_errors_total with the dimension kind (THROTTLED,
+# ERROR) only, to Eureka/App (Observability Setup Q1, allow-list in app-metrics.tf).
 locals {
-  real_bot_wallet_namespace = "Eureka/RealBotWallet"
+  real_bot_wallet_namespace = "Eureka/App"
 }
 
 resource "aws_cloudwatch_metric_alarm" "txsigner_kms_errors" {

@@ -13,11 +13,19 @@
         "kms:EnableKey",
         "kms:DisableKey",
         "kms:ScheduleKeyDeletion",
-        "kms:CancelKeyDeletion",
-        "kms:TagResource",
-        "kms:UntagResource"
+        "kms:CancelKeyDeletion"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "TagChangesOnlyWithMfa",
+      "Effect": "Allow",
+      "Principal": { "AWS": "arn:aws:iam::${account_id}:root" },
+      "Action": ["kms:TagResource", "kms:UntagResource"],
+      "Resource": "*",
+      "Condition": {
+        "Bool": { "aws:MultiFactorAuthPresent": "true" }
+      }
     },
     {
       "Sid": "OnlyTheTxSignerMacs",

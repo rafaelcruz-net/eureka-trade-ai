@@ -84,6 +84,21 @@ produção, sem KMS.
 
 ## Ausências relevantes para o Trading REAL
 
-Nenhuma destas peças existe no repositório: cliente Solana RPC/WebSocket, cliente da API da Jupiter (cotação, swap,
-ordens condicionais), assinatura de transação, gerenciador de segredos ou KMS/HSM, fila durável, configuração de
-cluster (devnet/mainnet) além da cadeia fixa `solana:mainnet` da mensagem de login.
+Estado de 2026-11-13: nenhuma destas peças existia no repositório: cliente Solana RPC/WebSocket, cliente da API da
+Jupiter (cotação, swap, ordens condicionais), assinatura de transação, gerenciador de segredos ou KMS/HSM, fila durável,
+configuração de cluster (devnet/mainnet) além da cadeia fixa `solana:mainnet` da mensagem de login.
+
+## Tecnologia REAL nas áreas analisadas (2026-11-21)
+
+As versões das bibliotecas acima não foram relidas nesta varredura focada. Nas áreas analisadas, o REAL usa:
+
+| Peça | Onde | Observação |
+|---|---|---|
+| Cliente HTTP da Jupiter (cotação e swap) | `realexecution/infra/jupiter/JupiterClient.java`, `JupiterConfig.java` | Próprio, sem SDK |
+| Montagem de transação Solana | `realexecution/domain/solana/` (`MessageBuilder`, `MessagePlan`, `WireTransaction`, `ShortVec`, `ComputeBudget`, `Ed25519Check`) | Sem SDK Solana em produção, alinhado ao `project.md` |
+| Porta da API Trigger da Jupiter | `realexits/domain/TriggerPort.java`, `infra/SimulatedTriggerAdapter.java` | Só o adaptador simulado no perfil de teste até a gravação real da API |
+| Fila de decisões REAL | Tabela `real_decision_request` e `DecisionConsumer` no worker | Fila durável no PostgreSQL, não um broker |
+| Aritmética REAL | `long` em lamports e unidades base, `BigInteger` nas frações, `BigDecimal` de 18 casas nos preços; `bigint` no app web (`features/real/money.ts`) | Nunca ponto flutuante |
+| Assinatura no navegador (modo Assinada) | `apps/web/src/features/real/sign-transaction.ts` | O navegador só assina; montagem e envio ficam no servidor |
+
+KMS, TxSigner, RPC Solana e a configuração de cluster ficam no `botwallet` e no `apps/txsigner`, não relidos.

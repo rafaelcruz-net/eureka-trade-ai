@@ -4,16 +4,16 @@ As Units definem metas numéricas de tempo e volume (NFR3 de cada Unit). `team.m
 
 ## 1. Medições informativas que já rodam na CI
 
-| Meta | Teste | Valor no run 44688329451 |
+| Meta | Teste | Valor no run 44765239890 |
 |---|---|---|
 | U3-NFR3.1 p95 da compra ≤ 150 ms | `RealRiskMeasurementIT` | 6 ms (21 carteiras, 10 posições, 4 avaliações/s) |
-| U3-NFR3.2 p95 da venda ≤ 30 ms | `RealRiskMeasurementIT` | 3 ms |
-| U3-NFR3.4 trabalhos F3/F4 ≤ 5 s | `RealRiskMeasurementIT` | 120 ms e 336 ms |
-| U4-NFR3.1 decisão → envio p95 ≤ 3 s | `RealExecutionMeasureIT` | 12 ms (rede e Jupiter falsas) |
+| U3-NFR3.2 p95 da venda ≤ 30 ms | `RealRiskMeasurementIT` | 2 ms |
+| U3-NFR3.4 trabalhos F3/F4 ≤ 5 s | `RealRiskMeasurementIT` | 120 ms e 350 ms |
+| U4-NFR3.1 decisão → envio p95 ≤ 3 s | `RealExecutionMeasureIT` | 13 ms (rede e Jupiter falsas) |
 | U4-NFR3.2 espera na fila p95 ≤ 500 ms | `RealExecutionMeasureIT` | 3 ms |
 | U7-NFR3.3 exportação ≤ 10 s | `FiscalExportIT.twentyThousandEntriesAreExportedInAtMostTenSeconds` | passou (asserção de limite) |
 | U7-NFR3.4 criação até a sessão ≤ 3 s, 20 vezes | `ConditionalCreationIT` | passou (asserção de limite) |
-| U1-NFR3.5 depósito visível ≤ 45 s | e2e `real-bot-wallet` | 41,2 s no job `e2e` e 41,3 s no `smoke` (duração total do teste; margem de cerca de 4 s; no run anterior, 27,1 s) |
+| U1-NFR3.5 depósito visível ≤ 45 s | e2e `real-bot-wallet` | 41,0 s no job `e2e` e 41,1 s no `smoke` (duração total do teste; margem de cerca de 4 s; no run de 2026-11-18, 27,1 s) |
 
 Para ver os valores: `gh run view <run> --log --job <backend> | grep -E "informative measurement"`.
 

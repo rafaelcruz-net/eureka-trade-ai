@@ -1,20 +1,20 @@
 # Alarms of the conditional exits of the REAL (261113-trading-real-bot U7, monitoring-design.md). The same names,
 # thresholds and windows as infra/observability/real-exits-alerts.yml (Prometheus, checked by promtool);
-# RealExitsAlarmParityTest compares both files. The worker, the api and the TxSigner publish their Micrometer metrics to
-# the namespace Eureka/RealExits with the dimension job only (never a mint, an address, a signature nor a person); how
-# the metrics reach CloudWatch is the decision still pending for U1 to U7, to take before the mainnet. If it changes the
-# namespace or the dimensions, this file and the parity test change together. Every alarm goes to the one SNS topic of
+# RealExitsAlarmParityTest compares both files. The CloudWatch Agent sidecars of the api+worker and TxSigner tasks
+# publish the Micrometer metrics to the namespace Eureka/App with the dimension job only (never a mint, an address, a
+# signature nor a person): Observability Setup Q1, allow-list in app-metrics.tf. If the namespace or the dimensions
+# change, this file, the allow-list and the parity test change together. Every alarm goes to the one SNS topic of
 # the pilot; the severity is in the description.
 
 locals {
-  real_exits_namespace = "Eureka/RealExits"
+  real_exits_namespace = "Eureka/App"
 
   # U7-NFR5.10: one alarm per job on the counter of successful runs, with missing data breaching so a job that never
   # published also alarms. The window is period x evaluations; the purge looks at 26 hours as 26 periods of 1 hour.
   real_exits_jobs = {
-    read         = { period = 120, evaluations = 1 }
-    cancel       = { period = 180, evaluations = 1 }
-    exits-gauges = { period = 120, evaluations = 1 }
+    read         = { period = 240, evaluations = 1 }
+    cancel       = { period = 240, evaluations = 1 }
+    exits-gauges = { period = 240, evaluations = 1 }
     purge        = { period = 3600, evaluations = 26 }
   }
 }
@@ -25,7 +25,7 @@ resource "aws_cloudwatch_metric_alarm" "real_exits_cancelling_stalled" {
   namespace           = local.real_exits_namespace
   metric_name         = "real_conditional_cancelling_oldest_seconds"
   statistic           = "Maximum"
-  period              = 60
+  period              = 180
   evaluation_periods  = 1
   threshold           = 900
   comparison_operator = "GreaterThanThreshold"

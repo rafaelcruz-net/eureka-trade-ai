@@ -28,6 +28,7 @@ import { u5DecisionsLine, u5Failures } from './u5-failures.mjs';
 import { legalMarkdown, runLegal } from './legal.mjs';
 import { reacceptanceMarkdown, runReacceptance } from './reacceptance.mjs';
 import { dataRequestsMarkdown, runDataRequests, walletFromSmokeFile } from './data-requests.mjs';
+import { REAL_DEFAULTS, realMarkdown, runReal } from './real.mjs';
 import { createRequire } from 'node:module';
 
 const run = promisify(execFile);
@@ -1640,6 +1641,106 @@ async function runDataRequestsScenario() {
 
 if (SCENARIO === 'data-requests') {
   await runDataRequestsScenario();
+}
+
+// ----- 261113-trading-real-bot scenario "real" (operation/performance-validation, Q1 to Q5) -----
+//   LOAD_SCENARIO=real  the REAL stack of the e2e (local validator, kms-sim, recorded Jupiter, TxSigner) with the pilot
+//                       times 2: 21 bot wallets (smoke account as the founder plus SMOKE_INVITE_CODES), 3 REAL bots each,
+//                       20 people on the screen and an administrator (SMOKE_ADMIN_WALLET_FILE) for 15 minutes, then
+//                       "vender tudo e sacar" in 5 wallets for 5 minutes, then a burst of 21 withdrawals in 10 s every
+//                       minute for 5 minutes. Fails on any missed target of scripts/load/real-stats.mjs, any error,
+//                       duplicate transaction or growing queue. Report: load-test-report.json and
+//                       docs/perf/real-trading-<date>.md. The phases can be shortened only by REAL_*_S, never the limits.
+async function runRealScenario() {
+  const adminWalletFile = process.env.SMOKE_ADMIN_WALLET_FILE;
+  const fixtures = process.env.RECORDED_FIXTURES;
+  if (!adminWalletFile || !fixtures || !process.env.TXSIGNER_CONTAINER || !process.env.POSTGRES_CONTAINER) {
+    throw new Error('SMOKE_ADMIN_WALLET_FILE, RECORDED_FIXTURES, TXSIGNER_CONTAINER and POSTGRES_CONTAINER are set by scripts/load-test.sh');
+  }
+  const recorded = Object.fromEntries(
+    readFileSync(fixtures, 'utf8')
+      .split('\n')
+      .map((line) => line.split('=').map((part) => part.trim()))
+      .filter(([name, value]) => name && value),
+  );
+  const rpcBase = process.env.SOLANA_RPC_URL ?? 'http://127.0.0.1:8899';
+  const sql = async (text, { seqScanOff = false } = {}) => {
+    const { stdout } = await run(
+      'docker',
+      [
+        'exec',
+        process.env.POSTGRES_CONTAINER,
+        'psql',
+        '-qAt',
+        '-F',
+        '|',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-U',
+        process.env.DB_SUPERUSER ?? 'postgres',
+        '-d',
+        process.env.DB_NAME ?? 'memetrade',
+        ...(seqScanOff ? ['-c', 'set enable_seqscan = off'] : []),
+        '-c',
+        text,
+      ],
+      { maxBuffer: 16 * 1024 * 1024 },
+    );
+    // -q keeps the "SET" of enable_seqscan out of the output: only the rows (or the plan) come back.
+    return stdout;
+  };
+  const seconds = (name, fallback) => Number(process.env[name] ?? fallback);
+  const report = await runReal({
+    config: {
+      ...REAL_DEFAULTS,
+      steadyS: seconds('REAL_STEADY_S', REAL_DEFAULTS.steadyS),
+      peakS: seconds('REAL_PEAK_S', REAL_DEFAULTS.peakS),
+      burstS: seconds('REAL_BURST_S', REAL_DEFAULTS.burstS),
+    },
+    founder: { address: wallet.address, key },
+    adminWallet: walletFromSmokeFile(readFileSync(adminWalletFile, 'utf8')),
+    codes: (process.env.SMOKE_INVITE_CODES ?? '').split(',').filter((code) => code.length > 0),
+    recorded,
+    io: {
+      fetch: (url, init) => fetch(url, init),
+      now: () => Date.now(),
+      wallNow: () => Date.now(),
+      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      apiBase: API,
+      rpcBase,
+      rpc: async (method, params) => {
+        const response = await fetch(rpcBase, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        });
+        const body = await response.json();
+        if (body.error) throw new Error(`${method} failed: ${body.error.message}`);
+        return body.result;
+      },
+      sql,
+      apiMetrics: async () => (await fetch(`${MANAGEMENT}/actuator/prometheus`)).text(),
+      workerMetrics: async () => (await fetch(`${WORKER_MANAGEMENT}/actuator/prometheus`)).text(),
+      txsignerMetrics: async () =>
+        (
+          await run(
+            'docker',
+            ['exec', process.env.TXSIGNER_CONTAINER, 'wget', '-q', '-O', '-', 'http://127.0.0.1:8444/actuator/prometheus'],
+            { maxBuffer: 16 * 1024 * 1024 },
+          )
+        ).stdout,
+      warn: (line) => console.warn(line),
+    },
+  });
+  writeFileSync('load-test-report.json', JSON.stringify(report, null, 2));
+  mkdirSync('docs/perf', { recursive: true });
+  writeFileSync(`docs/perf/real-trading-${report.date}.md`, realMarkdown(report));
+  console.warn(JSON.stringify({ passed: report.passed, failures: report.failures }));
+  process.exit(report.passed ? 0 : 1);
+}
+
+if (SCENARIO === 'real') {
+  await runRealScenario();
 }
 
 const state = { token: await login(), errors: 0, mints: new Set() };

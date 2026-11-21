@@ -124,6 +124,7 @@ class RealOpsAlarmParityTest {
     void everyRuleHasAnAlarmWithTheSameNameThresholdWindowAndJob() throws IOException {
         List<Rule> rules = rules();
         Map<String, Alarm> alarms = alarms();
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
 
         assertThat(rules).hasSize(13);
         assertThat(alarms.keySet())
@@ -132,7 +133,11 @@ class RealOpsAlarmParityTest {
         for (Rule rule : rules) {
             Alarm alarm = alarms.get(rule.name());
             assertThat(alarm.threshold()).as(rule.name()).isEqualByComparingTo(rule.threshold());
-            assertThat(alarm.windowSeconds()).as(rule.name()).isEqualTo(rule.windowSeconds());
+            assertThat(alarm.windowSeconds())
+                    .as(rule.name())
+                    .isEqualTo(com.memetrade.infra.CloudWatchWindows.cloudWindow(
+                            rule.windowSeconds(),
+                            com.memetrade.infra.CloudWatchWindows.twoReads(terraform, rule.name())));
             assertThat(alarm.job()).as(rule.name()).isEqualTo(rule.job());
         }
     }
@@ -211,7 +216,7 @@ class RealOpsAlarmParityTest {
         String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
         String rules = Files.readString(RULES, StandardCharsets.UTF_8);
 
-        assertThat(group(NAMESPACE, terraform)).isEqualTo("Eureka/RealOps");
+        assertThat(group(NAMESPACE, terraform)).isEqualTo("Eureka/App");
         assertThat(terraform.split("treat_missing_data\\s*=\\s*\"breaching\"", -1))
                 .as("only the for_each of the stalled jobs treats missing data as breaching")
                 .hasSize(2);

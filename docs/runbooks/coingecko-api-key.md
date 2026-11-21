@@ -34,7 +34,7 @@ Quem executa: o fundador. A chave é segredo: nunca entra em log, mensagem, mét
 | Alerta | O que fazer |
 |---|---|
 | `MarketSourceFailed` (alta) | Veja `failure_category` em `data_source` e os logs do worker (`Market provider call failed`, só rota e código). 401/403: siga a seção 2. 429: veja a cota e o orçamento. 5xx ou tempo esgotado: o circuito abre por 60 s e tenta de novo; nada a fazer além de acompanhar. |
-| `RealPriceStale` (alta) | O REAL já recusa ordens. Confira o worker (alerta `WorkerDown` da U1), a saída por NAT e o estado da fonte. |
+| `RealPriceStale` (alta) | O REAL já recusa ordens. Confira o worker (alerta `WorkerDown` da U1 no local; `metrics-absent-worker` na nuvem), a saída por NAT e o estado da fonte. |
 | `MarketCallCounterUnavailable` (alta) | O banco não responde para a tabela `marketdata_provider_usage`; o worker não chama o fornecedor (modo conservador). Restabeleça o banco. |
 | `MarketMonthlyBudget` (média) | 80% do orçamento mensal. Os detalhes param em 90%, a descoberta em 95% e os preços em 98%. Avalie subir o plano ou reduzir `COINGECKO_DISCOVERY_LIMIT`. |
 | `MarketInvalidValues` (média) | Mais de 5% dos valores inválidos numa hora. Veja `marketdata_invalid_values_total{field}` e o log `Invalid market value refused` (só campo e motivo). Pode ser mudança de formato da API. |

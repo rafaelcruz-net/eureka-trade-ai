@@ -7,9 +7,9 @@
 #
 # Each alert carries the annotations `threshold` and `window_seconds` (and `job` or `provider` when the alarm has that
 # dimension); RealExecutionAlarmParityTest compares them with the expression below and with the CloudWatch alarm of the
-# same name in infra/terraform/modules/observability/real-execution.tf. The slow-execution alarm has no CloudWatch twin
-# yet (`cloud: deferred`), like the p95 of the U3: it needs the metric as a distribution, part of the pending decision on
-# how the metrics of Micrometer reach CloudWatch.
+# same name in infra/terraform/modules/observability/real-execution.tf. The slow-execution rule reads the histogram; the
+# CloudWatch Agent drops histograms, so its CloudWatch twin reads the summary named in `cloud_metric` (gap OBS-G2 of the
+# Observability Setup) and is created only with p95_alarms_enabled, like the p95 of the U3.
 #
 # The two age gauges use max_over_time over 1 minute, the same as the CloudWatch statistic Maximum over 60 seconds.
 groups:
@@ -152,4 +152,4 @@ groups:
           summary: The p95 from the decision to the send of AUTO_FULL is above 3 seconds for 10 minutes (informative).
           threshold: "3"
           window_seconds: "600"
-          cloud: deferred
+          cloud_metric: real_order_decision_to_send_p95_seconds

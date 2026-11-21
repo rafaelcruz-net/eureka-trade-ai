@@ -3,6 +3,11 @@
 Avaliação feita só por leitura (nenhum teste ou build executado nesta varredura). Componentes em
 [component-inventory.md](component-inventory.md); ferramentas e versões em [technology-stack.md](technology-stack.md).
 
+As seções "Resumo" a "Riscos para o Trading REAL" são de 2026-11-13. A avaliação da varredura focada de 2026-11-21
+(módulos `bots`, `pnl`, `ledger`, `realexecution`, `realexits` e features `bots`, `real` e `dashboard` do app web)
+está em [Área de P&L e REAL](#área-de-pl-e-real-2026-11-21) e em
+[Riscos para o intent 261121-paper-real-unico](#riscos-para-o-intent-261121-paper-real-unico).
+
 ## Resumo
 
 | Critério | Nota | Evidência |
@@ -99,3 +104,56 @@ proteções do beta PAPER).
 10. **Governança**: `project.md` Mandated exige G2 e G3 cumpridos antes do REAL automático, e `team.md` diz que a
     autoaprovação do responsável não satisfaz G2/G3; o pedido do intent ("sem G3", "fundador solo é o único revisor")
     precisa de decisão registrada que concilie as regras.
+
+## Área de P&L e REAL (2026-11-21)
+
+| Critério | Nota | Evidência |
+|---|---|---|
+| Clareza de nomes | boa | Vocabulário do domínio REAL explícito (`RealOrderStateMachine`, `PositionExitGuard`, `FillPosting`, `RealPnlCalculator`); Javadoc de abertura cita BR, NFR e Unit de origem |
+| Tamanho das funções | boa | Cálculos puros curtos (`RealPnlCalculator.of`, `RealPositions.of`, `RealLedgerEntries.of`); maiores arquivos: `JdbcRealExecutionStore` (762 linhas), `BotCommandService` (521), `ConditionalService` (514), `OrderDriver` (488) |
+| Tratamento de erros | boa | Recusas como resultado (`Outcome`, `GateDecision`, `ExitRelease`), `RealGateUnavailable` com indicação de transação utilizável, aritmética com `*Exact`; preço ausente nunca vira zero |
+| Presença de testes | boa, com uma lacuna | `bots` 12 Test e 20 IT, `pnl` 3 e 6, `realexecution` 12 e 18, `ledger` 7 e 13, `realexits` 14 e 9; `RealPnlCalculatorTest` cobre o cálculo; nenhum teste encontrado confere o P&L REAL contra o ledger REAL nem com uma venda condicional |
+| Duplicação | razoável | Custo médio REAL em duas versões (`RealPositions` e `RealPnlCalculator`) com regras diferentes; conversão de preço do SOL embrulhado repetida em `RealCycle` e `RealPnlService` (constante `WRAPPED_SOL` nas duas) |
+| Código morto | boa | Nenhum `TODO`/`FIXME` nos cinco módulos; 2 `@SuppressWarnings` |
+
+Frontend: `features/real` tem 17 arquivos de teste para 50 arquivos, `features/dashboard` 7 para 28 e `features/bots`
+3 para 16; `real-lint.test.ts` e `lint-rules.test.ts` fixam proibições como teste (aritmética de número e
+`parseFloat` fora de `money.ts`, `EventSource`, SDK Solana, `NEXT_PUBLIC_*`, envio de transação pelo código REAL), e
+`DashboardRealPnl.test.tsx` garante que o cartão REAL e o PAPER mostram só os próprios valores.
+
+### Dívida técnica da área
+
+| Item | Onde | Impacto |
+|---|---|---|
+| P&L REAL sem as vendas condicionais | `pnl/application/RealPnlService` lê só `real_order`; `realexits/application/FillPosting` lança só no ledger | O P&L REAL mostra como aberta uma posição já vendida pela condicional e não realiza o resultado; o Javadoc de `FillPosting` afirma o contrário |
+| Dois custos médios REAL | `ledger/domain/RealPositions` e `pnl/real/RealPnlCalculator` | Custo da posição e P&L divergem (taxa e aluguel fora ou dentro; arredondamento para baixo ou para cima) |
+| `mode` e `market` no bot | `bot.mode` fixo `PAPER` (0010) e `bot.market` (0019); `BotSummary.mode` sempre `"PAPER"` | Dois campos com nomes parecidos; um consumidor que leia `mode` classifica todo bot como PAPER |
+| Criação de bot REAL sem interface | `features/bots/BotCreate.tsx`, textos "Bots PAPER" | Hoje só a API (e o spec `e2e/real-swap`) cria bot REAL |
+| `bot_holding` aberto na decisão REAL | `bots/worker/CycleRunner` (`REAL_RECORDED` de BUY) | A posse do token pelo bot começa antes da confirmação na rede; não foi encontrado onde ela fecha para um bot REAL |
+| Importação de `riskcontrol.infra` | `RealExecutionPurgeJob`, `RealExitsPurgeJob` | Fonte de retenção compartilhada fora de um pacote `api` |
+
+## Riscos para o intent 261121-paper-real-unico
+
+Fatos do código que o intent precisa tratar explicitamente:
+
+1. **Nada por bot no REAL além de `real_order.bot_id`**: `real_ledger_entry`, `RealPosition`, `real_conditional_order`
+   e `real_liquidation` são por carteira do bot (pessoa). O P&L REAL por bot só pode partir das ordens `BOT` e ratear o
+   resto.
+2. **Vendas sem bot**: a liquidação gera `real_order` `USER_LIQUIDATION` sem `bot_id` (entra no P&L REAL de hoje); a
+   condicional não gera `real_order` (não entra). O rateio pedido precisa das duas, então o P&L REAL precisa ler também
+   o ledger REAL (referências `conditional:<id>`) ou passar a registrar a venda condicional de outro jeito.
+3. **Venda de um bot leva a quantidade de outro**: `RealCycle.order` (SELL) vende a posição inteira do mint na carteira;
+   até o ciclo mudar, uma venda de bot pode vender mais do que o bot comprou (o excedente previsto na suposição A8 do
+   escopo).
+4. **Ordem dos fatos**: `settledOrders` ordena por `updated_at, real_order_id`; o ledger por criação; o custo médio por
+   bot e o rateio dependem de uma ordem única e determinística.
+5. **Unidades e totais**: PAPER em USDC (`BigDecimal`, 6 casas) e REAL em lamports (`long`); o total por modo não pode
+   ser somado nem convertido implicitamente; o painel já mostra cartões separados e o teste
+   `DashboardRealPnl.test.tsx` protege isso.
+6. **Período**: o P&L PAPER tem período (até 366 dias, dias UTC); o REAL não tem. Um filtro por período comum exige
+   período no REAL.
+7. **Testes antes do código**: P&L e execução REAL (estados e idempotência) estão na ordem de testes antes do código do
+   `team.md`; a regra de custo médio por bot e o rateio precisam de cenários determinísticos com resultado conhecido em
+   lamports.
+8. **Contrato gerado**: mudanças em `RealPnl` ou `BotSummary` mudam o `openapi-guest.yaml` e os tipos gerados do app
+   web (`check:api` na CI).

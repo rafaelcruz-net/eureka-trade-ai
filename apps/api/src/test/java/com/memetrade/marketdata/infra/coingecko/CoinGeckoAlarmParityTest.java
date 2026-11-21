@@ -94,6 +94,7 @@ class CoinGeckoAlarmParityTest {
     void everyRuleHasAnAlarmWithTheSameNameThresholdAndWindowAndViceVersa() throws IOException {
         List<Rule> rules = rules();
         Map<String, Alarm> alarms = alarms();
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
 
         assertThat(rules).hasSize(6);
         assertThat(alarms.keySet())
@@ -102,8 +103,43 @@ class CoinGeckoAlarmParityTest {
         for (Rule rule : rules) {
             Alarm alarm = alarms.get(rule.name());
             assertThat(alarm.threshold()).as(rule.name()).isEqualByComparingTo(rule.threshold());
-            assertThat(alarm.windowSeconds()).as(rule.name()).isEqualTo(rule.windowSeconds());
+            assertThat(alarm.windowSeconds())
+                    .as(rule.name())
+                    .isEqualTo(com.memetrade.infra.CloudWatchWindows.cloudWindow(
+                            rule.windowSeconds(),
+                            com.memetrade.infra.CloudWatchWindows.twoReads(terraform, rule.name())));
         }
+    }
+
+    /**
+     * Observability Setup: the agent reads every 120 s. A period with missing data breaching holds two reads (a multiple
+     * of 240 s; RealPriceStale: 90 s becomes 240 s), any other period at least one (180 s or more).
+     */
+    @Test
+    void everyAlarmPeriodHoldsTheReadsOfTheAgent() throws IOException {
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
+        Matcher resource = RESOURCE.matcher(terraform);
+        List<Integer> starts = new ArrayList<>();
+        while (resource.find()) {
+            starts.add(resource.start());
+        }
+        assertThat(starts).isNotEmpty();
+        for (int i = 0; i < starts.size(); i++) {
+            String block =
+                    terraform.substring(starts.get(i), i + 1 < starts.size() ? starts.get(i + 1) : terraform.length());
+            long period = Long.parseLong(group(PERIOD, block));
+            boolean breaching = block.matches("(?s).*treat_missing_data\\s*=\\s*\"breaching\".*");
+            assertThat(period % 60).as(block).isZero();
+            if (breaching) {
+                assertThat(period % 240).as(block).isZero();
+            } else {
+                assertThat(period).as(block).isGreaterThanOrEqualTo(180);
+            }
+        }
+        assertThat(com.memetrade.infra.CloudWatchWindows.cloudWindow(90, true)).isEqualTo(240);
+        assertThat(com.memetrade.infra.CloudWatchWindows.cloudWindow(300, false))
+                .isEqualTo(300);
+        assertThat(com.memetrade.infra.CloudWatchWindows.cloudWindow(60, false)).isEqualTo(180);
     }
 
     @Test

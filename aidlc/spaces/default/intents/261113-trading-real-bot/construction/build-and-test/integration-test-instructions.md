@@ -54,4 +54,4 @@ Nesta máquina o `verify` completo morre por memória; vale o run `ci` do mesmo 
 
 ## 6. Resultado de referência
 
-Run `ci` 44688329451 (commit `d7e6a17`): Failsafe da API com 1.394 testes e TxSigner com 17 testes de integração, 0 falhas, 0 pulados. Detalhes em `test-results.md`.
+Run `ci` 44765239890 (commit `3497b2b`): Failsafe da API com 1.394 testes e TxSigner com 17 testes de integração, 0 falhas, 0 pulados. Detalhes em `test-results.md`.
