@@ -25,7 +25,7 @@
         <logstash-logback-encoder.version>8.1</logstash-logback-encoder.version>
         <archunit.version>1.5.1</archunit.version>
         <solanaj.version>1.28.0</solanaj.version>
-        <jacoco.version>0.8.15</jacoco.version>
+        <jacoco.version>0.8.16</jacoco.version>
         <spotless.version>2.46.1</spotless.version>
         <palantir-java-format.version>2.80.0</palantir-java-format.version>
         <!-- 6.x is the line for Spring Framework 6 / Boot 3.5 (7.x targets Spring 7). Single run of the audit jobs. -->
