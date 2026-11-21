@@ -2,7 +2,7 @@
 # Multi-stage image of the API: the runtime stage has only the Java 21 JRE and the JAR, runs as a non-root user,
 # and every base image is pinned by digest (infrastructure-specification.md, Q1). Dependabot updates the digests.
 
-FROM eclipse-temurin:21-jdk-alpine@sha256:fd52084c35bbac78890d95d57707d31ffc9d7a3324199e89c06be2a9dc71bfa0 AS build
+FROM eclipse-temurin:24-jdk-alpine@sha256:8fdbcb6bc6b846640cea7058e6eeb56c311fae4efaa506a213789134065c6b90 AS build
 WORKDIR /src
 COPY .mvn .mvn
 COPY mvnw pom.xml ./
@@ -10,7 +10,7 @@ RUN sh ./mvnw -B -ntp dependency:go-offline
 COPY src src
 RUN sh ./mvnw -B -ntp -DskipTests -Djacoco.skip=true -Dspotless.check.skip=true package
 
-FROM eclipse-temurin:21-jre-alpine@sha256:b48e02e0ea88d7bfb305335df94923bdef394905f4147dccd52e873cf17b1088
+FROM eclipse-temurin:24-jre-alpine@sha256:4044b6c87cb088885bcd0220f7dc7a8a4aab76577605fa471945d2e98270741f
 # 261113-trading-real-bot U5 (BR1.4, security-design.md "CI"): the commit of the image; the gates of the REAL read the
 # CI of exactly this commit. Without the argument it stays empty (local build): the gates block CI_UNREACHABLE.
 ARG BUILD_SHA=
