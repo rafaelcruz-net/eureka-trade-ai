@@ -94,6 +94,16 @@ public final class U5Bots {
         as(person, () -> commands.saveDraft(person, botId, new DraftInput(3, null, null, null, null), key()));
     }
 
+    /**
+     * 261121-paper-real-unico U1 (BR1.8, BR1.9): the wizard steps of a REAL bot: step 1, step 2 without virtual balance
+     * nor limits (the REAL limits of the account apply), and the validation, which writes no limits version.
+     */
+    public void saveRealSteps(Principal person, UUID botId, TokenId token) {
+        as(person, () -> commands.saveDraft(person, botId, step1(token), key()));
+        as(person, () -> commands.saveDraft(person, botId, new DraftInput(2, null, null, null, null), key()));
+        as(person, () -> commands.saveDraft(person, botId, new DraftInput(3, null, null, null, null), key()));
+    }
+
     public Bot bot(Principal person, UUID botId) {
         return bots.find(botId, TenantScope.of(person)).orElseThrow();
     }

@@ -151,6 +151,44 @@ export function fakeApi(overrides: Partial<GuestApi> = {}): jest.Mocked<GuestApi
       throw new Error('no bot configured');
     }),
     listBotDecisions: jest.fn(async () => ({ items: [], nextCursor: null })),
+    // 261121-paper-real-unico U1 (C2, C3, C4): the REAL is off and the two blocks are empty unless a test says
+    // otherwise.
+    getRealEligibility: jest.fn(async () => ({
+      available: false,
+      reason: 'REAL_DISABLED' as const,
+    })),
+    getRealAccountLimits: jest.fn(async () => {
+      throw new ApiError(409, 'REAL_NOT_ELIGIBLE');
+    }),
+    getPnlByMode: jest.fn(async () => ({
+      period: { kind: 'ALL' as const },
+      paper: {
+        status: 'AVAILABLE' as const,
+        market: 'PAPER' as const,
+        currency: 'USD' as const,
+        disclaimer: 'O resultado simulado não garante o resultado real.',
+        empty: true,
+        total: { status: 'KNOWN' as const, value: '0.000000' },
+        realized: '0.000000',
+        unrealized: { status: 'KNOWN' as const, value: '0.000000' },
+        unrealizedAsOf: '2026-10-28T12:00:00Z',
+        fees: '0.000000',
+        bots: [],
+      },
+      real: {
+        status: 'AVAILABLE' as const,
+        market: 'REAL' as const,
+        currency: 'SOL' as const,
+        empty: true,
+        totalLamports: { status: 'KNOWN' as const, value: '0' },
+        realizedLamports: '0',
+        unrealizedLamports: { status: 'KNOWN' as const, value: '0' },
+        unrealizedAsOf: '2026-10-28T12:00:00Z',
+        feesLamports: '0',
+        bots: [],
+        unowned: null,
+      },
+    })),
     // 261113-trading-real-bot U1: no bot wallet unless a test says otherwise.
     getBotWallet: jest.fn(async () => {
       throw new ApiError(404, 'NOT_FOUND');

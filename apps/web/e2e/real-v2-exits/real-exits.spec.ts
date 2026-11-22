@@ -30,11 +30,11 @@ type Order = { side: string; state: string; input: { mint: string } };
  * outside LOCALNET). The simulated adapter never signs with the bot key nor calls the TxSigner, and nothing goes to
  * the network: the consent is signed by the test main wallet with signMessage.
  *
- * THIS SPEC IS ALWAYS THE LAST ONE: Playwright (workers: 1) runs the spec files in the alphabetical order of their
- * paths, not in the order of the list in scripts/verify.sh, so the folder is named real-v2-exits to come after
- * real-ui and real-v1-exports (regression of the CI run 44113862674, where real-exits ran before real-swap). No spec
- * depends on the state it leaves (new rows in
- * real_conditional_order and the audit). There is no simulated fill (the fill has no e2e until the real recording, the
+ * THIS SPEC IS ALWAYS THE LAST REAL SPEC: Playwright (workers: 1) runs the spec files in the alphabetical order of
+ * their paths, not in the order of the list in scripts/verify.sh, so the folder is named real-v2-exits to come after
+ * real-ui and real-v1-exports (regression of the CI run 44113862674, where real-exits ran before real-swap). Only
+ * e2e/zz-paper-real-unico (261121-paper-real-unico U1), the last spec of all, reads its exit state: the bot wallet in
+ * AUTO_FULL (checked there, never fixed); nothing depends on its other rows (real_conditional_order and the audit). There is no simulated fill (the fill has no e2e until the real recording, the
  * gap accepted in code-summary.md); the position of real-swap is sold at the end by "vender tudo e sacar" (test 4,
  * moved here from e2e/real-swap).
  * - Entry state (from real-ui): bot wallet ACTIVE in AUTO_FULL, kill switch REAL off, a position of real-swap. Checked

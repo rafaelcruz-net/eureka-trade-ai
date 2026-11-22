@@ -17,8 +17,10 @@ import com.memetrade.bots.domain.TenantScope;
 import com.memetrade.bots.domain.TokenSelection;
 import com.memetrade.bots.domain.Violation;
 import com.memetrade.bots.infra.BotAudit;
+import com.memetrade.bots.infra.BotCreationMetrics;
 import com.memetrade.bots.infra.JdbcBotRepository;
 import com.memetrade.bots.infra.LockOrder;
+import com.memetrade.bots.infra.RealCreationRefusalAudit;
 import com.memetrade.identity.api.IdempotencyGuard;
 import com.memetrade.identity.api.IdempotencyKey;
 import com.memetrade.identity.api.IdempotencyRequest;
@@ -70,6 +72,8 @@ public class BotCommandService {
     /** BR2.4: the token of the resume snapshot when the bot has neither an explicit token nor a position. */
     public static final TokenId NEUTRAL_TOKEN = new TokenId("solana", "11111111111111111111111111111111");
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BotCommandService.class);
+
     private final JdbcBotRepository bots;
     private final LockOrder locks;
     private final BotAudit audit;
@@ -81,12 +85,20 @@ public class BotCommandService {
     private final Clock clock;
     private final ObjectMapper json;
     private final TransactionTemplate transactions;
-    private com.memetrade.botwallet.api.RealStateQuery realState;
+    private RealEligibilityReader eligibility;
+    private RealCreationRefusalAudit refusalAudit;
+    private BotCreationMetrics creationMetrics;
 
-    /** 261113-trading-real-bot U4 (BR1.1): the REAL state of the person, read when a REAL bot is created. */
+    /**
+     * 261121-paper-real-unico U1 (BR2.3, BR2.4, NFR3.5, NFR3.10): the REAL eligibility read inside the creation
+     * command, the audit of a refusal after the rollback, and its metric.
+     */
     @org.springframework.beans.factory.annotation.Autowired
-    void useRealState(com.memetrade.botwallet.api.RealStateQuery realState) {
-        this.realState = realState;
+    void useRealCreation(
+            RealEligibilityReader eligibility, RealCreationRefusalAudit refusalAudit, BotCreationMetrics metrics) {
+        this.eligibility = eligibility;
+        this.refusalAudit = refusalAudit;
+        this.creationMetrics = metrics;
     }
 
     public BotCommandService(
@@ -124,8 +136,14 @@ public class BotCommandService {
     }
 
     /**
-     * 261113-trading-real-bot U4 (BR1.1): the market is chosen at creation and never changes; REAL needs an ACTIVE bot
-     * wallet of the person (M1 readRealState), otherwise 422 VALIDATION_FAILED on {@code market}.
+     * 261113-trading-real-bot U4 (BR1.1): the market is chosen at creation and never changes; PAPER when absent.
+     *
+     * <p>261121-paper-real-unico U1 (BR1.4, BR2.3 to BR2.5): with {@code market = REAL} the eligibility is read again
+     * INSIDE the idempotent command, after the claim of the key (so a completed key answers its stored response
+     * without evaluating again) and in a savepoint ({@link RealEligibilityReader#forCreation}). A reason answers
+     * {@code 409 REAL_NOT_ELIGIBLE}: the command rolls back (no bot, nothing stored), then the refusal is audited in
+     * its own transaction and counted. An unavailable source answers 503 and stores nothing either. PAPER never reads
+     * the eligibility.
      */
     public IdempotentResponse create(
             Principal person, String templateId, String name, String market, IdempotencyKey key) {
@@ -137,18 +155,53 @@ public class BotCommandService {
         } catch (IllegalArgumentException unknown) {
             throw invalid("market", "Informe PAPER ou REAL.");
         }
-        if (chosen == com.memetrade.bots.domain.BotMarket.REAL
-                && realState.readRealState(person.tenantId(), person.userId()).isEmpty()) {
-            throw invalid("market", "Ative a carteira do bot antes de criar um bot REAL.");
+        boolean real = chosen == com.memetrade.bots.domain.BotMarket.REAL;
+        String content = "create:" + templateId + ":" + name + (real ? ":REAL" : "");
+        try {
+            return command(
+                    person,
+                    IdempotentOperation.BOT_CREATE,
+                    key,
+                    content,
+                    201,
+                    () -> null,
+                    nothing -> newDraft(person, templateId, name, chosen));
+        } catch (RealNotEligibleException refused) {
+            auditRefusal(person, refused.reason());
+            throw refused;
         }
-        String content = "create:" + templateId + ":" + name
-                + (chosen == com.memetrade.bots.domain.BotMarket.REAL ? ":REAL" : "");
-        return command(person, IdempotentOperation.BOT_CREATE, key, content, 201, () -> null, nothing -> {
+    }
+
+    /** BR2.4, NFR3.5: after the rollback, the audit in its own transaction, then the metric and the log line. */
+    private void auditRefusal(Principal person, com.memetrade.bots.domain.RealIneligibilityReason reason) {
+        try {
+            refusalAudit.refused(person, reason);
+        } catch (RuntimeException failure) {
+            log.warn(
+                    "REAL refusal audit failed: reason={}, cause={}",
+                    reason,
+                    failure.getClass().getSimpleName());
+            throw new BotTechnicalFailure("The REAL refusal could not be audited");
+        }
+        creationMetrics.refused(reason);
+        log.info("REAL bot creation refused: reason={}", reason);
+    }
+
+    private Bot newDraft(Principal person, String templateId, String name, com.memetrade.bots.domain.BotMarket chosen) {
+        {
+            // BR1.1: the template and the name (422), then the REAL eligibility (409 or 503) before anything is
+            // written.
             StrategyTemplate template = StrategyTemplates.find(templateId)
                     .orElseThrow(() -> invalid("templateId", "Estratégia modelo desconhecida."));
             String trimmed = name == null ? "" : name.trim();
             if (trimmed.isEmpty() || trimmed.length() > 60) {
                 throw invalid("name", "Informe um nome de 1 a 60 caracteres.");
+            }
+            if (chosen == com.memetrade.bots.domain.BotMarket.REAL) {
+                com.memetrade.bots.domain.RealEligibility read = eligibility.forCreation(person);
+                if (!read.available()) {
+                    throw new RealNotEligibleException(read);
+                }
             }
             Instant now = clock.instant();
             TenantScope scope = TenantScope.of(person);
@@ -181,7 +234,7 @@ public class BotCommandService {
                     AuditActions.BOT_CREATED,
                     Map.of("templateId", template.templateId().name()));
             return bot;
-        });
+        }
     }
 
     /** BR1.1, BR1.7: one step of the wizard; editing a VALIDATED bot returns it to DRAFT. */
@@ -266,13 +319,7 @@ public class BotCommandService {
                 locked -> {
                     Bot bot = locked.bot();
                     boolean systemPaused = locked.systemPaused();
-                    BotLimits limits = currentLimits(bot);
-                    Optional<BigDecimal> dayLoss =
-                            bot.status().has(PauseReason.DAILY_LOSS) ? Optional.of(dayLoss(bot)) : Optional.empty();
-                    Change change = BotStateMachine.resume(
-                            bot.status(),
-                            new BotStateMachine.ResumeCheck(
-                                    systemPaused, bots.countActive(scope), limits.maxDailyLoss(), dayLoss));
+                    Change change = BotStateMachine.resume(bot.status(), resumeCheck(bot, systemPaused, scope));
                     Bot resumed = bot.withStatus(change.after(), clock.instant());
                     bots.save(resumed);
                     audit.byPerson(resumed.ref(), AuditActions.BOT_RESUMED, Map.of());
@@ -280,17 +327,33 @@ public class BotCommandService {
                 });
     }
 
+    /**
+     * BR2.4: the check of a resume. 261121-paper-real-unico U1 (BR1.9): only a PAPER bot reads its current limits and
+     * its PAPER day loss; a REAL bot has no limits of its own, so its check has no daily loss limit of the bot (the REAL
+     * barrier and the pauses of the bot wallet keep the daily loss of the REAL).
+     */
+    private BotStateMachine.ResumeCheck resumeCheck(Bot bot, boolean systemPaused, TenantScope scope) {
+        if (bot.real()) {
+            return BotStateMachine.ResumeCheck.withoutBotLimits(systemPaused, bots.countActive(scope));
+        }
+        BotLimits limits = currentLimits(bot);
+        Optional<BigDecimal> dayLoss =
+                bot.status().has(PauseReason.DAILY_LOSS) ? Optional.of(dayLoss(bot)) : Optional.empty();
+        return new BotStateMachine.ResumeCheck(systemPaused, bots.countActive(scope), limits.maxDailyLoss(), dayLoss);
+    }
+
     /** BR2.7: closes the positions through U7 and ends STOPPED, or CLOSING_PENDING without a reliable price. */
     public IdempotentResponse stop(Principal person, UUID botId, IdempotencyKey key) {
         return command(
                 person, IdempotentOperation.BOT_STOP, key, "stop:" + botId, 200, () -> lock(person, botId), bot -> {
                     BotStateMachine.stop(bot.status(), false);
-                    int version = bot.currentLimitsVersion()
-                            .orElseThrow(() -> new IllegalStateException("A started bot has a limits version"));
                     int pendingPositions = 0;
                     // 261113-trading-real-bot U4 (U4-NFR2.1, BR8.1): a REAL bot has no PAPER account and never writes
                     // the PAPER ledger; its positions stay in the bot wallet and are sold by "vender tudo e sacar".
+                    // 261121-paper-real-unico U1 (BR1.9): only a PAPER bot needs its limits version to close.
                     if (!bot.real()) {
+                        int version = bot.currentLimitsVersion()
+                                .orElseThrow(() -> new IllegalStateException("A started bot has a limits version"));
                         CloseResult result = paper.closePositions(botId, version, "close:" + botId);
                         if (!(result instanceof CloseResult.Closed closed)) {
                             throw new BotTechnicalFailure("The positions could not be closed");
@@ -318,6 +381,11 @@ public class BotCommandService {
     public IdempotentResponse changeLimits(Principal person, UUID botId, RawLimits limits, IdempotencyKey key) {
         String content = "limits:" + botId + ":" + write(limits);
         return command(person, IdempotentOperation.BOT_LIMITS, key, content, 201, () -> lock(person, botId), bot -> {
+            // 261121-paper-real-unico U1 (BR1.9): a REAL bot uses the REAL limits of the account; no version is
+            // written.
+            if (bot.real()) {
+                throw invalid("limits", "Um bot REAL usa os limites REAL da conta.");
+            }
             BotStateMachine.requireLimitsEditable(bot.status());
             List<Violation> violations = validator.limits(limits);
             if (!violations.isEmpty()) {
@@ -362,6 +430,9 @@ public class BotCommandService {
 
     private Bot saveStepTwo(Bot bot, DraftInput input) {
         Bot editable = editable(bot);
+        if (bot.real()) {
+            return saveRealStepTwo(editable, input);
+        }
         List<Violation> violations = new ArrayList<>(validator.balance(input.virtualBalance()));
         if (input.limits() == null) {
             violations.add(new Violation("limits", Violation.Code.VALIDATION_FAILED, "Informe os limites."));
@@ -381,7 +452,34 @@ public class BotCommandService {
                 .build());
     }
 
-    /** BR1.7: with steps 1 and 2 valid, records the limits version and the bot is VALIDATED. */
+    /**
+     * 261121-paper-real-unico U1 (BR1.8): the limits step of a REAL bot shows the REAL limits of the account read only;
+     * "Continuar" saves the step WITHOUT a virtual balance nor limits of its own, and refuses either one (422).
+     */
+    private Bot saveRealStepTwo(Bot editable, DraftInput input) {
+        List<Violation> violations = new ArrayList<>();
+        if (input.virtualBalance() != null) {
+            violations.add(new Violation(
+                    "virtualBalance", Violation.Code.VALIDATION_FAILED, "Um bot REAL não tem saldo virtual."));
+        }
+        if (input.limits() != null) {
+            violations.add(new Violation(
+                    "limits", Violation.Code.VALIDATION_FAILED, "Um bot REAL usa os limites REAL da conta."));
+        }
+        if (!violations.isEmpty()) {
+            throw new BotValidationException(violations);
+        }
+        return saved(editable.toBuilder()
+                .draftStep(Math.max(editable.draftStep(), 2))
+                .updatedAt(clock.instant())
+                .build());
+    }
+
+    /**
+     * BR1.7: with steps 1 and 2 valid, records the limits version and the bot is VALIDATED. 261121-paper-real-unico U1
+     * (BR1.9): a REAL draft is validated on its parameters and selection only, without a virtual balance nor limits,
+     * and no limits version of the bot is written.
+     */
     private Bot validate(Bot bot, Principal person) {
         if (bot.status().state() == com.memetrade.bots.api.BotState.VALIDATED) {
             return bot;
@@ -394,6 +492,17 @@ public class BotCommandService {
         if (bot.selection().isEmpty()) {
             pending.add(new Violation(
                     "tokenSelection", Violation.Code.VALIDATION_FAILED, "Escolha pelo menos um token ou uma regra."));
+        }
+        if (bot.real()) {
+            if (!pending.isEmpty()) {
+                throw new BotValidationException(pending);
+            }
+            Change change = BotStateMachine.validate(bot.status());
+            return saved(bot.toBuilder()
+                    .status(change.after())
+                    .draftStep(Math.max(bot.draftStep(), 3))
+                    .updatedAt(clock.instant())
+                    .build());
         }
         if (bot.virtualBalance().isEmpty()) {
             pending.add(new Violation("virtualBalance", Violation.Code.VALIDATION_FAILED, "Informe o saldo virtual."));

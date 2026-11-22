@@ -41,15 +41,23 @@ public class RealPnlService {
     }
 
     public RealPnlCalculator.Result pnl(UUID tenantId, UUID userId) {
+        List<RealOrderView> orders = execution.settledOrders(tenantId, userId);
+        return RealPnlCalculator.of(fills(orders), lamportPrices(mints(orders)));
+    }
+
+    /**
+     * The fills of settled orders, in their order: a failure on chain counts only its fee; a buy spends its input and
+     * its rent for the output; a sell receives its output for its input. 261121-paper-real-unico U1: shared with the
+     * first implementation of C10, so a line by bot uses exactly the calculation of today.
+     */
+    public static List<RealPnlCalculator.Fill> fills(List<RealOrderView> orders) {
         List<RealPnlCalculator.Fill> fills = new ArrayList<>();
-        Set<String> mints = new HashSet<>();
-        for (RealOrderView order : execution.settledOrders(tenantId, userId)) {
+        for (RealOrderView order : orders) {
             long fee = order.feeLamports().orElse(0L);
             if (order.state() != RealOrderState.CONFIRMED) {
                 fills.add(new RealPnlCalculator.Fill(order.mint(), false, 0, 0, fee));
                 continue;
             }
-            mints.add(order.mint());
             long out = order.outBaseUnits().orElse(0L);
             fills.add(
                     order.side() == RealSide.BUY
@@ -67,11 +75,22 @@ public class RealPnlService {
                                     order.inputBaseUnits().orElse(0L),
                                     fee));
         }
-        return RealPnlCalculator.of(fills, lamportPrices(mints));
+        return fills;
+    }
+
+    /** The mints of the confirmed orders, whose price the unrealized needs. */
+    public static Set<String> mints(List<RealOrderView> orders) {
+        Set<String> mints = new HashSet<>();
+        for (RealOrderView order : orders) {
+            if (order.state() == RealOrderState.CONFIRMED) {
+                mints.add(order.mint());
+            }
+        }
+        return mints;
     }
 
     /** Lamports per base unit of each mint: {@code tokenUsd x 10^9 / (solUsd x 10^decimals)}, 18 places, down. */
-    private Map<String, Optional<BigDecimal>> lamportPrices(Set<String> mints) {
+    public Map<String, Optional<BigDecimal>> lamportPrices(Set<String> mints) {
         Map<String, Optional<BigDecimal>> prices = new HashMap<>();
         if (mints.isEmpty()) {
             return prices;

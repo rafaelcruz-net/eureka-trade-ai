@@ -72,7 +72,19 @@ public final class BotStateMachine {
             Objects.requireNonNull(maxDailyLoss, "maxDailyLoss");
             Objects.requireNonNull(dayLoss, "dayLoss");
         }
+
+        /**
+         * 261121-paper-real-unico U1 (BR1.9): the check of a bot without limits of its own (a REAL bot). It never has
+         * the PAPER reason DAILY_LOSS (the daily loss of the REAL pauses the bot wallet), so no daily loss limit nor day
+         * loss is compared; a DAILY_LOSS on such a bot is refused as a programming error.
+         */
+        public static ResumeCheck withoutBotLimits(boolean systemPaused, long activeCount) {
+            return new ResumeCheck(systemPaused, activeCount, NO_BOT_LIMIT, Optional.empty());
+        }
     }
+
+    /** The marker of {@link ResumeCheck#withoutBotLimits}: never compared, because the day loss is absent. */
+    private static final BigDecimal NO_BOT_LIMIT = new BigDecimal("-1");
 
     /** BR1.7: the draft becomes VALIDATED when steps 1 and 2 are valid (checked by the caller). */
     public static Change validate(BotStatus status) {

@@ -7,6 +7,7 @@ import com.memetrade.bots.application.BotCommandService;
 import com.memetrade.bots.application.BotQueries;
 import com.memetrade.bots.application.BotSummaryView;
 import com.memetrade.bots.application.DraftInput;
+import com.memetrade.bots.application.RealEligibilityReader;
 import com.memetrade.bots.domain.StrategyTemplates;
 import com.memetrade.identity.api.AuthContext;
 import com.memetrade.identity.api.IdempotencyKey;
@@ -62,14 +63,21 @@ public class BotController {
     private final AuthContext auth;
     private final ObjectMapper json;
     private final Clock clock;
+    private final RealEligibilityReader eligibility;
 
     public BotController(
-            BotCommandService commands, BotQueries queries, AuthContext auth, ObjectMapper json, Clock clock) {
+            BotCommandService commands,
+            BotQueries queries,
+            AuthContext auth,
+            ObjectMapper json,
+            Clock clock,
+            RealEligibilityReader eligibility) {
         this.commands = commands;
         this.queries = queries;
         this.auth = auth;
         this.json = json;
         this.clock = clock;
+        this.eligibility = eligibility;
     }
 
     @Operation(
@@ -121,7 +129,7 @@ public class BotController {
 
     @Operation(
             operationId = "createBot",
-            summary = "Cria o rascunho (DRAFT) a partir de uma estratégia modelo (BR1.1)",
+            summary = "Cria o rascunho (DRAFT) no modo escolhido (market), a partir de uma estratégia modelo (BR1.1)",
             security = @SecurityRequirement(name = "accessToken"),
             parameters =
                     @Parameter(
@@ -130,10 +138,27 @@ public class BotController {
                             required = true,
                             schema = @Schema(type = "string", format = "uuid")),
             responses = {
-                @ApiResponse(responseCode = "201", description = "Rascunho criado"),
+                @ApiResponse(responseCode = "201", description = "Rascunho criado no modo escolhido"),
+                @ApiResponse(
+                        responseCode = "409",
+                        description = "REAL_NOT_ELIGIBLE: market = REAL e a pessoa não pode criar bot REAL; reason traz"
+                                + " o motivo mais forte (KILL_SWITCH, REAL_DISABLED, WALLET_INACTIVE, NOT_RELEASED ou"
+                                + " QUARANTINE). Também IDEMPOTENCY_CONFLICT, como hoje",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class))),
                 @ApiResponse(
                         responseCode = "422",
-                        description = "VALIDATION_FAILED",
+                        description = "VALIDATION_FAILED: nome, templateId ou market inválido",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class))),
+                @ApiResponse(
+                        responseCode = "503",
+                        description = "SERVICE_UNAVAILABLE: a elegibilidade do REAL não pôde ser lida; falha fechada,"
+                                + " nenhum bot é criado",
                         content =
                                 @Content(
                                         mediaType = ProblemWriter.PROBLEM_JSON,
@@ -144,6 +169,30 @@ public class BotController {
             @RequestBody BotDtos.CreateBotRequest body, @Parameter(hidden = true) HttpServletRequest request) {
         Principal person = auth.current();
         return answer(commands.create(person, body.templateId(), body.name(), body.market(), key(request)));
+    }
+
+    @Operation(
+            operationId = "getRealEligibility",
+            summary = "Se a pessoa pode criar um bot REAL agora, com o motivo mais forte quando não pode (FR1.2,"
+                    + " ADR-005)",
+            security = @SecurityRequirement(name = "accessToken"),
+            responses = {
+                @ApiResponse(responseCode = "200", description = "A elegibilidade"),
+                @ApiResponse(
+                        responseCode = "503",
+                        description = "SERVICE_UNAVAILABLE: o estado do REAL não pôde ser lido; a tela mantém Real"
+                                + " desabilitada (falha fechada)",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class)))
+            })
+    @GetMapping("/api/v1/bots/real-eligibility")
+    public ResponseEntity<BotDtos.RealEligibilityDto> realEligibility() {
+        Principal person = auth.current();
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(BotDtos.RealEligibilityDto.of(eligibility.forRead(person)));
     }
 
     @Operation(
@@ -277,7 +326,8 @@ public class BotController {
                 @ApiResponse(responseCode = "201", description = "Nova versão gravada"),
                 @ApiResponse(
                         responseCode = "422",
-                        description = "LIMIT_INCOHERENT",
+                        description = "LIMIT_INCOHERENT, ou VALIDATION_FAILED no campo limits num bot REAL: um bot REAL"
+                                + " usa os limites REAL da conta e não tem limites próprios (BR1.9)",
                         content =
                                 @Content(
                                         mediaType = ProblemWriter.PROBLEM_JSON,

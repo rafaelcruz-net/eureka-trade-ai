@@ -135,7 +135,8 @@ function botSummary(value: unknown): BotSummary {
   const bot: BotSummary = {
     botId: text(raw.botId),
     name: text(raw.name),
-    mode: oneOf(raw.mode, ['PAPER'] as const),
+    // 261121-paper-real-unico U1 (C1 review R-01, BR10.5): the deprecated mode is always the market, PAPER or REAL.
+    mode: oneOf(raw.mode, ['PAPER', 'REAL'] as const),
     // 261113-trading-real-bot U4: the market of the bot (REAL or PAPER); never guessed when absent.
     market: oneOf(raw.market, ['PAPER', 'REAL'] as const),
     state: oneOf(raw.state, BOT_STATES),

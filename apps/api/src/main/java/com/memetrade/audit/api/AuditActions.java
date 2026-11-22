@@ -66,6 +66,12 @@ public final class AuditActions {
     /** U5 (NFR9.4): a bot draft was created; target {@code bot:<botId>}. */
     public static final String BOT_CREATED = "BOT_CREATED";
 
+    /**
+     * 261121-paper-real-unico U1 (BR2.4, NFR3.5): a REAL bot creation refused with 409 REAL_NOT_ELIGIBLE; target
+     * {@code bot-creation}, details {@code reason} and {@code market}. Written after the rollback of the command.
+     */
+    public static final String BOT_REAL_CREATION_REFUSED = "BOT_REAL_CREATION_REFUSED";
+
     /** U5 (BR2.2): the bot became ACTIVE (and was funded on its first activation). */
     public static final String BOT_STARTED = "BOT_STARTED";
 

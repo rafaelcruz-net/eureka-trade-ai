@@ -17,6 +17,11 @@ import { Term } from '@/features/bots/Dialog';
 import { commandErrorText, fieldErrorsOf, isUnauthenticated } from '@/features/bots/errors';
 import { fromForm, LimitFields, toForm, type LimitsForm } from '@/features/bots/LimitFields';
 import { botMessages } from '@/features/bots/messages';
+import { modeStepMessages, realLimitsMessages } from '@/features/bots/mode-messages';
+import { RealBotLimitsStep, type LimitsLoad } from '@/features/bots/RealBotLimitsStep';
+import { SimulatedBadge } from '@/components/SimulatedBadge';
+import { RealBadge } from '@/features/real/components/RealBadge';
+import { ApiError } from '@/lib/api/client';
 import {
   defaultLimits,
   validateBalance,
@@ -63,6 +68,24 @@ export function BotWizard() {
   const [errors, setErrors] = useState<FieldErrors>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [accountLimits, setAccountLimits] = useState<LimitsLoad>({ kind: 'loading' });
+
+  /** 261121-paper-real-unico U1 (BR1.8, BR3.4): the REAL limits of the account, read when the step opens. */
+  const fetchAccountLimits = useCallback(async () => {
+    setAccountLimits({ kind: 'loading' });
+    try {
+      setAccountLimits({ kind: 'ready', limits: await api.getRealAccountLimits() });
+    } catch (failure) {
+      if (isUnauthenticated(failure)) {
+        expire();
+        return;
+      }
+      setAccountLimits({
+        kind: 'error',
+        code: failure instanceof ApiError ? (failure.correlationId ?? failure.code) : 'NETWORK',
+      });
+    }
+  }, [api, expire]);
 
   const fetchDraft = useCallback(async () => {
     setLoad({ kind: 'loading' });
@@ -111,6 +134,13 @@ export function BotWizard() {
       void fetchDraft();
     }
   }, [status, fetchDraft]);
+
+  const realBot = load.kind === 'ready' && load.bot.market === 'REAL';
+  useEffect(() => {
+    if (realBot && step === 2) {
+      void fetchAccountLimits();
+    }
+  }, [realBot, step, fetchAccountLimits]);
 
   function changeBalance(value: string) {
     setBalance(value);
@@ -203,13 +233,27 @@ export function BotWizard() {
 
   const { template } = load;
   const selectionEmpty = selection.tokens.length === 0 && selection.rules.length === 0;
+  const steps = realBot
+    ? text.steps.map((name, index) => (index === 1 ? realLimitsMessages.title : name))
+    : text.steps;
   return (
-    <BotsShell title={text.title} testId="wizard">
-      <p data-testid="wizard-step">{text.stepIndicator(step, text.steps[step - 1] as string)}</p>
+    <BotsShell
+      title={text.title}
+      testId="wizard"
+      tag={
+        realBot ? (
+          <RealBadge testId="wizard-mode-badge" />
+        ) : (
+          <SimulatedBadge testId="wizard-mode-badge" />
+        )
+      }
+    >
+      <p data-testid="wizard-step">{text.stepIndicator(step, steps[step - 1] as string)}</p>
+      <p data-testid="wizard-mode">{modeStepMessages.modeLine(realBot ? 'REAL' : 'SIMULADO')}</p>
       <ol className="wizard-steps" aria-label={text.title}>
-        {text.steps.map((name, index) => (
+        {steps.map((name, index) => (
           <li key={name} aria-current={index + 1 === step ? 'step' : undefined}>
-            {index + 1}. {name}
+            {index + 2}. {name}
           </li>
         ))}
       </ol>
@@ -259,7 +303,16 @@ export function BotWizard() {
           </button>
         </section>
       )}
-      {step === 2 && (
+      {step === 2 && realBot && (
+        <RealBotLimitsStep
+          load={accountLimits}
+          busy={busy}
+          onRetry={() => void fetchAccountLimits()}
+          onBack={() => setStep(1)}
+          onContinue={() => void save(3, { step: 2 }, {})}
+        />
+      )}
+      {step === 2 && !realBot && (
         <section data-testid="wizard-step-2">
           <label htmlFor="wizard-balance">{text.balance} (USDC)</label>
           <input
@@ -330,14 +383,20 @@ export function BotWizard() {
                 value={parameters[spec.key] ?? ''}
               />
             ))}
-            <ReviewLine label={`${text.balance} (USDC)`} value={balance} />
-            {(Object.keys(limits) as (keyof LimitsForm)[]).map((field) => (
-              <ReviewLine
-                key={field}
-                label={`${(botMessages.limitFields[field] as { label: string }).label}`}
-                value={limits[field]}
-              />
-            ))}
+            {realBot ? (
+              <ReviewLine label={realLimitsMessages.title} value={realLimitsMessages.intro} />
+            ) : (
+              <>
+                <ReviewLine label={`${text.balance} (USDC)`} value={balance} />
+                {(Object.keys(limits) as (keyof LimitsForm)[]).map((field) => (
+                  <ReviewLine
+                    key={field}
+                    label={`${(botMessages.limitFields[field] as { label: string }).label}`}
+                    value={limits[field]}
+                  />
+                ))}
+              </>
+            )}
           </dl>
           <p data-testid="wizard-hypotheses">{text.hypotheses}</p>
           <button
@@ -375,7 +434,13 @@ export function BotWizard() {
             data-testid="wizard-start"
             onClick={() => void start()}
           >
-            {busy ? text.starting : text.start}
+            {busy
+              ? realBot
+                ? text.startingReal
+                : text.starting
+              : realBot
+                ? text.startReal
+                : text.start}
           </button>
         </section>
       )}

@@ -17,7 +17,10 @@ test('U7: P&L, ledger and reconciliation of an account without operations', asyn
   await page.getByTestId('app-nav-pnl-link').click();
   await page.waitForURL((url) => url.pathname === '/pnl');
 
-  await expect(page.getByTestId('pnl-title')).toContainText('MODO PAPER (simulado)');
+  // 261121-paper-real-unico U1 (BR9.2): the h1 is "Resultado" with the two blocks by mode; the PAPER period report
+  // below keeps the label "MODO PAPER (simulado)".
+  await expect(page.getByTestId('pnl-title')).toHaveText('Resultado');
+  await expect(page.getByTestId('pnl-paper-section')).toContainText('MODO PAPER (simulado)');
   await expect(page.getByTestId('pnl-empty')).toHaveText('Nenhuma operação neste período');
   await expect(page.getByTestId('pnl-report')).toHaveCount(0);
   // The smoke of U5 runs earlier with the same account: creating its PAPER bot records the initial virtual balance and

@@ -289,12 +289,81 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
         assertThat(paths().keySet()).noneMatch(path -> path.startsWith("/api/v1/admin"));
         // 261113-trading-real-bot: the REAL exists only under /api/v1/real/ (contract-summary.md "Modo"); every other
         // route stays PAPER and no route takes a "mode" query parameter.
+        // 261121-paper-real-unico U1 (C1, C2, C4, BR1.9): the single view of the two modes names the REAL in the
+        // creation (market and 409 REAL_NOT_ELIGIBLE), the eligibility, the refused limits of a REAL bot and the P&L
+        // by mode, the owned exceptions of contract-summary.md.
+        java.util.Set<String> unified = java.util.Set.of(
+                "/api/v1/bots", "/api/v1/bots/real-eligibility", "/api/v1/bots/{botId}/limits", "/api/v1/pnl/by-mode");
         paths().forEach((path, item) -> {
-            if (!path.startsWith("/api/v1/real/")) {
+            if (!path.startsWith("/api/v1/real/") && !unified.contains(path)) {
                 assertThat(String.valueOf(item)).as(path).doesNotContain("REAL");
             }
         });
         assertThat(generated).doesNotContain("name: mode");
+    }
+
+    /** 261121-paper-real-unico U1 (C1, BR1.1, BR1.3, BR2.4, BR1.9; regra de posse 5): the creation in a mode. */
+    @Test
+    void c1TheCreationTakesTheMarketAndRefusesARealPersonNotEligibleWith409() {
+        Map<String, Object> created = responses("/api/v1/bots", "post");
+        assertThat(created.keySet()).contains("201", "409", "422", "503");
+        assertThat(String.valueOf(created.get("409")))
+                .contains("REAL_NOT_ELIGIBLE")
+                .contains("KILL_SWITCH")
+                .contains("NOT_RELEASED")
+                .contains("QUARANTINE");
+        assertThat(String.valueOf(schema("CreateBotRequest").get("properties"))).contains("market");
+        for (String bot : List.of("BotSummary", "BotDetail")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> mode =
+                    (Map<String, Object>) ((Map<String, Object>) schema(bot).get("properties")).get("mode");
+            assertThat(mode.get("deprecated")).as(bot).isEqualTo(true);
+            assertThat(strings(mode.get("enum"))).as(bot).containsExactlyInAnyOrder("PAPER", "REAL");
+        }
+        assertThat(String.valueOf(
+                        responses("/api/v1/bots/{botId}/limits", "post").get("422")))
+                .contains("REAL");
+        assertThat(String.valueOf(schema("Decision").get("properties"))).contains("limites da conta");
+    }
+
+    /** 261121-paper-real-unico U1 (C2, C3): the eligibility and the REAL limits of the account. */
+    @Test
+    void c2AndC3TheEligibilityAndTheLimitsOfTheAccount() {
+        assertThat(paths()).containsKeys("/api/v1/bots/real-eligibility", "/api/v1/real/account-limits");
+        assertThat(strings(schema("RealEligibility").get("required"))).containsExactly("available");
+        assertThat(keys(schema("RealEligibility").get("properties")))
+                .containsExactlyInAnyOrder("available", "reason", "effectiveAt", "action");
+        assertThat(responses("/api/v1/bots/real-eligibility", "get").keySet()).contains("200", "503");
+        assertThat(keys(schema("RealAccountLimitsView").get("properties")))
+                .containsExactlyInAnyOrder("currency", "cap", "orderMax", "dailyBuys", "dailyLoss");
+        assertThat(responses("/api/v1/real/account-limits", "get").keySet()).contains("200", "409", "503");
+        assertThat(String.valueOf(schema("LimitUnknown"))).contains("NOT_DEFINED");
+    }
+
+    /** 261121-paper-real-unico U1 (C4, BR5.1, BR5.8; regra de posse 6 e 7): only the period and two blocks. */
+    @Test
+    void c4TheAnswerByModeHasOnlyThePeriodAndTwoBlocksAndNoGeneralTotal() {
+        assertThat(paths()).containsKey("/api/v1/pnl/by-mode");
+        Map<String, Object> byMode = schema("PnlByMode");
+        assertThat(keys(byMode.get("properties"))).containsExactlyInAnyOrder("period", "paper", "real");
+        assertThat(strings(byMode.get("required"))).containsExactlyInAnyOrder("period", "paper", "real");
+        assertThat(schema("PaperModeBlockResult")).containsKey("oneOf");
+        assertThat(schema("RealModeBlockResult")).containsKey("oneOf");
+        assertThat(String.valueOf(schema("PaperModeBlock").get("properties")))
+                .contains("USD")
+                .doesNotContain("SOL");
+        assertThat(String.valueOf(schema("RealModeBlock").get("properties")))
+                .contains("SOL")
+                .doesNotContain("USD");
+        assertThat(strings(schema("RealModeBlock").get("required"))).contains("unowned");
+        assertThat(strings(schema("ModeBlockUnavailable").get("required")))
+                .containsExactlyInAnyOrder("status", "market", "currency", "code", "correlationId");
+        assertThat(String.valueOf(schema("RealModeBlock")).toLowerCase(java.util.Locale.ROOT))
+                .doesNotContain("address")
+                .doesNotContain("wallet");
+        assertThat(String.valueOf(operation("/api/v1/pnl/by-mode", "get").get("parameters")))
+                .contains("name=period")
+                .doesNotContain("name=from");
     }
 
     @SuppressWarnings("unchecked")

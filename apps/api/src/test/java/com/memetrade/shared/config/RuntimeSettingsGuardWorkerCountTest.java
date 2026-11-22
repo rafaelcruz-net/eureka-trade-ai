@@ -10,11 +10,17 @@ import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.env.YamlPropertySourceLoader;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mock.env.MockEnvironment;
@@ -32,8 +38,21 @@ class RuntimeSettingsGuardWorkerCountTest {
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
             .importPackages("com.memetrade");
 
-    /** Every {@code @Scheduled} method of a class that exists only in the worker ({@code @ProcessRole(WORKER)}). */
+    /**
+     * Every {@code @Scheduled} method of a class that exists only in the worker ({@code @ProcessRole(WORKER)}) and in
+     * every profile: a class with exactly {@code @Profile("test")} never exists in production
+     * ({@code RecordedSwapProfileGuardTest}) and is counted by {@link #testOnlyWorkerScheduledMethods()}.
+     */
     static List<String> workerScheduledMethods() {
+        return scheduledWorkerMethods(false);
+    }
+
+    /** The {@code @Scheduled} methods of the worker that exist only in the profile {@code test}. */
+    static List<String> testOnlyWorkerScheduledMethods() {
+        return scheduledWorkerMethods(true);
+    }
+
+    private static List<String> scheduledWorkerMethods(boolean testOnly) {
         List<String> methods = new ArrayList<>();
         for (JavaClass type : PRODUCTION) {
             if (!type.isAnnotatedWith(ProcessRole.class)) {
@@ -41,6 +60,11 @@ class RuntimeSettingsGuardWorkerCountTest {
             }
             ProcessRole role = type.getAnnotationOfType(ProcessRole.class);
             if (role.value() != ProcessRole.Kind.WORKER) {
+                continue;
+            }
+            boolean onlyInTest = type.isAnnotatedWith(Profile.class)
+                    && Arrays.equals(type.getAnnotationOfType(Profile.class).value(), new String[] {"test"});
+            if (onlyInTest != testOnly) {
                 continue;
             }
             for (JavaMethod method : type.getMethods()) {
@@ -62,6 +86,33 @@ class RuntimeSettingsGuardWorkerCountTest {
         assertThat(RuntimeSettingsGuard.MIN_WORKER_POOL)
                 .as("4 cycles + 4 reserve + one connection per scheduled method")
                 .isGreaterThanOrEqualTo(8 + scheduled.size());
+    }
+
+    /**
+     * 261121-paper-real-unico U1 (review R-01): the worker of the REAL Compose (the only run with the profile
+     * {@code test} and RECORDED_MINT) also has one scheduler thread and one connection per scheduled method, the
+     * test-only ones included, and its pools pass the guard.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void theWorkerOfTheRealComposeHasOneThreadPerScheduledMethodTheTestOnlyOnesIncluded() throws IOException {
+        int scheduled = workerScheduledMethods().size()
+                + testOnlyWorkerScheduledMethods().size();
+        Map<String, Object> compose;
+        try (InputStream in = Files.newInputStream(Path.of("..", "..", "infra", "docker-compose.real.yml"))) {
+            compose = new org.yaml.snakeyaml.Yaml().load(in);
+        }
+        Map<String, Object> worker =
+                (Map<String, Object>) ((Map<String, Object>) compose.get("services")).get("worker");
+        Map<String, Object> environment = (Map<String, Object>) worker.get("environment");
+        String scheduler = String.valueOf(environment.get("SCHEDULER_POOL_SIZE"));
+        String pool = String.valueOf(environment.get("DB_POOL_MAX_SIZE"));
+
+        assertThat(testOnlyWorkerScheduledMethods()).containsExactly("RecordedSwapFirstCycle.tick");
+        assertThat(Integer.parseInt(scheduler)).isGreaterThanOrEqualTo(scheduled);
+        assertThat(Integer.parseInt(pool)).isGreaterThanOrEqualTo(8 + scheduled);
+        assertThatCode(() -> new RuntimeSettingsGuard(environment(pool, scheduler)))
+                .doesNotThrowAnyException();
     }
 
     @Test

@@ -19,15 +19,19 @@ import org.springframework.stereotype.Component;
 /**
  * 261113-trading-real-bot U4 (infrastructure-specification.md "Decisão do bot"): the TEST-ONLY strategy of the REAL
  * swap recorded for the local validator. EXISTS ONLY IN THE TEST PROFILE, in the worker, and acts only when the
- * {@link RecordedSwapFixture} exists (the REAL Compose with the recordings) and only on a REAL bot whose selection is
- * exactly the recorded mint (the bot the swap spec creates for the smoke account). For that bot it replaces the decision
- * engine:
+ * {@link RecordedSwapFixture} exists (the REAL Compose with the recordings) and only on a bot whose selection is
+ * exactly the recorded mint (the bots the e2e specs create for the smoke account). For that bot it replaces the
+ * decision engine:
  *
  * <ol>
- *   <li>an open REAL position in the mint: HOLD (it never sells; "vender tudo e sacar" does);
- *   <li>a cycle of the bot already recorded a REAL order: NO_TRADE (one buy, ever);
- *   <li>otherwise: BUY of exactly {@link RecordedSwapFixture#buyLamports()} of the mint, through the same barrier (M5)
- *       and the same M6 as any REAL bot.
+ *   <li>an open position in the mint, in the mode of the bot: HOLD (it never sells; "vender tudo e sacar" does);
+ *   <li>a cycle of the bot already recorded its order: NO_TRADE (one buy, ever);
+ *   <li>otherwise, for a REAL bot: BUY of exactly {@link RecordedSwapFixture#buyLamports()} of the mint, through the same
+ *       barrier (M5) and the same M6 as any REAL bot;
+ *   <li>otherwise, for a PAPER bot (261121-paper-real-unico U1, BR10.1: one buy in each mode in the walking skeleton):
+ *       BUY of {@link RecordedSwapFixture#expectedOutTokens()} of the mint, through the same barrier of U6 and the same
+ *       PAPER execution of U7 as any PAPER bot, at the price sim-a publishes for the mint. The PAPER bot never touches
+ *       the REAL ledger, and the REAL bot never the PAPER one.
  * </ol>
  *
  * A buy the barrier refuses (for example before the deposit is credited) records nothing, so the next slot tries again.
@@ -38,6 +42,9 @@ import org.springframework.stereotype.Component;
 public class RecordedSwapStrategy {
 
     static final String RECORDED = "REAL_RECORDED";
+    /** The outcome of the cycle of a PAPER fill ({@code CycleRunner}): the one PAPER buy is done. */
+    static final String PAPER_FILLED = "FILLED";
+
     private static final Duration SLOT = Duration.ofMinutes(5);
 
     private final Optional<RecordedSwapFixture> fixture;
@@ -48,12 +55,12 @@ public class RecordedSwapStrategy {
         this.cycles = cycles;
     }
 
-    /** The decision of the test strategy, with the exact lamports of a BUY. */
+    /** The decision of the test strategy, with the exact lamports of a REAL BUY (empty for PAPER). */
     record Decision(DecisionOutcome outcome, Optional<Long> buyLamports) {}
 
-    /** True for the test bot of the recorded swap: a REAL bot whose selection is only the recorded mint. */
+    /** True for a test bot of the recorded swap: a bot, of either mode, whose selection is only the recorded mint. */
     boolean applies(Bot bot) {
-        if (fixture.isEmpty() || !bot.real()) {
+        if (fixture.isEmpty()) {
             return false;
         }
         TokenId recorded = new TokenId("solana", fixture.get().mint());
@@ -61,9 +68,10 @@ public class RecordedSwapStrategy {
     }
 
     /**
-     * @param holdsMint the bot wallet has an open REAL position in the recorded mint
+     * @param holdsMint the bot has an open position in the recorded mint, in its own mode (the bot wallet for REAL, the
+     *     PAPER account of the bot for PAPER)
      * @param factors the factors the engine recorded for the same inputs, kept for the audit of the decision
-     * @return empty when the bot is not the test bot of the recorded swap
+     * @return empty when the bot is not a test bot of the recorded swap
      */
     Optional<Decision> decide(Bot bot, boolean holdsMint, Instant slotStart, List<Factor> factors) {
         if (!applies(bot)) {
@@ -85,7 +93,7 @@ public class RecordedSwapStrategy {
                             validUntil),
                     Optional.empty()));
         }
-        if (cycles.hasOutcome(bot.botId(), RECORDED)) {
+        if (cycles.hasOutcome(bot.botId(), bot.real() ? RECORDED : PAPER_FILLED)) {
             return Optional.of(new Decision(
                     new DecisionOutcome(
                             DecisionAction.NO_TRADE,
@@ -95,6 +103,20 @@ public class RecordedSwapStrategy {
                             Optional.empty(),
                             factors,
                             "Estratégia de teste do swap gravado: a compra única já foi feita.",
+                            validUntil),
+                    Optional.empty()));
+        }
+        if (!bot.real()) {
+            return Optional.of(new Decision(
+                    new DecisionOutcome(
+                            DecisionAction.BUY,
+                            Optional.of(token),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.of(recorded.expectedOutTokens()),
+                            factors,
+                            "Estratégia de teste do swap gravado: compra simulada única de "
+                                    + recorded.expectedOutTokens().toPlainString() + " tokens do mint gravado.",
                             validUntil),
                     Optional.empty()));
         }

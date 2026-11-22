@@ -51,7 +51,8 @@ export const botMessages = {
   },
   wizard: {
     title: 'Assistente do bot',
-    stepIndicator: (step: number, name: string) => `Etapa ${step} de 4: ${name}`,
+    // 261121-paper-real-unico U1: "Modo e nome" is step 1 of 5 (the creation); the wizard holds steps 2 to 5.
+    stepIndicator: (step: number, name: string) => `Etapa ${step + 1} de 5: ${name}`,
     steps: ['Estratégia e tokens', 'Limites e saldo', 'Revisão', 'Início'],
     back: 'Voltar',
     next: 'Continuar',
@@ -92,6 +93,9 @@ export const botMessages = {
       'A simulação usa o preço de referência de mercado, o spread, o impacto pela liquidez consumida e as taxas da política vigente. Resultados simulados não garantem resultados reais.',
     start: 'Iniciar bot PAPER',
     starting: 'Iniciando bot PAPER',
+    // 261121-paper-real-unico U1 (BR1.6): the start of a REAL bot says so.
+    startReal: 'Iniciar bot real',
+    startingReal: 'Iniciando bot real',
     startError: 'O bot não foi iniciado e continua salvo. Tente de novo.',
     startLimit: '3 de 3 bots ativos. Pause ou encerre outro bot para iniciar este.',
     startSystem: 'Pausado pelo sistema: o início está indisponível agora.',

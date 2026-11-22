@@ -91,6 +91,32 @@ describe('lint rules of the dashboard', () => {
     expect(floatMessages(lint('src/lib/format-sample.ts', FLOATS))).toHaveLength(0);
   });
 
+  // 261121-paper-real-unico U1 (BR7.5, ADR-010, C17): the P&L folder refuses Number(, toFixed, parseFloat and any
+  // bigint; lamports are formatted only by features/real/money.ts.
+  it('refuses Number(, toFixed, parseFloat and bigint in the P&L folder', () => {
+    const code = [
+      "export const a = Number('1.5');",
+      "export const b = parseFloat('1.5');",
+      'export const c = (1.5).toFixed(2);',
+      "export const d = BigInt('31200000');",
+      'export const e = 10n;',
+      '',
+    ].join('\n');
+
+    const messages = lint('src/features/pnl/money-sample.ts', code);
+
+    expect(messages.filter((entry) => entry.message.includes('stay text'))).toHaveLength(2);
+    expect(messages.filter((entry) => entry.message.includes('toFixed'))).toHaveLength(1);
+    expect(
+      messages.filter((entry) => entry.message.includes('features/real/money.ts')),
+    ).toHaveLength(2);
+    expect(
+      lint('src/features/real/money.ts', "export const d = BigInt('1');\n").filter((entry) =>
+        entry.message.includes('features/real/money.ts'),
+      ),
+    ).toHaveLength(0);
+  });
+
   it('no source file of the app uses EventSource', () => {
     const files = (function walk(dir: string): string[] {
       return readdirSync(dir).flatMap((name) => {

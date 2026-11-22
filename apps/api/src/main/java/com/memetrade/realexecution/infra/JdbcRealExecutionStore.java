@@ -500,6 +500,21 @@ public class JdbcRealExecutionStore {
                 .single();
     }
 
+    /**
+     * 261121-paper-real-unico U1: the same orders, at most {@code max} (with {@code limit} in the query, so the U1 REAL
+     * block never loads more than it may read).
+     */
+    public List<OrderRow> settled(UUID tenantId, UUID userId, int max) {
+        return jdbc.sql("select " + ORDER_COLUMNS + " from real_order where tenant_id = :tenant and user_id = :user"
+                        + " and tx_signature is not null and state in ('CONFIRMED', 'FAILED') order by updated_at,"
+                        + " real_order_id limit :max")
+                .param("tenant", tenantId)
+                .param("user", userId)
+                .param("max", max)
+                .query(JdbcRealExecutionStore::order)
+                .list();
+    }
+
     /** BR6.2: the orders of the person that reached the network, oldest first. */
     public List<OrderRow> settled(UUID tenantId, UUID userId) {
         return jdbc.sql("select " + ORDER_COLUMNS + " from real_order where tenant_id = :tenant and user_id = :user"

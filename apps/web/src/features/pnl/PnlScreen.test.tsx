@@ -5,7 +5,14 @@ import { tokenStore } from '@/lib/auth/token-store';
 import { messages } from '@/lib/i18n/messages';
 import { fakeApi, Providers } from '@/features/auth/test-support';
 import { PnlScreen } from '@/features/pnl/PnlScreen';
-import { DIVERGENT, MINT_A, MINT_B, PARTIAL_REPORT, REPORT } from '@/features/pnl/fixtures';
+import {
+  BY_MODE,
+  DIVERGENT,
+  MINT_A,
+  MINT_B,
+  PARTIAL_REPORT,
+  REPORT,
+} from '@/features/pnl/fixtures';
 import PnlPage from '@/app/pnl/page';
 
 const replace = jest.fn();
@@ -34,10 +41,12 @@ describe('S6 P&L screen /pnl', () => {
     tokenStore.clear();
   });
 
-  it('the title always says MODO PAPER (simulado) and the period of the last 7 local days goes in UTC', async () => {
+  it('the PAPER section always says MODO PAPER (simulado) and the period of the last 7 local days goes in UTC', async () => {
     const api = renderPnl();
 
-    expect(screen.getByTestId('pnl-title')).toHaveTextContent(text.paperLabel);
+    // 261121-paper-real-unico U1 (BR9.2): the h1 is "Resultado"; the PAPER period report keeps its label below.
+    expect(screen.getByTestId('pnl-title')).toHaveTextContent('Resultado');
+    expect(screen.getByTestId('pnl-paper-section')).toHaveTextContent(text.paperLabel);
     await waitFor(() =>
       expect(api.getPnl).toHaveBeenCalledWith({
         from: '2026-10-22T03:00:00Z',
@@ -70,6 +79,21 @@ describe('S6 P&L screen /pnl', () => {
     expect(
       within(screen.getByTestId(`pnl-line-${MINT_A}`)).getByText('Mint…1111'),
     ).toBeInTheDocument();
+  });
+
+  it('the table by token scrolls inside its own named, focusable region, never the page (NFR6.1)', async () => {
+    renderPnl(fakeApi({ getPnl: jest.fn(async () => REPORT) }));
+
+    const table = await screen.findByTestId('pnl-lines');
+    const region = table.closest('.table-scroll');
+    expect(region).not.toBeNull();
+    expect(region).toHaveAttribute('tabindex', '0');
+    expect(screen.getByRole('region', { name: text.byTokenCaption })).toBe(region);
+    // The full mint stays reachable behind its abbreviation.
+    expect(within(screen.getByTestId(`pnl-line-${MINT_A}`)).getByText('Mint…1111')).toHaveAttribute(
+      'title',
+      MINT_A,
+    );
   });
 
   it('never shows a partial total as complete: unknown with reason, "parcial" and the notice', async () => {
@@ -197,7 +221,8 @@ describe('S6 P&L screen /pnl', () => {
 
     expect(screen.getByLabelText(text.from)).toHaveAttribute('type', 'date');
     expect(screen.getByLabelText(text.to)).toHaveAttribute('type', 'date');
-    expect(screen.getByRole('heading', { level: 1 })).toHaveFocus();
+    // 261121-paper-real-unico U1 (BR9.2): the first focus is on the h2 of the block Simulado.
+    expect(screen.getByRole('heading', { level: 2, name: /Simulado, em dólares/ })).toHaveFocus();
     expect(screen.getByRole('table', { name: text.byTokenCaption })).toBeInTheDocument();
     screen.getAllByRole('button').forEach((button) => expect(button.tagName).toBe('BUTTON'));
     await userEvent.tab();
@@ -212,6 +237,77 @@ describe('S6 P&L screen /pnl', () => {
       </Providers>,
     );
 
-    expect(await screen.findByTestId('pnl-title')).toHaveTextContent(text.paperLabel);
+    expect(await screen.findByTestId('pnl-title')).toHaveTextContent('Resultado');
+    expect(screen.getByTestId('pnl-paper-section')).toHaveTextContent(text.paperLabel);
+  });
+
+  // 261121-paper-real-unico U1 (BR5.1, BR5.3, BR6.1, BR9.2; AC4.1.x, AC4.2.1): the two blocks by mode, never added.
+  it('shows the two blocks by mode side by side, each in its currency, and no general total', async () => {
+    renderPnl(fakeApi({ getPnlByMode: jest.fn(async () => BY_MODE) }));
+
+    const paper = await screen.findByTestId('pnl-block-PAPER-total');
+    const real = screen.getByTestId('pnl-block-REAL-total');
+    expect(paper).toHaveTextContent('+US$ 12,00');
+    expect(real).toHaveTextContent('+0,0312 SOL');
+    expect(screen.getByTestId('pnl-block-PAPER-disclaimer')).toHaveTextContent(
+      'O resultado simulado não garante o resultado real.',
+    );
+    expect(screen.queryByTestId('pnl-block-REAL-disclaimer')).toBeNull();
+    expect(screen.getByTestId('pnl-block-REAL-note')).toBeInTheDocument();
+    expect(screen.getByTestId('pnl-modes')).not.toHaveTextContent(/total geral/i);
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Resultado');
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('Simulado, em dólares'),
+        expect.stringContaining('Real, em SOL'),
+      ]),
+    );
+  });
+
+  it('"Tentar de novo" of an unavailable block reads the route again and updates only that block', async () => {
+    const getPnlByMode = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ...BY_MODE,
+        real: {
+          status: 'UNAVAILABLE',
+          market: 'REAL',
+          currency: 'SOL',
+          code: 'SERVICE_UNAVAILABLE',
+          correlationId: 'corr-1',
+        },
+      })
+      .mockResolvedValueOnce({
+        ...BY_MODE,
+        paper: {
+          status: 'UNAVAILABLE',
+          market: 'PAPER',
+          currency: 'USD',
+          code: 'SERVICE_UNAVAILABLE',
+          correlationId: 'corr-2',
+        },
+      });
+    renderPnl(fakeApi({ getPnlByMode }));
+
+    expect(await screen.findByTestId('pnl-block-REAL-error')).toHaveTextContent('corr-1');
+    expect(screen.getByTestId('pnl-block-PAPER-total')).toHaveTextContent('+US$ 12,00');
+    await userEvent.click(screen.getByTestId('pnl-block-REAL-retry'));
+
+    expect(await screen.findByTestId('pnl-block-REAL-total')).toHaveTextContent('+0,0312 SOL');
+    expect(screen.getByTestId('pnl-block-PAPER-total')).toHaveTextContent('+US$ 12,00');
+    expect(getPnlByMode).toHaveBeenCalledTimes(2);
+  });
+
+  it('a failed route leaves both blocks in error with the code for the support', async () => {
+    renderPnl(
+      fakeApi({
+        getPnlByMode: jest.fn(async () => {
+          throw new ApiError(503, 'SERVICE_UNAVAILABLE', undefined, 'corr-9');
+        }),
+      }),
+    );
+
+    expect(await screen.findByTestId('pnl-block-PAPER-error')).toHaveTextContent('corr-9');
+    expect(screen.getByTestId('pnl-block-REAL-error')).toHaveTextContent('corr-9');
   });
 });

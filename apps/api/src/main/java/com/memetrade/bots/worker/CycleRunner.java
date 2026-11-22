@@ -77,6 +77,12 @@ public class CycleRunner {
     private static final Logger log = LoggerFactory.getLogger(CycleRunner.class);
     private static final Duration SLOT = Duration.ofMinutes(5);
 
+    /**
+     * 261121-paper-real-unico U1 (BR1.9): the documented sentinel recorded in {@code decision.limits_version} of a REAL
+     * decision: a REAL bot has no limits version of its own; the REAL limits of the account apply.
+     */
+    public static final int REAL_LIMITS_VERSION = 0;
+
     private final CycleAuthContext auth;
     private final JdbcBotRepository bots;
     private final JdbcCycleRepository cycles;
@@ -210,29 +216,45 @@ public class CycleRunner {
         if (!bot.status().reasons().isEmpty() || bots.systemPaused()) {
             return skip(cycleId, "PAUSED", now);
         }
-        int version = bot.currentLimitsVersion().orElseThrow();
-        BotLimits limits = bots.limits(bot.botId(), version).orElseThrow();
         long decideStarted = System.nanoTime();
         // 261113-trading-real-bot U4 (F1): a REAL bot decides on the REAL balance and positions of its bot wallet.
+        // 261121-paper-real-unico U1 (BR1.9): a REAL bot has no limits of its own; the limits version of the bot is
+        // read only in the PAPER branch. The REAL decision is recorded with the sentinel version 0 ("the limits of the
+        // account") and the cap of a buy is the order limit of the account (C9), checked again by the REAL barrier.
         Optional<RealCycle.Inputs> real = Optional.empty();
+        int version;
+        Optional<BotLimits> paperLimits;
+        BigDecimal maxOrderSize;
         if (bot.real()) {
             stage.at(CycleCause.EXECUTION);
             real = realCycle.inputs(bot, bots.holdings(bot.botId()), now);
             if (real.isEmpty()) {
                 return skip(cycleId, "REAL_UNAVAILABLE", now);
             }
+            version = REAL_LIMITS_VERSION;
+            paperLimits = Optional.empty();
+            maxOrderSize = realCycle.maxOrderSize(bot, real.get());
+        } else {
+            version = bot.currentLimitsVersion().orElseThrow();
+            BotLimits limits = bots.limits(bot.botId(), version).orElseThrow();
+            paperLimits = Optional.of(limits);
+            maxOrderSize = limits.maxOrderSize();
         }
-        DecisionRequest request = request(bot, version, limits, slotStart, now, stage, real);
+        DecisionRequest request = request(bot, version, maxOrderSize, slotStart, now, stage, real);
         stage.at(CycleCause.OTHER);
         DecisionOutcome outcome = engine.decide(request);
-        // Test profile only (RecordedSwapStrategy): the test bot of the recorded swap decides by its own fixed rule.
+        // Test profile only (RecordedSwapStrategy): a test bot of the recorded swap decides by its own fixed rule; the
+        // open position is read in the mode of the bot only (the bot wallet for REAL, the PAPER account for PAPER).
         Optional<RecordedSwapStrategy.Decision> recorded = Optional.empty();
-        if (real.isPresent() && recordedSwap != null) {
+        if (recordedSwap != null) {
             stage.at(CycleCause.DATABASE);
             Optional<TokenId> mint = bot.selection().tokens().stream().findFirst();
             boolean holds = mint.isPresent()
-                    && real.get().raw().stream()
-                            .anyMatch(p -> p.mint().equals(mint.get().mint()));
+                    && (real.isPresent()
+                            ? real.get().raw().stream()
+                                    .anyMatch(p -> p.mint().equals(mint.get().mint()))
+                            : request.positions().stream()
+                                    .anyMatch(p -> p.token().equals(mint.get())));
             recorded = recordedSwap.decide(bot, holds, slotStart, outcome.factors());
             if (recorded.isPresent()) {
                 outcome = recorded.get().outcome();
@@ -268,7 +290,7 @@ public class CycleRunner {
                 bots.openHolding(bot.botId(), outcome.token().orElseThrow(), now);
             }
         } else {
-            result = order(bot, version, limits, decisionId, outcome, now, stage);
+            result = order(bot, version, paperLimits.orElseThrow(), decisionId, outcome, now, stage);
         }
         stage.at(CycleCause.DATABASE);
         cycles.finish(
@@ -291,7 +313,7 @@ public class CycleRunner {
     private DecisionRequest request(
             Bot bot,
             int version,
-            BotLimits limits,
+            BigDecimal maxOrderSize,
             Instant slotStart,
             Instant now,
             Stage stage,
@@ -340,7 +362,7 @@ public class CycleRunner {
                 bot.templateVersion(),
                 bot.parameters(),
                 version,
-                limits.maxOrderSize(),
+                maxOrderSize,
                 balance,
                 inputs,
                 positions,

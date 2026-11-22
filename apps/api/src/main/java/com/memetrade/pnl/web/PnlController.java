@@ -14,6 +14,8 @@ import com.memetrade.identity.api.Principal;
 import com.memetrade.pnl.application.PnlQueryService;
 import com.memetrade.pnl.application.ReconciliationService;
 import com.memetrade.pnl.application.ReconciliationService.Trigger;
+import com.memetrade.pnl.modeview.ModePnlStatement;
+import com.memetrade.pnl.modeview.ModePnlView;
 import com.memetrade.pnl.web.PnlDtos.PnlReportDto;
 import com.memetrade.pnl.web.PnlDtos.ReconciliationResultDto;
 import com.memetrade.shared.error.ApiException;
@@ -65,7 +67,11 @@ public class PnlController {
     private final AuthContext auth;
     private final ObjectMapper json;
     private final TransactionTemplate repeatableRead;
+    private final ModePnlView modeView;
+    private final PaperBlockSource paperBlocks;
+    private final RealBlockSource realBlocks;
 
+    @SuppressWarnings("checkstyle:ParameterNumber")
     public PnlController(
             PnlQueryService pnl,
             ReconciliationService reconciliation,
@@ -73,7 +79,13 @@ public class PnlController {
             IdempotencyGuard idempotency,
             AuthContext auth,
             ObjectMapper json,
-            PlatformTransactionManager transactions) {
+            PlatformTransactionManager transactions,
+            ModePnlView modeView,
+            PaperBlockSource paperBlocks,
+            RealBlockSource realBlocks) {
+        this.modeView = modeView;
+        this.paperBlocks = paperBlocks;
+        this.realBlocks = realBlocks;
         this.pnl = pnl;
         this.reconciliation = reconciliation;
         this.limiter = limiter;
@@ -129,6 +141,46 @@ public class PnlController {
         Optional<Instant> end = query.requiredInstant("to");
         query.validate();
         return PnlReportDto.of(pnl.report(person, start.orElseThrow(), end.orElseThrow(), bot));
+    }
+
+    @Operation(
+            operationId = "getPnlByMode",
+            summary = "P&L em dois blocos separados, PAPER (US$) e REAL (SOL), no mesmo período; nunca somados (FR4.1,"
+                    + " ADR-003)",
+            security = @SecurityRequirement(name = "accessToken"),
+            responses = {
+                @ApiResponse(
+                        responseCode = "200",
+                        description = "Os dois blocos; um modo que falhou vem com status UNAVAILABLE sem derrubar o"
+                                + " outro"),
+                @ApiResponse(
+                        responseCode = "400",
+                        description = "VALIDATION_FAILED: na U1, só o período ALL; from e to são recusados",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class)))
+            })
+    @GetMapping("/api/v1/pnl/by-mode")
+    public ResponseEntity<ModePnlDtos.PnlByModeDto> byMode(
+            @Parameter(schema = @Schema(type = "string", allowableValues = "ALL", defaultValue = "ALL"))
+                    @RequestParam(required = false)
+                    String period,
+            @Parameter(hidden = true) @RequestParam MultiValueMap<String, String> parameters) {
+        Principal person = auth.current();
+        // 261121-paper-real-unico U1 (BR5.6): only ALL; the U3 adds RANGE with from and to. A tenantId is ignored: the
+        // person of the token is always the one read (BR8.1).
+        if (parameters.containsKey("from") || parameters.containsKey("to")) {
+            throw ApiException.validation("from", "Na U1 o período é só ALL.");
+        }
+        if (period != null && !ModePnlStatement.ALL.equals(period)) {
+            throw ApiException.validation("period", "Na U1 o período é só ALL.");
+        }
+        ModePnlStatement<ModePnlDtos.PaperModeBlockDto, ModePnlDtos.RealModeBlockDto> statement =
+                modeView.statement(() -> paperBlocks.block(person), () -> realBlocks.block(person));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(ModePnlDtos.PnlByModeDto.of(statement.period(), statement.paper(), statement.real()));
     }
 
     @Operation(

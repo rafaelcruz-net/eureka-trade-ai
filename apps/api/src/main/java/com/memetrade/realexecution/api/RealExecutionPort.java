@@ -59,6 +59,16 @@ public interface RealExecutionPort {
     List<RealOrderView> settledOrders(UUID tenantId, UUID userId);
 
     /**
+     * 261121-paper-real-unico U1 (performance-design.md "Limite e gatilho da leitura REAL"): the same orders, at most
+     * {@code max} of them (the oldest first), so a reader can tell "more than it may read" without loading them all.
+     * The default reads everything and cuts; the store answers with a {@code limit} in the query.
+     */
+    default List<RealOrderView> settledOrders(UUID tenantId, UUID userId, int max) {
+        List<RealOrderView> all = settledOrders(tenantId, userId);
+        return all.size() <= max ? all : all.subList(0, max);
+    }
+
+    /**
      * BR10.1, observability-design.md "Canal ao vivo": the mark of the REAL orders of the person, the newest update in
      * milliseconds, written in the same transaction as each change of state (a change rolled back is never announced).
      */

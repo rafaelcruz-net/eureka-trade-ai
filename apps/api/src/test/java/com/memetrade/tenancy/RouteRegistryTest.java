@@ -100,7 +100,12 @@ class RouteRegistryTest {
                         "GET /api/v1/real/conditional-orders/quote",
                         "POST /api/v1/real/conditional-orders/{conditionalOrderId}/signature",
                         "DELETE /api/v1/real/conditional-orders/{conditionalOrderId}",
-                        "GET /api/v1/real/exports/fiscal");
+                        "GET /api/v1/real/exports/fiscal",
+                        // 261121-paper-real-unico U1 (C2, C3, C4): the REAL eligibility, the REAL limits of the
+                        // account and the P&L by mode of the caller.
+                        "GET /api/v1/bots/real-eligibility",
+                        "GET /api/v1/real/account-limits",
+                        "GET /api/v1/pnl/by-mode");
         assertThat(registry.routes())
                 .extracting(RouteRegistry.Entry::scope)
                 .allMatch(s -> Set.of("GLOBAL", "SESSION", "ADMIN", "CLIENT").contains(s));
@@ -142,6 +147,8 @@ class RouteRegistryTest {
                 .containsExactlyInAnyOrder(
                         org.assertj.core.groups.Tuple.tuple("GET /api/v1/invites/{code}", "GLOBAL"),
                         org.assertj.core.groups.Tuple.tuple("GET /api/v1/account", "CLIENT"),
+                        // 261121-paper-real-unico U1 (C3): matched by "/account" too; a CLIENT route of its own.
+                        org.assertj.core.groups.Tuple.tuple("GET /api/v1/real/account-limits", "CLIENT"),
                         org.assertj.core.groups.Tuple.tuple("GET /api/v1/admin/invites", "ADMIN"),
                         org.assertj.core.groups.Tuple.tuple("POST /api/v1/admin/invites", "ADMIN"),
                         org.assertj.core.groups.Tuple.tuple("POST /api/v1/admin/invites/{inviteId}/revoke", "ADMIN"));

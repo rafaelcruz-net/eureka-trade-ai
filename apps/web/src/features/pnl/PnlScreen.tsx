@@ -13,6 +13,12 @@ import { LedgerList } from '@/features/pnl/LedgerList';
 import { addDays, todayIn, toUtcPeriod } from '@/features/pnl/period';
 import { ReconciliationPanel } from '@/features/pnl/ReconciliationPanel';
 import { PnlAmountView, SignedValue } from '@/features/pnl/SignedValue';
+import type { PaperModeBlock, RealModeBlock } from '@/lib/api/guest-api';
+import { SimulatedBadge } from '@/components/SimulatedBadge';
+import { TableScroll } from '@/components/TableScroll';
+import { failureCode, paperLoad, realLoad } from '@/features/pnl/by-mode';
+import { modeMessages } from '@/features/pnl/mode-messages';
+import { PnlModeBlock, type BlockLoad } from '@/features/pnl/PnlModeBlock';
 
 const text = messages.pnl;
 
@@ -44,6 +50,57 @@ export function PnlScreen({ timeZone, now }: { timeZone?: string; now?: Date } =
   const [toDay, setToDay] = useState(today);
   const [period, setPeriod] = useState(() => toUtcPeriod(addDays(today, -6), today, zone));
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [paperBlock, setPaperBlock] = useState<BlockLoad<PaperModeBlock>>({ kind: 'loading' });
+  const [realBlock, setRealBlock] = useState<BlockLoad<RealModeBlock>>({ kind: 'loading' });
+  const [retried, setRetried] = useState<'PAPER' | 'REAL' | null>(null);
+
+  /**
+   * 261121-paper-real-unico U1 (BR5.3, NFR4.8): one read of C4 fills both blocks on load; "Tentar de novo" of a block
+   * reads the route again and updates ONLY that block, leaving the other as it was.
+   */
+  const fetchByMode = useCallback(
+    async (only?: 'PAPER' | 'REAL') => {
+      if (only !== 'REAL') {
+        setPaperBlock({ kind: 'loading' });
+      }
+      if (only !== 'PAPER') {
+        setRealBlock({ kind: 'loading' });
+      }
+      try {
+        const answer = await api.getPnlByMode();
+        if (only !== 'REAL') {
+          setPaperBlock(paperLoad(answer.paper));
+        }
+        if (only !== 'PAPER') {
+          setRealBlock(realLoad(answer.real));
+        }
+      } catch (failure) {
+        if (failure instanceof ApiError && failure.status === 401) {
+          expire();
+          return;
+        }
+        const code = failureCode(failure);
+        if (only !== 'REAL') {
+          setPaperBlock({ kind: 'error', code });
+        }
+        if (only !== 'PAPER') {
+          setRealBlock({ kind: 'error', code });
+        }
+      }
+    },
+    [api, expire],
+  );
+
+  useEffect(() => {
+    if (status === 'authenticated') {
+      void fetchByMode();
+    }
+  }, [status, fetchByMode]);
+
+  function retryBlock(market: 'PAPER' | 'REAL') {
+    setRetried(market);
+    void fetchByMode(market);
+  }
 
   const fetchReport = useCallback(async () => {
     if (!period) {
@@ -67,8 +124,6 @@ export function PnlScreen({ timeZone, now }: { timeZone?: string; now?: Date } =
       void fetchReport();
     }
   }, [status, fetchReport]);
-  useEffect(() => heading.current?.focus(), []);
-
   function apply(event: FormEvent) {
     event.preventDefault();
     setPeriod(toUtcPeriod(fromDay, toDay, zone));
@@ -77,8 +132,31 @@ export function PnlScreen({ timeZone, now }: { timeZone?: string; now?: Date } =
   return (
     <AppShell current="pnl" titleId="pnl-title">
       <h1 id="pnl-title" ref={heading} tabIndex={-1} data-testid="pnl-title">
-        {text.title} <span className="tag">{text.paperLabel}</span>
+        {modeMessages.title}
       </h1>
+      <p className="muted">{modeMessages.intro}</p>
+      <div className="pnl-modes" data-testid="pnl-modes">
+        <PnlModeBlock
+          market="PAPER"
+          load={paperBlock}
+          period={modeMessages.sinceStart}
+          timeZone={zone}
+          focusHeading={retried === null || retried === 'PAPER'}
+          onRetry={() => retryBlock('PAPER')}
+        />
+        <PnlModeBlock
+          market="REAL"
+          load={realBlock}
+          period={modeMessages.sinceStart}
+          timeZone={zone}
+          focusHeading={retried === 'REAL'}
+          onRetry={() => retryBlock('REAL')}
+        />
+      </div>
+      <h2 data-testid="pnl-paper-section">
+        {modeMessages.paperSection} <SimulatedBadge testId="pnl-paper-badge" />{' '}
+        <span className="tag">{text.paperLabel}</span>
+      </h2>
       <p className="muted">{text.intro}</p>
       <form onSubmit={apply} data-testid="pnl-period">
         <fieldset>
@@ -176,46 +254,48 @@ function Report({ report, timeZone }: { report: PnlReport; timeZone: string }) {
           {formatDecimal(report.fees)} <span className="muted">({text.feesPaid})</span>
         </dd>
       </dl>
-      <table data-testid="pnl-lines">
-        <caption>{text.byTokenCaption}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{text.columns.token}</th>
-            <th scope="col">{text.columns.realized}</th>
-            <th scope="col">{text.columns.unrealized}</th>
-            <th scope="col">{text.columns.fees}</th>
-            <th scope="col">{text.columns.mark}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {report.byToken.map((line) => (
-            <tr key={`${line.chain}-${line.mint}`} data-testid={`pnl-line-${line.mint}`}>
-              <th scope="row" title={line.mint}>
-                {abbreviateMint(line.mint)}
-              </th>
-              <td>
-                <SignedValue value={line.realized} testId={`pnl-line-realized-${line.mint}`} />
-              </td>
-              <td>
-                <PnlAmountView
-                  amount={line.unrealized}
-                  testId={`pnl-line-unrealized-${line.mint}`}
-                />
-              </td>
-              <td>{formatDecimal(line.fees)}</td>
-              <td data-testid={`pnl-line-mark-${line.mint}`}>
-                {line.noLiquidity && <span className="tag">{text.noLiquidity}</span>}{' '}
-                {line.mark.status === 'KNOWN'
-                  ? text.markAt(
-                      `${formatDecimal(line.mark.value)} (${line.mark.source.name})`,
-                      formatClock(new Date(line.mark.observedAt), timeZone),
-                    )
-                  : text.markUnknown}
-              </td>
+      <TableScroll label={text.byTokenCaption} testId="pnl-lines-scroll">
+        <table data-testid="pnl-lines">
+          <caption>{text.byTokenCaption}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{text.columns.token}</th>
+              <th scope="col">{text.columns.realized}</th>
+              <th scope="col">{text.columns.unrealized}</th>
+              <th scope="col">{text.columns.fees}</th>
+              <th scope="col">{text.columns.mark}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {report.byToken.map((line) => (
+              <tr key={`${line.chain}-${line.mint}`} data-testid={`pnl-line-${line.mint}`}>
+                <th scope="row" title={line.mint}>
+                  {abbreviateMint(line.mint)}
+                </th>
+                <td>
+                  <SignedValue value={line.realized} testId={`pnl-line-realized-${line.mint}`} />
+                </td>
+                <td>
+                  <PnlAmountView
+                    amount={line.unrealized}
+                    testId={`pnl-line-unrealized-${line.mint}`}
+                  />
+                </td>
+                <td>{formatDecimal(line.fees)}</td>
+                <td data-testid={`pnl-line-mark-${line.mint}`}>
+                  {line.noLiquidity && <span className="tag">{text.noLiquidity}</span>}{' '}
+                  {line.mark.status === 'KNOWN'
+                    ? text.markAt(
+                        `${formatDecimal(line.mark.value)} (${line.mark.source.name})`,
+                        formatClock(new Date(line.mark.observedAt), timeZone),
+                      )
+                    : text.markUnknown}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableScroll>
     </section>
   );
 }

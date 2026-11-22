@@ -150,20 +150,9 @@ test.describe.serial('REAL swap on the local validator', () => {
     const parameters = Object.fromEntries(template.parameters.map((p) => [p.key, p.default]));
     const steps: object[] = [
       { step: 1, parameters, tokenSelection: { tokens: [{ chain: 'solana', mint }], rules: [] } },
-      {
-        step: 2,
-        virtualBalance: '1000.000000',
-        limits: {
-          maxOrderSize: '100.000000',
-          maxTokenExposure: '200.000000',
-          maxTotalExposure: '500.000000',
-          maxDailyLoss: '50.000000',
-          maxDrawdown: '10.0000',
-          maxSlippage: '2.0000',
-          minLiquidity: '10000.000000',
-          minIntervalSeconds: 240,
-        },
-      },
+      // 261121-paper-real-unico U1 (BR1.8, BR1.9): a REAL bot has no virtual balance nor limits of its own; the REAL
+      // limits of the account apply, so step 2 is saved without them.
+      { step: 2 },
       { step: 3 },
       { step: 4 },
     ];

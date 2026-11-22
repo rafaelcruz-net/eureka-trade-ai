@@ -59,7 +59,9 @@ describe('bot list /bots', () => {
   it('shows loading, then the empty state with the way to create the first bot', async () => {
     renderWith(<BotsPage />, fakeApi());
 
-    expect(screen.getByTestId('bots-title')).toHaveTextContent(text.paperLabel);
+    // 261121-paper-real-unico U1 (BR4.2): one list for both modes, titled "Meus bots" without a mode label.
+    expect(screen.getByTestId('bots-title')).toHaveTextContent('Meus bots');
+    expect(screen.getByTestId('bots-title')).not.toHaveTextContent(text.paperLabel);
     expect(screen.getByTestId('bots-loading')).toBeInTheDocument();
     expect(await screen.findByTestId('bots-empty')).toHaveTextContent(text.empty);
     expect(screen.getByTestId('bots-counter')).toHaveTextContent('0 de 3 bots ativos');
@@ -157,7 +159,12 @@ describe('new bot /bots/new', () => {
     await user.type(screen.getByTestId('bot-create-name'), '  Meu bot  ');
     await user.click(screen.getByTestId('bot-create-submit'));
 
-    expect(api.createBot).toHaveBeenCalledWith({ templateId: 'RANGE_BREAKOUT', name: 'Meu bot' });
+    // 261121-paper-real-unico U1 (BR1.1, BR1.7): "Simulado" is the default and the market always travels.
+    expect(api.createBot).toHaveBeenCalledWith({
+      templateId: 'RANGE_BREAKOUT',
+      name: 'Meu bot',
+      market: 'PAPER',
+    });
     expect(push).toHaveBeenCalledWith(`/bots/new/${BOT_ID}?chain=solana&mint=${MINT}`);
   });
 
@@ -189,7 +196,7 @@ describe('S4 wizard /bots/new/{botId}', () => {
     renderWith(<BotWizardPage />, wizardApi());
 
     expect(await screen.findByTestId('wizard-step')).toHaveTextContent(
-      'Etapa 1 de 4: Estratégia e tokens',
+      'Etapa 2 de 5: Estratégia e tokens',
     );
     expect(screen.getByTestId('wizard-next-1')).toBeDisabled();
     expect(screen.getByTestId('wizard-next-reason')).toHaveTextContent(text.wizard.nextUnavailable);
@@ -289,6 +296,49 @@ describe('S4 wizard /bots/new/{botId}', () => {
       'aria-invalid',
       'true',
     );
+  });
+
+  // 261121-paper-real-unico U1 (BR1.6, BR1.8, BR1.9, BR3.4): a REAL draft shows its mode in text, the REAL limits of
+  // the account read only instead of the virtual balance, saves step 2 without them and starts as "Iniciar bot real".
+  it('a REAL draft shows the limits of the account read only and saves its step without balance nor limits', async () => {
+    const getRealAccountLimits = jest
+      .fn()
+      .mockRejectedValueOnce(new ApiError(503, 'SERVICE_UNAVAILABLE', undefined, 'corr-1'))
+      .mockResolvedValueOnce({
+        currency: 'SOL' as const,
+        cap: { status: 'KNOWN' as const, value: '5000000000' },
+        orderMax: { status: 'KNOWN' as const, value: '500000000', percentOfCap: '10' },
+        dailyBuys: { status: 'KNOWN' as const, count: 20 },
+        dailyLoss: { status: 'KNOWN' as const, value: '1000000000', percentOfCap: '20' },
+      });
+    const api = wizardApi({
+      getBot: jest.fn(async () =>
+        detail({
+          market: 'REAL',
+          mode: 'REAL',
+          draftStep: 2,
+          tokenSelection: { tokens: [{ chain: 'solana', mint: MINT }], rules: [] },
+        }),
+      ),
+      getRealAccountLimits,
+    });
+    renderWith(<BotWizard />, api);
+
+    expect(await screen.findByTestId('wizard-mode')).toHaveTextContent(
+      'Modo: REAL · não pode ser trocado depois da criação',
+    );
+    expect(screen.getByTestId('wizard-mode-badge')).toHaveTextContent('REAL');
+    expect(await screen.findByTestId('real-limits-error')).toHaveTextContent('corr-1');
+    expect(screen.getByTestId('real-limits-continue')).toBeDisabled();
+    await user.click(screen.getByTestId('real-limits-retry'));
+    expect(await screen.findByTestId('real-limits-cap')).toHaveTextContent('5,00 SOL');
+    expect(screen.queryByTestId('wizard-balance')).toBeNull();
+    await user.click(screen.getByTestId('real-limits-continue'));
+
+    await waitFor(() => expect(api.saveBotDraft).toHaveBeenCalledWith(BOT_ID, { step: 2 }));
+    expect(await screen.findByTestId('wizard-step-3')).toHaveTextContent('Limites REAL da conta');
+    await user.click(screen.getByTestId('wizard-next-3'));
+    expect(await screen.findByTestId('wizard-start')).toHaveTextContent('Iniciar bot real');
   });
 
   it('reopens a validated draft at the start step and says when the start was refused', async () => {

@@ -1,3 +1,4 @@
+import type { BotSummary } from '@/lib/api/guest-api';
 import { parseEnvelope } from '@/features/dashboard/envelopes';
 import { botSummary, sourceStatus, tradeNotice } from '@/features/dashboard/test-support';
 import { dashboardWarn, isEventKind } from '@/features/dashboard/warn';
@@ -24,6 +25,23 @@ describe('parseEnvelope', () => {
     expect(parseEnvelope('auth.expired', '{"expiredAt":"2026-10-28T12:15:00Z"}')?.kind).toBe(
       'auth.expired',
     );
+  });
+
+  // 261121-paper-real-unico U1 (C1 review R-01, BR10.5, AC2.4.4): the summary of a REAL bot (mode == market == REAL)
+  // is accepted by the reader of the dashboard and by the generated types; an unknown mode still refuses the envelope.
+  it('accepts the summary of a REAL bot whose mode is its market', () => {
+    const real: BotSummary = { ...botSummary(), market: 'REAL', mode: 'REAL' };
+
+    expect(parseEnvelope('bot.state', JSON.stringify({ items: [real], activeCount: 1 }))).toEqual({
+      kind: 'bot.state',
+      data: { items: [real], activeCount: 1 },
+    });
+    expect(
+      parseEnvelope(
+        'bot.state',
+        JSON.stringify({ items: [{ ...botSummary(), mode: 'BOTH' }], activeCount: 1 }),
+      ),
+    ).toBeNull();
   });
 
   it('drops the fields the contract does not declare and turns a null time into an absent one', () => {

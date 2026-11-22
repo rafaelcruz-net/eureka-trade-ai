@@ -9,6 +9,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * The fixed settings of U5 (infrastructure-specification.md "Configuração"), read from {@code application.yml} and
  * never from the environment: risk and cycle rules never change by variable. A value out of its domain stops the
  * process with a message naming the property.
+ *
+ * <p>261121-paper-real-unico U1 (infrastructure-specification.md "Configuração nova"): the one exception is
+ * {@code real-eligibility-timeout}, a tuning value (not a risk rule) that the api task may set through
+ * {@code MEMETRADE_BOTS_REALELIGIBILITYTIMEOUT}, with the same value as the default.
  */
 @ConfigurationProperties("memetrade.bots")
 public record BotProperties(
@@ -22,9 +26,19 @@ public record BotProperties(
         String decisionPurgeCron,
         int decisionPurgeBatchSize,
         int systemPauseBatchSize,
-        Stream stream) {
+        Stream stream,
+        Duration realEligibilityTimeout) {
+
+    /** 261121-paper-real-unico U1 (NFR1.2, BR2.5): the default deadline of every read of the REAL eligibility. */
+    public static final Duration DEFAULT_REAL_ELIGIBILITY_TIMEOUT = Duration.ofMillis(500);
 
     public BotProperties {
+        realEligibilityTimeout =
+                realEligibilityTimeout == null ? DEFAULT_REAL_ELIGIBILITY_TIMEOUT : realEligibilityTimeout;
+        require(
+                realEligibilityTimeout.compareTo(Duration.ofMillis(100)) >= 0
+                        && realEligibilityTimeout.compareTo(Duration.ofMillis(900)) <= 0,
+                "memetrade.bots.real-eligibility-timeout");
         Objects.requireNonNull(scheduler, "memetrade.bots.scheduler");
         Objects.requireNonNull(virtualBalance, "memetrade.bots.virtual-balance");
         Objects.requireNonNull(stream, "memetrade.bots.stream");

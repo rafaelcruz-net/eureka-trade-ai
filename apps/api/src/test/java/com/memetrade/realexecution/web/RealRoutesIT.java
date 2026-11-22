@@ -263,8 +263,9 @@ class RealRoutesIT extends AbstractRealExecutionIT {
         MockHttpServletResponse paper =
                 as(bearer, post("/api/v1/bots").content("{\"templateId\":\"MOMENTUM_VOLUME\",\"name\":\"paper\"}"));
 
-        assertThat(refused.getStatus()).isEqualTo(422);
-        assertThat(refused.getContentAsString()).contains("market");
+        // 261121-paper-real-unico U1 (BR2.4, PQ-5): the inactive wallet is now 409 REAL_NOT_ELIGIBLE, never 422.
+        assertThat(refused.getStatus()).isEqualTo(409);
+        assertThat(refused.getContentAsString()).contains("REAL_NOT_ELIGIBLE").contains("WALLET_INACTIVE");
         assertThat(real.getStatus()).isEqualTo(201);
         assertThat(json.readTree(real.getContentAsString()).path("market").asText())
                 .isEqualTo("REAL");

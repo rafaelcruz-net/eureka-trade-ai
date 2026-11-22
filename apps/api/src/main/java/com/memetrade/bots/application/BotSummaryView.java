@@ -24,7 +24,9 @@ public record BotSummaryView(
 
         @io.swagger.v3.oas.annotations.media.Schema(
                 requiredMode = io.swagger.v3.oas.annotations.media.Schema.RequiredMode.REQUIRED,
-                allowableValues = {"PAPER"})
+                allowableValues = {"PAPER", "REAL"},
+                deprecated = true,
+                description = "Obsoleto: sempre igual a market (FR2.4, ADR-009). Leia market")
         String mode,
 
         @io.swagger.v3.oas.annotations.media.Schema(
@@ -51,7 +53,8 @@ public record BotSummaryView(
         return new BotSummaryView(
                 bot.botId(),
                 bot.name(),
-                "PAPER",
+                // 261121-paper-real-unico U1 (BR1.3, ADR-009): the deprecated mode is always the market.
+                bot.market().name(),
                 bot.status().state(),
                 bot.status().orderedReasons(),
                 BotStateMachine.resumesAt(bot.status(), now).orElse(null),

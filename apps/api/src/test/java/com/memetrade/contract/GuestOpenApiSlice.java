@@ -51,6 +51,8 @@ import org.springframework.transaction.support.TransactionTemplate;
             // U5 (C4 and C7): the bots, the wizard, the commands, the decisions and the live channel.
             com.memetrade.bots.web.BotController.class,
             com.memetrade.bots.web.DashboardStreamController.class,
+            // 261121-paper-real-unico U1 (C3): the REAL limits of the account.
+            com.memetrade.riskcontrol.web.RealAccountLimitsController.class,
             // U8 (C6): the comment of a guest.
             com.memetrade.feedback.web.FeedbackController.class,
             // u1-legal-documents (L1): the public legal documents.
@@ -194,6 +196,25 @@ public abstract class GuestOpenApiSlice {
 
     @MockitoBean
     com.memetrade.bots.application.BotQueries botQueries;
+
+    /** 261121-paper-real-unico U1 (C2, C3, C4): the eligibility, the limits of the account and the P&L by mode. */
+    @MockitoBean
+    com.memetrade.bots.application.RealEligibilityReader realEligibilityReader;
+
+    @MockitoBean
+    com.memetrade.riskcontrol.api.RealAccountLimits realAccountLimits;
+
+    @MockitoBean
+    org.springframework.jdbc.core.simple.JdbcClient jdbcClient;
+
+    @MockitoBean
+    com.memetrade.pnl.modeview.ModePnlView modePnlView;
+
+    @MockitoBean
+    com.memetrade.pnl.web.PaperBlockSource paperBlockSource;
+
+    @MockitoBean
+    com.memetrade.pnl.web.RealBlockSource realBlockSource;
 
     @MockitoBean
     com.memetrade.bots.web.DashboardMarkPoller dashboardMarkPoller;

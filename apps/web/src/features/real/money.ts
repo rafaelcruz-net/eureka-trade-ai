@@ -97,6 +97,39 @@ export function formatSignedSol(lamports: bigint): string {
   return `${lamports > 0n ? '+' : ''}${formatSol(lamports)} SOL`;
 }
 
+/** The sign of an amount in lamports, for the word next to it (color is never the only signal). */
+export type LamportsSign = 'gain' | 'loss' | 'zero';
+
+/**
+ * 261121-paper-real-unico U1 (BR7.1, OQ1): SOL of the new blocks and of the list: exact, the trailing zeros of the
+ * fraction cut, at least 2 places, never rounded (9 at most), comma for decimals and point for thousands.
+ * 2500000000n → "2,50"; 31200000n → "0,0312"; 1n → "0,000000001". A negative amount keeps the typographic minus.
+ */
+function formatCompact(lamports: bigint): string {
+  const negative = lamports < 0n;
+  const fixed = formatFixed(negative ? -lamports : lamports, SOL_DECIMALS);
+  const [whole, fraction = ''] = fixed.split(',');
+  const trimmed = fraction.replace(/0+$/, '').padEnd(2, '0');
+  return `${negative ? '−' : ''}${whole},${trimmed}`;
+}
+
+/** The lamports of an integer text of the contract (C4, C3), as SOL: "2,50 SOL" (BR7.1). */
+export function formatSolCompact(lamportsText: string): string {
+  return `${formatCompact(toBaseUnits(lamportsText))} SOL`;
+}
+
+/** A P&L in lamports with its sign written: "+0,0312 SOL", "−0,12 SOL", "0,00 SOL" (BR7.1). */
+export function formatSignedSolCompact(lamportsText: string): string {
+  const lamports = toBaseUnits(lamportsText);
+  return `${lamports > 0n ? '+' : ''}${formatCompact(lamports)} SOL`;
+}
+
+/** gain, loss or zero of an integer text of lamports. */
+export function lamportsSign(lamportsText: string): LamportsSign {
+  const lamports = toBaseUnits(lamportsText);
+  return lamports > 0n ? 'gain' : lamports < 0n ? 'loss' : 'zero';
+}
+
 const MAX_TOKEN_DECIMALS = 30;
 
 /**

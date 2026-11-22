@@ -50,6 +50,8 @@ class U7ContractsTest {
                         Tuple.tuple("GET /api/v1/bots/{botId}/day-usage", "CLIENT"),
                         Tuple.tuple("GET /api/v1/ledger", "CLIENT"),
                         Tuple.tuple("GET /api/v1/pnl", "CLIENT"),
+                        // 261121-paper-real-unico U1 (C4): the P&L by mode, also a CLIENT route.
+                        Tuple.tuple("GET /api/v1/pnl/by-mode", "CLIENT"),
                         Tuple.tuple("GET /api/v1/reconciliation", "CLIENT"),
                         Tuple.tuple("POST /api/v1/reconciliation/run", "CLIENT"));
         assertThat(registry.jobs())

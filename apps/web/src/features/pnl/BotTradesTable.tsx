@@ -5,6 +5,7 @@ import { useApi } from '@/lib/api/ApiProvider';
 import type { PaperTrade } from '@/lib/api/guest-api';
 import { formatDecimal, formatInstant } from '@/lib/format/format';
 import { messages } from '@/lib/i18n/messages';
+import { TableScroll } from '@/components/TableScroll';
 
 const text = messages.pnl;
 
@@ -56,45 +57,49 @@ export function BotTradesTable({ botId, timeZone }: { botId: string; timeZone?: 
         <p data-testid="bot-trades-empty">{text.tradesEmpty}</p>
       )}
       {load.kind === 'ready' && load.trades.length > 0 && (
-        <table data-testid="bot-trades-table">
-          <caption className="visually-hidden">{text.tradesTitle}</caption>
-          <thead>
-            <tr>
-              <th scope="col">{text.tradeColumns.time}</th>
-              <th scope="col">{text.tradeColumns.side}</th>
-              <th scope="col">{text.tradeColumns.status}</th>
-              <th scope="col">{text.tradeColumns.requested}</th>
-              <th scope="col">{text.tradeColumns.filled}</th>
-              <th scope="col">{text.tradeColumns.reference}</th>
-              <th scope="col">{text.tradeColumns.quoted}</th>
-              <th scope="col">{text.tradeColumns.fill}</th>
-              <th scope="col">{text.tradeColumns.versions}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {load.trades.map((trade) => (
-              <tr key={trade.orderId} data-testid={`bot-trade-${trade.orderId}`}>
-                <td>{formatInstant(trade.filledAt ?? trade.createdAt, timeZone)}</td>
-                <td>{text.sides[trade.side] ?? trade.side}</td>
-                <td>
-                  {text.statuses[trade.status] ?? trade.status}
-                  {trade.notFilledReason && (
-                    <span className="muted">
-                      {' '}
-                      ({text.notFilledReasons[trade.notFilledReason] ?? trade.notFilledReason})
-                    </span>
-                  )}
-                </td>
-                <td>{formatDecimal(trade.requestedQuantity)}</td>
-                <td>{decimal(trade.filledQuantity)}</td>
-                <td>{decimal(trade.referencePrice)}</td>
-                <td>{decimal(trade.quotedPrice)}</td>
-                <td>{decimal(trade.fillPrice)}</td>
-                <td>{text.versions(trade.simulationPolicyVersion ?? '—', trade.limitsVersion)}</td>
+        <TableScroll label={text.tradesTitle} testId="bot-trades-scroll">
+          <table data-testid="bot-trades-table">
+            <caption className="visually-hidden">{text.tradesTitle}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{text.tradeColumns.time}</th>
+                <th scope="col">{text.tradeColumns.side}</th>
+                <th scope="col">{text.tradeColumns.status}</th>
+                <th scope="col">{text.tradeColumns.requested}</th>
+                <th scope="col">{text.tradeColumns.filled}</th>
+                <th scope="col">{text.tradeColumns.reference}</th>
+                <th scope="col">{text.tradeColumns.quoted}</th>
+                <th scope="col">{text.tradeColumns.fill}</th>
+                <th scope="col">{text.tradeColumns.versions}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {load.trades.map((trade) => (
+                <tr key={trade.orderId} data-testid={`bot-trade-${trade.orderId}`}>
+                  <td>{formatInstant(trade.filledAt ?? trade.createdAt, timeZone)}</td>
+                  <td>{text.sides[trade.side] ?? trade.side}</td>
+                  <td>
+                    {text.statuses[trade.status] ?? trade.status}
+                    {trade.notFilledReason && (
+                      <span className="muted">
+                        {' '}
+                        ({text.notFilledReasons[trade.notFilledReason] ?? trade.notFilledReason})
+                      </span>
+                    )}
+                  </td>
+                  <td>{formatDecimal(trade.requestedQuantity)}</td>
+                  <td>{decimal(trade.filledQuantity)}</td>
+                  <td>{decimal(trade.referencePrice)}</td>
+                  <td>{decimal(trade.quotedPrice)}</td>
+                  <td>{decimal(trade.fillPrice)}</td>
+                  <td>
+                    {text.versions(trade.simulationPolicyVersion ?? '—', trade.limitsVersion)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableScroll>
       )}
     </section>
   );

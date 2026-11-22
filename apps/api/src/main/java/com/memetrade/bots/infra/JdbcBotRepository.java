@@ -57,6 +57,37 @@ public class JdbcBotRepository {
         this.jdbc = jdbc;
     }
 
+    /**
+     * 261121-paper-real-unico U1 (C8, BR4.1): the bots of one person that are not drafts (never DRAFT nor VALIDATED),
+     * in order of creation ({@code created_at}, then {@code bot_id}); optionally of one market or one bot. Filtered by
+     * tenant and person (index {@code bot_owner_state_idx}); no lock.
+     */
+    public List<DirectoryRow> directory(TenantScope scope, Optional<String> market, Optional<UUID> botId) {
+        return jdbc.sql("""
+                        select bot_id, name, market, template_id, state, created_at from bot
+                        where tenant_id = :tenant and owner_user_id = :owner
+                          and state in ('ACTIVE', 'CLOSING_PENDING', 'PAUSED', 'STOPPED')
+                          and (cast(:market as varchar) is null or market = cast(:market as varchar))
+                          and (cast(:bot as uuid) is null or bot_id = cast(:bot as uuid))
+                        order by created_at, bot_id""")
+                .param("tenant", scope.tenantId())
+                .param("owner", scope.ownerUserId())
+                .param("market", market.orElse(null))
+                .param("bot", botId.orElse(null))
+                .query((rs, row) -> new DirectoryRow(
+                        rs.getObject("bot_id", UUID.class),
+                        rs.getString("name"),
+                        rs.getString("market"),
+                        rs.getString("template_id"),
+                        BotState.valueOf(rs.getString("state")),
+                        rs.getTimestamp("created_at").toInstant()))
+                .list();
+    }
+
+    /** One row of {@link #directory}: the minimal projection of a bot for the P&L (ADR-007). */
+    public record DirectoryRow(
+            UUID botId, String name, String market, String templateId, BotState state, Instant createdAt) {}
+
     /** A page of bots of one person, by last update descending (BR6.1). */
     public record BotPage(List<Bot> items, Optional<String> next) {}
 

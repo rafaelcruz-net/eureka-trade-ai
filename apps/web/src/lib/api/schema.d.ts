@@ -99,8 +99,25 @@ export interface paths {
     /** Bots da pessoa por estado, inclusive rascunhos, com o contador de ativos (FR7.7) */
     get: operations['listBots'];
     put?: never;
-    /** Cria o rascunho (DRAFT) a partir de uma estratégia modelo (BR1.1) */
+    /** Cria o rascunho (DRAFT) no modo escolhido (market), a partir de uma estratégia modelo (BR1.1) */
     post: operations['createBot'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/bots/real-eligibility': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Se a pessoa pode criar um bot REAL agora, com o motivo mais forte quando não pode (FR1.2, ADR-005) */
+    get: operations['getRealEligibility'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -362,6 +379,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/pnl/by-mode': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** P&L em dois blocos separados, PAPER (US$) e REAL (SOL), no mesmo período; nunca somados (FR4.1, ADR-003) */
+    get: operations['getPnlByMode'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/privacy/requests': {
     parameters: {
       query?: never;
@@ -389,6 +423,23 @@ export interface paths {
     };
     /** Um pedido da pessoa; resposta, motivo e resumo só depois de concluído ou recusado */
     get: operations['getMyDataRequest'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/real/account-limits': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Limites REAL da conta, só leitura, em lamports arredondados para baixo, iguais aos da barreira (ADR-008) */
+    get: operations['getRealAccountLimits'];
     put?: never;
     post?: never;
     delete?: never;
@@ -997,7 +1048,12 @@ export interface components {
        * @enum {string}
        */
       market: 'PAPER' | 'REAL';
-      mode: string;
+      /**
+       * @deprecated
+       * @description Obsoleto: sempre igual a market (FR2.4, ADR-009). Leia market
+       * @enum {string}
+       */
+      mode: 'PAPER' | 'REAL';
       name: string;
       parameters: {
         [key: string]: string;
@@ -1048,8 +1104,12 @@ export interface components {
        * @enum {string}
        */
       market: 'PAPER' | 'REAL';
-      /** @enum {string} */
-      mode: 'PAPER';
+      /**
+       * @deprecated
+       * @description Obsoleto: sempre igual a market (FR2.4, ADR-009). Leia market
+       * @enum {string}
+       */
+      mode: 'PAPER' | 'REAL';
       name: string;
       pauseReasons: (
         | 'PERSON'
@@ -1189,7 +1249,7 @@ export interface components {
     };
     CreateBotRequest: {
       /**
-       * @description 261113-trading-real-bot U4 (BR1.1): mercado do bot, PAPER por padrão; REAL exige carteira do bot ativa; nunca muda depois da criação
+       * @description Modo do bot, fixo depois da criação (FR1.4). O app novo sempre envia; ausente vale PAPER, para os clientes antigos. REAL só com a elegibilidade disponível no comando
        * @enum {string}
        */
       market?: 'PAPER' | 'REAL';
@@ -1323,7 +1383,10 @@ export interface components {
       exitReason?: 'TAKE_PROFIT' | 'STOP_LOSS' | 'MAX_HOLD' | 'RANGE_EXIT';
       factors: components['schemas']['DecisionFactor'][];
       inputs: components['schemas']['DecisionInput'][];
-      /** Format: int64 */
+      /**
+       * Format: int64
+       * @description Versão dos limites do bot. 0 só em decisão REAL e significa "limites da conta": um bot REAL não tem versão de limites própria (BR1.9)
+       */
       limitsVersion: number;
       /** @enum {string} */
       noTradeReason?:
@@ -1446,6 +1509,28 @@ export interface components {
       /** @description Decimal exato em texto */
       value: string;
     };
+    LamportsAmount:
+      | components['schemas']['LamportsKnown']
+      | components['schemas']['LamportsUnknown'];
+    LamportsKnown: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'KNOWN';
+      /** @description Lamports em texto inteiro com sinal; nunca número JSON nem ponto flutuante */
+      value: string;
+    };
+    /** @description Valor desconhecido; nunca zero (FR3.5, FR3.10) */
+    LamportsUnknown: {
+      /** @enum {string} */
+      reason: 'PRICE_UNKNOWN' | 'STALE' | 'NO_LIQUIDITY';
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'UNKNOWN';
+    };
     /** @description Lançamento imutável do ledger PAPER (AC5.2.1) */
     LedgerEntry: {
       amount: string;
@@ -1527,7 +1612,63 @@ export interface components {
       provisional: boolean;
       version: string;
     };
+    /** @description Limite em contagem; sempre conhecido */
+    LimitCount: {
+      /** Format: int32 */
+      count: number;
+      /** @enum {string} */
+      status: 'KNOWN';
+    };
+    LimitLamports:
+      | components['schemas']['LimitLamportsKnown']
+      | components['schemas']['LimitUnknown'];
+    LimitLamportsKnown: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'KNOWN';
+      /** @description Lamports, texto inteiro */
+      value: string;
+    };
+    LimitShare: components['schemas']['LimitShareKnown'] | components['schemas']['LimitUnknown'];
+    LimitShareKnown: {
+      /** @description Percentual do teto em decimal exato */
+      percentOfCap: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'KNOWN';
+      /** @description Lamports, texto inteiro */
+      value: string;
+    };
+    /** @description Limite sem valor: "não definido", nunca zero (BR3.2) */
+    LimitUnknown: {
+      /** @enum {string} */
+      reason: 'NOT_DEFINED';
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'UNKNOWN';
+    };
     MarketValue: components['schemas']['KnownValue'] | components['schemas']['UnknownValue'];
+    /** @description Um modo que falhou; o outro bloco continua na mesma resposta */
+    ModeBlockUnavailable: {
+      /** @description Código legível por máquina, por exemplo SERVICE_UNAVAILABLE */
+      code: string;
+      correlationId: string;
+      /** @enum {string} */
+      currency: 'USD' | 'SOL';
+      /** @enum {string} */
+      market: 'PAPER' | 'REAL';
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'UNAVAILABLE';
+    };
     /** @description Ordem recusada com o limite que barrou e o horário (AC4.10.4) */
     OrderRejection: {
       /** Format: uuid */
@@ -1559,6 +1700,43 @@ export interface components {
       /** Format: uuid */
       rejectionId: string;
     };
+    PaperBotPnlLine: {
+      /** Format: uuid */
+      botId: string;
+      /** @enum {string} */
+      botStatus: 'ACTIVE' | 'PAUSED' | 'REMOVED';
+      fees: string;
+      name: string;
+      realized: string;
+      total: components['schemas']['PnlAmount'];
+      unrealized: components['schemas']['PnlAmount'];
+    };
+    PaperModeBlock: {
+      /** @description Ordem de criação, nunca por valor */
+      bots: components['schemas']['PaperBotPnlLine'][];
+      /** @enum {string} */
+      currency: 'USD';
+      /** @description Aviso fixo do simulado: "O resultado simulado não garante o resultado real." (FR4.2, C-16) */
+      disclaimer: string;
+      empty: boolean;
+      fees: string;
+      /** @enum {string} */
+      market: 'PAPER';
+      realized: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'AVAILABLE';
+      /** @description realized + unrealized - fees; UNKNOWN com o não realizado UNKNOWN */
+      total: components['schemas']['PnlAmount'];
+      unrealized: components['schemas']['PnlAmount'];
+      /** Format: date-time */
+      unrealizedAsOf: string;
+    };
+    PaperModeBlockResult:
+      | components['schemas']['PaperModeBlock']
+      | components['schemas']['ModeBlockUnavailable'];
     /** @description Uma operação simulada do bot, cada uma uma única vez (AC4.10.3) */
     PaperTrade: {
       chain: string;
@@ -1619,6 +1797,12 @@ export interface components {
       total: number;
     };
     PnlAmount: components['schemas']['PnlKnown'] | components['schemas']['PnlUnknown'];
+    /** @description Só o período e os dois blocos. Não existe campo de total fora dos blocos (FR4.1, NFR3) */
+    PnlByMode: {
+      paper: components['schemas']['PaperModeBlockResult'];
+      period: components['schemas']['PnlPeriod'];
+      real: components['schemas']['RealModeBlockResult'];
+    };
     PnlKnown: {
       /**
        * @description discriminator enum property added by openapi-typescript
@@ -1626,6 +1810,21 @@ export interface components {
        */
       status: 'KNOWN';
       value: string;
+    };
+    /** @description Período do P&L: ALL é desde o início; RANGE é [from, to) em UTC */
+    PnlPeriod: {
+      /**
+       * Format: date-time
+       * @description Só em RANGE
+       */
+      from?: string;
+      /** @enum {string} */
+      kind: 'ALL' | 'RANGE';
+      /**
+       * Format: date-time
+       * @description Só em RANGE
+       */
+      to?: string;
     };
     /** @description P&L PAPER de um período [from, to) em UTC (FR10.3) */
     PnlReport: {
@@ -1680,6 +1879,43 @@ export interface components {
       /** Format: uri */
       type: string;
     };
+    ProratedLine: {
+      /** Format: date-time */
+      at: string;
+      feeLamports: string;
+      mint: string;
+      /** @enum {string} */
+      origin: 'LIQUIDATION' | 'CONDITIONAL' | 'SOLD_BY_OTHER_BOT';
+      realizedLamports: string;
+      receivedLamports: string;
+      tokenBaseUnits: string;
+    };
+    /** @description Dono do formato: U2. Vazio até a U2 */
+    ProratedShares: {
+      /** Format: int32 */
+      count: number;
+      /** @description As 10 parcelas mais recentes; as demais pelo C5 */
+      lines: components['schemas']['ProratedLine'][];
+      summary: components['schemas']['ProratedSummary'][];
+    };
+    ProratedSummary: {
+      /** @enum {string} */
+      origin: 'LIQUIDATION' | 'CONDITIONAL' | 'SOLD_BY_OTHER_BOT';
+      realizedLamports: string;
+    };
+    /** @description Limites REAL da conta, só leitura (C3, BR3.1) */
+    RealAccountLimitsView: {
+      /** @description Teto da carteira do bot */
+      cap: components['schemas']['LimitLamports'];
+      /** @enum {string} */
+      currency: 'SOL';
+      /** @description Compras aprovadas por bot, por dia UTC */
+      dailyBuys: components['schemas']['LimitCount'];
+      /** @description Perda máxima do dia sobre a base min(teto no início do dia UTC, teto atual), a mesma da barreira, e o percentual */
+      dailyLoss: components['schemas']['LimitShare'];
+      /** @description Tamanho máximo por ordem: floor(teto x orderMaxBps / 10000) e o percentual do teto */
+      orderMax: components['schemas']['LimitShare'];
+    };
     RealActivationRequest: {
       /** Format: uuid */
       challengeId?: string;
@@ -1694,6 +1930,18 @@ export interface components {
       operableLamports?: string;
       reservedLamports?: string;
       totalLamports?: string;
+    };
+    RealBotPnlLine: {
+      /** Format: uuid */
+      botId: string;
+      /** @enum {string} */
+      botStatus: 'ACTIVE' | 'PAUSED' | 'REMOVED';
+      feesLamports: string;
+      name: string;
+      prorated: components['schemas']['ProratedShares'];
+      realizedLamports: string;
+      totalLamports: components['schemas']['LamportsAmount'];
+      unrealizedLamports: components['schemas']['LamportsAmount'];
     };
     RealChallengeRequest: {
       capLamports?: string;
@@ -1731,10 +1979,55 @@ export interface components {
       /** @enum {string} */
       type: 'REAL_CONDITIONAL_STATE';
     };
+    RealEligibility: {
+      /**
+       * @description Só em WALLET_INACTIVE: a ação que a tela oferece
+       * @enum {string}
+       */
+      action?: 'ACTIVATE_BOT_WALLET';
+      available: boolean;
+      /**
+       * Format: date-time
+       * @description Só em QUARANTINE: o instante UTC em que a liberação passa a valer (OQ2)
+       */
+      effectiveAt?: string;
+      /**
+       * @description Só quando available = false: o motivo mais forte
+       * @enum {string}
+       */
+      reason?: 'KILL_SWITCH' | 'REAL_DISABLED' | 'WALLET_INACTIVE' | 'NOT_RELEASED' | 'QUARANTINE';
+    };
     RealLiquidationView: {
       /** Format: uuid */
       liquidationId: string;
     };
+    /** @description Na U1, realizedLamports é líquido de taxas e totalLamports = realized + unrealized; a partir da U2, realizedLamports passa a ser bruto e o total desconta as taxas (C10) */
+    RealModeBlock: {
+      /** @description Ordem de criação, nunca por valor */
+      bots: components['schemas']['RealBotPnlLine'][];
+      /** @enum {string} */
+      currency: 'SOL';
+      empty: boolean;
+      /** @description Na U1, só informação: já incluídas no realizado e no custo */
+      feesLamports: string;
+      /** @enum {string} */
+      market: 'REAL';
+      realizedLamports: string;
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'AVAILABLE';
+      totalLamports: components['schemas']['LamportsAmount'];
+      /** @description Linha "Sem bot" (FR3.4, FR5.3). null até a U2; desde a U2, sempre um objeto */
+      unowned: components['schemas']['UnownedPnlLine'] | null;
+      /** Format: date-time */
+      unrealizedAsOf: string;
+      unrealizedLamports: components['schemas']['LamportsAmount'];
+    };
+    RealModeBlockResult:
+      | components['schemas']['RealModeBlock']
+      | components['schemas']['ModeBlockUnavailable'];
     RealModeRequest: {
       /** Format: uuid */
       challengeId?: string;
@@ -2126,6 +2419,14 @@ export interface components {
        */
       status: 'UNKNOWN';
     };
+    /** @description Diferente de zero só com pelo menos um motivo (FR5.3) */
+    UnownedPnlLine: {
+      feesLamports: string;
+      realizedLamports: string;
+      /** @enum {array} */
+      reasons: 'SURPLUS_WITHOUT_OWNER' | 'ORDER_RECORD_MISSING';
+      unrealizedLamports: components['schemas']['LamportsAmount'];
+    };
     VerifyRequest: {
       /** @description Versão vigente dos termos aceita; obrigatória com inviteCode */
       acceptedTermsVersion?: string;
@@ -2370,7 +2671,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Rascunho criado */
+      /** @description Rascunho criado no modo escolhido */
       201: {
         headers: {
           [name: string]: unknown;
@@ -2379,8 +2680,55 @@ export interface operations {
           'application/json': components['schemas']['BotSummary'];
         };
       };
-      /** @description VALIDATION_FAILED */
+      /** @description REAL_NOT_ELIGIBLE: market = REAL e a pessoa não pode criar bot REAL; reason traz o motivo mais forte (KILL_SWITCH, REAL_DISABLED, WALLET_INACTIVE, NOT_RELEASED ou QUARANTINE). Também IDEMPOTENCY_CONFLICT, como hoje */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description VALIDATION_FAILED: nome, templateId ou market inválido */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description SERVICE_UNAVAILABLE: a elegibilidade do REAL não pôde ser lida; falha fechada, nenhum bot é criado */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getRealEligibility: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A elegibilidade */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealEligibility'];
+        };
+      };
+      /** @description SERVICE_UNAVAILABLE: o estado do REAL não pôde ser lido; a tela mantém Real desabilitada (falha fechada) */
+      503: {
         headers: {
           [name: string]: unknown;
         };
@@ -2592,7 +2940,7 @@ export interface operations {
           'application/json': components['schemas']['BotSummary'];
         };
       };
-      /** @description LIMIT_INCOHERENT */
+      /** @description LIMIT_INCOHERENT, ou VALIDATION_FAILED no campo limits num bot REAL: um bot REAL usa os limites REAL da conta e não tem limites próprios (BR1.9) */
       422: {
         headers: {
           [name: string]: unknown;
@@ -3021,6 +3369,37 @@ export interface operations {
       };
     };
   };
+  getPnlByMode: {
+    parameters: {
+      query?: {
+        period?: 'ALL';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Os dois blocos; um modo que falhou vem com status UNAVAILABLE sem derrubar o outro */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PnlByMode'];
+        };
+      };
+      /** @description VALIDATION_FAILED: na U1, só o período ALL; from e to são recusados */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
   listMyDataRequests: {
     parameters: {
       query?: never;
@@ -3161,6 +3540,44 @@ export interface operations {
       };
       /** @description NOT_FOUND, inclusive pedido de outra pessoa ou tenant */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  getRealAccountLimits: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Os limites */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealAccountLimitsView'];
+        };
+      };
+      /** @description REAL_NOT_ELIGIBLE com reason WALLET_INACTIVE: sem carteira do bot ativa não há limite a mostrar */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description SERVICE_UNAVAILABLE: a leitura falhou */
+      503: {
         headers: {
           [name: string]: unknown;
         };

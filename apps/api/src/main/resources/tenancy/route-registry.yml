@@ -126,6 +126,11 @@ routes:
   - { method: PUT, path: /api/v1/real/mode, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
   - { method: POST, path: /api/v1/real/liquidations, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#anOrderOfAnotherPersonIsNotFoundOnEveryRoute }
   - { method: GET, path: /api/v1/real/pnl, scope: CLIENT, negativeTest: com.memetrade.realexecution.web.RealRoutesIT#theListAndThePnlShowOnlyThePersonOfTheToken }
+  # 261121-paper-real-unico U1 (C2, C3, C4): the REAL eligibility, the REAL limits of the account and the P&L by mode,
+  # always of the person of the token; a tenant in the query is ignored and another person's bots never appear.
+  - { method: GET, path: /api/v1/bots/real-eligibility, scope: CLIENT, negativeTest: com.memetrade.bots.web.RealEligibilityRouteIT#theEligibilityIsAlwaysThatOfThePersonOfTheToken }
+  - { method: GET, path: /api/v1/real/account-limits, scope: CLIENT, negativeTest: com.memetrade.riskcontrol.web.RealAccountLimitsRouteIT#aTenantInTheQueryIsIgnoredAndTheLimitsAreAlwaysThoseOfTheToken }
+  - { method: GET, path: /api/v1/pnl/by-mode, scope: CLIENT, negativeTest: com.memetrade.pnl.web.ModePnlFailureIT#anotherPersonsBotsNeverAppear }
   # 261113-trading-real-bot U7 (R5 of the addendum): the conditional exits and the fiscal export of the caller; another
   # person's conditional is 404 on every route and the export reads only the REAL ledger of the person of the token.
   - { method: POST, path: /api/v1/real/conditional-orders, scope: CLIENT, negativeTest: com.memetrade.realexits.web.ConditionalCreationIT#anotherPersonNeverReachesTheConditional }
@@ -159,6 +164,10 @@ jobs:
   # cycle and change reads tenant and person FROM THE BOT ROW, binds that owner as the principal before U6 and U7 and
   # never mixes people in a query (two-tenant test below).
   - { name: BotSchedules, scope: CLIENT, negativeTest: com.memetrade.bots.worker.CycleIT#twoTenantsInTheSameSlotNeverMix }
+  # 261121-paper-real-unico U1 (review R-01): TEST PROFILE ONLY, with RECORDED_MINT (REAL Compose). The first cycle of a
+  # new test bot of the recorded swap, through the same CycleRunner.run as BotSchedules: tenant and person from the bot
+  # row, one bot per cycle (same two-tenant test).
+  - { name: RecordedSwapFirstCycle, scope: CLIENT, negativeTest: com.memetrade.bots.worker.CycleIT#twoTenantsInTheSameSlotNeverMix }
   # U5 (C7, performance-design.md): the single mark reader of the api; one query of marks for the explicit pairs of the
   # open channels, then the details of each channel's own person only.
   - { name: DashboardMarkPoller, scope: CLIENT, negativeTest: com.memetrade.bots.web.DashboardStreamIT#aChannelNeverReceivesAnEventOfAnotherPerson }

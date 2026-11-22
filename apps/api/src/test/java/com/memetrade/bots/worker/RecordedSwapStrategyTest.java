@@ -32,8 +32,9 @@ import org.springframework.context.annotation.Profile;
 
 /**
  * 261113-trading-real-bot U4, test strategy of the recorded swap (test-after: a test-profile helper of the e2e, not a
- * rule of the product). It acts only on the REAL bot whose selection is exactly the recorded mint, buys ONCE for exactly
- * the recorded lamports, then only holds or waits; it exists only in the test profile and in the worker.
+ * rule of the product). It acts only on a bot whose selection is exactly the recorded mint, buys ONCE (REAL: exactly the
+ * recorded lamports; PAPER since 261121-paper-real-unico U1: the tokens of the recorded quote), then only holds or
+ * waits; it exists only in the test profile and in the worker.
  */
 class RecordedSwapStrategyTest {
 
@@ -112,9 +113,43 @@ class RecordedSwapStrategyTest {
     }
 
     @Test
-    void aPaperBotOfTheRecordedMintKeepsTheDecisionEngine() {
-        assertThat(strategy.decide(bot(BotMarket.PAPER, List.of(MINT)), false, SLOT, List.of()))
+    void thePaperBotOfTheRecordedMintBuysOnceTheTokensOfTheRecordedQuoteWithoutLamports() {
+        // 261121-paper-real-unico U1 (BR10.1, review R-01): one buy in each mode in the walking skeleton.
+        Bot bot = bot(BotMarket.PAPER, List.of(MINT));
+        when(cycles.hasOutcome(bot.botId(), "FILLED")).thenReturn(false);
+
+        RecordedSwapStrategy.Decision decision =
+                strategy.decide(bot, false, SLOT, List.of()).orElseThrow();
+
+        assertThat(decision.outcome().action()).isEqualTo(DecisionAction.BUY);
+        assertThat(decision.outcome().token()).contains(new TokenId("solana", MINT));
+        assertThat(decision.outcome().requestedQuantity()).contains(new BigDecimal("1542300.00000"));
+        assertThat(decision.buyLamports()).isEmpty();
+        verify(cycles, never()).hasOutcome(bot.botId(), "REAL_RECORDED");
+    }
+
+    @Test
+    void afterItsPaperFillThePaperBotNeverBuysAgainAndWithItsPositionItHolds() {
+        Bot bot = bot(BotMarket.PAPER, List.of(MINT));
+        when(cycles.hasOutcome(bot.botId(), "FILLED")).thenReturn(true);
+
+        assertThat(strategy.decide(bot, false, SLOT, List.of())
+                        .orElseThrow()
+                        .outcome()
+                        .action())
+                .isEqualTo(DecisionAction.NO_TRADE);
+        assertThat(strategy.decide(bot, true, SLOT, List.of())
+                        .orElseThrow()
+                        .outcome()
+                        .action())
+                .isEqualTo(DecisionAction.HOLD);
+    }
+
+    @Test
+    void aPaperBotOfAnotherSelectionKeepsTheDecisionEngine() {
+        assertThat(strategy.decide(bot(BotMarket.PAPER, List.of(OTHER)), false, SLOT, List.of()))
                 .isEmpty();
+        assertThat(strategy.applies(bot(BotMarket.PAPER, List.of(MINT, OTHER)))).isFalse();
     }
 
     @Test

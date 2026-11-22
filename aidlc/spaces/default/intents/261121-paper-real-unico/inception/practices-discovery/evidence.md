@@ -1,10 +1,11 @@
 # Evidências — Practices Discovery (intent `261121-paper-real-unico`)
 
-> **Rascunho do Step 2 (líder: `aidlc-pipeline-deploy-agent`), 2026-11-21T15:22:45Z, commit
-> `3497b2bc49052f01adb93de7094a05880532222b` (`main`).** Re-execução brownfield. Linha de base: as cinco seções
-> afirmadas de `aidlc/spaces/default/memory/team.md`. Só leitura: nenhum arquivo de código, workflow, script ou
-> memória foi alterado; nenhum commit. As revisões independentes (Step 3) não rodam neste intent (Collaborators:
-> off), e a entrevista (Step 4) ainda não aconteceu.
+> **Versão integrada (Step 5), 2026-11-21T15:36:42Z, commit `600140ea20a51f8c6016e8c3f1f08109f411ea5c` (`main`).**
+> O rascunho do Step 2 foi escrito em 2026-11-21T15:22:45Z, no commit `3497b2bc49052f01adb93de7094a05880532222b`.
+> É uma re-execução brownfield, e a linha de base são as cinco seções afirmadas de `aidlc/spaces/default/memory/team.md`.
+> Não houve revisões independentes (Step 3), porque os Collaborators estão off. A entrevista (Step 4) está em
+> `practices-discovery-questions.md` (Q1 a Q8, com o resumo confirmado). As seções 1 a 3 registram a evidência como
+> estava no rascunho; as divergências resolvidas estão na seção 4.
 
 ## 1. O que o líder inspecionou
 
@@ -225,18 +226,46 @@ mesmo ID onde o texto depende da resposta.
 
 (Não há DIV-15: o número ficou reservado para a Ordering, que a evidência não pede mudar.)
 
-## 4. Decisões da entrevista
+## 4. Decisões da entrevista e fatos posteriores ao rascunho
 
-Ainda não houve entrevista. Esta seção é preenchida na integração (Step 5).
+### 4.1 Respostas (todas opção A; resumo confirmado com "Looks correct")
+
+| Pergunta | Divergência | Decisão |
+|---|---|---|
+| Q1 (crítica) | DIV-01, DIV-16 | O repositório volta a ser privado, e os alertas do Dependabot são ligados. |
+| Q2 (crítica) | DIV-05 | Os commits continuam entrando direto em `main`, sem proteção de branch. A `main` pode ficar vermelha por pouco tempo, e a correção vem no commit seguinte, antes de qualquer outra mudança. Os pontos de controle e as implantações só usam um commit com a CI verde. |
+| Q3 | DIV-02 | O desenho do intent `261113-trading-real-bot` passa a ser a prática de implantação: duas contas AWS, Terraform, `deploy.yml` manual com Environments e OIDC, e o passo do TxSigner feito pelo fundador com MFA. Ele ainda não foi aplicado. A devnet recebe implantação manual, e não "staging a cada merge". |
+| Q4 | DIV-03 | Os usuários usam só a mainnet. A devnet fica para os testes do fundador e para a pré-produção. A produção do beta PAPER passa a ser o ambiente mainnet. |
+| Q5 | DIV-04, DIV-06 | A CI é registrada como ela é hoje: os jobs `txsigner` e `e2e`, o `promtool` e o `load-test.yml` manual. Ficam como pendências do responsável o Node 24, o CodeQL v4, a proteção do download do Maven, `terraform fmt/validate/test`, o Checkov e o ajuste do `WorkflowsTest` para aceitar `id-token: write` só no `deploy.yml`. |
+| Q6 | DIV-08, DIV-09, DIV-10 | Entram no registro as pastas novas, as tags `vAAAA.MM.DD-N` (versões locais) e os commits em inglês com os prefixos `feat`, `fix`, `test`, `chore`, `ci` e `docs`. |
+| Q7 | DIV-11 | O `scripts/verify-checkpoint.sh` roda primeiro no local; se a máquina não aguentar, a prova é a CI do mesmo commit. |
+| Q8 | DIV-13, DIV-14 | O volume de testes do projeto continua `Comprehensive`, e cada intent segue a estratégia que registra (este intent registra `Standard`). A fatia fina deste intent é a visão única com um bot PAPER e um bot REAL no validador local, com um spec novo no `verify.sh` que confere que os modos nunca são somados. O responsável acrescenta o spec. |
+
+### 4.2 Fatos posteriores ao rascunho (informados pelo orquestrador, 2026-11-21)
+
+- **DIV-07 resolvida**: o commit `600140e` ("feat: operation stages of the REAL intent and the start of the
+  paper-real-unico feature") enviou o trabalho pendente do intent `261113-trading-real-bot`. `git rev-parse HEAD`
+  confirma `600140ea20a51f8c6016e8c3f1f08109f411ea5c`.
+- **DIV-01 resolvida**: o repositório ficou privado em 2026-11-21, com os alertas do Dependabot e as correções
+  automáticas de segurança ligados (o que também resolve a DIV-16).
+- A varredura de segredos do GitHub não existe para um repositório privado pessoal sem GitHub Advanced Security.
+  Por isso, a proteção de segredos continua sendo o Gitleaks no pré-commit e na CI.
+- Os minutos do Actions voltam a contar na cota do plano. A frequência dos jobs é revista com dados de consumo se a
+  cota apertar.
+
+### 4.3 Regras rígidas tiradas da entrevista (`discovered-rules.md`)
+
+- `ALWAYS`: os pontos de controle e as implantações usam só um commit com a CI verde (Q2).
+- `ALWAYS`: uma `main` vermelha é corrigida no commit seguinte, antes de qualquer outra mudança (Q2).
+- `NEVER`: abrir a devnet aos usuários (Q4).
+- `NEVER`: somar os modos PAPER e REAL num total geral (Q8).
 
 ## 5. Incertezas abertas
 
-- O conteúdo dos arquivos sem commit (DIV-07) foi listado, não relido; a integração pode precisar do resultado da
-  Performance Validation do intent `261113-trading-real-bot`.
-- `gh api .../actions/secrets` não listou segredos (pode ser falta de permissão do token); o `security.yml` usa
-  `secrets.NVD_API_KEY`.
-- Região da AWS continua a definir (`environment-inventory.md`, seção 2).
+- A região da AWS continua a definir (`environment-inventory.md`, seção 2).
+- As pendências da CI (Q5) não têm data. O `deploy.yml` não pode entrar antes do ajuste do `WorkflowsTest`.
 - O `codekb` não descreve a fundo `botwallet` nem `apps/txsigner`.
+- O consumo de minutos do Actions no plano privado ainda não foi medido.
 
 ## Sources
 
@@ -257,6 +286,4 @@ Ainda não houve entrevista. Esta seção é preenchida na integração (Step 5)
 
 ## Assumptions & Open Questions
 
-- [assumption] A decisão D3 (devnet só para os testes do fundador) vale como prática de implantação, não só para
-  este intent; a entrevista confirma (DIV-03).
-- [assumption] O repositório ficou público por escolha ou por engano; a evidência não diz qual (DIV-01).
+None.

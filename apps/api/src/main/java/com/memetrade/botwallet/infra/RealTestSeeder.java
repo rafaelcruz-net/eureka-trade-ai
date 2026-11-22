@@ -1,5 +1,6 @@
 package com.memetrade.botwallet.infra;
 
+import com.memetrade.botwallet.domain.Network;
 import com.memetrade.shared.config.ProcessRole;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -58,6 +59,7 @@ public class RealTestSeeder {
         if (!properties.seedTestRelease() || walletAddress.isBlank()) {
             return;
         }
+        requireLocalnet(properties.network());
         Optional<Person> person = Optional.empty();
         for (int attempt = 0; attempt < 30 && person.isEmpty(); attempt++) {
             person = smokePerson();
@@ -68,14 +70,32 @@ public class RealTestSeeder {
         if (person.isEmpty()) {
             throw new IllegalStateException("The REAL test seed found no smoke account");
         }
-        release(person.get());
-        acceptRealTerms(person.get());
+        seedFor(person.get());
+    }
+
+    /** The release and the REAL terms of the smoke account, on the LOCALNET only. */
+    void seedFor(Person person) {
+        requireLocalnet(properties.network());
+        release(person);
+        acceptRealTerms(person);
         log.warn(
                 "TEST PROFILE ACTIVE: REAL release and terms {} seeded for the smoke account",
                 properties.requiredTermsVersion());
     }
 
-    private record Person(UUID tenantId, UUID userId) {}
+    /**
+     * 261121-paper-real-unico U1 (NFR3.8, security-design.md "Checagem de rede", review R-04): the only runtime barrier
+     * when an environment variable turns the seed on outside the files the guard test reads: with the seed on, any
+     * network other than the LOCALNET logs ERROR and stops the start of the process; nothing is written.
+     */
+    static void requireLocalnet(Network network) {
+        if (network != Network.LOCALNET) {
+            log.error("The REAL test seed is on outside the LOCALNET: network={}", network);
+            throw new IllegalStateException("The REAL test seed runs only on the LOCALNET network");
+        }
+    }
+
+    record Person(UUID tenantId, UUID userId) {}
 
     private Optional<Person> smokePerson() {
         return jdbc.sql("select u.tenant_id, u.user_id from wallet w join app_user u on u.user_id = w.user_id "

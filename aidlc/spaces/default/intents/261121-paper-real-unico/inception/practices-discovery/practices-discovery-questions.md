@@ -71,3 +71,21 @@ A. O volume de testes do projeto continua `Comprehensive`, e o deste intent segu
 X. Other (please specify)
 
 [Answer]: A
+
+## Consolidated Summary Confirmation
+
+- **Repositório:** privado desde 2026-11-21, com os alertas e as correções automáticas do Dependabot ligados. A varredura de segredos do GitHub não existe para um repositório privado pessoal sem GitHub Advanced Security. Por isso, o gitleaks no pré-commit e na CI continua sendo a proteção de segredos [Q1].
+- **`main`:** os commits entram direto. A `main` pode ficar vermelha por pouco tempo, e a correção vem no commit seguinte. Os pontos de controle e as implantações só usam commit verde [Q2].
+- **Implantação:** o desenho com duas contas AWS, Terraform, `deploy.yml` manual com Environments e OIDC, e o passo do TxSigner feito pelo fundador com MFA. Ainda não foi aplicado [Q3].
+- **Usuários:** usam só a mainnet. A devnet fica para os testes do fundador e para a pré-produção [Q4].
+- **CI:** registrada como é hoje. As melhorias não aplicadas e o conflito do `id-token: write` ficam como pendências do responsável [Q5].
+- **Registro:** entram as pastas novas, as tags `vAAAA.MM.DD-N` e os commits em inglês com prefixos [Q6].
+- **Verificação dos pontos de controle:** primeiro local; se a máquina não aguentar, vale a CI do mesmo commit [Q7].
+- **Testes:** o volume `Comprehensive` continua no projeto. A fatia fina deste intent tem um spec novo, "nunca somar os modos" [Q8].
+
+Does this all look correct before I generate the artifact?
+
+- Looks correct
+- Request changes
+
+[Answer]: Looks correct

@@ -45,6 +45,17 @@ public abstract class AbstractRealIT extends AbstractPostgresIT {
     /** A signed-in person with its main wallet (generated in test code only). */
     protected record Person(String bearer, UUID tenantId, UUID userId, TestWallet wallet) {}
 
+    /**
+     * 261121-paper-real-unico U1: a signed-in person without the acceptance of the current terms; every route outside
+     * the exceptions of the reacceptance answers 403 TERMS_REACCEPTANCE_REQUIRED.
+     */
+    protected Person staleTermsPerson() throws Exception {
+        TestWallet wallet = TestWallet.generate();
+        TestAccounts.Seeded seeded = TestAccounts.betaUserWithoutAcceptance(jdbc, wallet.address());
+        AuthFlow auth = new AuthFlow(mvc, json);
+        return new Person("Bearer " + auth.accessToken(auth.login(wallet)), seeded.tenantId(), seeded.userId(), wallet);
+    }
+
     protected Person signIn(boolean acceptRealTerms, boolean released) throws Exception {
         TestWallet wallet = TestWallet.generate();
         TestAccounts.Seeded seeded = TestAccounts.betaUser(jdbc, wallet.address());

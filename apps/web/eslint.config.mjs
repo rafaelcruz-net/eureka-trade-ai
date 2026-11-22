@@ -35,6 +35,14 @@ const NO_FLOAT_SYNTAX = [
     message: 'toFixed works on floating point numbers.',
   },
 ];
+// 261121-paper-real-unico U1 (BR7.5, ADR-010, C17): the P&L and bot screens never hold a bigint; lamports become SOL
+// text only through features/real/money.ts, the single conversion of the REAL money.
+const NO_BIGINT_MESSAGE =
+  'Lamports are formatted only by features/real/money.ts; bigint lives only there (ADR-010, BR7.5).';
+const NO_BIGINT_SYNTAX = [
+  { selector: "CallExpression[callee.name='BigInt']", message: NO_BIGINT_MESSAGE },
+  { selector: 'Literal[bigint]', message: NO_BIGINT_MESSAGE },
+];
 const NO_FLOAT_PROPERTIES = [
   { object: 'Number', property: 'parseFloat', message: 'DecimalString values stay text.' },
   {
@@ -185,6 +193,20 @@ const config = [
       'no-restricted-globals': ['error', NO_PARSE_FLOAT_GLOBAL, NO_EVENT_SOURCE_GLOBAL],
       'no-restricted-properties': ['error', ...NO_FLOAT_PROPERTIES],
       'no-restricted-syntax': ['error', ...NO_FLOAT_SYNTAX, ...NO_EVENT_SOURCE_SYNTAX],
+    },
+  },
+  {
+    // 261121-paper-real-unico U1 (BR7.5, ADR-010, C17): the P&L folders also never hold a bigint (the bot screens keep
+    // their own exact decimal of the USDC limits). This block replaces the options of the previous one for these
+    // files, so it repeats them.
+    files: ['src/features/pnl/**/*.{ts,tsx}', 'src/app/pnl/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...NO_FLOAT_SYNTAX,
+        ...NO_BIGINT_SYNTAX,
+        ...NO_EVENT_SOURCE_SYNTAX,
+      ],
     },
   },
   {

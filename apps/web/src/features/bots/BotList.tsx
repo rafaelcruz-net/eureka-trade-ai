@@ -3,7 +3,20 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useApi } from '@/lib/api/ApiProvider';
-import type { BotCommand, BotPage, BotState, BotSummary } from '@/lib/api/guest-api';
+import type {
+  BotCommand,
+  BotPage,
+  BotState,
+  BotSummary,
+  LamportsAmount,
+  PnlAmount,
+  PnlByMode,
+} from '@/lib/api/guest-api';
+import { SimulatedBadge } from '@/components/SimulatedBadge';
+import { RealBadge } from '@/features/real/components/RealBadge';
+import { botListModeMessages as listText } from '@/features/bots/mode-messages';
+import { modeMessages } from '@/features/pnl/mode-messages';
+import { formatSol, formatUsd, solSign, usdSign } from '@/features/pnl/money-format';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useRequireSession } from '@/features/auth/useRequireSession';
 import { BotsShell } from '@/features/bots/BotsShell';
@@ -40,9 +53,20 @@ export function BotList({ timeZone }: { timeZone?: string } = {}) {
   const [filter, setFilter] = useState<BotState | ''>('');
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [notice, setNotice] = useState<string | null>(null);
+  const [byMode, setByMode] = useState<PnlByMode | null>(null);
 
   const fetchBots = useCallback(async () => {
     setLoad({ kind: 'loading' });
+    // 261121-paper-real-unico U1 (F5, BR4.3): the list and the P&L by mode in parallel; a failed P&L never blocks
+    // the list, each line just says "P&L indisponível agora".
+    const pnl = api.getPnlByMode().then(
+      (answer) => setByMode(answer),
+      (failure: unknown) => {
+        if (!isUnauthenticated(failure)) {
+          setByMode(null);
+        }
+      },
+    );
     try {
       setLoad({ kind: 'ready', page: await api.listBots({ state: filter || undefined }) });
     } catch (failure) {
@@ -52,6 +76,7 @@ export function BotList({ timeZone }: { timeZone?: string } = {}) {
       }
       setLoad({ kind: 'error' });
     }
+    await pnl;
   }, [api, expire, filter]);
 
   useEffect(() => {
@@ -70,8 +95,10 @@ export function BotList({ timeZone }: { timeZone?: string } = {}) {
     await fetchBots();
   }
 
+  const simulatedVisible =
+    load.kind === 'ready' && load.page.items.some((bot) => bot.market === 'PAPER');
   return (
-    <BotsShell title={text.listTitle} testId="bots">
+    <BotsShell title={listText.title} testId="bots" tag={null}>
       <p className="muted">{text.listIntro}</p>
       <p>
         <Link href="/bots/new" data-testid="bots-create">
@@ -120,6 +147,11 @@ export function BotList({ timeZone }: { timeZone?: string } = {}) {
           <p data-testid="bots-counter">
             {text.activeCounter(load.page.activeCount, load.page.activeLimit)}
           </p>
+          {simulatedVisible && (
+            <p role="note" className="notice" data-testid="bots-disclaimer">
+              {listText.disclaimer}
+            </p>
+          )}
           {load.page.items.length === 0 ? (
             <div data-testid="bots-empty">
               <p>{text.empty}</p>
@@ -128,12 +160,13 @@ export function BotList({ timeZone }: { timeZone?: string } = {}) {
               </Link>
             </div>
           ) : (
-            <ul data-testid="bots-list">
+            <ul data-testid="bots-list" className="bot-cards">
               {load.page.items.map((bot) => (
                 <BotRow
                   key={bot.botId}
                   bot={bot}
                   zone={zone}
+                  pnl={pnlOf(bot, byMode)}
                   onCommand={(command) => void run(bot, command)}
                 />
               ))}
@@ -145,21 +178,90 @@ export function BotList({ timeZone }: { timeZone?: string } = {}) {
   );
 }
 
+/** The P&L of one line, as the list shows it: a draft has none, a failed block or route is unavailable. */
+type LinePnl =
+  | { kind: 'draft' }
+  | { kind: 'unavailable' }
+  | { kind: 'usd'; amount: PnlAmount }
+  | { kind: 'sol'; amount: LamportsAmount };
+
+/**
+ * 261121-paper-real-unico U1 (BR4.3): the line of the bot in the block of ITS mode of C4, found by its id, without any
+ * arithmetic. A PAPER bot shows US$, a REAL bot SOL, never the other way round.
+ */
+function pnlOf(bot: BotSummary, byMode: PnlByMode | null): LinePnl {
+  if (isWizardState(bot.state)) {
+    return { kind: 'draft' };
+  }
+  if (bot.market === 'REAL') {
+    if (byMode === null || byMode.real.status !== 'AVAILABLE') {
+      return { kind: 'unavailable' };
+    }
+    const line = byMode.real.bots.find((entry) => entry.botId === bot.botId);
+    return line ? { kind: 'sol', amount: line.totalLamports } : { kind: 'unavailable' };
+  }
+  if (byMode === null || byMode.paper.status !== 'AVAILABLE') {
+    return { kind: 'unavailable' };
+  }
+  const line = byMode.paper.bots.find((entry) => entry.botId === bot.botId);
+  return line ? { kind: 'usd', amount: line.total } : { kind: 'unavailable' };
+}
+
+function LinePnlView({ pnl, botId }: { pnl: LinePnl; botId: string }) {
+  const testId = `bots-pnl-${botId}`;
+  if (pnl.kind === 'draft') {
+    return <span data-testid={testId}>{listText.draftPnl}</span>;
+  }
+  if (pnl.kind === 'unavailable') {
+    return <span data-testid={testId}>{listText.pnlUnavailable}</span>;
+  }
+  if (pnl.amount.status === 'UNKNOWN') {
+    return (
+      <span data-testid={testId} data-status="UNKNOWN">
+        {modeMessages.unknown(modeMessages.unknownReasons[pnl.amount.reason] ?? pnl.amount.reason)}
+      </span>
+    );
+  }
+  const value = pnl.amount.value;
+  const sign = pnl.kind === 'usd' ? usdSign(value) : solSign(value);
+  const word =
+    sign === 'gain' ? modeMessages.gain : sign === 'loss' ? modeMessages.loss : modeMessages.zero;
+  return (
+    <span className={`money money-${sign}`} data-testid={testId} data-sign={sign}>
+      {pnl.kind === 'usd' ? formatUsd(value) : formatSol(value)}{' '}
+      <span className="muted">({word})</span>
+    </span>
+  );
+}
+
 function BotRow({
   bot,
   zone,
+  pnl,
   onCommand,
 }: {
   bot: BotSummary;
   zone: string;
+  pnl: LinePnl;
   onCommand: (command: BotCommand) => void;
 }) {
   const restart = resumesAtText(bot.resumesAt, zone);
   const wizard = isWizardState(bot.state);
   return (
-    <li data-testid={`bots-row-${bot.botId}`}>
-      <strong>{bot.name}</strong> —{' '}
-      <span data-testid={`bots-state-${bot.botId}`}>{stateText(bot.state)}</span>
+    <li data-testid={`bots-row-${bot.botId}`} className="bot-card">
+      <strong>{bot.name}</strong>{' '}
+      <span data-testid={`bots-mode-${bot.botId}`}>
+        {listText.modeColumn}:{' '}
+        {bot.market === 'REAL' ? (
+          <RealBadge testId={`bots-mode-badge-${bot.botId}`} />
+        ) : (
+          <SimulatedBadge testId={`bots-mode-badge-${bot.botId}`} />
+        )}
+      </span>{' '}
+      <span>
+        {listText.pnlColumn}: <LinePnlView pnl={pnl} botId={bot.botId} />
+      </span>{' '}
+      — <span data-testid={`bots-state-${bot.botId}`}>{stateText(bot.state)}</span>
       {bot.pauseReasons.length > 0 && (
         <span data-testid={`bots-reasons-${bot.botId}`}>
           : {reasonsText(bot.pauseReasons).join('; ')}

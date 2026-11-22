@@ -96,6 +96,12 @@ public enum ErrorCode {
     /** 261113-trading-real-bot (contract-summary.md "Códigos de erro novos"), U1 of the bot wallet. */
     REAL_DISABLED(403, "real", "REAL is disabled in this environment"),
     REAL_NOT_RELEASED(403, "real", "REAL is not released for this account"),
+    /**
+     * 261121-paper-real-unico U1 (BR2.4, BR3.3, C1, C3): the person cannot create a REAL bot now (or has no limits to
+     * show); {@code reason} carries the strongest reason: KILL_SWITCH, REAL_DISABLED, WALLET_INACTIVE, NOT_RELEASED or
+     * QUARANTINE.
+     */
+    REAL_NOT_ELIGIBLE(409, "real", "REAL not eligible"),
     BOT_WALLET_ALREADY_ACTIVE(409, "conflict", "Bot wallet already active"),
     BOT_WALLET_NOT_ACTIVE(409, "conflict", "Bot wallet not active"),
     REAL_PAUSED(409, "conflict", "REAL paused"),

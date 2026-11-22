@@ -1,0 +1,350 @@
+{
+  "stage": "nfr-design",
+  "unit": "u1-mode-skeleton",
+  "upstream_ids": [
+    "NFR1.1",
+    "NFR1.2",
+    "NFR1.3",
+    "NFR1.4",
+    "NFR1.5",
+    "NFR1.6",
+    "NFR1.7",
+    "NFR1.8",
+    "NFR1.9",
+    "NFR1.10",
+    "NFR1.11",
+    "NFR1.12",
+    "NFR1.13",
+    "NFR1.14",
+    "NFR2.1",
+    "NFR2.2",
+    "NFR2.3",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.3",
+    "NFR3.4",
+    "NFR3.5",
+    "NFR3.6",
+    "NFR3.7",
+    "NFR3.8",
+    "NFR3.9",
+    "NFR3.10",
+    "NFR3.11",
+    "NFR3.12",
+    "NFR3.13",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR4.3",
+    "NFR4.4",
+    "NFR4.5",
+    "NFR4.6",
+    "NFR4.7",
+    "NFR4.8",
+    "NFR4.9",
+    "NFR5.1",
+    "NFR5.2",
+    "NFR5.3",
+    "NFR6.1",
+    "NFR6.2",
+    "NFR7.1",
+    "NFR7.2",
+    "NFR7.3",
+    "NFR7.4",
+    "NFR7.5",
+    "NFR7.6",
+    "NFR7.7",
+    "NFR7.8",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR8.3",
+    "NFR8.4",
+    "NFR8.5"
+  ],
+  "coverage": [
+    {
+      "id": "NFR1.1",
+      "status": "OK",
+      "target": "performance-design.md: blocos PAPER e REAL em paralelo no pool pnl-mode-block, prazo memetrade.pnl.by-mode.block-timeout=800ms cada; bloco REAL com uma leitura por pessoa (real_order_user_created_idx) agrupada por bot_id; bloco PAPER pelo cálculo de hoje (pnl_daily_pk, pnl_daily_owner_day_idx)"
+    },
+    {
+      "id": "NFR1.2",
+      "status": "OK",
+      "target": "performance-design.md: elegibilidade com até 3 leituras pontuais indexadas (real_kill_switch, uq_bot_wallet_account_active_user, uq_real_release_open) e prazo memetrade.bots.real-eligibility-timeout=500ms"
+    },
+    {
+      "id": "NFR1.3",
+      "status": "OK",
+      "target": "performance-design.md: RealAccountLimits lê configuração da barreira e teto com prazo memetrade.riskcontrol.account-limits-timeout=500ms, sem estado novo"
+    },
+    {
+      "id": "NFR1.4",
+      "status": "OK",
+      "target": "performance-design.md: C1 PAPER com o custo de hoje; C1 REAL acrescenta só a elegibilidade com prazo de 500ms dentro do comando idempotente"
+    },
+    {
+      "id": "NFR1.5",
+      "status": "OK",
+      "target": "performance-design.md: ModePnlLatencyIT no padrão de AbstractU9MeasurementIT, semente de referência com linhas de pnl_daily dos dias fechados, 10 aquecimentos e 100 medições, p95 só no log; falha se um bloco vier UNAVAILABLE"
+    },
+    {
+      "id": "NFR1.6",
+      "status": "OK",
+      "target": "performance-design.md: portão de 1.000 ms de C4 no cenário de carga da U2; a U1 não muda scripts/load/ nem load-test.yml"
+    },
+    {
+      "id": "NFR1.7",
+      "status": "OK",
+      "target": "performance-design.md: leituras sem FOR UPDATE nem trava consultiva, statement_timeout local por bloco; teste de C4 em paralelo com um ciclo dentro do lock-timeout de 2 s"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "OK",
+      "target": "performance-design.md: elegibilidade só lê banco (kill switch, carteira, liberação) e a configuração memetrade.real.enabled; 0 chamadas de rede"
+    },
+    {
+      "id": "NFR1.9",
+      "status": "OK",
+      "target": "performance-design.md: execução paralela com prazo contado desde o envio ao pool e desistência tardia; o pior caso do pedido é um prazo de bloco, não a soma"
+    },
+    {
+      "id": "NFR1.10",
+      "status": "OK",
+      "target": "scalability-design.md: volume de referência de 10 bots e 2 anos fixado; acima dele, sem meta; performance-design.md: teto memetrade.pnl.by-mode.real-max-orders=50000 (acima, bloco REAL UNAVAILABLE) e gatilho p95 de C4 > 700 ms para antecipar a leitura em fluxo da U2 (PQ-10)"
+    },
+    {
+      "id": "NFR1.11",
+      "status": "OK",
+      "target": "scalability-design.md: 0 serviços, réplicas, filas ou caches; o pool pnl-mode-block guarda só threads no processo da API"
+    },
+    {
+      "id": "NFR1.12",
+      "status": "OK",
+      "target": "scalability-design.md: IdempotencyService comum; teste de 10 pedidos simultâneos (1 bot, 201 ou 409 IN_PROGRESS) e variante REAL"
+    },
+    {
+      "id": "NFR1.13",
+      "status": "OK",
+      "target": "scalability-design.md: 0 tabelas, colunas e migrações; nenhum índice novo (performance-design.md, tabela Índices); gravações só do bot, da idempotência e da auditoria"
+    },
+    {
+      "id": "NFR1.14",
+      "status": "OK",
+      "target": "observability-design.md: SLI p95 de http.server.requests por uri; sem SLO novo; p95 no log do ModePnlLatencyIT"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "reliability-design.md: long com Math.*Exact, BigInteger e BigDecimal; lamports em texto inteiro no JSON; lint do dinheiro estendido a features/pnl; ArchUnit de ponto flutuante"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "OK",
+      "target": "reliability-design.md: linhas PAPER pelo mesmo cálculo de PnlQueryService, linhas e total na mesma transação REPEATABLE READ; teste de conferência exata com compareTo == 0"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "reliability-design.md: RealPnlCalculator por bot e sobre todas as ordens; realized líquido e total realized + unrealized; UNKNOWN com preço ausente; cenários escritos antes do código"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "security-design.md: Principal do contexto de autenticação passado explicitamente a todas as portas e às threads dos blocos; corpo recusa campo não declarado com 400"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "security-design.md: BotDirectory filtrado pela pessoa; botOf e botPnl vazios viram 404 NOT_FOUND sem dado; teste com id de outra conta"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "security-design.md: as 4 rotas fora de memetrade.terms.allowed-prefixes; teste parametrizado 4 rotas x 401 e 403 TERMS_REACCEPTANCE_REQUIRED e teste de não casamento dos prefixos"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "OK",
+      "target": "security-design.md: regra ArchUnit nova em BotsArchitectureTest proíbe dependência de RealCreationEligibility em realexecution, riskcontrol.real e bots.worker"
+    },
+    {
+      "id": "NFR3.5",
+      "status": "OK",
+      "target": "security-design.md: RealCreationRefusalAudit grava BOT_REAL_CREATION_REFUSED em TransactionTemplate PROPAGATION_REQUIRES_NEW depois do rollback do comando; falha da gravação vira 503; teste dos 5 motivos"
+    },
+    {
+      "id": "NFR3.6",
+      "status": "OK",
+      "target": "security-design.md: C4 sem campo de endereço, logs só com reason, market e correlationId, máscara Base58, etiquetas de enum; teste com carteira ativa semeada"
+    },
+    {
+      "id": "NFR3.7",
+      "status": "OK",
+      "target": "security-design.md: nenhum token, Authorization, nonce ou assinatura no log; 0 NEXT_PUBLIC_* novas; Gitleaks; teste de captura de log procura o token"
+    },
+    {
+      "id": "NFR3.8",
+      "status": "OK",
+      "target": "security-design.md: RealSeedProfileGuardTest (Profile test exato, seed-test-release literal false, nenhum perfil test fora de application-test.yml, Terraform, docker-compose.yml, Dockerfiles, .github/workflows e .env.example sem o perfil ou a chave), teste de contexto e checagem LOCALNET obrigatória no RealTestSeeder com teste dos três valores de rede"
+    },
+    {
+      "id": "NFR3.9",
+      "status": "OK",
+      "target": "security-design.md: memetrade.real.enabled=false fixo; elegibilidade devolve REAL_DISABLED; nenhuma dependência que assine, envie ou chame o TxSigner"
+    },
+    {
+      "id": "NFR3.10",
+      "status": "OK",
+      "target": "observability-design.md: BotCreationMetrics (sem @ProcessRole, como RealOpsMetrics) registra Counter bots.real.create.refusals com tag reason para os 5 motivos na subida; incremento depois da auditoria; contexto do worker continua subindo"
+    },
+    {
+      "id": "NFR3.11",
+      "status": "OK",
+      "target": "observability-design.md: logs JSON com correlationId do MDC; INFO na recusa, WARN no bloco UNAVAILABLE, na falha da fonte e na falha da auditoria; só a classe da exceção; teste de captura"
+    },
+    {
+      "id": "NFR3.12",
+      "status": "OK",
+      "target": "observability-design.md: ModeBlockExecutor copia o MDC para as threads do pool; correlationId do ModeBlockUnavailable lido na thread do pedido; teste de igualdade com o log"
+    },
+    {
+      "id": "NFR3.13",
+      "status": "OK",
+      "target": "observability-design.md: nenhuma biblioteca de tracing; correlação pelo correlationId; a U1 não chama outro processo"
+    },
+    {
+      "id": "NFR4.1",
+      "status": "OK",
+      "target": "security-design.md: regra ArchUnit NEVER_SUM_MODES com as 4 partes do ADR-003, teste de contrato de PnlByMode, teste de propriedade e teste de tela sem total geral"
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "security-design.md: bloco PAPER só do ledger PAPER em US$, bloco REAL só das ordens REAL em lamports; teste com ordens nos dois modos"
+    },
+    {
+      "id": "NFR4.3",
+      "status": "OK",
+      "target": "security-design.md: DTOs de edição sem market, restrição bot_market_immutable e teste de contrato mode == market"
+    },
+    {
+      "id": "NFR4.4",
+      "status": "OK",
+      "target": "reliability-design.md: ModePnlView converte prazo, exceção, fila cheia (RejectedExecutionException capturada no submit) ou excesso de ordens em ModeBlockUnavailable com code SERVICE_UNAVAILABLE e correlationId; sempre 200; ModePnlFailureIT com 4 cenários"
+    },
+    {
+      "id": "NFR4.5",
+      "status": "OK",
+      "target": "reliability-design.md: elegibilidade em ponto de salvamento (PROPAGATION_NESTED) com statement_timeout pelo tempo restante; falha vira 503 sem gravar; motivo decidido antes vale; PAPER não lê; C3 com RealLimitsUnavailable vira 503"
+    },
+    {
+      "id": "NFR4.6",
+      "status": "OK",
+      "target": "observability-design.md: PnlModeMetrics registra Counter pnl.mode_block.unavailable com tag market para PAPER e REAL na subida; incremento por bloco UNAVAILABLE"
+    },
+    {
+      "id": "NFR4.7",
+      "status": "OK",
+      "target": "reliability-design.md: 0 SLOs novos; grupo de prontidão readinessState, db, migrations sem mudança; nenhuma rota da U1 na verificação de saúde"
+    },
+    {
+      "id": "NFR4.8",
+      "status": "OK",
+      "target": "reliability-design.md: C2, C3 e C4 sem gravação; teste conta as linhas antes e depois de 3 leituras; Tentar de novo relê C4"
+    },
+    {
+      "id": "NFR4.9",
+      "status": "OK",
+      "target": "reliability-design.md: Idempotency-Key obrigatória; repetição de chave concluída sem reavaliar; recusa e 503 desfazem a reivindicação e a repetição reavalia; tabela de testes de RealBotCreationEligibilityIT"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "reliability-design.md: ModeStep, RealConfirmDialog e RealBotLimitsStep acionáveis por Tab, Enter e Espaço, com foco visível; teste de componente por controle"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "OK",
+      "target": "reliability-design.md: tokens de cor com contraste de pelo menos 4,5:1 no tema escuro; nenhum estado só por cor"
+    },
+    {
+      "id": "NFR5.3",
+      "status": "OK",
+      "target": "reliability-design.md: nome acessível do total com modo e moeda; h1 e h2 por modo; teste de componente"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "reliability-design.md: cartões empilhados em 360 px; o spec confere scrollWidth <= clientWidth em /pnl e /bots"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "reliability-design.md: máquina de 5 estados do PnlModeBlock com texto próprio; Erro corresponde a UNAVAILABLE ou falha da rota; teste por estado"
+    },
+    {
+      "id": "NFR7.1",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): Test Strategy Standard, unidade e integração por BR com caminho feliz e 2 casos de erro ou borda"
+    },
+    {
+      "id": "NFR7.2",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): os 7 testes obrigatórios por risco, inclusive a variante REAL da idempotência"
+    },
+    {
+      "id": "NFR7.3",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): JaCoCo de pelo menos 80% no backend e Jest com coverageThreshold.global.lines = 80 no apps/web, sem novas exclusões"
+    },
+    {
+      "id": "NFR7.4",
+      "status": "OK",
+      "target": "reliability-design.md (Proteção do BR1.9): BotModePathIT com o percurso REAL sem limites e o PAPER de hoje, casos do DecisionRequest REAL decidido pelo fundador (maxOrderSize do limite de ordem da conta, 0 sem teto, limitsVersion = 0), bot REAL antigo com versão ignorada e changeLimits 422; suítes atuais verdes"
+    },
+    {
+      "id": "NFR7.5",
+      "status": "OK",
+      "target": "reliability-design.md: RealBotCreationEligibilityIT com os 5 motivos e a regressão WALLET_INACTIVE; teste de unidade da função pura de BR2.1 com 5 motivos e 10 pares"
+    },
+    {
+      "id": "NFR7.6",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): antes do código no P&L por modo, na deduplicação e no percurso do BR1.9; depois de cada camada no restante"
+    },
+    {
+      "id": "NFR7.7",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): spec da fatia no validador local acrescentado ao scripts/verify.sh; jobs smoke e e2e devolvem 0"
+    },
+    {
+      "id": "NFR7.8",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): alargamento de mode, leitor do painel, fixtures e teste de contrato do apps/web no mesmo commit; jobs frontend e contract verdes"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "scalability-design.md: nenhum recurso novo em infra/terraform/ e nenhuma mudança nas definições de tarefa do ECS"
+    },
+    {
+      "id": "NFR8.2",
+      "status": "OK",
+      "target": "scalability-design.md: orçamento de US$ 350 por conta sem custo recorrente novo"
+    },
+    {
+      "id": "NFR8.3",
+      "status": "OK",
+      "target": "scalability-design.md (Ambientes): nenhuma rota, tela ou configuração abre a devnet a usuários"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "OK",
+      "target": "scalability-design.md (Ambientes): a U1 só vai para a mainnet num SHA com a U2 aprovada; verificação local e na CI"
+    },
+    {
+      "id": "NFR8.5",
+      "status": "OK",
+      "target": "observability-design.md: 0 regras em infra/observability, 0 alarmes do CloudWatch e 0 painéis; candidatos só registrados"
+    }
+  ]
+}

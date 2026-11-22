@@ -40,9 +40,39 @@ final class BotDtos {
 
             @Schema(
                     allowableValues = {"PAPER", "REAL"},
-                    description = "261113-trading-real-bot U4 (BR1.1): mercado do bot, PAPER por padrão; REAL exige"
-                            + " carteira do bot ativa; nunca muda depois da criação")
+                    description = "Modo do bot, fixo depois da criação (FR1.4). O app novo sempre envia; ausente vale"
+                            + " PAPER, para os clientes antigos. REAL só com a elegibilidade disponível no comando")
             String market) {}
+
+    /** 261121-paper-real-unico U1 (C2, BR2.1, BR2.2): the REAL eligibility of the screen; never authorizes trading. */
+    @Schema(name = "RealEligibility")
+    record RealEligibilityDto(
+            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+            boolean available,
+
+            @Schema(
+                    description = "Só quando available = false: o motivo mais forte",
+                    allowableValues = {"KILL_SWITCH", "REAL_DISABLED", "WALLET_INACTIVE", "NOT_RELEASED", "QUARANTINE"})
+            String reason,
+
+            @Schema(
+                    format = "date-time",
+                    description = "Só em QUARANTINE: o instante UTC em que a liberação passa a valer (OQ2)")
+            Instant effectiveAt,
+
+            @Schema(
+                    description = "Só em WALLET_INACTIVE: a ação que a tela oferece",
+                    allowableValues = {"ACTIVATE_BOT_WALLET"})
+            String action) {
+
+        static RealEligibilityDto of(com.memetrade.bots.domain.RealEligibility eligibility) {
+            return new RealEligibilityDto(
+                    eligibility.available(),
+                    eligibility.reason().map(Enum::name).orElse(null),
+                    eligibility.effectiveAt().orElse(null),
+                    eligibility.action().map(Enum::name).orElse(null));
+        }
+    }
 
     @Schema(name = "TokenRef")
     record TokenDto(
@@ -247,7 +277,11 @@ final class BotDtos {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
             String name,
 
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+            @Schema(
+                    requiredMode = Schema.RequiredMode.REQUIRED,
+                    allowableValues = {"PAPER", "REAL"},
+                    deprecated = true,
+                    description = "Obsoleto: sempre igual a market (FR2.4, ADR-009). Leia market")
             String mode,
 
             @Schema(
@@ -297,7 +331,8 @@ final class BotDtos {
             return new BotDetailDto(
                     bot.botId(),
                     bot.name(),
-                    "PAPER",
+                    // 261121-paper-real-unico U1 (BR1.3, ADR-009): the deprecated mode is always the market.
+                    bot.market().name(),
                     bot.market().name(),
                     bot.status().state().name(),
                     summary.pauseReasons().stream().map(Enum::name).toList(),
@@ -434,7 +469,15 @@ final class BotDtos {
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
             String strategyVersion,
 
-            @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
+            /**
+             * 261121-paper-real-unico U1 (BR1.9, reliability-design.md "Decisão do fundador"): {@code 0} is a
+             * documented sentinel that appears only in a REAL decision and means "the REAL limits of the account": a
+             * REAL bot has no limits version of its own.
+             */
+            @Schema(
+                    requiredMode = Schema.RequiredMode.REQUIRED,
+                    description = "Versão dos limites do bot. 0 só em decisão REAL e significa \"limites da conta\":"
+                            + " um bot REAL não tem versão de limites própria (BR1.9)")
             long limitsVersion,
 
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED)

@@ -1,4 +1,69 @@
-import type { LedgerEntry, PaperTrade, PnlReport, ReconciliationResult } from '@/lib/api/guest-api';
+import type {
+  LedgerEntry,
+  PaperModeBlock,
+  PaperTrade,
+  PnlByMode,
+  PnlReport,
+  RealModeBlock,
+  ReconciliationResult,
+} from '@/lib/api/guest-api';
+
+/** 261121-paper-real-unico U1: a PAPER bot and a REAL bot of the P&L by mode (synthetic ids). */
+export const PAPER_BOT_ID = 'b0700000-0000-4000-8000-0000000000a1';
+export const REAL_BOT_ID = 'b0700000-0000-4000-8000-0000000000b2';
+
+/** The PAPER block of C4 with one bot: realized 12.40, fees 0.40, nothing open; total 12.00 (BR5.4). */
+export const PAPER_BLOCK: PaperModeBlock = {
+  status: 'AVAILABLE',
+  market: 'PAPER',
+  currency: 'USD',
+  disclaimer: 'O resultado simulado não garante o resultado real.',
+  empty: false,
+  total: { status: 'KNOWN', value: '12.000000' },
+  realized: '12.400000',
+  unrealized: { status: 'KNOWN', value: '0.000000' },
+  unrealizedAsOf: '2026-10-28T15:00:00Z',
+  fees: '0.400000',
+  bots: [
+    {
+      botId: PAPER_BOT_ID,
+      name: 'Simulado A',
+      botStatus: 'ACTIVE',
+      total: { status: 'KNOWN', value: '12.000000' },
+      realized: '12.400000',
+      unrealized: { status: 'KNOWN', value: '0.000000' },
+      fees: '0.400000',
+    },
+  ],
+};
+
+/** The REAL block of C4 with one bot: total 31,200,000 lamports (+0,0312 SOL, BR7.1). */
+export const REAL_BLOCK: RealModeBlock = {
+  status: 'AVAILABLE',
+  market: 'REAL',
+  currency: 'SOL',
+  empty: false,
+  totalLamports: { status: 'KNOWN', value: '31200000' },
+  realizedLamports: '-5000',
+  unrealizedLamports: { status: 'KNOWN', value: '31205000' },
+  unrealizedAsOf: '2026-10-28T15:00:00Z',
+  feesLamports: '10000',
+  bots: [
+    {
+      botId: REAL_BOT_ID,
+      name: 'Real B',
+      botStatus: 'PAUSED',
+      totalLamports: { status: 'KNOWN', value: '31200000' },
+      realizedLamports: '-5000',
+      unrealizedLamports: { status: 'KNOWN', value: '31205000' },
+      feesLamports: '10000',
+      prorated: { summary: [], count: 0, lines: [] },
+    },
+  ],
+  unowned: null,
+};
+
+export const BY_MODE: PnlByMode = { period: { kind: 'ALL' }, paper: PAPER_BLOCK, real: REAL_BLOCK };
 
 /** Synthetic mints of the U7 screen tests (never real tokens). */
 export const MINT_A = 'MintAaaa1111111111111111111111111111111111';

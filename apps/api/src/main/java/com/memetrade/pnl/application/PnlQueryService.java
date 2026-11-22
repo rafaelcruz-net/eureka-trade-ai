@@ -74,6 +74,19 @@ public class PnlQueryService {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public PnlView report(Principal person, Instant from, Instant to, Optional<UUID> botId) {
         validate(from, to);
+        return reportSince(person, from, to, botId);
+    }
+
+    /**
+     * 261121-paper-real-unico U1 (BR5.9, performance-design.md "Bloco PAPER"): the SAME calculation without the limit
+     * of 366 days of the public route, for the window ALL of the P&L by mode. Same snapshot rules: it takes part in the
+     * REPEATABLE READ transaction of the caller (the PAPER block of C4).
+     */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public PnlView reportSince(Principal person, Instant from, Instant to, Optional<UUID> botId) {
+        if (!from.isBefore(to)) {
+            throw new IllegalArgumentException("from must be before to");
+        }
         if (botId.isPresent() && !visible(person, botId.get())) {
             return new PnlView(from, to, PnlCalculator.report(List.of()), Map.of(), clock.instant());
         }

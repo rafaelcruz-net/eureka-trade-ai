@@ -168,6 +168,53 @@ class BotRoutesIT extends AbstractU5IT {
                 .doesNotContain("\"market\"");
     }
 
+    /**
+     * 261121-paper-real-unico U1 (BR1.3, BR4.2, BR8.2, AC2.1.x, AC2.4.x): the list and the detail carry
+     * {@code mode == market} for PAPER and REAL bots of the person, and another person still never sees them.
+     */
+    @Test
+    void theListCarriesTheModeOfEachBotEqualToItsMarketAndStaysFilteredByTheToken() throws Exception {
+        Guest owner = signIn();
+        String paperBot = draft(owner);
+        UUID realBot = realBotRow(owner.principal());
+        Guest stranger = signIn();
+
+        JsonNode items = body(call(owner, get("/api/v1/bots"))).get("items");
+        JsonNode detail = body(call(owner, get("/api/v1/bots/" + realBot)));
+
+        assertThat(items).hasSize(2);
+        for (JsonNode item : items) {
+            assertThat(item.get("mode").asText()).isEqualTo(item.get("market").asText());
+        }
+        assertThat(items)
+                .anySatisfy(item -> assertThat(item.get("botId").asText()).isEqualTo(paperBot))
+                .anySatisfy(item -> assertThat(item.get("mode").asText()).isEqualTo("REAL"));
+        assertThat(detail.get("mode").asText()).isEqualTo("REAL");
+        assertThat(body(call(stranger, get("/api/v1/bots"))).get("items")).isEmpty();
+        assertThat(call(stranger, get("/api/v1/bots/" + realBot)).getStatus()).isEqualTo(404);
+    }
+
+    /**
+     * 261121-paper-real-unico U1 (BR2.1, BR2.4, NFR3.9; team.md "REAL desligado por padrão"): with the REAL off (the
+     * default of this context) the eligibility is REAL_DISABLED and a REAL creation is 409 with that reason; no bot.
+     */
+    @Test
+    void withTheRealOffTheEligibilityIsRealDisabledAndARealCreationIs409() throws Exception {
+        Guest guest = signIn();
+
+        JsonNode eligibility = body(call(guest, get("/api/v1/bots/real-eligibility")));
+        MockHttpServletResponse refused = call(
+                guest,
+                json(post("/api/v1/bots"), "{\"templateId\":\"MOMENTUM_VOLUME\",\"name\":\"x\",\"market\":\"REAL\"}"));
+
+        assertThat(eligibility.get("available").asBoolean()).isFalse();
+        assertThat(eligibility.get("reason").asText()).isEqualTo("REAL_DISABLED");
+        assertThat(refused.getStatus()).isEqualTo(409);
+        assertThat(problem(refused).get("code").asText()).isEqualTo("REAL_NOT_ELIGIBLE");
+        assertThat(problem(refused).get("reason").asText()).isEqualTo("REAL_DISABLED");
+        assertThat(body(call(guest, get("/api/v1/bots"))).get("items")).isEmpty();
+    }
+
     /** NFR5.3, BR2.9, AC4.2.5: a mode other than PAPER is 403 REAL_MODE_UNAVAILABLE, audited; nothing changes. */
     @Test
     void anotherModeIsForbiddenAndAudited() throws Exception {

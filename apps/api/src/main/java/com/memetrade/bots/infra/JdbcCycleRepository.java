@@ -51,6 +51,14 @@ public class JdbcCycleRepository {
      * 261113-trading-real-bot U4 (test strategy of the recorded swap): whether a committed cycle of the bot ended with
      * {@code outcome} (for example {@code REAL_RECORDED}).
      */
+    /** True when any cycle of the bot was ever recorded, whatever its status (read by a test-profile helper only). */
+    public boolean hasAnyCycle(UUID botId) {
+        return jdbc.sql("select exists (select 1 from bot_cycle where bot_id = :bot)")
+                .param("bot", botId)
+                .query(Boolean.class)
+                .single();
+    }
+
     public boolean hasOutcome(UUID botId, String outcome) {
         return jdbc.sql("select exists (select 1 from bot_cycle where bot_id = :bot and outcome = :outcome)")
                 .param("bot", botId)

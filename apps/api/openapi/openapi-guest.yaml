@@ -219,16 +219,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BotSummary"
-          description: Rascunho criado
+          description: Rascunho criado no modo escolhido
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "REAL_NOT_ELIGIBLE: market = REAL e a pessoa não pode criar\
+            \ bot REAL; reason traz o motivo mais forte (KILL_SWITCH, REAL_DISABLED,\
+            \ WALLET_INACTIVE, NOT_RELEASED ou QUARANTINE). Também IDEMPOTENCY_CONFLICT,\
+            \ como hoje"
         "422":
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
-          description: VALIDATION_FAILED
+          description: "VALIDATION_FAILED: nome, templateId ou market inválido"
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "SERVICE_UNAVAILABLE: a elegibilidade do REAL não pôde ser\
+            \ lida; falha fechada, nenhum bot é criado"
       security:
       - accessToken: []
-      summary: Cria o rascunho (DRAFT) a partir de uma estratégia modelo (BR1.1)
+      summary: "Cria o rascunho (DRAFT) no modo escolhido (market), a partir de uma\
+        \ estratégia modelo (BR1.1)"
+      tags:
+      - bot-controller
+  /api/v1/bots/real-eligibility:
+    get:
+      operationId: getRealEligibility
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealEligibility"
+          description: A elegibilidade
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "SERVICE_UNAVAILABLE: o estado do REAL não pôde ser lido; a\
+            \ tela mantém Real desabilitada (falha fechada)"
+      security:
+      - accessToken: []
+      summary: "Se a pessoa pode criar um bot REAL agora, com o motivo mais forte\
+        \ quando não pode (FR1.2, ADR-005)"
       tags:
       - bot-controller
   /api/v1/bots/{botId}:
@@ -453,7 +493,9 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
-          description: LIMIT_INCOHERENT
+          description: "LIMIT_INCOHERENT, ou VALIDATION_FAILED no campo limits num\
+            \ bot REAL: um bot REAL usa os limites REAL da conta e não tem limites\
+            \ próprios (BR1.9)"
       security:
       - accessToken: []
       summary: "Nova versão dos limites, válida só para operações futuras (US4.9)"
@@ -866,6 +908,39 @@ paths:
       summary: "P&L por token, bot e período [from, to) em UTC (FR10.3)"
       tags:
       - pnl-controller
+  /api/v1/pnl/by-mode:
+    get:
+      operationId: getPnlByMode
+      parameters:
+      - in: query
+        name: period
+        required: false
+        schema:
+          type: string
+          default: ALL
+          enum:
+          - ALL
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PnlByMode"
+          description: Os dois blocos; um modo que falhou vem com status UNAVAILABLE
+            sem derrubar o outro
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: na U1, só o período ALL; from e to são\
+            \ recusados"
+      security:
+      - accessToken: []
+      summary: "P&L em dois blocos separados, PAPER (US$) e REAL (SOL), no mesmo perí\
+        odo; nunca somados (FR4.1, ADR-003)"
+      tags:
+      - pnl-controller
   /api/v1/privacy/requests:
     get:
       operationId: listMyDataRequests
@@ -992,6 +1067,35 @@ paths:
         do ou recusado"
       tags:
       - data-request-controller
+  /api/v1/real/account-limits:
+    get:
+      operationId: getRealAccountLimits
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealAccountLimitsView"
+          description: Os limites
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "REAL_NOT_ELIGIBLE com reason WALLET_INACTIVE: sem carteira\
+            \ do bot ativa não há limite a mostrar"
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "SERVICE_UNAVAILABLE: a leitura falhou"
+      security:
+      - accessToken: []
+      summary: "Limites REAL da conta, só leitura, em lamports arredondados para baixo,\
+        \ iguais aos da barreira (ADR-008)"
+      tags:
+      - bot-controller
   /api/v1/real/bot-wallet:
     get:
       operationId: getBotWallet
@@ -2151,6 +2255,11 @@ components:
           - REAL
         mode:
           type: string
+          deprecated: true
+          description: "Obsoleto: sempre igual a market (FR2.4, ADR-009). Leia market"
+          enum:
+          - PAPER
+          - REAL
         name:
           type: string
         parameters:
@@ -2271,8 +2380,11 @@ components:
           - REAL
         mode:
           type: string
+          deprecated: true
+          description: "Obsoleto: sempre igual a market (FR2.4, ADR-009). Leia market"
           enum:
           - PAPER
+          - REAL
         name:
           type: string
         pauseReasons:
@@ -2552,9 +2664,9 @@ components:
       properties:
         market:
           type: string
-          description: "261113-trading-real-bot U4 (BR1.1): mercado do bot, PAPER\
-            \ por padrão; REAL exige carteira do bot ativa; nunca muda depois da criaç\
-            ão"
+          description: "Modo do bot, fixo depois da criação (FR1.4). O app novo sempre\
+            \ envia; ausente vale PAPER, para os clientes antigos. REAL só com a elegibilidade\
+            \ disponível no comando"
           enum:
           - PAPER
           - REAL
@@ -2864,6 +2976,9 @@ components:
         limitsVersion:
           type: integer
           format: int64
+          description: "Versão dos limites do bot. 0 só em decisão REAL e significa\
+            \ \"limites da conta\": um bot REAL não tem versão de limites própria\
+            \ (BR1.9)"
         noTradeReason:
           type: string
           enum:
@@ -3144,6 +3259,49 @@ components:
       - stale
       - status
       - value
+    LamportsAmount:
+      discriminator:
+        mapping:
+          KNOWN: "#/components/schemas/LamportsKnown"
+          UNKNOWN: "#/components/schemas/LamportsUnknown"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/LamportsKnown"
+      - $ref: "#/components/schemas/LamportsUnknown"
+    LamportsKnown:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - KNOWN
+        value:
+          type: string
+          description: Lamports em texto inteiro com sinal; nunca número JSON nem
+            ponto flutuante
+          pattern: "^-?[0-9]{1,20}$"
+      required:
+      - status
+      - value
+    LamportsUnknown:
+      type: object
+      additionalProperties: false
+      description: "Valor desconhecido; nunca zero (FR3.5, FR3.10)"
+      properties:
+        reason:
+          type: string
+          enum:
+          - PRICE_UNKNOWN
+          - STALE
+          - NO_LIQUIDITY
+        status:
+          type: string
+          enum:
+          - UNKNOWN
+      required:
+      - reason
+      - status
     LedgerEntry:
       type: object
       additionalProperties: false
@@ -3335,6 +3493,91 @@ components:
       - effectiveAt
       - provisional
       - version
+    LimitCount:
+      type: object
+      additionalProperties: false
+      description: Limite em contagem; sempre conhecido
+      properties:
+        count:
+          type: integer
+          format: int32
+          minimum: 0
+        status:
+          type: string
+          enum:
+          - KNOWN
+      required:
+      - count
+      - status
+    LimitLamports:
+      discriminator:
+        mapping:
+          KNOWN: "#/components/schemas/LimitLamportsKnown"
+          UNKNOWN: "#/components/schemas/LimitUnknown"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/LimitLamportsKnown"
+      - $ref: "#/components/schemas/LimitUnknown"
+    LimitLamportsKnown:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum:
+          - KNOWN
+        value:
+          type: string
+          description: "Lamports, texto inteiro"
+          pattern: "^[0-9]{1,20}$"
+      required:
+      - status
+      - value
+    LimitShare:
+      discriminator:
+        mapping:
+          KNOWN: "#/components/schemas/LimitShareKnown"
+          UNKNOWN: "#/components/schemas/LimitUnknown"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/LimitShareKnown"
+      - $ref: "#/components/schemas/LimitUnknown"
+    LimitShareKnown:
+      type: object
+      additionalProperties: false
+      properties:
+        percentOfCap:
+          type: string
+          description: Percentual do teto em decimal exato
+          pattern: ^\d+(\.\d+)?$
+        status:
+          type: string
+          enum:
+          - KNOWN
+        value:
+          type: string
+          description: "Lamports, texto inteiro"
+          pattern: "^[0-9]{1,20}$"
+      required:
+      - percentOfCap
+      - status
+      - value
+    LimitUnknown:
+      type: object
+      additionalProperties: false
+      description: "Limite sem valor: \"não definido\", nunca zero (BR3.2)"
+      properties:
+        reason:
+          type: string
+          enum:
+          - NOT_DEFINED
+        status:
+          type: string
+          enum:
+          - UNKNOWN
+      required:
+      - reason
+      - status
     MarketValue:
       discriminator:
         mapping:
@@ -3344,6 +3587,36 @@ components:
       oneOf:
       - $ref: "#/components/schemas/KnownValue"
       - $ref: "#/components/schemas/UnknownValue"
+    ModeBlockUnavailable:
+      type: object
+      additionalProperties: false
+      description: Um modo que falhou; o outro bloco continua na mesma resposta
+      properties:
+        code:
+          type: string
+          description: "Código legível por máquina, por exemplo SERVICE_UNAVAILABLE"
+        correlationId:
+          type: string
+        currency:
+          type: string
+          enum:
+          - USD
+          - SOL
+        market:
+          type: string
+          enum:
+          - PAPER
+          - REAL
+        status:
+          type: string
+          enum:
+          - UNAVAILABLE
+      required:
+      - code
+      - correlationId
+      - currency
+      - market
+      - status
     OrderRejection:
       type: object
       additionalProperties: false
@@ -3406,6 +3679,101 @@ components:
       - pauseTriggers
       - reasons
       - rejectionId
+    PaperBotPnlLine:
+      type: object
+      additionalProperties: false
+      properties:
+        botId:
+          type: string
+          format: uuid
+        botStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - PAUSED
+          - REMOVED
+        fees:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        name:
+          type: string
+        realized:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        total:
+          $ref: "#/components/schemas/PnlAmount"
+        unrealized:
+          $ref: "#/components/schemas/PnlAmount"
+      required:
+      - botId
+      - botStatus
+      - fees
+      - name
+      - realized
+      - total
+      - unrealized
+    PaperModeBlock:
+      type: object
+      additionalProperties: false
+      properties:
+        bots:
+          type: array
+          description: "Ordem de criação, nunca por valor"
+          items:
+            $ref: "#/components/schemas/PaperBotPnlLine"
+        currency:
+          type: string
+          enum:
+          - USD
+        disclaimer:
+          type: string
+          description: "Aviso fixo do simulado: \"O resultado simulado não garante\
+            \ o resultado real.\" (FR4.2, C-16)"
+        empty:
+          type: boolean
+        fees:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        market:
+          type: string
+          enum:
+          - PAPER
+        realized:
+          type: string
+          pattern: ^-?\d+(\.\d+)?$
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+        total:
+          $ref: "#/components/schemas/PnlAmount"
+          description: realized + unrealized - fees; UNKNOWN com o não realizado UNKNOWN
+        unrealized:
+          $ref: "#/components/schemas/PnlAmount"
+        unrealizedAsOf:
+          type: string
+          format: date-time
+      required:
+      - bots
+      - currency
+      - disclaimer
+      - empty
+      - fees
+      - market
+      - realized
+      - status
+      - total
+      - unrealized
+      - unrealizedAsOf
+    PaperModeBlockResult:
+      discriminator:
+        mapping:
+          AVAILABLE: "#/components/schemas/PaperModeBlock"
+          UNAVAILABLE: "#/components/schemas/ModeBlockUnavailable"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/PaperModeBlock"
+      - $ref: "#/components/schemas/ModeBlockUnavailable"
     PaperTrade:
       type: object
       additionalProperties: false
@@ -3549,6 +3917,22 @@ components:
       oneOf:
       - $ref: "#/components/schemas/PnlKnown"
       - $ref: "#/components/schemas/PnlUnknown"
+    PnlByMode:
+      type: object
+      additionalProperties: false
+      description: "Só o período e os dois blocos. Não existe campo de total fora\
+        \ dos blocos (FR4.1, NFR3)"
+      properties:
+        paper:
+          $ref: "#/components/schemas/PaperModeBlockResult"
+        period:
+          $ref: "#/components/schemas/PnlPeriod"
+        real:
+          $ref: "#/components/schemas/RealModeBlockResult"
+      required:
+      - paper
+      - period
+      - real
     PnlKnown:
       type: object
       additionalProperties: false
@@ -3563,6 +3947,26 @@ components:
       required:
       - status
       - value
+    PnlPeriod:
+      type: object
+      additionalProperties: false
+      description: "Período do P&L: ALL é desde o início; RANGE é [from, to) em UTC"
+      properties:
+        from:
+          type: string
+          format: date-time
+          description: Só em RANGE
+        kind:
+          type: string
+          enum:
+          - ALL
+          - RANGE
+        to:
+          type: string
+          format: date-time
+          description: Só em RANGE
+      required:
+      - kind
     PnlReport:
       type: object
       additionalProperties: false
@@ -3687,6 +4091,108 @@ components:
       - status
       - title
       - type
+    ProratedLine:
+      type: object
+      additionalProperties: false
+      properties:
+        at:
+          type: string
+          format: date-time
+        feeLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        mint:
+          type: string
+        origin:
+          type: string
+          enum:
+          - LIQUIDATION
+          - CONDITIONAL
+          - SOLD_BY_OTHER_BOT
+        realizedLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        receivedLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        tokenBaseUnits:
+          type: string
+          pattern: "^[0-9]{1,30}$"
+      required:
+      - at
+      - feeLamports
+      - mint
+      - origin
+      - realizedLamports
+      - receivedLamports
+      - tokenBaseUnits
+    ProratedShares:
+      type: object
+      additionalProperties: false
+      description: "Dono do formato: U2. Vazio até a U2"
+      properties:
+        count:
+          type: integer
+          format: int32
+          minimum: 0
+        lines:
+          type: array
+          description: As 10 parcelas mais recentes; as demais pelo C5
+          items:
+            $ref: "#/components/schemas/ProratedLine"
+        summary:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProratedSummary"
+      required:
+      - count
+      - lines
+      - summary
+    ProratedSummary:
+      type: object
+      additionalProperties: false
+      properties:
+        origin:
+          type: string
+          enum:
+          - LIQUIDATION
+          - CONDITIONAL
+          - SOLD_BY_OTHER_BOT
+        realizedLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+      required:
+      - origin
+      - realizedLamports
+    RealAccountLimitsView:
+      type: object
+      additionalProperties: false
+      description: "Limites REAL da conta, só leitura (C3, BR3.1)"
+      properties:
+        cap:
+          $ref: "#/components/schemas/LimitLamports"
+          description: Teto da carteira do bot
+        currency:
+          type: string
+          enum:
+          - SOL
+        dailyBuys:
+          $ref: "#/components/schemas/LimitCount"
+          description: "Compras aprovadas por bot, por dia UTC"
+        dailyLoss:
+          $ref: "#/components/schemas/LimitShare"
+          description: "Perda máxima do dia sobre a base min(teto no início do dia\
+            \ UTC, teto atual), a mesma da barreira, e o percentual"
+        orderMax:
+          $ref: "#/components/schemas/LimitShare"
+          description: "Tamanho máximo por ordem: floor(teto x orderMaxBps / 10000)\
+            \ e o percentual do teto"
+      required:
+      - cap
+      - currency
+      - dailyBuys
+      - dailyLoss
+      - orderMax
     RealActivationRequest:
       type: object
       additionalProperties: false
@@ -3715,6 +4221,42 @@ components:
           type: string
         totalLamports:
           type: string
+    RealBotPnlLine:
+      type: object
+      additionalProperties: false
+      properties:
+        botId:
+          type: string
+          format: uuid
+        botStatus:
+          type: string
+          enum:
+          - ACTIVE
+          - PAUSED
+          - REMOVED
+        feesLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        name:
+          type: string
+        prorated:
+          $ref: "#/components/schemas/ProratedShares"
+        realizedLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        totalLamports:
+          $ref: "#/components/schemas/LamportsAmount"
+        unrealizedLamports:
+          $ref: "#/components/schemas/LamportsAmount"
+      required:
+      - botId
+      - botStatus
+      - feesLamports
+      - name
+      - prorated
+      - realizedLamports
+      - totalLamports
+      - unrealizedLamports
     RealChallengeRequest:
       type: object
       additionalProperties: false
@@ -3785,6 +4327,33 @@ components:
       - positionMint
       - state
       - type
+    RealEligibility:
+      type: object
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+          description: "Só em WALLET_INACTIVE: a ação que a tela oferece"
+          enum:
+          - ACTIVATE_BOT_WALLET
+        available:
+          type: boolean
+        effectiveAt:
+          type: string
+          format: date-time
+          description: "Só em QUARANTINE: o instante UTC em que a liberação passa\
+            \ a valer (OQ2)"
+        reason:
+          type: string
+          description: "Só quando available = false: o motivo mais forte"
+          enum:
+          - KILL_SWITCH
+          - REAL_DISABLED
+          - WALLET_INACTIVE
+          - NOT_RELEASED
+          - QUARANTINE
+      required:
+      - available
     RealLiquidationView:
       type: object
       additionalProperties: false
@@ -3794,6 +4363,73 @@ components:
           format: uuid
       required:
       - liquidationId
+    RealModeBlock:
+      type: object
+      additionalProperties: false
+      description: "Na U1, realizedLamports é líquido de taxas e totalLamports = realized\
+        \ + unrealized; a partir da U2, realizedLamports passa a ser bruto e o total\
+        \ desconta as taxas (C10)"
+      properties:
+        bots:
+          type: array
+          description: "Ordem de criação, nunca por valor"
+          items:
+            $ref: "#/components/schemas/RealBotPnlLine"
+        currency:
+          type: string
+          enum:
+          - SOL
+        empty:
+          type: boolean
+        feesLamports:
+          type: string
+          description: "Na U1, só informação: já incluídas no realizado e no custo"
+          pattern: "^-?[0-9]{1,20}$"
+        market:
+          type: string
+          enum:
+          - REAL
+        realizedLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+        totalLamports:
+          $ref: "#/components/schemas/LamportsAmount"
+        unowned:
+          description: "Linha \"Sem bot\" (FR3.4, FR5.3). null até a U2; desde a U2,\
+            \ sempre um objeto"
+          oneOf:
+          - $ref: "#/components/schemas/UnownedPnlLine"
+          - type: "null"
+        unrealizedAsOf:
+          type: string
+          format: date-time
+        unrealizedLamports:
+          $ref: "#/components/schemas/LamportsAmount"
+      required:
+      - bots
+      - currency
+      - empty
+      - feesLamports
+      - market
+      - realizedLamports
+      - status
+      - totalLamports
+      - unowned
+      - unrealizedAsOf
+      - unrealizedLamports
+    RealModeBlockResult:
+      discriminator:
+        mapping:
+          AVAILABLE: "#/components/schemas/RealModeBlock"
+          UNAVAILABLE: "#/components/schemas/ModeBlockUnavailable"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/RealModeBlock"
+      - $ref: "#/components/schemas/ModeBlockUnavailable"
     RealModeRequest:
       type: object
       additionalProperties: false
@@ -4670,6 +5306,31 @@ components:
       required:
       - reason
       - status
+    UnownedPnlLine:
+      type: object
+      additionalProperties: false
+      description: Diferente de zero só com pelo menos um motivo (FR5.3)
+      properties:
+        feesLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        realizedLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        reasons:
+          type: array
+          enum:
+          - SURPLUS_WITHOUT_OWNER
+          - ORDER_RECORD_MISSING
+          items:
+            type: string
+        unrealizedLamports:
+          $ref: "#/components/schemas/LamportsAmount"
+      required:
+      - feesLamports
+      - realizedLamports
+      - reasons
+      - unrealizedLamports
     VerifyRequest:
       type: object
       additionalProperties: false

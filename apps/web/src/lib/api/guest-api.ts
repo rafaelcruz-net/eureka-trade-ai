@@ -402,15 +402,36 @@ export function guestApi(
         }),
       );
     },
-    /** U5 (BR1.1): a draft from a template. */
-    createBot(body: CreateBotRequest) {
+    /**
+     * U5 (BR1.1): a draft from a template. 261121-paper-real-unico U1 (C1, BR1.4, BR2.8): with the market chosen; the
+     * confirmation of a REAL bot passes its own key, so "Tentar de novo" repeats the same request with the same key.
+     */
+    createBot(body: CreateBotRequest, idempotencyKey?: string) {
       return withRenewal(() =>
-        client.request<BotSummary>('/api/v1/bots', {
-          method: 'POST',
-          body,
-          idempotent: true,
-          authenticated: true,
-        }),
+        client.request<BotSummary>(
+          '/api/v1/bots',
+          idempotencyKey
+            ? { method: 'POST', body, idempotencyKey, authenticated: true }
+            : { method: 'POST', body, idempotent: true, authenticated: true },
+        ),
+      );
+    },
+    /** 261121-paper-real-unico U1 (C2): whether the person may create a REAL bot now, with the strongest reason. */
+    getRealEligibility() {
+      return withRenewal(() =>
+        client.request<RealEligibility>('/api/v1/bots/real-eligibility', { authenticated: true }),
+      );
+    },
+    /** 261121-paper-real-unico U1 (C3): the REAL limits of the account, read only. */
+    getRealAccountLimits() {
+      return withRenewal(() =>
+        client.request<RealAccountLimits>('/api/v1/real/account-limits', { authenticated: true }),
+      );
+    },
+    /** 261121-paper-real-unico U1 (C4): the P&L in two separate blocks, PAPER and REAL, never added. */
+    getPnlByMode() {
+      return withRenewal(() =>
+        client.request<PnlByMode>('/api/v1/pnl/by-mode', { authenticated: true }),
       );
     },
     /** U5 (AC4.1.3): one accepted step of the wizard. */
@@ -738,6 +759,23 @@ export type DecisionPage = components['schemas']['DecisionPage'];
 export type BotState = BotSummary['state'];
 export type PauseReason = BotSummary['pauseReasons'][number];
 export type BotCommand = 'start' | 'pause' | 'resume' | 'stop';
+export type BotMarket = NonNullable<CreateBotRequest['market']>;
+
+// 261121-paper-real-unico U1 (C2, C3, C4): the REAL eligibility, the REAL limits of the account and the P&L by mode.
+export type RealEligibility = components['schemas']['RealEligibility'];
+export type RealIneligibilityReason = NonNullable<RealEligibility['reason']>;
+export type RealAccountLimits = components['schemas']['RealAccountLimitsView'];
+export type LimitLamports = components['schemas']['LimitLamports'];
+export type LimitShare = components['schemas']['LimitShare'];
+export type PnlByMode = components['schemas']['PnlByMode'];
+export type PaperModeBlockResult = components['schemas']['PaperModeBlockResult'];
+export type RealModeBlockResult = components['schemas']['RealModeBlockResult'];
+export type PaperModeBlock = components['schemas']['PaperModeBlock'];
+export type RealModeBlock = components['schemas']['RealModeBlock'];
+export type PaperBotPnlLine = components['schemas']['PaperBotPnlLine'];
+export type RealBotPnlLine = components['schemas']['RealBotPnlLine'];
+export type ModeBlockUnavailable = components['schemas']['ModeBlockUnavailable'];
+export type LamportsAmount = components['schemas']['LamportsAmount'];
 
 // U8 (C6): the comment of a guest.
 export type FeedbackRequest = components['schemas']['FeedbackRequest'];

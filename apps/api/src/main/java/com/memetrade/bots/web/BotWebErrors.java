@@ -3,6 +3,8 @@ package com.memetrade.bots.web;
 import com.memetrade.bots.application.BotNotFoundException;
 import com.memetrade.bots.application.BotTechnicalFailure;
 import com.memetrade.bots.application.BotValidationException;
+import com.memetrade.bots.application.EligibilitySourceUnavailable;
+import com.memetrade.bots.application.RealNotEligibleException;
 import com.memetrade.bots.domain.BotRuleViolation;
 import com.memetrade.bots.domain.Violation;
 import com.memetrade.bots.infra.JdbcBotRepository;
@@ -76,6 +78,30 @@ public class BotWebErrors {
 
     @ExceptionHandler(BotTechnicalFailure.class)
     public ResponseEntity<ProblemResponse> technical(BotTechnicalFailure failure, HttpServletRequest request) {
+        return problems.handleApi(
+                new ApiException(ErrorCode.SERVICE_UNAVAILABLE, "Service temporarily unavailable."), request);
+    }
+
+    /**
+     * 261121-paper-real-unico U1 (BR2.4, C1): {@code 409 REAL_NOT_ELIGIBLE} with the strongest reason in
+     * {@code reason}; already audited by the command (after its rollback).
+     */
+    @ExceptionHandler(RealNotEligibleException.class)
+    public ResponseEntity<ProblemResponse> notEligible(RealNotEligibleException failure, HttpServletRequest request) {
+        return problems.handleApi(
+                new ApiException(
+                        ErrorCode.REAL_NOT_ELIGIBLE,
+                        "The REAL is not available for this account now.",
+                        List.of(),
+                        failure.reason().name(),
+                        Map.of()),
+                request);
+    }
+
+    /** 261121-paper-real-unico U1 (BR2.5, C1, C2): the eligibility could not be read; fails closed with 503. */
+    @ExceptionHandler(EligibilitySourceUnavailable.class)
+    public ResponseEntity<ProblemResponse> eligibilityUnavailable(
+            EligibilitySourceUnavailable failure, HttpServletRequest request) {
         return problems.handleApi(
                 new ApiException(ErrorCode.SERVICE_UNAVAILABLE, "Service temporarily unavailable."), request);
     }

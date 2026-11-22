@@ -436,6 +436,12 @@ module "services" {
     # TRUSTED_PROXIES stays empty: the api compares exact addresses and the load balancer nodes change address
     # (validation-report.md, open items: CIDR support before the invited users).
     TRUSTED_PROXIES = ""
+    # 261121-paper-real-unico U1 (infrastructure-specification.md "Configuração nova"): tuning values of the P&L by mode
+    # and of the REAL eligibility, no secret and not REAL flags, equal to the defaults of application.yml (a newer image
+    # without them, or an older image with them, behaves the same). Read by @ConfigurationProperties (relaxed binding).
+    MEMETRADE_PNL_BYMODE_BLOCKTIMEOUT     = "800ms"
+    MEMETRADE_BOTS_REALELIGIBILITYTIMEOUT = "500ms"
+    MEMETRADE_PNL_BYMODE_REALMAXORDERS    = "50000"
   }
 
   worker_environment = {

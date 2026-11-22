@@ -9,92 +9,129 @@
 
 - **Estratégia de branches**: desenvolvimento baseado em tronco (trunk-based).
   O tronco é `main`: base `main`, destino `main`. As mudanças entram direto em
-  `main`, em um commit que o responsável do projeto pede, com a CI verde. Não
-  criamos uma worktree nem uma branch por Bolt. **Squash-merge** em `main` só
-  acontece quando existe uma branch, ou seja, quando o responsável pediu uma. O
-  histórico de `main` fica linear.
+  `main`, em um commit que o responsável do projeto pede. Não criamos uma
+  worktree nem uma branch por Bolt. **Squash-merge** em `main` só acontece
+  quando existe uma branch, ou seja, quando o responsável pediu uma. O histórico
+  de `main` fica linear. `main` não tem proteção de branch.
+- **CI vermelha em `main`**: como os commits entram direto, a CI roda depois do
+  push e `main` pode ficar vermelha por pouco tempo. A correção vem no commit
+  seguinte, antes de qualquer outra mudança. Os pontos de controle do AI-DLC e as
+  implantações só usam um commit com a CI verde [Q2].
 - **Nome do tronco**: renomeamos `master` para `main` antes do primeiro commit.
   Não existe ramo `master` depois disso.
 - **Commits fora de Bolts**: um commit pedido fora de um Bolt vai para a branch
   atual. Só criamos branch quando pedimos.
-- **Cobertura da CI**: a CI já roda lint, formatação, verificação de tipos, Jest
-  com o piso de cobertura e `check:api` do app web (`apps/web`) e do app
-  administrativo (`apps/admin`), além do backend e do `scripts/verify.sh`. As
-  lacunas do intent `261109-termos-lgpd` foram corrigidas. Só o responsável do
-  projeto altera o `ci.yml`.
+- **Mensagens de commit**: em inglês, com prefixo do tipo (`feat:`, `fix:`,
+  `test:`, `chore:`, `ci:`, `docs:`), citando a Unit ou o intent quando houver
+  [Q6].
+- **Cobertura da CI**: o workflow `ci` roda em todo PR, em todo push para `main`
+  e à mão (`workflow_dispatch`) [Q5]:
+  - `backend`: `docker compose config` das composições, `mvnw verify` da API
+    (Spotless, testes de unidade e de integração, JaCoCo com piso de 80%,
+    enforcer, ArchUnit) e `promtool check rules` nas regras de alerta de
+    `infra/observability/`;
+  - `frontend` e `admin`: lint, formatação, verificação de tipos e Jest com o
+    piso de 80% de `apps/web` e `apps/admin`; o `admin` roda também `check:api`;
+  - `contract`: testes de contrato do OpenAPI e `check:api` do `apps/web`;
+  - `smoke`: `bash scripts/verify.sh`;
+  - `txsigner`: `mvnw verify` do `apps/txsigner` (testes, JaCoCo 80%, Spotless);
+  - `e2e`: só no push para `main`, depois dos seis jobs acima, roda o
+    `scripts/verify.sh` de novo.
+  O workflow `load-test` é só manual. Só o responsável do projeto altera os
+  arquivos de `.github/workflows/`.
+- **Pendências da CI, com o responsável** [Q5]: melhorias decididas e ainda não
+  aplicadas: as ações em Node 24 e o CodeQL v4 (texto pronto no `ci-config.md`
+  do intent `261113-trading-real-bot`), a proteção do download do Maven,
+  `terraform fmt`, `validate` e `test` e o Checkov na CI. O `WorkflowsTest`
+  precisa aceitar `id-token: write` só no `deploy.yml` antes que esse workflow
+  entre.
 - **Revisão**: como trabalhamos sozinhos, não há revisão por outra pessoa no dia
   a dia. Cada mudança é revisada pelo responsável do projeto nos gates de
-  aprovação do AI-DLC e pelos portões automáticos da CI. Nenhum merge acontece
-  com a CI vermelha.
-- **Hospedagem**: repositório privado no GitHub, com CI no GitHub Actions. A
-  cota gratuita de minutos do plano é confirmada na Sprint 0 (a definir: valor
-  exato da cota e se ela cobre a frequência de testes abaixo).
-- **Repositório**: um único repositório (monorepo) com o frontend Next.js/
-  TypeScript e o backend Spring Boot Java 21. Layout: `apps/web/` (Next.js),
-  `apps/api/` (Spring Boot, módulos por pacote), `infra/` (Docker Compose local;
-  IaC futura), `docs/` (ADRs e anexos técnicos), com `.editorconfig`,
-  `.gitattributes` e `docker-compose.yml` na raiz.
-- **Ferramentas de build**: Maven no backend; pnpm no frontend, com a versão do
-  Node LTS fixada no projeto (por exemplo `.nvmrc` ou o campo `packageManager`/
-  `engines`). Lockfiles são versionados e a CI instala a partir deles.
-- **Proteção de segredos antes do primeiro commit**: nenhum segredo entra no
-  repositório. Variáveis ficam em `.env` local, ignorado pelo git; o repositório
-  guarda só um `.env.example` sem valores. Um hook de pré-commit com varredura de
-  segredos (por exemplo, Gitleaks) bloqueia o commit que contenha segredo. Antes
-  do primeiro commit, fazemos uma varredura única da árvore de trabalho atual
-  (inclusive arquivos ainda não rastreados) e confirmamos que
-  `.claude/settings.local.json` está ignorado. Se um segredo vazar, primeiro
-  revogamos e trocamos o segredo, depois limpamos o histórico.
-- **Segurança na CI**: a CI roda varredura de segredos, de dependências e análise
-  estática (SAST) com ferramentas gratuitas. Achado Crítico ou Alto bloqueia o
-  merge; achado Médio gera aviso. Exceções ficam em um arquivo versionado, cada
-  uma com justificativa, validade de no máximo 90 dias e aprovação registrada do
-  responsável do projeto; exceção vencida volta a bloquear.
+  aprovação do AI-DLC e pelos portões automáticos da CI.
+- **Hospedagem**: repositório **privado** no GitHub
+  (`rafaelcruz-net/eureka-trade-ai`) desde 2026-11-21, com CI no GitHub Actions.
+  Os minutos do Actions contam na cota do plano; se a cota apertar, a frequência
+  dos jobs é revista com dados de consumo [Q1].
+- **Repositório**: um único repositório (monorepo). Layout: `apps/web/`
+  (Next.js do usuário), `apps/admin/` (Next.js da administração), `apps/api/`
+  (Spring Boot, módulos por pacote), `apps/txsigner/` (serviço de assinatura
+  isolado), `infra/` (composições Docker de teste e do REAL,
+  `infra/observability/` com as regras de alerta, `infra/terraform/` com a IaC
+  da AWS), `docs/` (ADRs, anexos de contrato, privacidade, `docs/runbooks/`,
+  desempenho), `scripts/` (`verify.sh`, `verify-checkpoint.sh`, carga),
+  `security/exceptions.yml`, com `.editorconfig`, `.gitattributes` e
+  `docker-compose.yml` na raiz [Q6].
+- **Ferramentas de build**: Maven (wrapper) no backend e no TxSigner; pnpm nos
+  dois apps web, com o Node 24 LTS fixado em `.nvmrc` e em `engines`. Lockfiles
+  são versionados e a CI instala a partir deles.
+- **Proteção de segredos**: nenhum segredo entra no repositório. Variáveis ficam
+  em `.env` local, ignorado pelo git; o repositório guarda só um `.env.example`
+  sem valores. Estado e planos do Terraform e arquivos `*.tfvars` nunca entram no
+  repositório. A proteção de segredos é o Gitleaks, no hook
+  `.githooks/pre-commit` e no workflow `security`; a varredura de segredos do
+  GitHub não existe para um repositório privado pessoal sem GitHub Advanced
+  Security [Q1]. Se um segredo vazar, primeiro revogamos e trocamos o segredo,
+  depois limpamos o histórico.
+- **Segurança na CI**: o workflow `security` roda Gitleaks (histórico e árvore),
+  CodeQL (Java e TypeScript), OWASP Dependency-Check e `pnpm audit` nos dois
+  apps. Achado Crítico ou Alto bloqueia; achado Médio gera aviso. Exceções ficam
+  em `security/exceptions.yml`, cada uma com justificativa, validade de no máximo
+  90 dias e aprovação registrada do responsável; exceção vencida volta a
+  bloquear.
 - **Integridade da CI**: ações de terceiros são fixadas pelo SHA do commit, não
-  por tag; cada workflow declara `permissions` mínimas (por padrão, só leitura do
-  conteúdo); nenhum segredo de produção fica disponível em workflows disparados
-  por branch ou fork não confiável.
-- **Atualização de dependências**: atualizações automáticas abrem PRs (a
-  ferramenta, Dependabot ou Renovate, é um exemplo, não uma escolha). Versões
-  recém-publicadas de pacotes do frontend só são adotadas depois de alguns dias
-  de espera, salvo correções de segurança.
+  por tag (o `WorkflowsTest` confere); cada workflow declara `permissions`
+  mínimas (por padrão, só leitura do conteúdo); a única exceção prevista é
+  `id-token: write` no job de implantação do `deploy.yml`, que roda num GitHub
+  Environment. Nenhum segredo de produção fica disponível em workflows
+  disparados por branch ou fork não confiável.
+- **Atualização de dependências**: o Dependabot abre PRs semanais (Maven, npm dos
+  dois apps, Docker, Docker Compose e GitHub Actions). Versões novas dos pacotes
+  npm esperam 5 dias. Os alertas do Dependabot e as correções automáticas de
+  segurança estão ligados, e as correções de segurança entram sem a espera [Q1].
 - **Versões e releases**: um único tronco, sem branches de release de longa
-  duração. Releases são marcadas por tags em `main` quando houver um ambiente
-  para implantar.
+  duração. As tags anotadas `vAAAA.MM.DD-N` em `main` marcam versões locais
+  (por exemplo, `v2026.11.12-1`) [Q6].
 
 ## Walking Skeleton
 
 - **Postura**: construímos primeiro uma fatia fina de ponta a ponta. A primeira
   Unit é a menor fatia integrada que funciona de verdade e passa por todos os
   estágios por Unit, inclusive geração de código, antes das demais.
-- **Fatia do produto**: navegador → tela web (Next.js) → API (Spring Boot) → banco de dados
-  (PostgreSQL), tudo subindo localmente com Docker Compose. Um adaptador de dados
-  de mercado simulado alimenta uma lista mínima do scanner que exibe fonte,
-  horário e `unknown` para campos ausentes. A fatia não chama fornecedor real
-  (C-06) nem usa carteira real.
+- **Fatia do produto**: navegador → tela web (Next.js) → API (Spring Boot) → banco
+  de dados (PostgreSQL), tudo subindo localmente com Docker Compose. Um adaptador
+  de dados de mercado simulado alimenta uma lista mínima do scanner que exibe
+  fonte, horário e `unknown` para campos ausentes. A fatia não chama fornecedor
+  real (C-06) nem usa carteira real.
 - **Verificação**: um único script versionado no repositório sobe o ambiente,
-  espera os serviços ficarem saudáveis, roda um teste de ponta a ponta (smoke)
-  que atravessa a fatia inteira e verifica fonte, horário e `unknown`, e devolve
-  código de saída diferente de zero em qualquer falha. Esse comando é
-  `bash scripts/verify.sh`, autorizado pelo responsável do projeto, e ele já
-  roda na CI.
+  espera os serviços ficarem saudáveis, roda os specs de ponta a ponta que
+  atravessam a fatia inteira e devolve código de saída diferente de zero em
+  qualquer falha. Esse comando é `bash scripts/verify.sh`, autorizado pelo
+  responsável do projeto, e ele roda na CI (jobs `smoke` e `e2e`).
+- **Verificação dos pontos de controle**: `scripts/verify-checkpoint.sh` roda
+  primeiro o `verify.sh` local. Se a máquina não aguentar (a execução local
+  morre por falta de memória), a prova é o run verde do `ci` do mesmo commit,
+  desde que a árvore não tenha mudança fora dos registros do AI-DLC e o commit
+  esteja no remoto [Q7].
 - **Fatia do intent `261109-termos-lgpd`**: a página `/privacidade` servida pela
   API a partir do catálogo, com a versão vigente, e mostrada no app sem login,
-  coberta por um spec de ponta a ponta novo. A verificação continua sendo
-  `bash scripts/verify.sh`, com o spec novo que o responsável do projeto
-  acrescenta ao script.
+  coberta por um spec de ponta a ponta. A verificação continua sendo
+  `bash scripts/verify.sh`.
 - **Fatia do intent `261113-trading-real-bot`**: a carteira do bot no validador
   Solana local (Unit U1 `u1-bot-wallet`, Bolt B1): navegador (tela mínima) → API →
   BotWallet → TxSigner (processo próprio, KMS simulado no ambiente local) →
-  ChainWatcher → validador local → ledger REAL. O spec de ponta a ponta novo
+  ChainWatcher → validador local → ledger REAL. O spec `e2e/real-bot-wallet`
   ativa a carteira do bot, deposita 1 SOL a partir da carteira principal de
-  teste, confere o saldo, saca de volta para a carteira principal e confirma que
-  um saque para outro endereço é recusado. A carteira principal de teste é
-  gerada só no código de teste. A verificação continua sendo sempre
-  `bash scripts/verify.sh`, com o spec novo e o validador local que o
-  responsável do projeto acrescenta ao script. O spec da carteira, com o
-  validador local, roda em toda mudança e no merge para `main`; se a cota do
-  GitHub Actions apertar, a frequência é revista com dados de consumo.
+  teste, confere o saldo, saca de volta e confirma que um saque para outro
+  endereço é recusado. A carteira principal de teste é gerada só no código de
+  teste. O spec roda em toda mudança e no push para `main`.
+- **Fatia do intent `261121-paper-real-unico`**: a visão única com um bot PAPER e
+  um bot REAL no validador Solana local: navegador (telas de Bots e de P&L) → API
+  (P&L por bot nos dois modos) → ledger PAPER e ledger REAL → blocos separados
+  Simulado (US$) e Real (SOL), sem total geral, com o aviso fixo no simulado. Um
+  spec de ponta a ponta novo, que o responsável acrescenta ao `verify.sh`, cria
+  os dois bots, faz uma compra em cada modo e confere que cada bloco mostra só o
+  próprio modo e que os modos nunca são somados [Q8]. A verificação continua
+  sendo `bash scripts/verify.sh`.
 - **Depois do esqueleto**: com o esqueleto verificado e aprovado, o framework
   oferece seguir automaticamente ou revisar cada ponto de controle. Plan
   Approval, confirmação de resumo, escolha do comando de verificação e falhas
@@ -109,31 +146,32 @@
   passar em testes escritos depois sobre o próprio código; com o teste escrito
   antes, ele valida o requisito e não a implementação. Test-after no restante
   (UI, adaptadores, configuração) mantém o ritmo de um desenvolvedor solo. No
-  intent `261109-termos-lgpd` (Q5, opção A), o responsável do projeto estendeu a
-  ordem de testes antes do código à lógica de dados pessoais (anonimização,
-  exclusão, novo aceite dos termos e expurgos), porque ela toca tabelas
-  append-only como a trilha de auditoria e as ligadas ao ledger. No intent
-  `261113-trading-real-bot`, o NFR8 dos requisitos estende a ordem de testes
-  antes do código à lógica de carteira e saque, e o plano de Bolts pede os testes
-  de ataque da política do TxSigner escritos antes do código (B1) e os testes de
-  estados e idempotência da execução REAL antes do código (B4).
-- **Volume de testes**: a Test Strategy do workflow é `Comprehensive`, também no
-  intent `261109-termos-lgpd` (Q4, opção A); o piso de cobertura abaixo é somado
-  a ela e nunca a substitui.
+  intent `261109-termos-lgpd` (Q5, opção A), a ordem de testes antes do código
+  foi estendida à lógica de dados pessoais. No intent `261113-trading-real-bot`,
+  o NFR8 estendeu a ordem à lógica de carteira e saque, e o plano de Bolts pediu
+  os testes de ataque da política do TxSigner (B1) e os de estados e
+  idempotência da execução REAL (B4) antes do código. No intent
+  `261121-paper-real-unico`, o P&L REAL por bot (custo médio por bot e rateio
+  das vendas sem bot) já está dentro de "P&L" no núcleo financeiro, e os
+  cenários são escritos antes do código (CT-15 do registro de restrições).
+- **Volume de testes**: o volume do projeto continua `Comprehensive`; cada intent
+  segue a Test Strategy que o próprio estado registra (o intent
+  `261121-paper-real-unico` registra `Standard`) [Q8]. O piso de cobertura
+  abaixo é somado à estratégia e nunca a substitui.
 - **Piso de cobertura**: 80% de cobertura de linhas, medido separadamente no
-  backend e no frontend. As exclusões (por exemplo, código gerado como o cliente
-  TypeScript do contrato da API, classes de configuração, ponto de entrada) ficam
-  listadas na configuração da ferramenta de cobertura, nunca decididas na hora. A
-  ferramenta falha o build abaixo do piso (por exemplo, regra `check` do JaCoCo
-  no Maven e limite de cobertura do executor de testes do frontend). O piso não
-  pode ser reduzido para fazer uma etapa passar. O processo TxSigner também
-  segue o piso de 80%.
+  backend (JaCoCo, unitários e integração mesclados), no TxSigner (JaCoCo) e em
+  cada app web (Jest, `coverageThreshold.global.lines = 80`). As exclusões ficam
+  listadas na configuração da ferramenta, nunca decididas na hora. A ferramenta
+  falha o build abaixo do piso. O piso não pode ser reduzido para fazer uma etapa
+  passar.
 - **Testes obrigatórios por risco**: toda mudança que toque essas áreas inclui ou
   mantém verdes os testes de:
   - isolamento entre contas (tenants), inclusive acesso a recurso de outra conta
     por ID (devolve 403 ou 404 e nunca o dado) e tarefas em segundo plano que
     também validam o tenant;
-  - separação entre REAL e PAPER (saldo, ordens, ledger, posições e P&L);
+  - separação entre REAL e PAPER (saldo, ordens, ledger, posições e P&L),
+    inclusive na visão única: cada bloco e cada total por modo mostram só o
+    próprio modo, e os modos nunca são somados [Q8];
   - deduplicação por chave de idempotência;
   - violação de limites autorizados e controles de risco;
   - dado de mercado ausente vira `unknown`, nunca zero;
@@ -177,26 +215,31 @@
 - **Determinismo**: relógio injetável (sem `now()` direto no domínio), seeds
   fixas e nenhum acesso de rede real nos testes; adaptadores de mercado usam
   fixtures gravadas. Testes de integração usam as mesmas migrações da aplicação
-  sobre PostgreSQL real em contêiner (por exemplo, Testcontainers) e não dependem
-  de estado compartilhado nem da ordem de execução. Fixtures nunca usam carteira,
-  mint ou dados pessoais reais. No REAL, a rede é o validador Solana local (com
-  contas clonadas para os swaps), o KMS é simulado no ambiente local e as
-  respostas da Jupiter e do RPC usadas em testes de unidade são gravadas; nenhum
-  teste da CI usa devnet, mainnet, KMS real ou chave real.
+  sobre PostgreSQL real em contêiner (Testcontainers) e não dependem de estado
+  compartilhado nem da ordem de execução. Fixtures nunca usam carteira, mint ou
+  dados pessoais reais. No REAL, a rede é o validador Solana local (com contas
+  clonadas para os swaps), o KMS é simulado no ambiente local e as respostas da
+  Jupiter e do RPC usadas em testes de unidade são gravadas; nenhum teste da CI
+  usa devnet, mainnet, KMS real ou chave real.
 - **Ambientes de teste**: a CI roda em Linux; o desenvolvimento local é no
   Windows. O fim de linha é padronizado em LF por `.gitattributes` e
   `.editorconfig` para que os testes deem o mesmo resultado nos dois ambientes.
-- **Frequência**: em toda mudança e no merge para `main` rodam os testes de
-  unidade e de integração de todas as partes (backend, `apps/web` e
+- **Frequência**: em toda mudança e no push para `main` rodam os testes de
+  unidade e de integração de todas as partes (backend, TxSigner, `apps/web` e
   `apps/admin`), com o piso de cobertura, e mais o `scripts/verify.sh`. O
-  `verify.sh` com todos os specs de ponta a ponta é a suíte completa; não há uma
-  suíte maior reservada ao merge.
+  `verify.sh` com todos os specs de ponta a ponta é a suíte completa; no push
+  para `main` o job `e2e` roda a mesma suíte uma segunda vez, depois dos demais
+  jobs verdes.
+- **Testes da IaC**: os testes do Terraform (`infra/terraform/tests/`), o
+  `terraform validate` e o Checkov existem e rodam à mão; levá-los para a CI é
+  pendência do responsável [Q5].
 - **Testes instáveis**: teste instável é tratado como defeito e nunca é ignorado
   em silêncio.
-- **Ferramentas (exemplos, não escolhas)**: JUnit 5, Testcontainers e JaCoCo no
-  backend; Vitest ou Jest no frontend; Playwright para ponta a ponta.
+- **Ferramentas**: JUnit 5, Testcontainers, ArchUnit e JaCoCo no backend e no
+  TxSigner; Jest com Testing Library nos dois apps; Playwright para ponta a ponta;
+  `node:test` nos cenários de carga.
 - **Desempenho**: nenhum portão de desempenho ou carga até que os requisitos não
-  funcionais definam metas numéricas.
+  funcionais definam metas numéricas; o workflow `load-test` é manual.
 
 ## Guard Policy
 
@@ -204,13 +247,35 @@
 
 ## Deployment
 
-- **Situação atual**: não há conta de nuvem, região nem orçamento (C-10, C-12).
-  O único ambiente é o local, no Windows, com Docker Compose. Para o REAL, uma
-  conta AWS nova é aberta para o KMS (TR-C20) antes da mainnet.
-- **Staging**: quando existir um ambiente de staging, implantamos nele a cada
-  merge em `main` (a definir: quando e onde o staging vai existir).
-- **Produção do beta PAPER**: exige aprovação manual separada, dada pelo
-  responsável do projeto.
+- **Situação atual**: nenhum ambiente na nuvem está provisionado; o único
+  ambiente que roda é o local, no Windows, com Docker Compose. O desenho abaixo
+  vem dos estágios de operação do intent `261113-trading-real-bot` e é a nossa
+  prática de implantação, **ainda não aplicada** [Q3].
+- **Contas e IaC**: Terraform em `infra/terraform/`; um AWS Organizations com a
+  conta de gerenciamento e duas contas membro separadas, `devnet` e `mainnet`,
+  sem conexão entre elas; orçamento de US$ 350 por conta. A região ainda está a
+  definir.
+- **Ambiente dos usuários**: os usuários usam só a **mainnet**. Nela o usuário
+  cria bots PAPER e REAL lado a lado, com P&L por bot e por modo sempre
+  separados. A **devnet** serve aos testes do fundador e à pré-produção do mesmo
+  SHA; nenhum usuário a usa [Q4].
+- **Fluxo de implantação**: implantação manual de um commit de `main` com `ci` e
+  `security` verdes, pelo `deploy.yml` (`workflow_dispatch`) nos GitHub
+  Environments `devnet` e `mainnet`, com credencial AWS por OIDC e sem chave
+  longa. A devnet recebe implantação manual, não automática a cada merge; não
+  existe staging separado. O mesmo SHA passa primeiro pela devnet e só depois vai
+  para a mainnet [Q3].
+- **Passo do fundador com MFA**: antes de cada implantação, o fundador, da
+  máquina dele e com MFA, publica a imagem do TxSigner, roda a migração do
+  TxSigner, troca a revisão em serviço e confere a prontidão. O papel de
+  implantação do GitHub nunca implanta o TxSigner, nunca toca no KMS e nunca liga
+  o REAL.
+- **Produção**: a mainnet é a produção do PAPER e do REAL. A implantação nela
+  exige a aprovação do fundador como revisor obrigatório do Environment
+  `mainnet` [Q4].
+- **Estratégia**: atualização rolling no ECS (tarefa nova saudável antes de a
+  antiga sair), circuit breaker com volta automática, TxSigner primeiro, smoke e
+  janela de observação de 10 minutos.
 - **Gates de REAL (G2/G3)**: nesta fase, o fundador (responsável do projeto) é o
   revisor único dos gates do REAL. O G2 é cumprido pelo modelo de ameaças da
   carteira do bot do ADR-005. O G3 (auditoria externa) fica dispensado nesta fase
@@ -218,48 +283,50 @@
   impede o avanço da função afetada; cobrança pública e implantação on-chain
   continuam bloqueadas até as aprovações específicas.
 - **Rollout do REAL**: o REAL avança por etapas, cada uma aprovada pelo fundador:
-  validador local e devnet desde o primeiro Bolt; depois a carteira do fundador
-  na mainnet (Bolts B1 a B6 prontos, conta AWS e KMS reais, dois provedores de
-  RPC); depois até 20 convidados. A abertura aos convidados exige as três
-  condições: quarentena de 24 horas da liberação, pelo menos 7 dias da carteira
-  do fundador na mainnet sem divergência e parecer de custódia decidido. Toda
-  liberação de usuário para o REAL passa por uma quarentena de 24 horas entre o
-  registro e o efeito.
-- **Rollback**: toda implantação tem caminho de rollback documentado e testado;
-  artefatos são marcados com o SHA do commit; migrações de banco seguem o padrão
+  validador local e devnet (testes do fundador) desde o primeiro Bolt; depois a
+  carteira do fundador na mainnet (Bolts B1 a B6 prontos, conta AWS e KMS reais,
+  dois provedores de RPC); depois até 20 convidados. A abertura aos convidados
+  exige as três condições: quarentena de 24 horas da liberação, pelo menos 7 dias
+  da carteira do fundador na mainnet sem divergência e parecer de custódia
+  decidido. Toda liberação de usuário para o REAL passa por uma quarentena de 24
+  horas entre o registro e o efeito.
+- **Rollback**: toda implantação tem caminho de rollback documentado e testado
+  (`rollback-runbook.md` do intent `261113-trading-real-bot`); artefatos são
+  marcados com o SHA do commit; migrações de banco seguem o padrão
   expand-contract e nunca removem colunas na mesma implantação da mudança de
-  aplicação. Uma implantação só termina quando o smoke test passa. No REAL, o
-  rollback desliga primeiro o flag do REAL (`memetrade.real.enabled` e
-  `txsigner.real.enabled`) ou aciona o kill switch REAL, e o saque continua
-  disponível durante todo o rollback.
+  aplicação; em produção nenhuma migração é revertida, só as imagens voltam. Uma
+  implantação só termina quando o smoke test passa. No REAL, o rollback desliga
+  primeiro o flag do REAL (`memetrade.real.enabled` e `txsigner.real.enabled`) ou
+  aciona o kill switch REAL, e o saque continua disponível durante todo o
+  rollback.
+- **Flags**: as flags do REAL são variáveis de ambiente das definições de tarefa,
+  versionadas no Terraform; mudar uma flag é uma implantação auditada separada,
+  nunca junto com uma mudança de código. Kill switch e liberação ficam no banco.
 - **Controles antes do beta multiusuário (G1)**: varredura dinâmica (DAST),
-  varredura de imagens e SBOM por release são candidatos a definir nos estágios
-  de segurança e infraestrutura (a definir).
-- **Destino futuro**: AWS com serviços gerenciados, IaC e CI/CD, previsto no PRD
-  para a Sprint 7. A ferramenta de IaC e a plataforma de CD ficam para os
-  estágios de infraestrutura. A topologia do TxSigner (contêiner ou função, com
-  credencial AWS própria) é decidida no Infrastructure Design.
+  varredura de imagens e SBOM por release continuam candidatos (a definir).
+- **Quando implantar**: o fundador é o único on-call; uma implantação na mainnet
+  só começa quando ele pode acompanhar a janela de observação e os 30 minutos
+  seguintes.
 
 ## Code Style
 
 - **Princípio**: seguimos a configuração do linter e do formatador do
   repositório. A sugestão de um agente só vale quando o linter ainda não cobre o
-  assunto. Lint, formatação e verificação de tipos rodam na CI antes do merge;
-  falha bloqueia o merge.
-- **Ferramentas (exemplos, não escolhas)**: Prettier e ESLint no frontend;
-  Spotless com um formatador Java (google-java-format ou palantir-java-format) no
-  backend. Se houver Checkstyle ou equivalente, ele cobre só o que o formatador
-  não cobre (nomes, `catch` vazio, imports com curinga), para as ferramentas não
-  brigarem.
-- **Idioma**: código, nomes de tabelas, endpoints e mensagens de log em inglês;
-  textos de interface em português do Brasil.
+  assunto. Lint, formatação e verificação de tipos rodam na CI; falha deixa o
+  commit vermelho e é corrigida no commit seguinte.
+- **Ferramentas**: Prettier e ESLint (`eslint-config-next`) nos apps web;
+  Spotless com palantir-java-format no backend e no TxSigner. Não há Checkstyle;
+  se um dia entrar, ele cobre só o que o formatador não cobre (nomes, `catch`
+  vazio, imports com curinga).
+- **Idioma**: código, nomes de tabelas, endpoints, mensagens de log e mensagens de
+  commit em inglês; textos de interface em português do Brasil.
 - **Nomes**: convenções idiomáticas de cada linguagem (camelCase em TypeScript e
   Java, PascalCase para tipos); `snake_case` em tabelas e colunas; rotas REST sob
   `/api/v1/`; valores de enum de domínio em maiúsculas (`REAL`, `PAPER`), iguais
   no Java, no JSON e no banco.
 - **Contrato entre frontend e backend**: os tipos do frontend são gerados a
-  partir do contrato da API, nunca escritos à mão. Uma quebra de contrato falha a
-  CI.
+  partir do contrato da API (`openapi-guest.yaml`, `openapi-admin.yaml`), nunca
+  escritos à mão. Uma quebra de contrato falha a CI.
 - **Erros da API**: formato RFC 7807 (`ProblemDetail`), com tipo estável por
   categoria, código de erro legível por máquina e `correlationId`. Nunca expomos
   stack trace, SQL ou segredo na resposta nem no log. Erros de domínio (limite
@@ -270,25 +337,29 @@
   relançada com contexto, convertida em resultado explícito ou registrada no
   nível adequado.
 - **`unknown` como tipo explícito**: dado de mercado ausente tem um tipo próprio
-  no código (por exemplo, um tipo selado no Java e uma união discriminada no
-  TypeScript), nunca `null`, `Optional` vazio sem motivo ou zero. No frontend,
-  carregando, erro e `unknown` são estados visíveis distintos.
+  no código (tipo selado no Java, união discriminada no TypeScript), nunca
+  `null`, `Optional` vazio sem motivo ou zero. No frontend, carregando, erro e
+  `unknown` são estados visíveis distintos.
+- **Valores do REAL em inteiros**: lamports e unidades base em `long` com
+  operações exatas, frações em `BigInteger` e preços em `BigDecimal`; no app web,
+  `bigint` só dentro de `features/real/money.ts`. Cada modo mostra os valores na
+  própria unidade (PAPER em US$, REAL em SOL).
 - **Tenant no código**: o tenant vem do contexto de autenticação, nunca do corpo
   da requisição; toda consulta de dados de cliente filtra pelo tenant.
 - **Fronteiras de módulos (verificadas por ArchUnit)**: as regras ArchUnit do
-  backend (`apps/api/src/test/java/com/memetrade/architecture/`) já verificam as
+  backend (`apps/api/src/test/java/com/memetrade/architecture/`) verificam as
   fronteiras, a pureza do domínio e as proibições de rede, chave, ponto
-  flutuante e SDK; módulo novo ganha a sua regra.
-  o backend é organizado por módulo (Ledger, Risk, Scanner etc.), não por camada
-  técnica global. Um módulo fala com outro só pela interface pública ou por
-  evento, nunca lendo as tabelas ou repositórios do outro; dentro do módulo, o
-  domínio não depende de infraestrutura nem de classes web. PAPER nunca
-  compartilha dados com REAL. Adaptadores externos (descoberta, preços, Solana,
-  roteador de swap, pagamentos) ficam atrás de uma interface do módulo dono, com
-  implementação simulada para o ambiente local.
+  flutuante e SDK; módulo novo ganha a sua regra. O backend é organizado por
+  módulo (Ledger, Risk, Scanner etc.), não por camada técnica global. Um módulo
+  fala com outro só pela interface pública ou por evento, nunca lendo as tabelas
+  ou repositórios do outro; dentro do módulo, o domínio não depende de
+  infraestrutura nem de classes web. PAPER nunca compartilha dados com REAL.
+  Adaptadores externos (descoberta, preços, Solana, roteador de swap,
+  pagamentos) ficam atrás de uma interface do módulo dono, com implementação
+  simulada para o ambiente local.
 - **TypeScript**: modo `strict` ligado.
-- **Fim de linha e codificação**: `.editorconfig` e `.gitattributes` desde o
-  primeiro commit, fixando LF e UTF-8 (com exceção CRLF para `*.cmd`/`*.bat`).
+- **Fim de linha e codificação**: `.editorconfig` e `.gitattributes` fixando LF e
+  UTF-8 (com exceção CRLF para `*.cmd`/`*.bat`).
 ## Forbidden
 
 <!-- Team-specific forbidden patterns -->

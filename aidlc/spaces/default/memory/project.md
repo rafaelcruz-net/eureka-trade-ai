@@ -84,6 +84,10 @@
 
 - NEVER deixar o TxSigner assinar transação fora da política de conteúdo (programas permitidos, destinos, saída mínima e teto autorizado) nem saque para endereço que não seja a carteira principal registrada. (origem: ADR-004, ADR-005) (affirmed 2026-11-14)
 
+- NEVER abrir a devnet aos usuários; os usuários usam só a mainnet, e a devnet fica para os testes do fundador e a pré-produção. (origem: Q4) (affirmed 2026-11-21)
+
+- NEVER somar os modos PAPER e REAL num total geral, em tela, API ou relatório. (origem: Q8) (affirmed 2026-11-21)
+
 ## Mandated
 
 <!-- Populated by practices-discovery affirmation gate. -->
@@ -115,6 +119,10 @@
 - ALWAYS gerar e manter a chave da carteira do bot dentro do KMS, não exportável, e deixar só o serviço de assinatura isolado (TxSigner), com credencial própria, assinar com ela; nenhum código de produção gera, lê ou exporta essa chave. (origem: ADR-008, ADR-005, ADR-010) (affirmed 2026-11-14)
 
 - ALWAYS manter o saque para a carteira principal registrada disponível a qualquer momento, inclusive com o kill switch acionado, com o REAL desligado, sem a liberação vigente ou sem o novo aceite dos termos. (origem: ADR-008, ADR-005, contract-summary "Termos") (affirmed 2026-11-14)
+
+- ALWAYS usar, nos pontos de controle do AI-DLC e nas implantações, só um commit com a CI verde. (origem: Q2) (affirmed 2026-11-21)
+
+- ALWAYS corrigir uma `main` vermelha no commit seguinte, antes de qualquer outra mudança. (origem: Q2) (affirmed 2026-11-21)
 
 ## Corrections
 

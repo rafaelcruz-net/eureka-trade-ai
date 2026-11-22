@@ -664,3 +664,94 @@ fieldset label {
     padding: 16px;
   }
 }
+
+/* 261121-paper-real-unico U1 (C17; BR9.1, BR9.3; NFR5.2, NFR6.1): the SIMULADO label is an outline without fill, with
+   text and an icon (color never alone). The two blocks of /pnl sit side by side from 768 px and stack below it; the
+   list of bots becomes stacked cards below 768 px; no horizontal scroll from 360 px. */
+.simulated-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  border: 1px solid var(--muted, currentColor);
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.85em;
+}
+
+.pnl-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  overflow-wrap: anywhere;
+}
+
+.pnl-mode-block table,
+.bot-cards {
+  max-width: 100%;
+}
+
+/* A grid item never grows past its column because of a wide child (min-width: auto would let it). */
+.pnl-modes > * {
+  min-width: 0;
+}
+
+/*
+ * NFR6.1 (BR9.3): a wide data table scrolls inside its own named, focusable region (TableScroll), never the page.
+ */
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.totals > dt,
+.totals > dd,
+.hypotheses > dt,
+.hypotheses > dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ledger-groups {
+  overflow-wrap: anywhere;
+}
+
+.mode-step .mode-card[aria-disabled='true'] label {
+  opacity: 0.8;
+}
+
+@media (max-width: 767px) {
+  .pnl-modes {
+    grid-template-columns: 1fr;
+  }
+
+  .bot-cards {
+    display: grid;
+    gap: 8px;
+    padding: 0;
+    list-style: none;
+  }
+
+  .bot-card {
+    border: 1px solid var(--border);
+    padding: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  /* The label and the value of each total stack, as the cards of the mockups (M4, M5). */
+  .totals,
+  .hypotheses {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .totals > dd,
+  .hypotheses > dd {
+    margin: 0 0 8px;
+  }
+}

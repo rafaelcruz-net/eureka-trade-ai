@@ -121,6 +121,13 @@ public class RealExecutionService implements RealExecutionPort {
     }
 
     @Override
+    public List<RealOrderView> settledOrders(UUID tenantId, UUID userId, int max) {
+        return store.settled(tenantId, userId, max).stream()
+                .map(RealExecutionService::view)
+                .toList();
+    }
+
+    @Override
     public long changeMark(UUID tenantId, UUID userId) {
         return store.markFor(tenantId, userId);
     }

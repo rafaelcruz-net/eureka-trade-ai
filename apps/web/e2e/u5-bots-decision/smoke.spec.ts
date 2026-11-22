@@ -19,7 +19,8 @@ test('U5: wizard, start, pause, resume and stop of a PAPER bot', async ({ page }
   await connectAndReachScanner(page);
   await page.getByTestId('app-nav-bots-link').click();
   await page.waitForURL((url) => url.pathname === '/bots');
-  await expect(page.getByTestId('bots-title')).toContainText('MODO PAPER (simulado)');
+  // 261121-paper-real-unico U1 (BR4.2): one list for both modes, "Meus bots", each bot with its mode in text.
+  await expect(page.getByTestId('bots-title')).toContainText('Meus bots');
   await expect(page.getByTestId('bots-counter')).toContainText('de 3 bots ativos');
 
   // Step 0: template and name.
@@ -29,28 +30,32 @@ test('U5: wizard, start, pause, resume and stop of a PAPER bot', async ({ page }
   await page.getByTestId('bot-create-name').fill('Bot do smoke U5');
   await page.getByTestId('bot-create-submit').click();
   await page.waitForURL((url) => /^\/bots\/new\/[0-9a-f-]{36}$/.test(url.pathname));
-  await expect(page.getByTestId('wizard-title')).toContainText('MODO PAPER (simulado)');
+  // 261121-paper-real-unico U1 (BR1.6): the wizard shows the mode of its bot, fixed since the creation.
+  await expect(page.getByTestId('wizard-title')).toContainText('SIMULADO');
+  await expect(page.getByTestId('wizard-mode')).toContainText(
+    'não pode ser trocado depois da criação',
+  );
 
   // Step 1: the default parameters and one scanner rule (liquidity >= 10.000 USDC).
-  await expect(page.getByTestId('wizard-step')).toHaveText('Etapa 1 de 4: Estratégia e tokens');
+  await expect(page.getByTestId('wizard-step')).toHaveText('Etapa 2 de 5: Estratégia e tokens');
   await expect(page.getByTestId('wizard-next-1')).toBeDisabled();
   await page.getByTestId('wizard-add-rule').click();
   await page.getByTestId('wizard-next-1').click();
 
   // Step 2: the default balance and the proportional limits.
-  await expect(page.getByTestId('wizard-step')).toHaveText('Etapa 2 de 4: Limites e saldo');
+  await expect(page.getByTestId('wizard-step')).toHaveText('Etapa 3 de 5: Limites e saldo');
   await expect(page.getByTestId('wizard-limits-maxOrderSize')).toHaveValue('100.000000');
   await page.getByTestId('wizard-next-2').click();
 
   // Step 3: review with the hypotheses of the simulation.
-  await expect(page.getByTestId('wizard-step')).toHaveText('Etapa 3 de 4: Revisão');
+  await expect(page.getByTestId('wizard-step')).toHaveText('Etapa 4 de 5: Revisão');
   await expect(page.getByTestId('wizard-hypotheses')).toContainText(
     'não garantem resultados reais',
   );
   await page.getByTestId('wizard-next-3').click();
 
   // Step 4: start; the bot screen opens with the confirmed state, in under 2 s.
-  await expect(page.getByTestId('wizard-step')).toHaveText('Etapa 4 de 4: Início');
+  await expect(page.getByTestId('wizard-step')).toHaveText('Etapa 5 de 5: Início');
   const started = Date.now();
   await page.getByTestId('wizard-start').click();
   await page.waitForURL((url) => /^\/bots\/[0-9a-f-]{36}$/.test(url.pathname));

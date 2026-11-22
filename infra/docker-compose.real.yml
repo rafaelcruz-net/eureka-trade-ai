@@ -146,6 +146,11 @@ services:
       # U7: the same switch as the api, so the read and cancel jobs of the worker use the simulated adapter too.
       MEMETRADE_REAL_EXITS_ENABLED: 'true'
       MEMETRADE_REAL_EXITS_ADAPTER: simulated
+      # 261121-paper-real-unico U1 (review R-01): the test-only first cycle of the recorded swap (RecordedSwapFirstCycle,
+      # test profile with RECORDED_MINT only) is one scheduled method more in this run, so the worker keeps one
+      # scheduler thread and one connection per scheduled method (RuntimeSettingsGuardWorkerCountTest).
+      SCHEDULER_POOL_SIZE: '29'
+      DB_POOL_MAX_SIZE: '37'
     depends_on:
       solana-validator:
         condition: service_healthy

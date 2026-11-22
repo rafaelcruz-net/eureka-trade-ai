@@ -1,10 +1,8 @@
-# Práticas da equipe — rascunho do líder (intent `261121-paper-real-unico`)
+# Práticas da equipe — intent `261121-paper-real-unico`
 
-> **Rascunho do Step 2 (líder: `aidlc-pipeline-deploy-agent`), 2026-11-21.** Ponto de partida: as cinco seções
-> afirmadas de `aidlc/spaces/default/memory/team.md`. O texto abaixo já traz os fatos que a evidência confirma
-> (por exemplo, jobs da CI e pastas que existem hoje). Cada trecho marcado com **[a confirmar: DIV-xx]** muda ou
-> pode mudar uma prática afirmada e depende da entrevista; o detalhe de cada divergência está em `evidence.md`.
-> Nada aqui foi promovido para a memória.
+> Versão integrada (Step 5), 2026-11-21. Ela parte das cinco seções afirmadas de `aidlc/spaces/default/memory/team.md`,
+> confere cada uma com a evidência (`evidence.md`) e aplica as respostas Q1 a Q8 de
+> `practices-discovery-questions.md`, com o resumo confirmado. Collaborators: off (sem contribuições).
 
 ## Way of Working
 
@@ -13,25 +11,20 @@
   `main`, em um commit que o responsável do projeto pede. Não criamos uma
   worktree nem uma branch por Bolt. **Squash-merge** em `main` só acontece
   quando existe uma branch, ou seja, quando o responsável pediu uma. O histórico
-  de `main` fica linear.
-- **CI verde em `main`** **[a confirmar: DIV-05]**: o `team.md` diz que as
-  mudanças entram "com a CI verde" e que nenhum merge acontece com a CI
-  vermelha. Na prática, o commit vai direto para `main` e a CI roda depois do
-  push; `main` não tem proteção de branch, e 18 dos últimos 30 runs do `ci` em
-  `main` falharam e foram corrigidos com um commit seguinte. A entrevista decide
-  entre: (a) manter o push direto e registrar a correção para a frente
-  (fix-forward) como prática, com a CI local (`scripts/verify-checkpoint.sh`)
-  antes do push; ou (b) passar a exigir a CI verde antes de `main` (branch curta
-  com PR e proteção de branch).
+  de `main` fica linear. `main` não tem proteção de branch.
+- **CI vermelha em `main`**: como os commits entram direto, a CI roda depois do
+  push e `main` pode ficar vermelha por pouco tempo. A correção vem no commit
+  seguinte, antes de qualquer outra mudança. Os pontos de controle do AI-DLC e as
+  implantações só usam um commit com a CI verde [Q2].
 - **Nome do tronco**: renomeamos `master` para `main` antes do primeiro commit.
   Não existe ramo `master` depois disso.
 - **Commits fora de Bolts**: um commit pedido fora de um Bolt vai para a branch
   atual. Só criamos branch quando pedimos.
-- **Mensagens de commit** **[a confirmar: DIV-10]**: em inglês, com prefixo do
-  tipo (`feat:`, `fix:`, `test:`, `chore:`, `ci:`, `docs:`), como o histórico
-  mostra. Prática observada, ainda não afirmada.
-- **Cobertura da CI** **[a confirmar: DIV-04]**: o workflow `ci` roda, em todo
-  PR, em todo push para `main` e à mão (`workflow_dispatch`):
+- **Mensagens de commit**: em inglês, com prefixo do tipo (`feat:`, `fix:`,
+  `test:`, `chore:`, `ci:`, `docs:`), citando a Unit ou o intent quando houver
+  [Q6].
+- **Cobertura da CI**: o workflow `ci` roda em todo PR, em todo push para `main`
+  e à mão (`workflow_dispatch`) [Q5]:
   - `backend`: `docker compose config` das composições, `mvnw verify` da API
     (Spotless, testes de unidade e de integração, JaCoCo com piso de 80%,
     enforcer, ArchUnit) e `promtool check rules` nas regras de alerta de
@@ -45,65 +38,58 @@
     `scripts/verify.sh` de novo.
   O workflow `load-test` é só manual. Só o responsável do projeto altera os
   arquivos de `.github/workflows/`.
-- **Ações da CI em Node 24** **[a confirmar: DIV-04]**: a troca das ações para
-  as versões em Node 24 (e do CodeQL para a v4) e a proteção do download do
-  Maven foram decididas no estágio CI Pipeline do intent
-  `261113-trading-real-bot`, mas ainda não foram aplicadas: todas as ações
-  continuam nas versões em Node 20.
+- **Pendências da CI, com o responsável** [Q5]: melhorias decididas e ainda não
+  aplicadas: as ações em Node 24 e o CodeQL v4 (texto pronto no `ci-config.md`
+  do intent `261113-trading-real-bot`), a proteção do download do Maven,
+  `terraform fmt`, `validate` e `test` e o Checkov na CI. O `WorkflowsTest`
+  precisa aceitar `id-token: write` só no `deploy.yml` antes que esse workflow
+  entre.
 - **Revisão**: como trabalhamos sozinhos, não há revisão por outra pessoa no dia
   a dia. Cada mudança é revisada pelo responsável do projeto nos gates de
   aprovação do AI-DLC e pelos portões automáticos da CI.
-- **Hospedagem** **[a confirmar: DIV-01]**: repositório no GitHub
-  (`rafaelcruz-net/eureka-trade-ai`), com CI no GitHub Actions. O `team.md` diz
-  "privado", mas o GitHub informa o repositório como **público**. A entrevista
-  decide se ele volta a ser privado ou se continua público, com os controles que
-  isso pede (ver `evidence.md`). Se continuar público, a pergunta da cota de
-  minutos deixa de existir (os runners padrão são gratuitos em repositório
-  público).
-- **Repositório** **[a confirmar: DIV-08]**: um único repositório (monorepo).
-  Layout: `apps/web/` (Next.js do usuário), `apps/admin/` (Next.js da
-  administração), `apps/api/` (Spring Boot, módulos por pacote),
-  `apps/txsigner/` (serviço de assinatura isolado, Spring Boot), `infra/`
-  (composições Docker de teste e do REAL, `infra/observability/` com as regras de
-  alerta, `infra/terraform/` com a IaC da AWS), `docs/` (ADRs, anexos de
-  contrato, privacidade, runbooks, desempenho), `scripts/` (`verify.sh`,
-  `verify-checkpoint.sh`, carga), `security/exceptions.yml`, com
-  `.editorconfig`, `.gitattributes` e `docker-compose.yml` na raiz.
-- **Ferramentas de build**: Maven (wrapper) no backend e no TxSigner; pnpm
-  10.18.3 nos dois apps web, com o Node 24 LTS fixado em `.nvmrc` e em
-  `engines`. Lockfiles são versionados e a CI instala a partir deles.
+- **Hospedagem**: repositório **privado** no GitHub
+  (`rafaelcruz-net/eureka-trade-ai`) desde 2026-11-21, com CI no GitHub Actions.
+  Os minutos do Actions contam na cota do plano; se a cota apertar, a frequência
+  dos jobs é revista com dados de consumo [Q1].
+- **Repositório**: um único repositório (monorepo). Layout: `apps/web/`
+  (Next.js do usuário), `apps/admin/` (Next.js da administração), `apps/api/`
+  (Spring Boot, módulos por pacote), `apps/txsigner/` (serviço de assinatura
+  isolado), `infra/` (composições Docker de teste e do REAL,
+  `infra/observability/` com as regras de alerta, `infra/terraform/` com a IaC
+  da AWS), `docs/` (ADRs, anexos de contrato, privacidade, `docs/runbooks/`,
+  desempenho), `scripts/` (`verify.sh`, `verify-checkpoint.sh`, carga),
+  `security/exceptions.yml`, com `.editorconfig`, `.gitattributes` e
+  `docker-compose.yml` na raiz [Q6].
+- **Ferramentas de build**: Maven (wrapper) no backend e no TxSigner; pnpm nos
+  dois apps web, com o Node 24 LTS fixado em `.nvmrc` e em `engines`. Lockfiles
+  são versionados e a CI instala a partir deles.
 - **Proteção de segredos**: nenhum segredo entra no repositório. Variáveis ficam
   em `.env` local, ignorado pelo git; o repositório guarda só um `.env.example`
-  sem valores. O hook `.githooks/pre-commit` roda o Gitleaks na versão de
-  `.gitleaks-version` e bloqueia o commit que contenha segredo. Estado e planos do
-  Terraform e arquivos `*.tfvars` nunca entram no repositório. Se um segredo
-  vazar, primeiro revogamos e trocamos o segredo, depois limpamos o histórico.
+  sem valores. Estado e planos do Terraform e arquivos `*.tfvars` nunca entram no
+  repositório. A proteção de segredos é o Gitleaks, no hook
+  `.githooks/pre-commit` e no workflow `security`; a varredura de segredos do
+  GitHub não existe para um repositório privado pessoal sem GitHub Advanced
+  Security [Q1]. Se um segredo vazar, primeiro revogamos e trocamos o segredo,
+  depois limpamos o histórico.
 - **Segurança na CI**: o workflow `security` roda Gitleaks (histórico e árvore),
   CodeQL (Java e TypeScript), OWASP Dependency-Check e `pnpm audit` nos dois
   apps. Achado Crítico ou Alto bloqueia; achado Médio gera aviso. Exceções ficam
   em `security/exceptions.yml`, cada uma com justificativa, validade de no máximo
   90 dias e aprovação registrada do responsável; exceção vencida volta a
-  bloquear. **[a confirmar: DIV-01]** a varredura de segredos nativa do GitHub e
-  a proteção no push estão desligadas.
+  bloquear.
 - **Integridade da CI**: ações de terceiros são fixadas pelo SHA do commit, não
-  por tag (o teste `WorkflowsTest` confere); cada workflow declara `permissions`
-  mínimas (por padrão, só leitura do conteúdo); nenhum segredo de produção fica
-  disponível em workflows disparados por branch ou fork não confiável.
-  **[a confirmar: DIV-06]** o `deploy.yml` desenhado precisa de
-  `id-token: write`, e o `WorkflowsTest` hoje recusa qualquer permissão de
-  escrita.
+  por tag (o `WorkflowsTest` confere); cada workflow declara `permissions`
+  mínimas (por padrão, só leitura do conteúdo); a única exceção prevista é
+  `id-token: write` no job de implantação do `deploy.yml`, que roda num GitHub
+  Environment. Nenhum segredo de produção fica disponível em workflows
+  disparados por branch ou fork não confiável.
 - **Atualização de dependências**: o Dependabot abre PRs semanais (Maven, npm dos
   dois apps, Docker, Docker Compose e GitHub Actions). Versões novas dos pacotes
-  npm esperam 5 dias, salvo correções de segurança. **[a confirmar: DIV-16]** os
-  alertas de segurança do Dependabot estão desligados no repositório.
-- **Versões e releases** **[a confirmar: DIV-09]**: um único tronco, sem branches
-  de release de longa duração. O histórico já tem tags anotadas de "release
-  local" no formato `vAAAA.MM.DD-N` (`v2026.11.08-1`, `v2026.11.12-1`), mesmo sem
-  ambiente implantado.
-- **Trabalho pendente fora de `main`** **[a confirmar: DIV-07]**: os resultados
-  dos estágios de operação do intent `261113-trading-real-bot` (Terraform,
-  observabilidade, runbooks, testes e `security/exceptions.yml`) estão na árvore
-  de trabalho sem commit desde 2026-11-20.
+  npm esperam 5 dias. Os alertas do Dependabot e as correções automáticas de
+  segurança estão ligados, e as correções de segurança entram sem a espera [Q1].
+- **Versões e releases**: um único tronco, sem branches de release de longa
+  duração. As tags anotadas `vAAAA.MM.DD-N` em `main` marcam versões locais
+  (por exemplo, `v2026.11.12-1`) [Q6].
 
 ## Walking Skeleton
 
@@ -120,12 +106,11 @@
   atravessam a fatia inteira e devolve código de saída diferente de zero em
   qualquer falha. Esse comando é `bash scripts/verify.sh`, autorizado pelo
   responsável do projeto, e ele roda na CI (jobs `smoke` e `e2e`).
-- **Ponto de controle com pouca memória local** **[a confirmar: DIV-11]**: nos
-  pontos de controle da Construction, `scripts/verify-checkpoint.sh` roda primeiro
-  o `verify.sh` local; se a execução local morrer (por falta de memória), a
-  segunda tentativa do mesmo commit aceita o run verde do `ci` no GitHub Actions,
+- **Verificação dos pontos de controle**: `scripts/verify-checkpoint.sh` roda
+  primeiro o `verify.sh` local. Se a máquina não aguentar (a execução local
+  morre por falta de memória), a prova é o run verde do `ci` do mesmo commit,
   desde que a árvore não tenha mudança fora dos registros do AI-DLC e o commit
-  esteja no remoto.
+  esteja no remoto [Q7].
 - **Fatia do intent `261109-termos-lgpd`**: a página `/privacidade` servida pela
   API a partir do catálogo, com a versão vigente, e mostrada no app sem login,
   coberta por um spec de ponta a ponta. A verificação continua sendo
@@ -137,16 +122,15 @@
   ativa a carteira do bot, deposita 1 SOL a partir da carteira principal de
   teste, confere o saldo, saca de volta e confirma que um saque para outro
   endereço é recusado. A carteira principal de teste é gerada só no código de
-  teste. O spec roda em toda mudança e no merge para `main`.
-- **Fatia do intent `261121-paper-real-unico`** **[a confirmar: DIV-14]**:
-  proposta: a lista única de bots com um bot PAPER e um bot REAL lado a lado,
-  no validador Solana local: navegador (tela de Bots e de P&L) → API (P&L por
-  bot nos dois modos) → ledger PAPER e ledger REAL → blocos separados Simulado
-  (US$) e Real (SOL), sem total geral, com o aviso fixo no simulado. Um spec de
-  ponta a ponta novo, acrescentado ao `verify.sh` pelo responsável (CO-04 do
-  registro de restrições), cria os dois bots, faz uma compra em cada modo e
-  confere que cada bloco mostra só o próprio modo. A verificação continua sendo
-  `bash scripts/verify.sh`.
+  teste. O spec roda em toda mudança e no push para `main`.
+- **Fatia do intent `261121-paper-real-unico`**: a visão única com um bot PAPER e
+  um bot REAL no validador Solana local: navegador (telas de Bots e de P&L) → API
+  (P&L por bot nos dois modos) → ledger PAPER e ledger REAL → blocos separados
+  Simulado (US$) e Real (SOL), sem total geral, com o aviso fixo no simulado. Um
+  spec de ponta a ponta novo, que o responsável acrescenta ao `verify.sh`, cria
+  os dois bots, faz uma compra em cada modo e confere que cada bloco mostra só o
+  próprio modo e que os modos nunca são somados [Q8]. A verificação continua
+  sendo `bash scripts/verify.sh`.
 - **Depois do esqueleto**: com o esqueleto verificado e aprovado, o framework
   oferece seguir automaticamente ou revisar cada ponto de controle. Plan
   Approval, confirmação de resumo, escolha do comando de verificação e falhas
@@ -165,14 +149,14 @@
   foi estendida à lógica de dados pessoais. No intent `261113-trading-real-bot`,
   o NFR8 estendeu a ordem à lógica de carteira e saque, e o plano de Bolts pediu
   os testes de ataque da política do TxSigner (B1) e os de estados e
-  idempotência da execução REAL (B4) antes do código. Neste intent, o P&L REAL
-  por bot (custo médio por bot e rateio das vendas sem bot) já está dentro de
-  "P&L" no núcleo financeiro; o registro de restrições (CT-15) pede os cenários
-  escritos antes do código.
-- **Volume de testes** **[a confirmar: DIV-13]**: nos intents anteriores a Test
-  Strategy foi `Comprehensive`. O estado deste intent registra `Standard`, vindo
-  do escopo `feature`. O piso de cobertura abaixo é somado à estratégia e nunca a
-  substitui.
+  idempotência da execução REAL (B4) antes do código. No intent
+  `261121-paper-real-unico`, o P&L REAL por bot (custo médio por bot e rateio
+  das vendas sem bot) já está dentro de "P&L" no núcleo financeiro, e os
+  cenários são escritos antes do código (CT-15 do registro de restrições).
+- **Volume de testes**: o volume do projeto continua `Comprehensive`; cada intent
+  segue a Test Strategy que o próprio estado registra (o intent
+  `261121-paper-real-unico` registra `Standard`) [Q8]. O piso de cobertura
+  abaixo é somado à estratégia e nunca a substitui.
 - **Piso de cobertura**: 80% de cobertura de linhas, medido separadamente no
   backend (JaCoCo, unitários e integração mesclados), no TxSigner (JaCoCo) e em
   cada app web (Jest, `coverageThreshold.global.lines = 80`). As exclusões ficam
@@ -186,7 +170,7 @@
     também validam o tenant;
   - separação entre REAL e PAPER (saldo, ordens, ledger, posições e P&L),
     inclusive na visão única: cada bloco e cada total por modo mostram só o
-    próprio modo, e não existe total que some os dois **[a confirmar: DIV-14]**;
+    próprio modo, e os modos nunca são somados [Q8];
   - deduplicação por chave de idempotência;
   - violação de limites autorizados e controles de risco;
   - dado de mercado ausente vira `unknown`, nunca zero;
@@ -206,9 +190,10 @@
   - a versão nova dos termos exige novo aceite antes de qualquer outra rota,
     **exceto** a leitura da carteira do bot (`GET /api/v1/real/bot-wallet`) e as
     rotas de saque (`/api/v1/real/bot-wallet/withdrawals` e
-    `/api/v1/real/bot-wallet/withdrawals/{withdrawalId}`); o teste cobre as duas
-    metades: as rotas da exceção respondem sem o novo aceite e todas as demais
-    respondem `403 TERMS_REACCEPTANCE_REQUIRED`;
+    `/api/v1/real/bot-wallet/withdrawals/{withdrawalId}`), que continuam
+    disponíveis sem o novo aceite para o usuário sempre poder tirar o próprio
+    dinheiro; o teste cobre as duas metades: as rotas da exceção respondem sem o
+    novo aceite e todas as demais respondem `403 TERMS_REACCEPTANCE_REQUIRED`;
   - saque só para a carteira principal registrada: qualquer outro destino é
     recusado pela API e pelo TxSigner, e o saque continua disponível com o kill
     switch acionado, com o REAL desligado e sem a liberação vigente;
@@ -231,22 +216,22 @@
   fixtures gravadas. Testes de integração usam as mesmas migrações da aplicação
   sobre PostgreSQL real em contêiner (Testcontainers) e não dependem de estado
   compartilhado nem da ordem de execução. Fixtures nunca usam carteira, mint ou
-  dados pessoais reais. No REAL, a rede é o validador Solana local, o KMS é
-  simulado no ambiente local e as respostas da Jupiter e do RPC usadas em testes
-  de unidade são gravadas; nenhum teste da CI usa devnet, mainnet, KMS real ou
-  chave real.
+  dados pessoais reais. No REAL, a rede é o validador Solana local (com contas
+  clonadas para os swaps), o KMS é simulado no ambiente local e as respostas da
+  Jupiter e do RPC usadas em testes de unidade são gravadas; nenhum teste da CI
+  usa devnet, mainnet, KMS real ou chave real.
 - **Ambientes de teste**: a CI roda em Linux; o desenvolvimento local é no
   Windows. O fim de linha é padronizado em LF por `.gitattributes` e
-  `.editorconfig`.
+  `.editorconfig` para que os testes deem o mesmo resultado nos dois ambientes.
 - **Frequência**: em toda mudança e no push para `main` rodam os testes de
   unidade e de integração de todas as partes (backend, TxSigner, `apps/web` e
   `apps/admin`), com o piso de cobertura, e mais o `scripts/verify.sh`. O
   `verify.sh` com todos os specs de ponta a ponta é a suíte completa; no push
   para `main` o job `e2e` roda a mesma suíte uma segunda vez, depois dos demais
   jobs verdes.
-- **Testes da IaC** **[a confirmar: DIV-04]**: os testes do Terraform
-  (`infra/terraform/tests/*.tftest.hcl`, `terraform validate` e Checkov) existem,
-  mas nenhum workflow os roda.
+- **Testes da IaC**: os testes do Terraform (`infra/terraform/tests/`), o
+  `terraform validate` e o Checkov existem e rodam à mão; levá-los para a CI é
+  pendência do responsável [Q5].
 - **Testes instáveis**: teste instável é tratado como defeito e nunca é ignorado
   em silêncio.
 - **Ferramentas**: JUnit 5, Testcontainers, ArchUnit e JaCoCo no backend e no
@@ -257,35 +242,32 @@
 
 ## Deployment
 
-- **Situação atual** **[a confirmar: DIV-02]**: nenhum ambiente na nuvem está
-  provisionado; o único ambiente que roda é o local, no Windows, com Docker
-  Compose. Os estágios de operação do intent `261113-trading-real-bot` já
-  desenharam a nuvem: Terraform em `infra/terraform/`, um AWS Organizations com a
-  conta de gerenciamento e duas contas membro separadas (`devnet` e `mainnet`),
-  sem conexão entre elas, e um orçamento de US$ 350 por conta. Nada foi aplicado.
-- **Ambiente dos usuários** **[a confirmar: DIV-03]**: existe um único ambiente
-  para os usuários, na **mainnet**. Nele o usuário cria bots PAPER e REAL lado a
-  lado, com P&L por bot e por modo sempre separados. A **devnet** serve só aos
-  testes do fundador e é o ambiente de pré-produção do mesmo SHA; nenhum usuário
-  a usa. Nenhum serviço AWS novo nem custo novo entra por causa disso.
-- **Fluxo de implantação** **[a confirmar: DIV-02]**: implantação manual de um
-  commit de `main` com `ci` e `security` verdes, pelo `deploy.yml`
-  (`workflow_dispatch`) em GitHub Environments `devnet` e `mainnet`, com
-  credencial AWS por OIDC e sem chave longa. O mesmo SHA passa primeiro pela
-  devnet e só depois vai para a mainnet. O `deploy.yml` e os Environments ainda
-  não existem no repositório (existe só o texto pronto em `cd-config.md`).
+- **Situação atual**: nenhum ambiente na nuvem está provisionado; o único
+  ambiente que roda é o local, no Windows, com Docker Compose. O desenho abaixo
+  vem dos estágios de operação do intent `261113-trading-real-bot` e é a nossa
+  prática de implantação, **ainda não aplicada** [Q3].
+- **Contas e IaC**: Terraform em `infra/terraform/`; um AWS Organizations com a
+  conta de gerenciamento e duas contas membro separadas, `devnet` e `mainnet`,
+  sem conexão entre elas; orçamento de US$ 350 por conta. A região ainda está a
+  definir.
+- **Ambiente dos usuários**: os usuários usam só a **mainnet**. Nela o usuário
+  cria bots PAPER e REAL lado a lado, com P&L por bot e por modo sempre
+  separados. A **devnet** serve aos testes do fundador e à pré-produção do mesmo
+  SHA; nenhum usuário a usa [Q4].
+- **Fluxo de implantação**: implantação manual de um commit de `main` com `ci` e
+  `security` verdes, pelo `deploy.yml` (`workflow_dispatch`) nos GitHub
+  Environments `devnet` e `mainnet`, com credencial AWS por OIDC e sem chave
+  longa. A devnet recebe implantação manual, não automática a cada merge; não
+  existe staging separado. O mesmo SHA passa primeiro pela devnet e só depois vai
+  para a mainnet [Q3].
 - **Passo do fundador com MFA**: antes de cada implantação, o fundador, da
   máquina dele e com MFA, publica a imagem do TxSigner, roda a migração do
   TxSigner, troca a revisão em serviço e confere a prontidão. O papel de
   implantação do GitHub nunca implanta o TxSigner, nunca toca no KMS e nunca liga
   o REAL.
-- **Staging** **[a confirmar: DIV-02]**: o `team.md` dizia "implantamos no
-  staging a cada merge em `main`". O desenho atual não tem staging separado e não
-  implanta na devnet a cada merge: a devnet recebe a implantação manual do SHA
-  escolhido.
-- **Produção** **[a confirmar: DIV-03]**: a implantação na mainnet, que agora
-  serve ao PAPER e ao REAL dos usuários, exige a aprovação do fundador como
-  revisor obrigatório do Environment `mainnet`.
+- **Produção**: a mainnet é a produção do PAPER e do REAL. A implantação nela
+  exige a aprovação do fundador como revisor obrigatório do Environment
+  `mainnet` [Q4].
 - **Estratégia**: atualização rolling no ECS (tarefa nova saudável antes de a
   antiga sair), circuit breaker com volta automática, TxSigner primeiro, smoke e
   janela de observação de 10 minutos.
@@ -325,13 +307,14 @@
 
 - **Princípio**: seguimos a configuração do linter e do formatador do
   repositório. A sugestão de um agente só vale quando o linter ainda não cobre o
-  assunto. Lint, formatação e verificação de tipos rodam na CI antes do merge;
-  falha bloqueia o merge.
+  assunto. Lint, formatação e verificação de tipos rodam na CI; falha deixa o
+  commit vermelho e é corrigida no commit seguinte.
 - **Ferramentas**: Prettier e ESLint (`eslint-config-next`) nos apps web;
   Spotless com palantir-java-format no backend e no TxSigner. Não há Checkstyle;
-  se um dia entrar, ele cobre só o que o formatador não cobre.
-- **Idioma**: código, nomes de tabelas, endpoints e mensagens de log em inglês;
-  textos de interface em português do Brasil.
+  se um dia entrar, ele cobre só o que o formatador não cobre (nomes, `catch`
+  vazio, imports com curinga).
+- **Idioma**: código, nomes de tabelas, endpoints, mensagens de log e mensagens de
+  commit em inglês; textos de interface em português do Brasil.
 - **Nomes**: convenções idiomáticas de cada linguagem (camelCase em TypeScript e
   Java, PascalCase para tipos); `snake_case` em tabelas e colunas; rotas REST sob
   `/api/v1/`; valores de enum de domínio em maiúsculas (`REAL`, `PAPER`), iguais
@@ -341,9 +324,10 @@
   escritos à mão. Uma quebra de contrato falha a CI.
 - **Erros da API**: formato RFC 7807 (`ProblemDetail`), com tipo estável por
   categoria, código de erro legível por máquina e `correlationId`. Nunca expomos
-  stack trace, SQL ou segredo na resposta nem no log. Erros de domínio voltam
-  como 4xx e são auditados; erros técnicos voltam como 5xx/503 e só são repetidos
-  quando a operação é idempotente.
+  stack trace, SQL ou segredo na resposta nem no log. Erros de domínio (limite
+  violado, autorização revogada, saldo PAPER insuficiente, tenant divergente)
+  voltam como 4xx e são auditados; erros técnicos (fornecedor, timeout, banco)
+  voltam como 5xx/503 e só são repetidos quando a operação é idempotente.
 - **Sem falha silenciosa**: nenhum `catch` vazio; toda exceção capturada é
   relançada com contexto, convertida em resultado explícito ou registrada no
   nível adequado.
@@ -361,12 +345,13 @@
   backend (`apps/api/src/test/java/com/memetrade/architecture/`) verificam as
   fronteiras, a pureza do domínio e as proibições de rede, chave, ponto
   flutuante e SDK; módulo novo ganha a sua regra. O backend é organizado por
-  módulo, não por camada técnica global. Um módulo fala com outro só pela
-  interface pública ou por evento, nunca lendo as tabelas ou repositórios do
-  outro; dentro do módulo, o domínio não depende de infraestrutura nem de classes
-  web. PAPER nunca compartilha dados com REAL. Adaptadores externos ficam atrás
-  de uma interface do módulo dono, com implementação simulada para o ambiente
-  local.
+  módulo (Ledger, Risk, Scanner etc.), não por camada técnica global. Um módulo
+  fala com outro só pela interface pública ou por evento, nunca lendo as tabelas
+  ou repositórios do outro; dentro do módulo, o domínio não depende de
+  infraestrutura nem de classes web. PAPER nunca compartilha dados com REAL.
+  Adaptadores externos (descoberta, preços, Solana, roteador de swap,
+  pagamentos) ficam atrás de uma interface do módulo dono, com implementação
+  simulada para o ambiente local.
 - **TypeScript**: modo `strict` ligado.
 - **Fim de linha e codificação**: `.editorconfig` e `.gitattributes` fixando LF e
   UTF-8 (com exceção CRLF para `*.cmd`/`*.bat`).

@@ -112,6 +112,9 @@ class RecordedSwapCycleIT {
     @Autowired(required = false)
     private RecordedSwapStrategy strategy;
 
+    @Autowired(required = false)
+    private RecordedSwapFirstCycle firstCycle;
+
     private record Person(Principal principal, UUID botWalletId) {}
 
     /** A released person with an ACTIVE bot wallet in AUTO_FULL (cap 5 SOL) and, optionally, a deposit. */
@@ -214,7 +217,8 @@ class RecordedSwapCycleIT {
                                 new IdempotencyKey(UUID.randomUUID())))
                 .body();
         UUID botId = UUID.fromString(body.replaceAll(".*\"botId\":\"([0-9a-f-]{36})\".*", "$1"));
-        fixtures.saveSteps(owner, botId, new TokenId("solana", MINT), U5Bots.defaultLimits(), "1000.000000");
+        // 261121-paper-real-unico U1 (BR1.9): a REAL bot has no virtual balance nor limits of its own.
+        fixtures.saveRealSteps(owner, botId, new TokenId("solana", MINT));
         fixtures.as(owner, () -> commands.start(owner, botId, new IdempotencyKey(UUID.randomUUID())));
         return botId;
     }
@@ -353,5 +357,105 @@ class RecordedSwapCycleIT {
 
         assertThat(cycleRow(botId, next)).containsEntry("outcome", "REAL_RECORDED");
         assertThat(pendingBuys(botId)).isEqualTo(1);
+    }
+
+    /**
+     * 261121-paper-real-unico U1 (BR10.1, review R-01): the PAPER bot of the recorded mint buys ONCE, through the barrier
+     * of U6 and the PAPER execution of U7, the tokens of the recorded quote; then it holds. Nothing of the REAL is
+     * written for it (no REAL decision request, no REAL ledger row of its owner).
+     */
+    @Test
+    void thePaperBotOfTheRecordedMintBuysOnceInPaperAndNeverTouchesTheReal() {
+        freshMarket();
+        Person person = person(0);
+        UUID botId = paperRecordedMintBot(person);
+        Instant slot = SlotDispatcher.slotOf(clock.instant());
+        BotRef ref = new BotRef(botId, TenantScope.of(person.principal()));
+
+        CycleResult first = cycles.run(ref, slot);
+
+        assertThat(first.kind()).as(first.toString()).isEqualTo(CycleResult.Kind.COMPLETED);
+        assertThat(cycleRow(botId, slot)).containsEntry("outcome", "FILLED");
+        assertThat(paperBuys(botId)).isEqualTo(1);
+        assertThat(jdbc.sql("select quantity::text from position where bot_id = :bot and token_mint = :mint")
+                        .param("bot", botId)
+                        .param("mint", MINT)
+                        .query(String.class)
+                        .single())
+                .satisfies(quantity -> assertThat(new BigDecimal(quantity)).isEqualByComparingTo("35.728672"));
+        assertThat(jdbc.sql("select distinct mode from decision where bot_id = :b")
+                        .param("b", botId)
+                        .query(String.class)
+                        .list())
+                .containsExactly("PAPER");
+        assertThat(jdbc.sql("select count(*) from real_decision_request where bot_id = :bot")
+                        .param("bot", botId)
+                        .query(Long.class)
+                        .single())
+                .isZero();
+        assertThat(jdbc.sql("select count(*) from real_ledger_entry where bot_wallet_id = :wallet")
+                        .param("wallet", person.botWalletId())
+                        .query(Long.class)
+                        .single())
+                .isZero();
+
+        freshMarket();
+        Instant next = slot.plus(Duration.ofMinutes(5));
+        CycleResult second = cycles.run(ref, next);
+
+        assertThat(second.action()).contains("HOLD");
+        assertThat(paperBuys(botId)).isEqualTo(1);
+    }
+
+    /**
+     * 261121-paper-real-unico U1 (BR10.1, review R-01): the test-only first cycle runs, once and in the current slot, the
+     * new test bots of the recorded swap of both modes, and never a bot of another selection; the slot dispatcher then
+     * finds the slot done.
+     */
+    @Test
+    void theFirstCycleOfTheTestProfileRunsOnceTheNewTestBotsOfBothModesAndNoOther() {
+        assertThat(firstCycle).isNotNull();
+        freshMarket();
+        Person person = person(3 * SOL);
+        UUID real = recordedMintBot(person);
+        UUID paper = paperRecordedMintBot(person);
+        U5Bots fixtures = new U5Bots(commands, bots, cycleAuth::as);
+        UUID other = fixtures.active(person.principal(), new TokenId("solana", SyntheticIds.mint()));
+        Instant slot = SlotDispatcher.slotOf(clock.instant());
+
+        firstCycle.runOnce();
+
+        assertThat(cycleRow(real, slot)).containsEntry("outcome", "REAL_RECORDED");
+        assertThat(cycleRow(paper, slot)).containsEntry("outcome", "FILLED");
+        assertThat(cycleCount(other)).isZero();
+        assertThat(cycles.run(new BotRef(real, TenantScope.of(person.principal())), slot)
+                        .kind())
+                .isEqualTo(CycleResult.Kind.ALREADY_PROCESSED);
+
+        firstCycle.runOnce();
+
+        assertThat(cycleCount(real)).isEqualTo(1);
+        assertThat(cycleCount(paper)).isEqualTo(1);
+        assertThat(cycleCount(other)).isZero();
+    }
+
+    /** The PAPER bot of the recorded mint, through the real commands (create PAPER, the wizard steps and start). */
+    private UUID paperRecordedMintBot(Person person) {
+        U5Bots fixtures = new U5Bots(commands, bots, cycleAuth::as);
+        return fixtures.active(person.principal(), new TokenId("solana", MINT));
+    }
+
+    private long paperBuys(UUID botId) {
+        return jdbc.sql("select count(*) from paper_order where bot_id = :bot and side = 'BUY' and status = 'FILLED'")
+                .param("bot", botId)
+                .query(Long.class)
+                .single();
+    }
+
+    private long cycleCount(UUID botId) {
+        return jdbc.sql("select count(*) from bot_cycle where bot_id = :bot")
+                .param("bot", botId)
+                .query(Long.class)
+                .single();
     }
 }
