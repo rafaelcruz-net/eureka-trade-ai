@@ -183,6 +183,7 @@
     { "path": "apps/api/src/test/java/com/memetrade/realexecution/infra/LiquidationIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/realexecution/infra/PersonSaleExitIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/realexecution/infra/RealSettlementIT.java" },
+    { "path": "apps/api/src/test/java/com/memetrade/realexecution/web/RealRoutesIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/realexits/application/FillPostingIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/realexits/db/RealExitsMigrationIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/riskcontrol/real/AttributionFailureGateIT.java" },

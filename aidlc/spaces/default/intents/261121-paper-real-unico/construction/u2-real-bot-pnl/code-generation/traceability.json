@@ -149,7 +149,7 @@
     { "id": "BR9.5", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/pnl/real/RealPnlPeriodBoundaryTest.java" },
     { "id": "BR10.1", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/pnl/application/RealBotPnl.java", "note": "uma passada em fluxo, índice compacto das ordens; RealBotPnlTest" },
     { "id": "BR10.2", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/pnl/modeview/JdbcBlockReads.java", "note": "REPEATABLE READ só de leitura; RealPnlReadOnlyIT, RealPnlIdempotentReadIT" },
-    { "id": "BR10.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/pnl/application/RealPnlService.java", "note": "RealBotPnl substitui V1 e RealPnlCalculator (removidos); GET /api/v1/real/pnl pelo pool; RealPnlRouteIT" },
+    { "id": "BR10.3", "status": "OK", "target": "apps/api/src/main/java/com/memetrade/pnl/application/RealPnlService.java", "note": "RealBotPnl substitui V1 e RealPnlCalculator (removidos); GET /api/v1/real/pnl pelo pool, custo sem a taxa e taxa à parte com o mesmo total (decisão Q5); RealPnlRouteIT, RealRoutesIT" },
     { "id": "BR10.4", "status": "OK", "target": "apps/web/src/features/pnl/mode-messages.ts", "note": "rótulo Taxas e nota removida; PnlModeBlock.tsx, PnlModeBlock.test.tsx" },
     { "id": "BR10.5", "status": "OK", "target": "apps/api/src/test/java/com/memetrade/architecture/NeverSumModesArchitectureTest.java" },
 

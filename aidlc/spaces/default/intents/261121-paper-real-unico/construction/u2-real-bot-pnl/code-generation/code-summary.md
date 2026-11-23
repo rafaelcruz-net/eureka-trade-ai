@@ -88,6 +88,8 @@ Antes da revisão 1 (primeira entrega): fase 1 unidade 193, fase 1 integração 
 | R-02 | Plano: a caixa do `RealBlockFailureIT` diz 5 casos e onde estão os outros 3; caixas marcadas para o slot da confirmação, o `RealLedgerNetworkOrderPlanIT` e o commit da linha de base (`45ae5a0`). | — |
 | R-08 | Nada a mudar: as linhas `Deferred` continuam abertas até a execução verde no commit candidato. | — |
 
+**CI do commit `4a2cf7d` (run 45179755107):** o único teste vermelho era o `RealRoutesIT` da rota `GET /api/v1/real/pnl` do 261113, que ainda esperava a taxa de rede dentro do custo da posição (50.008.457). Pela decisão Q5 do fundador, a taxa fica fora do custo, no campo `feesLamports`, e o realizado é bruto. O teste passou a se chamar `thePnlShowsThePositionOfAConfirmedBuyAndItsFeeApart` e confere: custo 50.000.000, taxas 8.457, realizado 0, não realizado = valor − 50.000.000 e o total realizado + não realizado − taxas = valor − 50.008.457, o mesmo resultado de antes. Nenhum outro lugar do `apps/api` nem do `apps/web` supunha a taxa no custo: o cartão "P&L REAL (com taxas)" só mostra o que a rota devolve. Na tela, a linha da posição mostra o "Custo de compra" sem a taxa de rede (por exemplo, 0,05 SOL em vez de 0,050008457 SOL), o "Não realizado" fica maior na mesma medida e a taxa continua na linha "Taxas".
+
 Uma regra ArchUnit do ledger recusa tipo cujo nome termina em `Transaction` dentro de `pnl`; por isso a interface se chama `AfterBlockRelease` (o método continua `afterTransaction()`).
 
 ## Desvios do plano

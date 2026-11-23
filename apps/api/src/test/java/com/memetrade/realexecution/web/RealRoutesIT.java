@@ -117,17 +117,43 @@ class RealRoutesIT extends AbstractRealExecutionIT {
         assertThat(body.path("txSignature").asText()).isEqualTo(txSignature(order));
     }
 
+    /**
+     * 261121-paper-real-unico U2 (decision Q5 of the founder; BR2.1, BR6.1, BR7.1, BR7.4, BR10.3): the network fee of a
+     * buy is never in the cost of the position; it is in its own field {@code feesLamports}, and the result is the same
+     * as when the U1 put the fee into the cost: realized + unrealized - fees equals the value of the position minus
+     * what the buy took from the bot wallet (50.008.457 lamports: the 50.000.000 of the swap and the 8.457 of the fee).
+     */
     @Test
-    void thePnlShowsThePositionOfAConfirmedBuyWithItsFee() throws Exception {
+    void thePnlShowsThePositionOfAConfirmedBuyAndItsFeeApart() throws Exception {
         Setup setup = realBot("AUTO_FULL");
         confirmedBuy(setup);
 
         JsonNode pnl = json.readTree(as(bearer(setup), get("/api/v1/real/pnl")).getContentAsString());
 
         assertThat(pnl.path("positions")).hasSize(1);
-        assertThat(pnl.path("positions").get(0).path("costLamports").asText()).isEqualTo("50008457");
-        assertThat(pnl.path("feesLamports").asText()).isEqualTo("8457");
-        assertThat(pnl.path("unrealizedStatus").asText()).isIn("KNOWN", "UNKNOWN");
+        JsonNode position = pnl.path("positions").get(0);
+        assertThat(position.path("baseUnits").asText()).isEqualTo("1000000");
+        assertThat(position.path("costLamports").asText())
+                .as("the cost is what the swap paid, without the network fee")
+                .isEqualTo("50000000");
+        assertThat(pnl.path("feesLamports").asText())
+                .as("the fee of the buy is on its own")
+                .isEqualTo("8457");
+        assertThat(pnl.path("realizedLamports").asText()).isEqualTo("0");
+
+        // The price of the mint is known (realBot quotes SOL at US$ 150 and the token at US$ 0,0001).
+        assertThat(position.path("priceStatus").asText()).isEqualTo("KNOWN");
+        assertThat(pnl.path("unrealizedStatus").asText()).isEqualTo("KNOWN");
+        long value = Long.parseLong(position.path("valueLamports").asText());
+        long realized = Long.parseLong(pnl.path("realizedLamports").asText());
+        long unrealized = Long.parseLong(pnl.path("unrealizedLamports").asText());
+        long fees = Long.parseLong(pnl.path("feesLamports").asText());
+        assertThat(unrealized).isEqualTo(value - 50_000_000L);
+        assertThat(Long.parseLong(position.path("unrealizedLamports").asText())).isEqualTo(unrealized);
+        // The total is the one the U1 gave (cost 50.008.457 with the fee inside, no fee apart): value - 50.008.457.
+        assertThat(realized + unrealized - fees)
+                .as("the economic result did not change")
+                .isEqualTo(value - 50_008_457L);
     }
 
     @Test
