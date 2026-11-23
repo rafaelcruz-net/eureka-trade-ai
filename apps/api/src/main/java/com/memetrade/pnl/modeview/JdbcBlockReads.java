@@ -12,8 +12,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * 261121-paper-real-unico U1: the transactions of the blocks of the P&L by mode on PostgreSQL. Each block opens its own
- * read-only transaction ({@code REQUIRES_NEW}: a thread of the pool never joins another one), PAPER in REPEATABLE READ
- * and REAL in READ COMMITTED, and sets {@code set local statement_timeout} to what is left of its deadline. No lock.
+ * read-only transaction ({@code REQUIRES_NEW}: a thread of the pool never joins another one) and sets
+ * {@code set local statement_timeout} to what is left of its deadline. No lock.
+ *
+ * <p>261121-paper-real-unico U2 (performance-design.md "Transação"): both blocks read in REPEATABLE READ. The REAL block
+ * now reads the settled orders and then the ledger rows, and its exact reconciliation (BR8.1) needs both reads to see
+ * the same snapshot.
  */
 @Component
 @ProcessRole(ProcessRole.Kind.API)
@@ -26,7 +30,7 @@ public class JdbcBlockReads implements BlockReads {
     public JdbcBlockReads(JdbcClient jdbc, PlatformTransactionManager transactions) {
         this.jdbc = jdbc;
         this.paper = template(transactions, TransactionDefinition.ISOLATION_REPEATABLE_READ);
-        this.real = template(transactions, TransactionDefinition.ISOLATION_READ_COMMITTED);
+        this.real = template(transactions, TransactionDefinition.ISOLATION_REPEATABLE_READ);
     }
 
     @Override

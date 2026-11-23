@@ -253,7 +253,8 @@ describe('S6 P&L screen /pnl', () => {
       'O resultado simulado não garante o resultado real.',
     );
     expect(screen.queryByTestId('pnl-block-REAL-disclaimer')).toBeNull();
-    expect(screen.getByTestId('pnl-block-REAL-note')).toBeInTheDocument();
+    // 261121-paper-real-unico U2 (BR10.4): the fixed note of the U1 left the REAL block.
+    expect(screen.queryByTestId('pnl-block-REAL-note')).toBeNull();
     expect(screen.getByTestId('pnl-modes')).not.toHaveTextContent(/total geral/i);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Resultado');
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(

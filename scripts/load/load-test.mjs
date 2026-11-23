@@ -29,6 +29,8 @@ import { legalMarkdown, runLegal } from './legal.mjs';
 import { reacceptanceMarkdown, runReacceptance } from './reacceptance.mjs';
 import { dataRequestsMarkdown, runDataRequests, walletFromSmokeFile } from './data-requests.mjs';
 import { REAL_DEFAULTS, realMarkdown, runReal } from './real.mjs';
+import { histogramP95, pnlByModeFailures, pnlByModeTraffic, snapshot } from './pnl-by-mode.mjs';
+import { PNL_SAMPLE_SQL, checkPnlPlan, parsePnlSample, pnlPlanQuery } from './pnl-plans.mjs';
 import { createRequire } from 'node:module';
 
 const run = promisify(execFile);
@@ -1741,6 +1743,136 @@ async function runRealScenario() {
 
 if (SCENARIO === 'real') {
   await runRealScenario();
+}
+
+// ----- 261121-paper-real-unico U2 scenario "pnl-by-mode" (nfr-requirements NFR1.1 to NFR1.9, D-NFR1) -----
+//   LOAD_SCENARIO=pnl-by-mode  the smoke account plus one account per SMOKE_INVITE_CODES sign in and read C4 once, so
+//                              the seed of the loadtest profile (com.memetrade.pnl.loadtest.LoadtestPnlSeed) takes them
+//                              from their validated sessions and gives each one 5 PAPER and 5 REAL bots with 2 years of
+//                              history; then 20 users read GET /api/v1/pnl/by-mode and GET /api/v1/real/pnl every 2 s
+//                              for DURATION_S after PNL_WARMUP_S of warm-up. The gates are in scripts/load/pnl-by-mode.mjs
+//                              (p95 of C4 <= 1 s, p95 of the attribution of the P&L path <= 500 ms, no answer other than
+//                              200, no mismatch, timeouts <= 0.5%, no other UNAVAILABLE) and the plan of the main REAL
+//                              read in scripts/load/pnl-plans.mjs. Report: load-test-report.json and
+//                              docs/perf/u2-real-bot-pnl-<date>.md.
+async function waitForPnlSeed() {
+  const deadline = Date.now() + 90 * 60 * 1_000;
+  let lastProgress = 0;
+  while (Date.now() < deadline) {
+    const health = await (await fetch(`${MANAGEMENT}/actuator/health`)).json().catch(() => ({}));
+    const component = health.components?.loadtestPnl;
+    if (!component) throw new Error('the pnl seed is not active: SPRING_PROFILES_ACTIVE=test,loadtest and LOADTEST_PNL_PEOPLE');
+    const details = component.details ?? {};
+    if (details.state === 'FAILED') throw new Error(`the pnl seed failed: ${details.failure}`);
+    if (component.status === 'UP' && details.state === 'UP') return details;
+    if (Date.now() - lastProgress > 60_000) {
+      lastProgress = Date.now();
+      console.warn(`pnl seed: ${details.state}, people ${details.peopleSeeded}/${details.peopleExpected}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10_000));
+  }
+  throw new Error('the pnl seed did not finish in 90 minutes');
+}
+
+async function pnlPlan() {
+  if (!process.env.POSTGRES_CONTAINER) return { usesIndex: false, seqScan: false, passed: false, plan: 'not checked' };
+  const psql = async (text) =>
+    (
+      await run(
+        'docker',
+        ['exec', process.env.POSTGRES_CONTAINER, 'psql', '-qAt', '-F', '|', '-U', process.env.DB_SUPERUSER ?? 'postgres',
+          '-d', process.env.DB_NAME ?? 'memetrade', '-c', text],
+        { maxBuffer: 16 * 1024 * 1024 },
+      )
+    ).stdout;
+  const sample = parsePnlSample(await psql(PNL_SAMPLE_SQL));
+  if (sample === null) return { usesIndex: false, seqScan: false, passed: false, plan: 'no REAL ledger row' };
+  const plan = await psql(`EXPLAIN ${pnlPlanQuery(sample)}`);
+  return { ...checkPnlPlan(plan), plan };
+}
+
+function pnlByModeMarkdown(report) {
+  return `# Carga — U2 P&L REAL por bot, cenário pnl-by-mode (${report.date})
+
+Gerado por \`scripts/load-test.sh\` (\`LOAD_SCENARIO=pnl-by-mode\`), 261121-paper-real-unico U2 (NFR1.1 a NFR1.9).
+
+- Resultado: **${report.passed ? 'aprovado' : 'reprovado'}**${report.failures.length ? ` (${report.failures.join('; ')})` : ''}
+- Pessoas simultâneas: ${report.users}; duração medida: ${report.durationSeconds} s, depois de ${report.warmupSeconds} s de aquecimento
+- p95 de \`GET /api/v1/pnl/by-mode\`: ${report.byModeP95Seconds ?? 'sem dado'} s (meta 1 s)
+- p95 de \`GET /api/v1/real/pnl\`: ${report.realPnlP95Seconds ?? 'sem dado'} s (só registrado, NFR1.2)
+- p95 da atribuição no caminho \`PNL\`: ${report.attributionP95Seconds ?? 'sem dado'} s (meta 0,5 s)
+- Leituras de C4 contadas: ${report.readsByMode}; respostas diferentes de 200: ${report.non200}
+- Blocos REAL \`UNAVAILABLE\` por causa: ${JSON.stringify(report.unavailable)}; divergências: ${report.mismatches}
+- Plano da leitura REAL principal: índice ${report.plan.usesIndex ? 'usado' : 'não usado'}, Seq Scan no ledger ${report.plan.seqScan ? 'sim' : 'não'}
+- Maior espera do pool: ${report.longestPendingSeconds} s; memória máxima (MB): ${JSON.stringify(report.maxMemoryMb)}
+`;
+}
+
+async function runPnlByModeScenario() {
+  const people = await u7People();
+  for (const person of people) {
+    const response = await fetch(`${API}/api/v1/pnl/by-mode`, { headers: { Authorization: `Bearer ${person.token}` } });
+    if (response.status !== 200) throw new Error(`first read of C4 failed with ${response.status}`);
+  }
+  await waitForPnlSeed();
+  for (const person of people) await signIn(person);
+  const warmupS = Number(process.env.PNL_WARMUP_S ?? 60);
+  const io = {
+    now: () => Date.now(),
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    get: async (route, person) => {
+      let response = await fetch(`${API}${route}`, { headers: { Authorization: `Bearer ${person.token}` } });
+      if (response.status === 401) {
+        await signIn(person);
+        response = await fetch(`${API}${route}`, { headers: { Authorization: `Bearer ${person.token}` } });
+      }
+      const body = await response.json().catch(() => null);
+      return { status: response.status, body };
+    },
+  };
+  const deadline = Date.now() + (warmupS + DURATION_S) * 1_000;
+  const pool = { maxPending: 0, longestPendingSeconds: 0, poolReadErrors: 0 };
+  const memory = { maxMemoryMb: {} };
+  const traffic = pnlByModeTraffic({ people, warmupS, durationS: DURATION_S, io });
+  const watchers = Promise.all([watchPool(deadline, pool), watchMemory(deadline, memory)]);
+  await new Promise((resolve) => setTimeout(resolve, warmupS * 1_000));
+  const before = snapshot(await (await fetch(`${MANAGEMENT}/actuator/prometheus`)).text());
+  const counts = await traffic;
+  await watchers;
+  const metrics = await (await fetch(`${MANAGEMENT}/actuator/prometheus`)).text();
+  const after = snapshot(metrics);
+  const unavailable = Object.fromEntries(
+    Object.keys(after.unavailable).map((cause) => [cause, after.unavailable[cause] - before.unavailable[cause]]),
+  );
+  const plan = await pnlPlan();
+  const report = {
+    scenario: SCENARIO,
+    date: new Date().toISOString().slice(0, 10),
+    users: people.length,
+    warmupSeconds: warmupS,
+    durationSeconds: DURATION_S,
+    byModeP95Seconds: p95(metrics, '/api/v1/pnl/by-mode'),
+    realPnlP95Seconds: p95(metrics, '/api/v1/real/pnl'),
+    attributionP95Seconds: histogramP95(metrics, 'pnl_real_attribution_read_seconds', { path: 'PNL' }),
+    ...counts,
+    unavailable,
+    mismatches: after.mismatches - before.mismatches,
+    plan: { usesIndex: plan.usesIndex, seqScan: plan.seqScan, passed: plan.passed },
+    longestPendingSeconds: pool.longestPendingSeconds,
+    maxMemoryMb: memory.maxMemoryMb,
+    memoryLimitMb: MEMORY_LIMIT_MB,
+  };
+  report.failures = pnlByModeFailures(report);
+  report.passed = report.failures.length === 0;
+  writeFileSync('load-test-report.json', JSON.stringify(report, null, 2));
+  mkdirSync('docs/perf', { recursive: true });
+  writeFileSync(`docs/perf/u2-real-bot-pnl-${report.date}.md`, pnlByModeMarkdown(report));
+  console.warn(JSON.stringify({ passed: report.passed, failures: report.failures }));
+  process.exit(report.passed ? 0 : 1);
+}
+
+if (SCENARIO === 'pnl-by-mode') {
+  await runPnlByModeScenario();
 }
 
 const state = { token: await login(), errors: 0, mints: new Set() };

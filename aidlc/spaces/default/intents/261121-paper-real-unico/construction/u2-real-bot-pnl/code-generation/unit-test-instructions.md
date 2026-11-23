@@ -76,7 +76,7 @@ O `RealAttributionMeasurementIT` e o `RealRiskMeasurementIT` só registram o p95
 ### Fase 2 — backend, testes de unidade
 
 ```bash
-./apps/api/mvnw -q -f apps/api/pom.xml test -Dtest='RealProrationTest,RealBotPnlExamplesTest,RealPnlFeesTest,RealPnlUnownedTest,RealPnlPeriodBoundaryTest,RealPnlReconciliationTest,ConditionalSaleRegressionTest,RealPnlPropertyTest,RealBotPnlTest,RealBotPnlQueryTest,ReconciliationFingerprintTest,PnlRealMetricsTest,ModePnlViewTest,U2LogCaptureTest,PnlPlanSqlParityTest,RuntimeSettingsGuardMismatchPoolTest,AuditArchitectureTest,NeverSumModesArchitectureTest,ModeBoundaryArchitectureTest,ArchitectureTest,GuestOpenApiContractTest,RealOpsAlarmParityTest,ComposeFilesTest,LoadtestPnlSeedProfileGuardTest' -Dsurefire.failIfNoSpecifiedTests=false
+./apps/api/mvnw -q -f apps/api/pom.xml test -Dtest='RealProrationTest,RealBotPnlExamplesTest,RealPnlFeesTest,RealPnlUnownedTest,RealPnlPeriodBoundaryTest,RealPnlReconciliationTest,ConditionalSaleRegressionTest,RealPnlPropertyTest,RealBotPnlTest,RealBotPnlQueryTest,ReconciliationFingerprintTest,PnlRealMetricsTest,ModePnlViewTest,U2LogCaptureTest,PnlPlanSqlParityTest,RuntimeSettingsGuardMismatchPoolTest,AuditArchitectureTest,NeverSumModesArchitectureTest,ModeBoundaryArchitectureTest,ArchitectureTest,GuestOpenApiContractTest,RealOpsAlarmParityTest,ComposeFilesTest,LoadtestPnlSeedProfileGuardTest,RealLamportPricesTest' -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
 O `RealPnlPropertyTest` roda pelo menos 1.000 sequências com 3 sementes fixas e termina em até 60 s na CI. A semente e o índice da sequência aparecem na mensagem de falha.
@@ -84,8 +84,10 @@ O `RealPnlPropertyTest` roda pelo menos 1.000 sequências com 3 sementes fixas e
 ### Fase 2 — backend, testes de integração
 
 ```bash
-./apps/api/mvnw -q -f apps/api/pom.xml verify -Dit.test='RealBlockFailureIT,RealPnlTenantIsolationIT,RealPnlIdempotentReadIT,RealNeverPaperIT,RealPnlReadOnlyIT,RealPnlRouteIT,ReconciliationAuditLimitIT,MismatchAuditPoolContextIT,CorrelationParityIT,U2MetricsExportIT,U2PropertiesBindingIT,ModePnlFailureIT,ModePnlLatencyIT' -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false
+./apps/api/mvnw -q -f apps/api/pom.xml verify -Dit.test='RealBlockFailureIT,RealPnlTenantIsolationIT,RealPnlIdempotentReadIT,RealNeverPaperIT,RealPnlReadOnlyIT,RealPnlRouteIT,ReconciliationAuditLimitIT,MismatchAuditPoolContextIT,MismatchAuditAfterTheBlockIT,U2MetricsExportIT,U2PropertiesBindingIT,ModePnlFailureIT,ModePnlLatencyIT' -Dtest=none -Dsurefire.failIfNoSpecifiedTests=false
 ```
+
+O `CorrelationParityIT` do plano foi fundido no `RealBlockFailureIT`. O `MismatchAuditAfterTheBlockIT` (revisão R-01) confere que o evento de divergência só é gravado depois que a transação do bloco terminou.
 
 ### Frontend
 

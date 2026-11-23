@@ -171,11 +171,15 @@ services:
     # slot, the midnight job, the closing check and the decision purge; it has no controller and publishes NO port
     # (8081 answers only the actuator, inside the network). It receives only what it uses: never the signing key, the
     # app origin, the trusted proxies, the administrator wallets nor the retention login.
-    # Connections of PostgreSQL (max_connections 100 of postgres:17): api 20 + trail retention (U2) 1 + U6 retention 1
-    # + U8 apply lock 1 + U8 feedback retention 1 + worker 36 + db-bootstrap and db-migrate at start-up 2 + 3 reserved
-    # for the superuser = 65 (ComposeFilesTest). 261113-trading-real-bot U5 (U5-NFR3.7): the worker has one connection
+    # Connections of PostgreSQL (max_connections 100 of postgres:17):
+    # api 20 + pnl-mismatch-audit 2 + trail retention (U2) 1 + U6 retention 1
+    # + U8 apply lock 1 + U8 feedback retention 1 + worker 36
+    # + db-bootstrap and db-migrate at start-up 2 + 3 reserved
+    # for the superuser = 67 (ComposeFilesTest). 261113-trading-real-bot U5 (U5-NFR3.7): the worker has one connection
     # per scheduled method plus 4 cycles and 4 reserve; U7: 28 scheduled methods (conditional read, conditional cancel
-    # and exits gauges added), 36 connections, 65 of 100; the REAL overlay adds the TxSigner (up to 10), 75 of 100.
+    # and exits gauges added), 36 connections. 261121-paper-real-unico U2 (NFR3.15): the pool pnl-mismatch-audit of the
+    # api, 2 fixed connections (memetrade.pnl.mismatch-audit.pool-size). 67 of 100;
+    # the REAL overlay (worker 37) adds the TxSigner (up to 10), 78 of 100.
     image: memetrade-api:${IMAGE_TAG:-local}
     environment:
       SPRING_PROFILES_ACTIVE: worker

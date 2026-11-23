@@ -37,7 +37,11 @@ export const PAPER_BLOCK: PaperModeBlock = {
   ],
 };
 
-/** The REAL block of C4 with one bot: total 31,200,000 lamports (+0,0312 SOL, BR7.1). */
+/**
+ * The REAL block of C4 with one bot: total 31,200,000 lamports (+0,0312 SOL, BR7.1). Since the U2 (BR7.4) the realized
+ * is gross and total = realized + unrealized - fees: -5,000 + 31,215,000 - 10,000; the line "Sem bot" is always an
+ * object, zero and without a reason here.
+ */
 export const REAL_BLOCK: RealModeBlock = {
   status: 'AVAILABLE',
   market: 'REAL',
@@ -45,7 +49,7 @@ export const REAL_BLOCK: RealModeBlock = {
   empty: false,
   totalLamports: { status: 'KNOWN', value: '31200000' },
   realizedLamports: '-5000',
-  unrealizedLamports: { status: 'KNOWN', value: '31205000' },
+  unrealizedLamports: { status: 'KNOWN', value: '31215000' },
   unrealizedAsOf: '2026-10-28T15:00:00Z',
   feesLamports: '10000',
   bots: [
@@ -55,12 +59,52 @@ export const REAL_BLOCK: RealModeBlock = {
       botStatus: 'PAUSED',
       totalLamports: { status: 'KNOWN', value: '31200000' },
       realizedLamports: '-5000',
-      unrealizedLamports: { status: 'KNOWN', value: '31205000' },
+      unrealizedLamports: { status: 'KNOWN', value: '31215000' },
       feesLamports: '10000',
       prorated: { summary: [], count: 0, lines: [] },
     },
   ],
-  unowned: null,
+  unowned: {
+    realizedLamports: '0',
+    unrealizedLamports: { status: 'KNOWN', value: '0' },
+    feesLamports: '0',
+    reasons: [],
+  },
+};
+
+/**
+ * 261121-paper-real-unico U2 (BR5.2 to BR5.4, BR5.6): a REAL block whose line "Sem bot" has a value and the reasons of
+ * the U2 (UNOWNED_EXCESS and UNOWNED_NO_COST; SURPLUS_WITHOUT_OWNER is gone), and a bot with a share of a liquidation.
+ */
+export const REAL_BLOCK_WITH_UNOWNED: RealModeBlock = {
+  ...REAL_BLOCK,
+  totalLamports: { status: 'KNOWN', value: '56199000' },
+  realizedLamports: '24995000',
+  feesLamports: '11000',
+  bots: REAL_BLOCK.bots.map((bot) => ({
+    ...bot,
+    prorated: {
+      summary: [{ origin: 'LIQUIDATION', realizedLamports: '100000' }],
+      count: 1,
+      lines: [
+        {
+          at: '2026-10-28T14:00:00Z',
+          mint: 'MintAaaa1111111111111111111111111111111111',
+          origin: 'LIQUIDATION',
+          tokenBaseUnits: '100',
+          receivedLamports: '300000',
+          feeLamports: '2500',
+          realizedLamports: '100000',
+        },
+      ],
+    },
+  })),
+  unowned: {
+    realizedLamports: '25000000',
+    unrealizedLamports: { status: 'KNOWN', value: '0' },
+    feesLamports: '1000',
+    reasons: ['UNOWNED_EXCESS', 'UNOWNED_NO_COST'],
+  },
 };
 
 export const BY_MODE: PnlByMode = { period: { kind: 'ALL' }, paper: PAPER_BLOCK, real: REAL_BLOCK };

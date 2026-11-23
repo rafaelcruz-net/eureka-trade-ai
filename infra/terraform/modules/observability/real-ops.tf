@@ -191,3 +191,20 @@ resource "aws_cloudwatch_metric_alarm" "real_ops_job_stalled_restore_check" {
     }
   }
 }
+
+# 261121-paper-real-unico U2 (NFR2.14, monitoring-design.md): the REAL P&L of a person did not reconcile with the ledger.
+# The counter rises on every read with a mismatch (the audit event is limited to one per hour, the counter is not);
+# without a mismatch it does not change, so missing data is not breaching. One read of 240 s holds two reads of the agent.
+resource "aws_cloudwatch_metric_alarm" "real_ops_pnl_reconciliation_mismatch" {
+  alarm_name          = "${var.name}-real-ops-pnl-reconciliation-mismatch"
+  alarm_description   = "U2 NFR2.14: the REAL P&L of a person does not match the ledger (critical)."
+  namespace           = local.real_ops_namespace
+  metric_name         = "pnl_real_reconciliation_mismatches_total"
+  statistic           = "Sum"
+  period              = 240
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_topic_arn]
+}

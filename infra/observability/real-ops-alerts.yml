@@ -141,3 +141,14 @@ groups:
           threshold: "1"
           window_seconds: "180"
           job: restore-check
+      - alert: RealOpsPnlReconciliationMismatch
+        # 261121-paper-real-unico U2 (NFR2.14): the REAL P&L of a person did not reconcile with the ledger. The counter
+        # rises on every read with a mismatch (only the audit event is limited to one per hour per person).
+        expr: sum(increase(pnl_real_reconciliation_mismatches_total[4m])) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: >-
+            The REAL P&L of a person does not match the ledger; see docs/runbooks/real-operations.md, section
+            "8. Divergência do P&L REAL".
+          threshold: "0"
+          window_seconds: "240"

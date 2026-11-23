@@ -36,7 +36,10 @@ public record RealOrderView(
         Instant updatedAt,
         // Review of the U4 (Minor 6): the rent the bot wallet paid for an account the buy created, read from the
         // network.
-        Optional<Long> rentLamports) {
+        Optional<Long> rentLamports,
+        // 261121-paper-real-unico U2 (review R-04): the bot wallet of the order (an id, never an address); empty on
+        // rows written before the review of the U4.
+        Optional<UUID> botWalletId) {
 
     public RealOrderView {
         Objects.requireNonNull(realOrderId, "realOrderId");
@@ -46,5 +49,6 @@ public record RealOrderView(
         Objects.requireNonNull(createdAt, "createdAt");
         Objects.requireNonNull(updatedAt, "updatedAt");
         Objects.requireNonNull(rentLamports, "rentLamports");
+        Objects.requireNonNull(botWalletId, "botWalletId");
     }
 }

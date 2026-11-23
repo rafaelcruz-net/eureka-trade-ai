@@ -192,6 +192,7 @@ public class RealExecutionService implements RealExecutionPort {
                 Optional.ofNullable(row.signingDeadline()),
                 row.createdAt(),
                 row.updatedAt(),
-                Optional.ofNullable(row.rentLamports()));
+                Optional.ofNullable(row.rentLamports()),
+                Optional.ofNullable(row.botWalletId()));
     }
 }

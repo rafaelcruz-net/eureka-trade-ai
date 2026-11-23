@@ -11,7 +11,7 @@ import com.memetrade.pnl.api.PnlWindow;
 import com.memetrade.pnl.api.RealBotPnlQuery;
 import com.memetrade.pnl.api.RealModePnl;
 import com.memetrade.pnl.application.PaperModeBlockReader;
-import com.memetrade.pnl.application.RealBotPnlQueryV1;
+import com.memetrade.pnl.application.RealBotPnl;
 import com.memetrade.realexecution.AbstractRealExecutionIT;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.sql.Timestamp;
@@ -76,9 +76,17 @@ public abstract class AbstractPaperRealIT extends AbstractRealExecutionIT {
     @Autowired
     protected MeterRegistry meters;
 
+    @Autowired
+    protected DivergingCostMethod divergingCost;
+
+    @Autowired
+    protected RecordingBlockReads blockReads;
+
     @BeforeEach
     void resetPaperRealDoubles() {
         faultyState.fault.set(Fault.NONE);
+        faultyState.walletIdsFault.set(Fault.NONE);
+        divergingCost.diverge.set(false);
         faultyAudit.failNext.set(false);
         faultyPaper.fault.set(Fault.NONE);
         faultyReal.fault.set(Fault.NONE);
@@ -189,8 +197,17 @@ public abstract class AbstractPaperRealIT extends AbstractRealExecutionIT {
         return meters.counter("bots.real.create.refusals", "reason", reason).count();
     }
 
+    /** 261121-paper-real-unico U2 (label {@code cause}): the sum of the series of the market. */
     protected double unavailableBlocks(String market) {
-        return meters.counter("pnl.mode_block.unavailable", "market", market).count();
+        return meters.find("pnl.mode_block.unavailable").tag("market", market).counters().stream()
+                .mapToDouble(io.micrometer.core.instrument.Counter::count)
+                .sum();
+    }
+
+    /** 261121-paper-real-unico U2: one series of the market and the cause. */
+    protected double unavailableBlocks(String market, String cause) {
+        return meters.counter("pnl.mode_block.unavailable", "market", market, "cause", cause)
+                .count();
     }
 
     protected static Principal principal(Person person) {
@@ -237,8 +254,18 @@ public abstract class AbstractPaperRealIT extends AbstractRealExecutionIT {
             return real.readRelease(tenantId, userId);
         }
 
+        /** 261121-paper-real-unico U2: the wallets of the person, read in the attribution of the REAL block. */
+        public final AtomicReference<Fault> walletIdsFault = new AtomicReference<>(Fault.NONE);
+
         @Override
         public List<UUID> botWalletIds(UUID tenantId, UUID userId) {
+            switch (walletIdsFault.get()) {
+                case FAIL -> throw new DataAccessResourceFailureException("test: the wallets are down");
+                case SLEEP -> jdbc.sql("select pg_sleep(1)").query().singleValue();
+                case NONE -> {
+                    // the real read follows
+                }
+            }
             return real.botWalletIds(tenantId, userId);
         }
 
@@ -290,9 +317,9 @@ public abstract class AbstractPaperRealIT extends AbstractRealExecutionIT {
     /** The REAL block (C10), which can fail or sleep past the deadline. */
     public static class FaultyRealBotPnl implements RealBotPnlQuery {
         public final AtomicReference<Fault> fault = new AtomicReference<>(Fault.NONE);
-        private final RealBotPnlQueryV1 real;
+        private final RealBotPnl real;
 
-        FaultyRealBotPnl(RealBotPnlQueryV1 real) {
+        FaultyRealBotPnl(RealBotPnl real) {
             this.real = real;
         }
 
@@ -306,6 +333,87 @@ public abstract class AbstractPaperRealIT extends AbstractRealExecutionIT {
         public Optional<com.memetrade.pnl.api.RealBotPnlLine> botPnl(
                 UUID tenantId, UUID userId, UUID botId, PnlWindow window) {
             return real.botPnl(tenantId, userId, botId, window);
+        }
+    }
+
+    /**
+     * 261121-paper-real-unico U2: the one REAL cost method, which can be told to remove 1 lamport more in each sale of
+     * its parts than its lots lose: the lines of the P&L then differ from the ledger (a defect made on purpose), and the
+     * reconciliation must catch it.
+     */
+    public static class DivergingCostMethod implements com.memetrade.ledger.api.RealCostMethod {
+        public final java.util.concurrent.atomic.AtomicBoolean diverge =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        private final com.memetrade.ledger.api.RealCostMethod real = new com.memetrade.pnl.real.RealCostBasis();
+
+        @Override
+        public Accumulator start() {
+            Accumulator inner = real.start();
+            return new Accumulator() {
+                @Override
+                public List<CostPart> apply(com.memetrade.ledger.api.CostFill fill) {
+                    List<CostPart> parts = inner.apply(fill);
+                    if (!diverge.get() || parts.isEmpty()) {
+                        return parts;
+                    }
+                    List<CostPart> wrong = new java.util.ArrayList<>(parts);
+                    CostPart first = wrong.getFirst();
+                    if (!first.withoutCost()) {
+                        wrong.set(
+                                0,
+                                new CostPart(
+                                        first.holder(),
+                                        first.tokenBaseUnits(),
+                                        first.costRemovedLamports() + 1,
+                                        false));
+                    }
+                    return wrong;
+                }
+
+                @Override
+                public List<com.memetrade.ledger.api.RealPosition> openPositions() {
+                    return inner.openPositions();
+                }
+
+                @Override
+                public List<com.memetrade.ledger.api.RealPosition> openPositions(
+                        com.memetrade.ledger.api.CostHolder holder) {
+                    return inner.openPositions(holder);
+                }
+            };
+        }
+    }
+
+    /**
+     * 261121-paper-real-unico U2 (review R-01): the transactions of the blocks as they are, with a sequence number taken
+     * when the REAL transaction of a block has ended (its template returned or threw, so its connection is back in the
+     * pool). A test takes a number from the same sequence at another moment to prove the order of the two.
+     */
+    public static class RecordingBlockReads implements com.memetrade.pnl.modeview.BlockReads {
+        public final java.util.concurrent.atomic.AtomicLong sequence = new java.util.concurrent.atomic.AtomicLong();
+        public final java.util.concurrent.atomic.AtomicLong realTransactionEnded =
+                new java.util.concurrent.atomic.AtomicLong();
+        private final com.memetrade.pnl.modeview.BlockReads real;
+
+        public RecordingBlockReads(com.memetrade.pnl.modeview.BlockReads real) {
+            this.real = real;
+        }
+
+        @Override
+        public <T> T inTransaction(com.memetrade.pnl.api.PnlMarket market, java.util.concurrent.Callable<T> body)
+                throws Exception {
+            try {
+                return real.inTransaction(market, body);
+            } finally {
+                if (market == com.memetrade.pnl.api.PnlMarket.REAL) {
+                    realTransactionEnded.set(sequence.incrementAndGet());
+                }
+            }
+        }
+
+        @Override
+        public void statementTimeout(Duration left) {
+            real.statementTimeout(left);
         }
     }
 
@@ -359,8 +467,20 @@ public abstract class AbstractPaperRealIT extends AbstractRealExecutionIT {
 
         @Bean
         @Primary
-        FaultyRealBotPnl faultyRealBotPnl(RealBotPnlQueryV1 real) {
+        FaultyRealBotPnl faultyRealBotPnl(RealBotPnl real) {
             return new FaultyRealBotPnl(real);
+        }
+
+        @Bean
+        @Primary
+        DivergingCostMethod divergingCostMethod() {
+            return new DivergingCostMethod();
+        }
+
+        @Bean
+        @Primary
+        RecordingBlockReads recordingBlockReads(com.memetrade.pnl.modeview.JdbcBlockReads real) {
+            return new RecordingBlockReads(real);
         }
     }
 }

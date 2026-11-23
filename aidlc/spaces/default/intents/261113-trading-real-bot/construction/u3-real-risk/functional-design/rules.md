@@ -144,9 +144,15 @@ rules:
     logic: >
       Para cada carteira liberada, grava startValueLamports (mesma conta de valorAtual) e startCapLamports. Se a foto
       ainda não existe na avaliação, ela é gravada com o valor e o teto daquele momento. A foto nunca muda depois de
-      gravada; a unicidade (botWalletId, day) resolve a corrida entre o trabalho e a avaliação
+      gravada; a unicidade (botWalletId, day) resolve a corrida entre o trabalho e a avaliação.
+      Fotografia adiada (decisão F-4 do fundador no intent 261121-paper-real-unico, U2, revisão 02 R-11; alinhamento
+      A13): quando o trabalho não pode gravar a foto de uma carteira porque o custo de uma posição sem preço é
+      desconhecido (custo Unknown), ele grava a marca de adiamento do dia (real_risk_day_deferred) e não grava a foto.
+      Sem foto de hoje e com essa marca, a primeira avaliação de compra é recusada (DAY_SNAPSHOT_PENDING) e não grava
+      FIRST_EVALUATION; venda, liquidação e saque seguem. O trabalho tenta de novo a cada 5 min e, numa carteira com a
+      marca, grava a foto só com custo Known, com a base de cada posição no maior entre a cotação e o custo
     violation: não se aplica
-    source: AC6.1.2
+    source: AC6.1.2, decisão F-4 (261121-paper-real-unico U2)
   - id: BR4.5
     statement: A pausa por perda do dia termina no dia seguinte
     category: policy

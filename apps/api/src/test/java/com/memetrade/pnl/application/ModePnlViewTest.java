@@ -257,8 +257,11 @@ class ModePnlViewTest {
         return new ModePnlView(executor, metrics, properties);
     }
 
+    /** 261121-paper-real-unico U2 (label {@code cause}): the sum of the 5 series of the market. */
     private double unavailable(String market) {
-        return meters.counter("pnl.mode_block.unavailable", "market", market).count();
+        return meters.find("pnl.mode_block.unavailable").tag("market", market).counters().stream()
+                .mapToDouble(io.micrometer.core.instrument.Counter::count)
+                .sum();
     }
 
     private boolean executorBusy() {

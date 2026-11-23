@@ -98,7 +98,8 @@ function SolAmount({ amount, testId }: { amount: LamportsAmount; testId: string 
  * subtracts nor converts a value: the totals arrive ready from the server; it only writes them (US$ for PAPER, SOL for
  * REAL). Five distinct states: loading (never zero), ready, empty, unknown (total unknown, realized and fees exact)
  * and error ("Tentar de novo" reads the route again and updates only this block). The PAPER block always shows its
- * fixed disclaimer when it shows a value; the non-empty REAL block shows the fixed note of the U1 (BR5.5).
+ * fixed disclaimer when it shows a value. 261121-paper-real-unico U2 (BR10.4): the REAL block has no fixed note any
+ * more and its fees are just "Taxas", as in the PAPER: the realized is gross and the total takes the fees out.
  */
 export function PnlModeBlock(props: Props) {
   const { market, load, onRetry, period, focusHeading } = props;
@@ -238,9 +239,6 @@ function RealContent({ block, zone }: { block: RealModeBlock; zone: string }) {
   const unknown = block.totalLamports.status === 'UNKNOWN';
   return (
     <>
-      <p role="note" className="muted" data-testid={`${id}-note`}>
-        {text.REAL.unownedNote}
-      </p>
       {unknown && (
         <p role="note" className="notice notice-warning" data-testid={`${id}-partial`}>
           {text.partial}

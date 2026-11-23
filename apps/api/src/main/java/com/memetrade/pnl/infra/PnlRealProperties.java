@@ -18,7 +18,7 @@ import org.springframework.validation.annotation.Validated;
 public record PnlRealProperties(Attribution attribution, Read read) {
 
     public PnlRealProperties {
-        attribution = attribution == null ? new Attribution(null) : attribution;
+        attribution = attribution == null ? new Attribution(null, null) : attribution;
         read = read == null ? new Read(null) : read;
     }
 
@@ -30,10 +30,14 @@ public record PnlRealProperties(Attribution attribution, Read read) {
     /**
      * @param gateAndCycleTimeout the hard deadline of the read of cost of the rounds of the barrier and of the REAL
      *     cycle (BR2.7: it may only go down without the founder): 50 ms to 250 ms, 250 ms by default
+     * @param pnlTimeout the hard deadline of the attribution of the REAL block of the P&L (steps 1 and 3 of F1),
+     *     inside the deadline of the block (D-NFR1): 50 ms to 500 ms, 500 ms by default, and below
+     *     {@code memetrade.pnl.by-mode.block-timeout} (checked by {@code RealBotPnl})
      */
-    public record Attribution(Duration gateAndCycleTimeout) {
+    public record Attribution(Duration gateAndCycleTimeout, Duration pnlTimeout) {
 
         public static final Duration DEFAULT_GATE_AND_CYCLE_TIMEOUT = Duration.ofMillis(250);
+        public static final Duration DEFAULT_PNL_TIMEOUT = Duration.ofMillis(500);
 
         public Attribution {
             gateAndCycleTimeout = gateAndCycleTimeout == null ? DEFAULT_GATE_AND_CYCLE_TIMEOUT : gateAndCycleTimeout;
@@ -41,6 +45,10 @@ public record PnlRealProperties(Attribution attribution, Read read) {
                     gateAndCycleTimeout.compareTo(Duration.ofMillis(50)) >= 0
                             && gateAndCycleTimeout.compareTo(DEFAULT_GATE_AND_CYCLE_TIMEOUT) <= 0,
                     "memetrade.pnl.real.attribution.gate-and-cycle-timeout");
+            pnlTimeout = pnlTimeout == null ? DEFAULT_PNL_TIMEOUT : pnlTimeout;
+            require(
+                    pnlTimeout.compareTo(Duration.ofMillis(50)) >= 0 && pnlTimeout.compareTo(DEFAULT_PNL_TIMEOUT) <= 0,
+                    "memetrade.pnl.real.attribution.pnl-timeout");
         }
     }
 

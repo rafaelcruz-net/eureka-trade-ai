@@ -24,6 +24,8 @@ X. Other (please specify)
 
 [Answer]: A
 
+Nota da Code Generation (alinhamento A4): depois desta resposta, o fundador decidiu D-NFR1 (500 ms de atribuição no caminho do P&L, dentro do prazo do bloco de 800 ms, e o portão de no máximo 0,5% de blocos REAL `UNAVAILABLE` por `TIMEOUT`) e D-NFR3 (o portão de carga é do workflow manual `load-test`, não da CI automática). Ver `performance-requirements.md`.
+
 ## Q2. Exatidão e testes
 
 Que testes garantem que as contas estão certas?
@@ -109,6 +111,7 @@ X. Other (please specify)
 - **Confiabilidade:** a falha de atribuição só recusa compra; a divergência deixa o bloco indisponível; o conflito de slot não derruba a confirmação; migração aditiva; ponto de controle interno [Q4].
 - **Observabilidade:** métricas novas e um alarme novo para qualquer divergência com o ledger, com janela de 240 s [Q5].
 - **Escala:** nada muda, a não ser a migração 0023 com a tabela e o índice [Q6].
+- **Nota da Code Generation (alinhamento A4):** os 800 ms da atribuição no P&L passaram a 500 ms por D-NFR1, e o portão de C4 é do workflow manual `load-test` por D-NFR3 (`performance-requirements.md`).
 
 Does this all look correct before I generate the artifact?
 

@@ -119,6 +119,13 @@ rules:
       4. o comando retomar: só um bot PAPER lê os limites atuais do bot.
       SE o bot é REAL ENTÃO os limites que valem são os da conta (BR3.1), conferidos pela barreira
       REAL em cada ordem. SE o bot é PAPER ENTÃO os quatro caminhos continuam como hoje.
+      Decisão do fundador de 2026-11-21 sobre o DecisionRequest REAL (achado R-02 do NFR Design; alinhamento A8 da
+      Code Generation da U2): no ramo REAL, maxOrderSize é o limite de ordem da conta em US$
+      (floor(cap × orderMaxBps / 10000) lamports, lidos de C9 RealAccountLimits, convertidos com o solUsd do ciclo,
+      arredondamento para baixo); vale 0 sem teto, sem carteira ativa, sem preço do SOL ou com C9 indisponível, e então
+      nenhuma compra sai naquele ciclo (as vendas seguem). limitsVersion = 0 é o sentinela "limites da conta", gravado em
+      decision.limits_version. O changeLimits de um bot REAL responde 422 BOT_VALIDATION_FAILED no campo limits ("Um
+      bot REAL usa os limites REAL da conta."), sem gravar versão.
       Teste obrigatório: validar, ativar, rodar um ciclo, pausar, retomar e parar um bot REAL sem
       saldo virtual nem limites próprios, sem exceção; e o mesmo percurso para um bot PAPER, com o
       comportamento de hoje.

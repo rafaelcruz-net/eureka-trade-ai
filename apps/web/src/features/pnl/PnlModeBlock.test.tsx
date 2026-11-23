@@ -1,7 +1,13 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PnlModeBlock } from '@/features/pnl/PnlModeBlock';
-import { PAPER_BLOCK, PAPER_BOT_ID, REAL_BLOCK, REAL_BOT_ID } from '@/features/pnl/fixtures';
+import {
+  PAPER_BLOCK,
+  PAPER_BOT_ID,
+  REAL_BLOCK,
+  REAL_BLOCK_WITH_UNOWNED,
+  REAL_BOT_ID,
+} from '@/features/pnl/fixtures';
 import { paperLoad, realLoad } from '@/features/pnl/by-mode';
 
 const ZONE = 'America/Sao_Paulo';
@@ -82,7 +88,7 @@ describe('PnlModeBlock', () => {
     }
   });
 
-  it('the REAL block shows SOL, the fees already included and the fixed note of the U1, and no disclaimer', () => {
+  it('the REAL block shows SOL and its fees as "Taxas", without the note of the U1 nor a disclaimer (BR10.4)', () => {
     render(
       <PnlModeBlock
         market="REAL"
@@ -96,12 +102,31 @@ describe('PnlModeBlock', () => {
     expect(screen.getByTestId('pnl-block-REAL-realized')).toHaveTextContent(
       '−0,000005 SOL (perda)',
     );
-    expect(screen.getByText('Taxas (já incluídas no realizado e no custo)')).toBeInTheDocument();
-    expect(screen.getByTestId('pnl-block-REAL-note')).toHaveTextContent(
-      'Algumas operações ainda não têm bot dono; o rateio chega na próxima etapa.',
-    );
+    const block = screen.getByTestId('pnl-block-REAL');
+    expect(within(block).getByText('Taxas')).toBeInTheDocument();
+    expect(block).not.toHaveTextContent('já incluídas no realizado');
+    expect(screen.queryByTestId('pnl-block-REAL-note')).toBeNull();
+    expect(block).not.toHaveTextContent('o rateio chega na próxima etapa');
+    expect(screen.getByTestId('pnl-block-REAL-fees')).toHaveTextContent('0,00001 SOL');
     expect(screen.getByTestId(`pnl-block-REAL-bot-${REAL_BOT_ID}`)).toHaveTextContent('Pausado');
     expect(screen.queryByTestId('pnl-block-REAL-disclaimer')).toBeNull();
+    expect(screen.getByTestId('pnl-block-REAL')).not.toHaveTextContent('US$');
+  });
+
+  it('a REAL block with a line "Sem bot" and shares of the U2 writes the totals as they come, with no note', () => {
+    render(
+      <PnlModeBlock
+        market="REAL"
+        load={{ kind: 'ready', block: REAL_BLOCK_WITH_UNOWNED }}
+        onRetry={jest.fn()}
+        timeZone={ZONE}
+      />,
+    );
+
+    expect(screen.getByTestId('pnl-block-REAL-total')).toHaveTextContent('+0,056199 SOL (ganho)');
+    expect(screen.getByTestId('pnl-block-REAL-realized')).toHaveTextContent('+0,024995 SOL');
+    expect(screen.getByTestId('pnl-block-REAL-fees')).toHaveTextContent('0,000011 SOL');
+    expect(screen.queryByTestId('pnl-block-REAL-note')).toBeNull();
     expect(screen.getByTestId('pnl-block-REAL')).not.toHaveTextContent('US$');
   });
 

@@ -20,7 +20,9 @@ import org.springframework.stereotype.Component;
  *       ({@code DataRequestCountsRefresher}); the U5 of 261113-trading-real-bot (1) the purge of the REAL operations
  *       ({@code RealOpsPurgeJob}); the U7 of 261113-trading-real-bot (1) the purge of the REAL exits
  *       ({@code RealExitsPurgeJob}). U8 also checks the origin of
- *       the administrator app ({@code ADMIN_APP_ORIGIN}): an http or https origin, never a wildcard.
+ *       the administrator app ({@code ADMIN_APP_ORIGIN}): an http or https origin, never a wildcard. The U2 of
+ *       261121-paper-real-unico checks the pool {@code pnl-mismatch-audit} ({@code memetrade.pnl.mismatch-audit.pool-size},
+ *       1 to 2), the 2 connections of the bounded write of the event of a REAL P&L mismatch.
  *   <li><b>worker</b>: one scheduler thread per {@code @Scheduled} method of the worker, 28 to 32 since the U7 of
  *       261113-trading-real-bot (U5-NFR3.7, U7 pools): the bots (3: slot dispatch, midnight, decision purge), the bot wallet (3),
  *       CoinGecko (2), the REAL barrier (3 jobs and the reservation gauge), the REAL execution (7: queue, driver,
@@ -37,6 +39,9 @@ public class RuntimeSettingsGuard {
 
     static final String POOL_PROPERTY = "spring.datasource.hikari.maximum-pool-size";
     static final String SCHEDULER_PROPERTY = "spring.task.scheduling.pool.size";
+
+    /** 261121-paper-real-unico U2: the size of the pool {@code pnl-mismatch-audit} of the api, 1 to 2. */
+    static final String MISMATCH_AUDIT_POOL_PROPERTY = "memetrade.pnl.mismatch-audit.pool-size";
 
     /** U8: origin of the administrator app accepted by the administrative CORS policy. */
     static final String ADMIN_ORIGIN_PROPERTY = "memetrade.admin.app-origin";
@@ -77,6 +82,9 @@ public class RuntimeSettingsGuard {
         } else {
             check(environment, POOL_PROPERTY, "DB_POOL_MAX_SIZE", 10, 50);
             check(environment, SCHEDULER_PROPERTY, "SCHEDULER_POOL_SIZE", MIN_SCHEDULER_POOL, 32);
+            // 261121-paper-real-unico U2 (NFR1.16, NFR3.15): the pool pnl-mismatch-audit of the api, 2 fixed
+            // connections and the threads of its executor; named by its property (no variable of the task sets it).
+            check(environment, MISMATCH_AUDIT_POOL_PROPERTY, MISMATCH_AUDIT_POOL_PROPERTY, 1, 2);
             checkAdminOrigin(environment.getProperty(ADMIN_ORIGIN_PROPERTY));
         }
     }

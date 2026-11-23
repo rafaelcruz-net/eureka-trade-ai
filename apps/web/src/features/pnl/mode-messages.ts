@@ -23,9 +23,9 @@ export const modeMessages = {
     error: 'Não foi possível carregar o resultado real.',
     empty: 'Sem bots reais.',
     emptyLink: '→ Ativar a carteira do bot',
-    // BR5.5 (U1): the fees of the REAL are already inside the realized and the cost.
-    fees: 'Taxas (já incluídas no realizado e no custo)',
-    unownedNote: 'Algumas operações ainda não têm bot dono; o rateio chega na próxima etapa.',
+    // 261121-paper-real-unico U2 (BR10.4): the realized of the REAL is gross and the total takes the fees out, as in
+    // the PAPER; the fixed note of the U1 about the proration is gone with the proration.
+    fees: 'Taxas',
   },
   realized: 'Realizado',
   unrealized: 'Não realizado',

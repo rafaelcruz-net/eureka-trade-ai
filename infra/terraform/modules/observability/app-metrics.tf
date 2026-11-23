@@ -67,6 +67,8 @@ locals {
         "txsigner_orphan_keys",
         "txsigner_latency_seconds_max",
         "txsigner_kms_sign_seconds_max",
+        # 261121-paper-real-unico U2 (NFR2.14, D-INF1): the sum of the 8 series of check of a REAL P&L mismatch.
+        "pnl_real_reconciliation_mismatches_total",
       ]
     },
     { dimensions = [["source"]], metrics = ["marketdata_provider_conservative_mode", "marketdata_provider_budget_ratio", "marketdata_provider_calls_total"] },
@@ -151,7 +153,7 @@ locals {
     "real_execution_job_stalled", "real_execution_slow",
     "real_ops_divergence_open", "real_ops_restore_pause", "real_ops_kill_switch_on", "real_ops_reconciliation_deferred",
     "real_ops_txsigner_command_pending", "real_ops_release_blocked", "real_ops_job_stalled",
-    "real_ops_job_stalled_restore_check",
+    "real_ops_job_stalled_restore_check", "real_ops_pnl_reconciliation_mismatch",
     "real_exits_cancelling_stalled", "real_exits_conditional_unread", "real_exits_trigger_policy_refused",
     "real_exits_job_stalled",
     "metrics_absent", "slo_api_availability_burn", "slo_txsigner_availability_burn", "slo_freshness_burn",
@@ -178,6 +180,7 @@ locals {
       aws_cloudwatch_metric_alarm.real_ops_kill_switch_on, aws_cloudwatch_metric_alarm.real_ops_reconciliation_deferred,
       aws_cloudwatch_metric_alarm.real_ops_txsigner_command_pending, aws_cloudwatch_metric_alarm.real_ops_release_blocked,
       aws_cloudwatch_metric_alarm.real_ops_job_stalled_restore_check,
+      aws_cloudwatch_metric_alarm.real_ops_pnl_reconciliation_mismatch,
       aws_cloudwatch_metric_alarm.real_exits_cancelling_stalled,
       aws_cloudwatch_metric_alarm.real_exits_conditional_unread,
       aws_cloudwatch_metric_alarm.real_exits_trigger_policy_refused,

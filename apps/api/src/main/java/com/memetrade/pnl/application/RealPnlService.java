@@ -1,128 +1,70 @@
 package com.memetrade.pnl.application;
 
-import com.memetrade.marketdata.api.MarketDataQuery;
-import com.memetrade.marketdata.api.MarketValue;
-import com.memetrade.marketdata.api.TokenId;
-import com.memetrade.pnl.real.RealPnlCalculator;
-import com.memetrade.realexecution.api.RealExecutionPort;
-import com.memetrade.realexecution.api.RealOrderState;
-import com.memetrade.realexecution.api.RealOrderView;
-import com.memetrade.realexecution.api.RealSide;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import com.memetrade.pnl.api.PnlMarket;
+import com.memetrade.pnl.api.RealPnlUnavailable;
+import com.memetrade.pnl.infra.PnlByModeProperties;
+import com.memetrade.pnl.modeview.ModeBlockExecutor;
+import com.memetrade.pnl.real.RealPnlResult;
+import com.memetrade.shared.config.ProcessRole;
+import com.memetrade.shared.jdbc.ReadDeadline;
+import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.springframework.stereotype.Service;
 
 /**
- * BR6.2 (U4-NFR8.4): the P&L REAL of a person, from the orders settled on the network (M6: the input, the output read
- * from the network, the fee and who paid it) and the quotes of the market (M4), never from a PAPER table. A failure on
- * chain counts only its fee. The quote in dollars becomes lamports per base unit with the quote of the wrapped SOL of
- * the same batch and the decimals of the mint; any missing piece leaves the price unknown, never zero.
+ * BR6.2 of the 261113-trading-real-bot, changed by the U2 of 261121-paper-real-unico (BR10.3, NFR1.2, NFR1.16;
+ * performance-design.md "Leitura em fluxo do P&L REAL"): the P&L REAL of {@code GET /api/v1/real/pnl} is the total and
+ * the positions of {@link RealBotPnl} (realized GROSS, positions with the one average cost), read through the pool
+ * {@code pnl-mode-block} like the REAL block of C4 (mercado REAL, the same deadline of 800 ms), so at most
+ * {@code pool-size} REAL reads run at once. A full queue, a deadline or any failure is {@link RealPnlUnavailable}; the
+ * route answers its technical error. Never anything PAPER.
  */
 @Service
+@ProcessRole(ProcessRole.Kind.API)
 public class RealPnlService {
 
-    static final String WRAPPED_SOL = "So11111111111111111111111111111111111111112";
-    private static final BigDecimal LAMPORTS_PER_SOL = BigDecimal.valueOf(1_000_000_000L);
+    private final RealBotPnl pnl;
+    private final ModeBlockExecutor blocks;
+    private final Duration blockTimeout;
 
-    private final RealExecutionPort execution;
-    private final MarketDataQuery market;
-
-    public RealPnlService(RealExecutionPort execution, MarketDataQuery market) {
-        this.execution = execution;
-        this.market = market;
+    public RealPnlService(RealBotPnl pnl, ModeBlockExecutor blocks, PnlByModeProperties properties) {
+        this.pnl = pnl;
+        this.blocks = blocks;
+        this.blockTimeout = properties.blockTimeout();
     }
 
-    public RealPnlCalculator.Result pnl(UUID tenantId, UUID userId) {
-        List<RealOrderView> orders = execution.settledOrders(tenantId, userId);
-        return RealPnlCalculator.of(fills(orders), lamportPrices(mints(orders)));
+    /** The total and the positions of the person, in its own read transaction (outside the pool). */
+    public RealPnlResult pnl(UUID tenantId, UUID userId) {
+        return pnl.realPnl(tenantId, userId);
     }
 
-    /**
-     * The fills of settled orders, in their order: a failure on chain counts only its fee; a buy spends its input and
-     * its rent for the output; a sell receives its output for its input. 261121-paper-real-unico U1: shared with the
-     * first implementation of C10, so a line by bot uses exactly the calculation of today.
-     */
-    public static List<RealPnlCalculator.Fill> fills(List<RealOrderView> orders) {
-        List<RealPnlCalculator.Fill> fills = new ArrayList<>();
-        for (RealOrderView order : orders) {
-            long fee = order.feeLamports().orElse(0L);
-            if (order.state() != RealOrderState.CONFIRMED) {
-                fills.add(new RealPnlCalculator.Fill(order.mint(), false, 0, 0, fee));
-                continue;
+    /** The same, through the pool of the blocks, within the deadline of a block. */
+    public RealPnlResult pnlThroughThePool(UUID tenantId, UUID userId) {
+        long deadline = System.nanoTime() + blockTimeout.toNanos();
+        CompletableFuture<RealPnlResult> block =
+                blocks.submit(PnlMarket.REAL, deadline, () -> pnl.realPnl(tenantId, userId));
+        try {
+            return block.get(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException late) {
+            block.cancel(false);
+            throw new RealPnlUnavailable(RealPnlUnavailable.TIMEOUT, late);
+        } catch (ExecutionException failed) {
+            Throwable cause = failed.getCause();
+            if (cause instanceof RealPnlUnavailable unavailable) {
+                throw unavailable;
             }
-            long out = order.outBaseUnits().orElse(0L);
-            fills.add(
-                    order.side() == RealSide.BUY
-                            ? new RealPnlCalculator.Fill(
-                                    order.mint(),
-                                    true,
-                                    order.inputLamports().orElse(0L),
-                                    out,
-                                    fee,
-                                    order.rentLamports().orElse(0L))
-                            : new RealPnlCalculator.Fill(
-                                    order.mint(),
-                                    false,
-                                    out,
-                                    order.inputBaseUnits().orElse(0L),
-                                    fee));
-        }
-        return fills;
-    }
-
-    /** The mints of the confirmed orders, whose price the unrealized needs. */
-    public static Set<String> mints(List<RealOrderView> orders) {
-        Set<String> mints = new HashSet<>();
-        for (RealOrderView order : orders) {
-            if (order.state() == RealOrderState.CONFIRMED) {
-                mints.add(order.mint());
+            if (cause instanceof ModeBlockExecutor.DeadlineExpired || ReadDeadline.isTimeout(cause)) {
+                throw new RealPnlUnavailable(RealPnlUnavailable.TIMEOUT, cause);
             }
+            throw new RealPnlUnavailable(
+                    cause == null ? "Unknown" : cause.getClass().getSimpleName(), cause);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new RealPnlUnavailable(interrupted.getClass().getSimpleName(), interrupted);
         }
-        return mints;
-    }
-
-    /** Lamports per base unit of each mint: {@code tokenUsd x 10^9 / (solUsd x 10^decimals)}, 18 places, down. */
-    public Map<String, Optional<BigDecimal>> lamportPrices(Set<String> mints) {
-        Map<String, Optional<BigDecimal>> prices = new HashMap<>();
-        if (mints.isEmpty()) {
-            return prices;
-        }
-        Set<TokenId> tokens = new HashSet<>();
-        mints.forEach(mint -> tokens.add(new TokenId("solana", mint)));
-        TokenId sol = new TokenId("solana", WRAPPED_SOL);
-        Set<TokenId> withSol = new HashSet<>(tokens);
-        withSol.add(sol);
-        Map<TokenId, MarketValue> quotes = market.referencePrices(withSol);
-        Map<TokenId, MarketValue> decimals = market.decimalsOf(tokens);
-        Optional<BigDecimal> solUsd = known(quotes.get(sol)).filter(value -> value.signum() > 0);
-        for (TokenId token : tokens) {
-            Optional<BigDecimal> usd = known(quotes.get(token));
-            Optional<BigDecimal> places = known(decimals.get(token));
-            prices.put(
-                    token.mint(),
-                    usd.isEmpty() || places.isEmpty() || solUsd.isEmpty()
-                            ? Optional.empty()
-                            : Optional.of(usd.get()
-                                    .multiply(LAMPORTS_PER_SOL)
-                                    .divide(
-                                            solUsd.get()
-                                                    .multiply(BigDecimal.TEN.pow(
-                                                            places.get().intValueExact())),
-                                            18,
-                                            RoundingMode.DOWN)));
-        }
-        return prices;
-    }
-
-    private static Optional<BigDecimal> known(MarketValue value) {
-        return value instanceof MarketValue.Known known ? Optional.of(known.value()) : Optional.empty();
     }
 }

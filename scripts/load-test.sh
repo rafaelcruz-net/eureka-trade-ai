@@ -139,8 +139,17 @@ case "$LOAD_SCENARIO" in
     export TXSIGNER_SERVICE_TOKEN="${TXSIGNER_SERVICE_TOKEN:-$(openssl rand -hex 32)}"
     docker build --build-arg BUILD_SHA="${BUILD_SHA:-}" -t "memetrade-txsigner:${IMAGE_TAG:-local}" apps/txsigner
     ;;
-  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs, u6, u5, legal, reacceptance, data-requests or real" >&2; exit 1 ;;
+  # 261121-paper-real-unico U2 (nfr-requirements NFR1.1 to NFR1.9, D-NFR1): pnl-by-mode seeds 20 people with 5 PAPER
+  # and 5 REAL bots and 2 years of orders each (com.memetrade.pnl.loadtest.LoadtestPnlSeed, loadtest profile only) and
+  # runs 20 users reading the P&L by mode and the REAL P&L every 2 s for 10 minutes after 60 s of warm-up (the gates in
+  # scripts/load/pnl-by-mode.mjs and the plan check in scripts/load/pnl-plans.mjs; never relaxed).
+  pnl-by-mode)
+    export MARKET_SIMULATED_TOKENS_PER_SOURCE="${MARKET_SIMULATED_TOKENS_PER_SOURCE:-200}" DURATION_S="${DURATION_S:-600}"
+    export LOADTEST_PNL_PEOPLE="${LOADTEST_PNL_PEOPLE:-20}" PNL_WARMUP_S="${PNL_WARMUP_S:-60}"
+    ;;
+  *) echo "LOAD_SCENARIO must be u1, u4, u3, growth, u7, u7-jobs, u6, u5, legal, reacceptance, data-requests, real or pnl-by-mode" >&2; exit 1 ;;
 esac
+[ "$LOAD_SCENARIO" = "pnl-by-mode" ] || export LOADTEST_PNL_PEOPLE=0
 # Only data-requests seeds the synthetic requests, and data-requests and real need an administrator: its throw-away
 # wallet has the format of scripts/verify.sh (test-scope tool), the key file lives in the temporary directory of this
 # run and is deleted with it.
@@ -164,6 +173,12 @@ case "$LOAD_SCENARIO" in
     # As in u7: one throw-away invitation per person besides the smoke account, never written to a file.
     SMOKE_INVITE_CODES="$(node -e "const c=require('node:crypto');console.log(Array.from({length:Math.max(0,Number(process.env.LOADTEST_U5_PEOPLE)-1)},()=>c.randomBytes(32).toString('base64url')).join(','))")"
     export SMOKE_INVITE_CODES USERS="${USERS:-$LOADTEST_U5_PEOPLE}"
+    export LOADTEST_LEDGER_PEOPLE=0 LOADTEST_FILLS_PER_PERSON=0 LOADTEST_CYCLE_BOTS=0 LOADTEST_CLOSE_BOTS=0
+    ;;
+  pnl-by-mode)
+    # One throw-away invitation per seeded person besides the smoke account, never written to a file (as in u7).
+    SMOKE_INVITE_CODES="$(node -e "const c=require('node:crypto');console.log(Array.from({length:Math.max(0,Number(process.env.LOADTEST_PNL_PEOPLE)-1)},()=>c.randomBytes(32).toString('base64url')).join(','))")"
+    export SMOKE_INVITE_CODES USERS="${USERS:-$LOADTEST_PNL_PEOPLE}"
     export LOADTEST_LEDGER_PEOPLE=0 LOADTEST_FILLS_PER_PERSON=0 LOADTEST_CYCLE_BOTS=0 LOADTEST_CLOSE_BOTS=0
     ;;
   u7 | u7-jobs | u6)

@@ -107,7 +107,7 @@ O Testing Contract acima é `custom`:
 
 - [x] Rodar o `RealRiskMeasurementIT` 3 vezes no último commit antes da U2, na máquina que depois mede a U2.
 - [x] Criar `docs/perf/u2-barrier-baseline.md`: mediana dos 3 p95 de compra e de venda, SHA e máquina.
-- [ ] Pedir ao responsável o commit só desse arquivo. Nenhum commit que mude `RealGateInputsReader`, `JdbcRealLedger.positions` ou `view` entra antes dele.
+- [x] Pedir ao responsável o commit só desse arquivo (commit `45ae5a0`). Nenhum commit que mude `RealGateInputsReader`, `JdbcRealLedger.positions` ou `view` entra antes dele.
 - Cobre: NFR1.5, NFR1.7.
 
 ### Etapa 1 — Conferir os runners e gravar os comandos da Unit
@@ -157,7 +157,7 @@ O Testing Contract acima é `custom`:
 - [x] `ledger/api/RealLedger.java`: `RecordSlotResult recordSlot(String txSignature, long slot)`; `ledger/api/RecordSlotResult.java` (novo).
 - [x] `ledger/infra/JdbcRealLedger.java`: `INSERT ... ON CONFLICT (tx_signature) DO NOTHING`, leitura pela chave primária, evento de conflito no outbox na mesma transação.
 - [x] `ledger/infra/LedgerRealSlotMetrics.java` (novo): `ledger_real_slot_conflicts_total{writer}` em `afterCommit` e `ledger_real_slot_missing_total`, registradas com 0 na subida.
-- [ ] O slot da confirmação, **sem chamada nova à rede**, lido das respostas que já existem (`getSignatureStatuses` e `getTransaction` trazem `slot`):
+- [x] O slot da confirmação, **sem chamada nova à rede**, lido das respostas que já existem (`getSignatureStatuses` e `getTransaction` trazem `slot`):
   - `botwallet/api/RealChain.java`: `TxStatus` e `SwapEffect` ganham `OptionalLong slot`;
   - `botwallet/domain/ChainPort.java`: `IncomingTransfer` e a leitura do estado do saque ganham `OptionalLong slot`;
   - `botwallet/infra/chain/RpcChainWatcher.java` e `botwallet/application/RealChainAdapter.java`: preenchem o campo;
@@ -185,7 +185,7 @@ O Testing Contract acima é `custom`:
   - carteira de outro tenant: nada; nunca PAPER;
   - linhas antigas sem slot: o resultado é igual ao do fallback de herança (NFR2.4);
   - o oráculo ordena os textos por bytes e confere a ordem do SQL (`COLLATE "C"`).
-- [ ] `ledger/RealLedgerNetworkOrderPlanIT.java`: 2 pessoas na densidade do NFR1.14, `ANALYZE`, `EXPLAIN (FORMAT JSON)` do SQL exato; exige `real_ledger_entry_wallet_created_idx`, nenhum `Seq Scan` em `real_ledger_entry`, `Sort Method` diferente de `external merge`, `fetchSize` 500; o mesmo para o SQL do `view`.
+- [x] `ledger/RealLedgerNetworkOrderPlanIT.java`: 2 pessoas na densidade do NFR1.14, `ANALYZE`, `EXPLAIN (FORMAT JSON)` do SQL exato; exige `real_ledger_entry_wallet_created_idx`, nenhum `Seq Scan` em `real_ledger_entry`, `Sort Method` diferente de `external merge`, `fetchSize` 500; o mesmo para o SQL do `view`.
 - Cobre: BR1.1, BR1.2, BR1.3, BR1.5, BR1.6, AC3.6.1, AC3.6.2, NFR1.15, NFR1.18, NFR2.4, NFR2.10, NFR2.12, NFR4.3.
 
 ### Etapa 7 — Chave de ordem de rede e `streamInNetworkOrder` (verde)
@@ -336,7 +336,7 @@ A Etapa 14a resolveu a leitura de custo `GATE` (p95 de 82 ms, sem `TIMEOUT`), ma
 
 ### Etapa 15 — Ponto de controle interno da fase 1
 
-- [ ] Os sete itens do `reliability-design.md` no mesmo commit:
+- [x] Os sete itens do `reliability-design.md` no mesmo commit (`0fdf6d8`, com a correção `5ce7f93`):
   1. `0023` com os três testes de migração;
   2. `recordSlot` nos três gravadores, com o evento abreviado e com HMAC e a métrica;
   3. `streamInNetworkOrder` com o teste de AC3.6.2 e o `RealLedgerNetworkOrderPlanIT`;
@@ -345,15 +345,19 @@ A Etapa 14a resolveu a leitura de custo `GATE` (p95 de 82 ms, sem `TIMEOUT`), ma
   6. a leitura de custo `GATE` e `CYCLE`, a `0024` (F-4) e os testes da Etapa 12;
   7. `RealCostParityTest` verde, e os testes da barreira REAL e os do 261113 verdes.
 - [x] O C10 continua com o `RealBotPnlQueryV1` da U1: nenhuma tela muda.
-- [ ] Pedir o commit ao responsável; conferir o `ci` verde (todos os jobs, inclusive `smoke`) e rodar `bash scripts/verify-checkpoint.sh`.
-- [ ] **Gatilho da divisão.** Se o `ci` não ficar verde no commit dos sete itens mais, no máximo, um commit de correção, ou se a medição da Etapa 14 passar das metas de NFR1.4 ou NFR1.26 no Build and Test, a U2 é dividida (U2a, fase 1; U2b, fase 2, nova Unit dependente da U2a). A divisão é registrada neste plano e no estado do intent e volta ao fundador.
+- [x] Pedir o commit ao responsável; conferir o `ci` verde (todos os jobs, inclusive `smoke`) e rodar `bash scripts/verify-checkpoint.sh`. Registro (2026-11-23):
+  - Commits autorizados pelo responsável: `45ae5a0` (Etapa 0) e `0fdf6d8` (fase 1).
+  - O `ci` do `0fdf6d8` (run 45112253672) ficou vermelho em 2 testes de integração. Os dois eram defeitos dos testes.
+  - O único commit de correção, `5ce7f93`, deixou o `ci` verde em todos os jobs, inclusive `smoke` e `e2e`, que rodam o `scripts/verify.sh` (run 45115038610).
+  - O `verify-checkpoint.sh` local morre por falta de memória nesta máquina. A prova do ponto de controle interno é esse `ci` verde, como prevê o `team.md`. O ponto de controle da Unit, no fim da U2b, roda o `verify-checkpoint.sh` pelo AI-DLC.
+- [x] **Gatilho da divisão.** O gatilho disparou na medição da Etapa 14. O fundador dividiu a U2 em U2a e U2b (Etapas 14a e 14b). Com o `ci` verde no único commit de correção, a U2a está fechada, e a U2b (fase 2) começa agora. Se o `ci` não ficar verde no commit dos sete itens mais, no máximo, um commit de correção, ou se a medição da Etapa 14 passar das metas de NFR1.4 ou NFR1.26 no Build and Test, a U2 é dividida (U2a, fase 1; U2b, fase 2, nova Unit dependente da U2a). A divisão é registrada neste plano e no estado do intent e volta ao fundador.
 - Cobre: F9, NFR7.4, NFR8.4.
 
 ## Fase 2 — rateio, conferência e o resto
 
 ### Etapa 16 — Testes antes do código: `RealProration` (vermelho)
 
-- [ ] `pnl/real/RealProrationTest.java`, em unidades base:
+- [x] `pnl/real/RealProrationTest.java`, em unidades base:
   - AC3.3.1 (liquidação com dois bots), AC3.3.2 (três bots com resto: A 388.888.889), AC3.3.3 (origem LIQUIDATION), AC3.3.4 (titular sem quantidade não entra);
   - AC3.4.1 (empate: recebido A 333.333.334; taxa A 1.667, B 1.667, C 1.666), AC3.4.3 (origem CONDITIONAL), AC3.4.4 (parte não executada não gera parte);
   - AC3.5.1 (excedente para B e C, SOLD_BY_OTHER_BOT), AC3.5.2 (excedente para UNOWNED com UNOWNED_EXCESS), AC3.5.3 (sem excedente, sem parte);
@@ -364,92 +368,92 @@ A Etapa 14a resolveu a leitura de custo `GATE` (p95 de 82 ms, sem `TIMEOUT`), ma
 
 ### Etapa 17 — `RealProration` (verde)
 
-- [ ] `pnl/real/RealProration.java` (novo): maior resto com desempate da BR4.2; venda sem bot (BR4.3); venda própria com excedente entre todos os outros titulares (BR4.4, D2); recebido e taxa pela quantidade vendida (BR4.5); origem das partes (BR4.7); `ProrationPart` (ENT-208).
-- [ ] Refatorar com os testes verdes.
+- [x] `pnl/real/RealProration.java` (novo): maior resto com desempate da BR4.2; venda sem bot (BR4.3); venda própria com excedente entre todos os outros titulares (BR4.4, D2); recebido e taxa pela quantidade vendida (BR4.5); origem das partes (BR4.7); `ProrationPart` (ENT-208).
+- [x] Refatorar com os testes verdes.
 - Cobre: BR4.1 a BR4.8, ENT-208.
 
 ### Etapa 18 — Testes antes do código: o cálculo do P&L REAL por bot (vermelho)
 
-- [ ] `pnl/real/RealBotPnlExamplesTest.java` (BR9.4): cada exemplo de `rules.md` como está, em lamports e unidades base — AC3.2.1 a AC3.2.4, AC3.3.1, AC3.3.2, AC3.4.1, AC3.4.2, AC3.5.1, AC3.5.2, AC3.6.1, AC3.7.1 a AC3.7.4, AC3.8.1 a AC3.8.4, AC3.9.1 a AC3.9.3, AC5.1.1, AC5.3.1 e AC5.4.1 a AC5.4.2 — e os cenários do FR5.4 sem exemplo próprio (venda no mesmo slot com `SLOT_MISSING`, excedente sem custo).
-- [ ] `pnl/real/RealPnlFeesTest.java`: BR6.1 a BR6.6, inclusive a ordem que falhou com taxa paga pela carteira do bot e pela carteira principal, a liquidação que falhou rateada pelas quantidades de antes, a taxa do modo Assinada nunca contada duas vezes e o RENT fora de compra.
-- [ ] `pnl/real/RealPnlUnownedTest.java`: BR5.1 a BR5.5, inclusive `ORDER_RECORD_MISSING` em compra, venda e taxa.
-- [ ] `pnl/real/RealPnlPeriodBoundaryTest.java` (BR9.5): fill 1 ms antes de `to`, taxa e RENT 1 ms depois; o evento entra inteiro no período, nada no seguinte; o mesmo com `from` e com a taxa do modo Assinada; o não realizado é sempre o de agora (AC7.2.1).
-- [ ] `pnl/real/RealPnlReconciliationTest.java`: `MATCH` em `All` e em `Range`; cada verificação (`REALIZED`, `FEES`, `UNREALIZED`, `COST_CONSERVATION`, `QUANTITY_CONSERVATION`, `EVENT_SUMS`, `UNOWNED_WITHOUT_REASON`, `UNKNOWN_BOT`) falha sozinha com a diferença em lamports; igualdade exata, sem tolerância; o total do modo pelo lado do ledger (BR7.5).
-- [ ] `pnl/real/ConditionalSaleRegressionTest.java` (BR9.3): o cenário de AC5.1.1 roda contra o `RealPnlCalculator` da U1 e **falha** (vermelho registrado); depois passa contra o cálculo novo.
-- [ ] `pnl/real/RealPnlPropertyTest.java` (BR9.2), no padrão do `LedgerPropertyTest`: `java.util.Random` com 3 sementes fixas declaradas, pelo menos 1.000 sequências de 10 a 60 eventos por execução, com compras de bots, vendas próprias com e sem excedente, liquidações, condicionais inteiras e parciais, ordens que falham, taxas do modo Assinada, mesmo slot, `SLOT_MISSING`, compras sem bot, vendas além do registrado e bots removidos. Para cada uma: BR8.1 a BR8.5 dão `MATCH` em `All` e em períodos aleatórios; BR9.1 vale; duas execuções iguais; linhas com slot gravadas em outra ordem dão o mesmo resultado; nada negativo; posição zerada com custo 0. Semente e índice na mensagem de falha; ≤ 60 s na CI.
-- [ ] `pnl/application/RealBotPnlTest.java` (dublês das portas): F1 por pessoa; F5 devolve só a linha do bot e vazio para bot que não é da pessoa; preços lidos uma vez, só para os mints com posição aberta (NFR1.13); bloco vazio sem bot nem carteira; teto `real-max-orders` no fluxo dá `TOO_MANY_ORDERS` sem número parcial (F-2).
-- [ ] `pnl/application/RealBotPnlQueryTest.java` (da U1, alterado para a implementação nova): os casos que continuam valendo (cada bot com as próprias ordens, total, teto) e os que mudam (realizado bruto, `unowned` presente).
+- [x] `pnl/real/RealBotPnlExamplesTest.java` (BR9.4): cada exemplo de `rules.md` como está, em lamports e unidades base — AC3.2.1 a AC3.2.4, AC3.3.1, AC3.3.2, AC3.4.1, AC3.4.2, AC3.5.1, AC3.5.2, AC3.6.1, AC3.7.1 a AC3.7.4, AC3.8.1 a AC3.8.4, AC3.9.1 a AC3.9.3, AC5.1.1, AC5.3.1 e AC5.4.1 a AC5.4.2 — e os cenários do FR5.4 sem exemplo próprio (venda no mesmo slot com `SLOT_MISSING`, excedente sem custo).
+- [x] `pnl/real/RealPnlFeesTest.java`: BR6.1 a BR6.6, inclusive a ordem que falhou com taxa paga pela carteira do bot e pela carteira principal, a liquidação que falhou rateada pelas quantidades de antes, a taxa do modo Assinada nunca contada duas vezes e o RENT fora de compra.
+- [x] `pnl/real/RealPnlUnownedTest.java`: BR5.1 a BR5.5, inclusive `ORDER_RECORD_MISSING` em compra, venda e taxa.
+- [x] `pnl/real/RealPnlPeriodBoundaryTest.java` (BR9.5): fill 1 ms antes de `to`, taxa e RENT 1 ms depois; o evento entra inteiro no período, nada no seguinte; o mesmo com `from` e com a taxa do modo Assinada; o não realizado é sempre o de agora (AC7.2.1).
+- [x] `pnl/real/RealPnlReconciliationTest.java`: `MATCH` em `All` e em `Range`; cada verificação (`REALIZED`, `FEES`, `UNREALIZED`, `COST_CONSERVATION`, `QUANTITY_CONSERVATION`, `EVENT_SUMS`, `UNOWNED_WITHOUT_REASON`, `UNKNOWN_BOT`) falha sozinha com a diferença em lamports; igualdade exata, sem tolerância; o total do modo pelo lado do ledger (BR7.5).
+- [x] `pnl/real/ConditionalSaleRegressionTest.java` (BR9.3): o cenário de AC5.1.1 roda contra o `RealPnlCalculator` da U1 e **falha** (vermelho registrado); depois passa contra o cálculo novo.
+- [x] `pnl/real/RealPnlPropertyTest.java` (BR9.2), no padrão do `LedgerPropertyTest`: `java.util.Random` com 3 sementes fixas declaradas, pelo menos 1.000 sequências de 10 a 60 eventos por execução, com compras de bots, vendas próprias com e sem excedente, liquidações, condicionais inteiras e parciais, ordens que falham, taxas do modo Assinada, mesmo slot, `SLOT_MISSING`, compras sem bot, vendas além do registrado e bots removidos. Para cada uma: BR8.1 a BR8.5 dão `MATCH` em `All` e em períodos aleatórios; BR9.1 vale; duas execuções iguais; linhas com slot gravadas em outra ordem dão o mesmo resultado; nada negativo; posição zerada com custo 0. Semente e índice na mensagem de falha; ≤ 60 s na CI.
+- [x] `pnl/application/RealBotPnlTest.java` (dublês das portas): F1 por pessoa; F5 devolve só a linha do bot e vazio para bot que não é da pessoa; preços lidos uma vez, só para os mints com posição aberta (NFR1.13); bloco vazio sem bot nem carteira; teto `real-max-orders` no fluxo dá `TOO_MANY_ORDERS` sem número parcial (F-2).
+- [x] `pnl/application/RealBotPnlQueryTest.java` (da U1, alterado para a implementação nova): os casos que continuam valendo (cada bot com as próprias ordens, total, teto) e os que mudam (realizado bruto, `unowned` presente).
 - Cobre: BR2.x, BR3.1 a BR3.4, BR4.x, BR5.1 a BR5.5, BR6.1 a BR6.6, BR7.1 a BR7.6, BR8.1 a BR8.5, BR9.2 a BR9.5, BR10.1, AC3.2.x, AC3.3.x, AC3.4.x, AC3.5.x, AC3.6.3, AC3.7.x, AC3.8.x, AC3.9.x, AC5.1.1 a AC5.1.3, AC5.3.1, AC5.3.3, AC5.3.4, AC5.4.1 a AC5.4.3, AC7.2.1, NFR1.13, NFR2.1, NFR2.2, NFR2.6, NFR2.7, NFR2.9.
 
 ### Etapa 19 — `RealBotPnl`, a implementação nova de C10 (verde)
 
-- [ ] `pnl/real/`: montagem dos `TradeEvent` (ENT-207) a partir dos lançamentos agrupados por (carteira, referência, assinatura), com a tentativa virtual do modo Assinada; aplicação de F2.1 a F2.4; lado do ledger (F3, passo 1) acumulado por período pelo instante único do evento; não realizado com o valor rateado (BR7.2) e `unknown` (BR7.3); conferência (`ReconciliationResult`, ENT-213).
-- [ ] `pnl/application/RealBotPnl.java` (novo, a "V2" de `RealBotPnlQuery`): uma passada por pessoa em REPEATABLE READ só de leitura, `set local work_mem`, ordens (C13) para o índice compacto com o teto `real-max-orders` no fluxo (F-2), lançamentos (C12), preços uma vez; atribuição `PNL` (passos 1 e 3) com o prazo de 500 ms dentro do prazo do bloco de 800 ms; períodos `All` e `Range`.
-- [ ] `pnl/api/RealPnlUnavailable.java`: causa `RECONCILIATION_MISMATCH`. `pnl/api/UnownedPnlLine.java`: motivos `UNOWNED_EXCESS`, `UNOWNED_NO_COST` e `ORDER_RECORD_MISSING`.
-- [ ] `pnl/infra/PnlRealProperties.java`: `memetrade.pnl.real.attribution.pnl-timeout` (500 ms, de 50 a 500, menor que `block-timeout`).
-- [ ] Saem `pnl/application/RealBotPnlQueryV1.java`, `pnl/real/RealPnlCalculator.java` e `pnl/real/RealPnlCalculatorTest.java` (substituído pelos testes da Etapa 18). O `RealExecutionPort.settledOrders(..., max)` fica para os chamadores atuais.
-- [ ] `GET /api/v1/real/pnl` (BR10.3): `pnl/application/RealPnlService.java` e `pnl/web/RealPnlController.java` passam a usar o total e as posições do `RealBotPnl`, **pelo pool** `pnl-mode-block` (`ModeBlockExecutor`, mercado REAL, 800 ms); a forma da resposta não muda; fila cheia dá o erro técnico que a rota já tem.
-- [ ] `pnl/web/RealBlockSource.java`: a divergência vira `UNAVAILABLE` com `RECONCILIATION_MISMATCH`, sem número parcial.
-- [ ] Refatorar com os testes verdes.
+- [x] `pnl/real/`: montagem dos `TradeEvent` (ENT-207) a partir dos lançamentos agrupados por (carteira, referência, assinatura), com a tentativa virtual do modo Assinada; aplicação de F2.1 a F2.4; lado do ledger (F3, passo 1) acumulado por período pelo instante único do evento; não realizado com o valor rateado (BR7.2) e `unknown` (BR7.3); conferência (`ReconciliationResult`, ENT-213).
+- [x] `pnl/application/RealBotPnl.java` (novo, a "V2" de `RealBotPnlQuery`): uma passada por pessoa em REPEATABLE READ só de leitura, `set local work_mem`, ordens (C13) para o índice compacto com o teto `real-max-orders` no fluxo (F-2), lançamentos (C12), preços uma vez; atribuição `PNL` (passos 1 e 3) com o prazo de 500 ms dentro do prazo do bloco de 800 ms; períodos `All` e `Range`.
+- [x] `pnl/api/RealPnlUnavailable.java`: causa `RECONCILIATION_MISMATCH`. `pnl/api/UnownedPnlLine.java`: motivos `UNOWNED_EXCESS`, `UNOWNED_NO_COST` e `ORDER_RECORD_MISSING`.
+- [x] `pnl/infra/PnlRealProperties.java`: `memetrade.pnl.real.attribution.pnl-timeout` (500 ms, de 50 a 500, menor que `block-timeout`).
+- [x] Saem `pnl/application/RealBotPnlQueryV1.java`, `pnl/real/RealPnlCalculator.java` e `pnl/real/RealPnlCalculatorTest.java` (substituído pelos testes da Etapa 18). O `RealExecutionPort.settledOrders(..., max)` fica para os chamadores atuais.
+- [x] `GET /api/v1/real/pnl` (BR10.3): `pnl/application/RealPnlService.java` e `pnl/web/RealPnlController.java` passam a usar o total e as posições do `RealBotPnl`, **pelo pool** `pnl-mode-block` (`ModeBlockExecutor`, mercado REAL, 800 ms); a forma da resposta não muda; fila cheia dá o erro técnico que a rota já tem.
+- [x] `pnl/web/RealBlockSource.java`: a divergência vira `UNAVAILABLE` com `RECONCILIATION_MISMATCH`, sem número parcial.
+- [x] Refatorar com os testes verdes.
 - Cobre: BR10.1, BR10.2, BR10.3, BR7.5, BR8.6, BR8.7, C10, F1 a F5, F8, F-2, D-NFR1, NFR1.1, NFR1.3, NFR1.12, NFR1.13, NFR1.15, NFR1.16, NFR2.1, NFR2.6.
 
 ### Etapa 20 — Testes de integração do bloco REAL (escritos antes de ligar o bloco à rota)
 
-- [ ] `pnl/web/RealBlockFailureIT.java`, 7 casos (divergência, `UNKNOWN_BOT`, atribuição com erro, tempo esgotado na atribuição, tempo esgotado entre dois blocos de 500 linhas sem `57014`, `TOO_MANY_ORDERS`, fila cheia): 200 em todos, bloco PAPER igual ao de antes, a série certa de `pnl_mode_block_unavailable_total{market="REAL",cause}` sobe 1.
-- [ ] `pnl/RealPnlTenantIsolationIT.java`: duas pessoas de tenants diferentes, mesmo mint e mesmo slot; nada da outra no P&L, na conferência nem no evento; bot de outra pessoa dá 404 sem campo do bot (AC3.2.6); `UNKNOWN_BOT` sem o id nem o nome do bot alheio.
-- [ ] `pnl/RealPnlIdempotentReadIT.java`: 0 gravações em 3 leituras com `MATCH`; depois de uma divergência, a leitura seguinte refaz a conferência e volta a `PRONTO` quando a causa some.
-- [ ] `pnl/RealNeverPaperIT.java`: com ordens nos dois modos, o fluxo entrega 0 lançamentos PAPER e a conferência REAL não muda com lançamentos PAPER; os testes da U1 de nunca somar os modos continuam verdes.
-- [ ] `pnl/RealPnlReadOnlyIT.java`: C4 em laço em paralelo com avaliações da barreira e um `RealCycle`; 0 `FOR UPDATE` e 0 travas; a espera pela trava continua ≤ 1.000 ms; o ciclo termina sem `RealGateUnavailable` por trava (AC3.11.3).
-- [ ] `pnl/web/RealPnlRouteIT.java`: `GET /api/v1/real/pnl` com o realizado bruto, a forma da resposta igual, o erro técnico na divergência e na fila cheia.
-- [ ] `pnl/web/ModePnlFailureIT.java` e `pnl/web/ModePnlLatencyIT.java` (da U1) verdes, este com o p95 só registrado.
+- [x] `pnl/web/RealBlockFailureIT.java`, 5 casos (o bloco pronto com o realizado bruto; divergência com o mesmo `correlationId` no evento; `UNKNOWN_BOT`; atribuição com erro; tempo esgotado na atribuição): 200 em todos, bloco PAPER igual ao de antes, a série certa de `pnl_mode_block_unavailable_total{market="REAL",cause}` sobe 1. Os outros 3 casos do plano têm teste fora deste IT: `TOO_MANY_ORDERS` no `RealBotPnlTest`; o tempo esgotado entre dois blocos de 500 linhas sem `57014` no `AttributionFailureGateIT` (fase 1, o mesmo `ReadDeadline`) e no `ReadDeadlineTest`; a fila cheia (`REJECTED`) no `ModePnlFailureIT` da U1 (revisão R-02).
+- [x] `pnl/RealPnlTenantIsolationIT.java`: duas pessoas de tenants diferentes, mesmo mint e mesmo slot; nada da outra no P&L, na conferência nem no evento; bot de outra pessoa dá 404 sem campo do bot (AC3.2.6); `UNKNOWN_BOT` sem o id nem o nome do bot alheio.
+- [x] `pnl/RealPnlIdempotentReadIT.java`: 0 gravações em 3 leituras com `MATCH`; depois de uma divergência, a leitura seguinte refaz a conferência e volta a `PRONTO` quando a causa some.
+- [x] `pnl/RealNeverPaperIT.java`: com ordens nos dois modos, o fluxo entrega 0 lançamentos PAPER e a conferência REAL não muda com lançamentos PAPER; os testes da U1 de nunca somar os modos continuam verdes.
+- [x] `pnl/RealPnlReadOnlyIT.java`: C4 em laço em paralelo com avaliações da barreira e um `RealCycle`; 0 `FOR UPDATE` e 0 travas; a espera pela trava continua ≤ 1.000 ms; o ciclo termina sem `RealGateUnavailable` por trava (AC3.11.3).
+- [x] `pnl/web/RealPnlRouteIT.java`: `GET /api/v1/real/pnl` com o realizado bruto, a forma da resposta igual, o erro técnico na divergência e na fila cheia.
+- [x] `pnl/web/ModePnlFailureIT.java` e `pnl/web/ModePnlLatencyIT.java` (da U1) verdes, este com o p95 só registrado.
 - Cobre: BR3.4, BR8.6, BR8.7, BR10.2, AC3.2.5, AC3.2.6, AC3.11.1 a AC3.11.3, AC5.3.2, AC5.3.5, NFR1.2, NFR1.10, NFR1.16, NFR1.22, NFR3.1 a NFR3.3, NFR3.8, NFR4.2, NFR4.3, NFR4.5.
 
 ### Etapa 21 — Auditoria limitada da divergência (teste depois)
 
-- [ ] `audit/api/RateLimitedAuditPublisher.java` (novo, `publishOncePerHour(command, fingerprint, deadline)`, `WRITTEN`, `DEDUPLICATED`, `LOCK_BUSY` ou falha).
-- [ ] `audit/infra/MismatchAuditDataSource.java` (Hikari de 2 conexões, `minimum-idle` 2, espera constante de 250 ms, `setMetricRegistry`, `setPoolName("pnl-mismatch-audit")`; não é bean `DataSource` nem `PlatformTransactionManager`; só com `MEMETRADE_PROCESS=api`) e `audit/infra/MismatchAuditWriter.java` (trava consultiva `0x504E4C4D`, recência no outbox pendente e em `audit_event` num comando, `insert` no outbox, tudo numa transação do pool próprio; reusa `AuditEventValidator` e `AuditPayloadCodec`).
-- [ ] `pnl/application/ReconciliationAuditGate.java` (novo): impressão digital SHA-256 do texto canônico; executor de 2 threads e fila de 8; espera de no máximo o menor entre 200 ms e o que resta do bloco; tarefa vencida desiste; incrementa `pnl_real_reconciliation_mismatches_total{check}` e lança `RealPnlUnavailable(RECONCILIATION_MISMATCH)`.
-- [ ] `audit/api/AuditActions.java`: `REAL_PNL_RECONCILIATION_MISMATCH`.
-- [ ] `pnl/infra/PnlRealProperties.java`: `memetrade.pnl.mismatch-audit.pool-size` (2, de 1 a 2) e `write-timeout` (200 ms, de 50 a 200). `shared/config/RuntimeSettingsGuard.java`: ramo `api` confere o `pool-size`.
-- [ ] `docker-compose.yml`: comentário da conta de conexões com os trechos novos, cada um numa linha (67 de 100; overlay do REAL com o worker de 37, 78 de 100). `infra/ComposeFilesTest.java`: 67 e a leitura do `DB_POOL_MAX_SIZE` do worker em `infra/docker-compose.real.yml` (78).
-- [ ] Testes: `audit/ReconciliationAuditLimitIT.java` (10 leituras gravam 1 evento e sobem o contador 10 vezes; divergência diferente grava mais 1; duas threads gravam 1; publicação falhando muda nada na resposta; pool próprio preso: desiste em até 250 ms; pool principal preso: o evento é gravado; mesmo `pg_backend_pid()` na trava e no `insert`), `pnl/application/ReconciliationFingerprintTest.java`, `config/MismatchAuditPoolContextIT.java` (o worker sobe sem o bean; a prontidão não muda), `shared/config/RuntimeSettingsGuardMismatchPoolTest.java`, `architecture/AuditArchitectureTest.java` (só o `MismatchAuditWriter` depende do `MismatchAuditDataSource`; `pnl` usa só `audit.api`) e `config/U2PropertiesBindingIT.java` com as chaves desta fase.
+- [x] `audit/api/RateLimitedAuditPublisher.java` (novo, `publishOncePerHour(command, fingerprint, deadline)`, `WRITTEN`, `DEDUPLICATED`, `LOCK_BUSY` ou falha).
+- [x] `audit/infra/MismatchAuditDataSource.java` (Hikari de 2 conexões, `minimum-idle` 2, espera constante de 250 ms, `setMetricRegistry`, `setPoolName("pnl-mismatch-audit")`; não é bean `DataSource` nem `PlatformTransactionManager`; só com `MEMETRADE_PROCESS=api`) e `audit/infra/MismatchAuditWriter.java` (trava consultiva `0x504E4C4D`, recência no outbox pendente e em `audit_event` num comando, `insert` no outbox, tudo numa transação do pool próprio; reusa `AuditEventValidator` e `AuditPayloadCodec`).
+- [x] `pnl/application/ReconciliationAuditGate.java` (novo): impressão digital SHA-256 do texto canônico; executor de 2 threads e fila de 8; espera de no máximo o menor entre 200 ms e o que resta do bloco; tarefa vencida desiste; incrementa `pnl_real_reconciliation_mismatches_total{check}` e lança `RealPnlUnavailable(RECONCILIATION_MISMATCH)`.
+- [x] `audit/api/AuditActions.java`: `REAL_PNL_RECONCILIATION_MISMATCH`.
+- [x] `pnl/infra/PnlRealProperties.java`: `memetrade.pnl.mismatch-audit.pool-size` (2, de 1 a 2) e `write-timeout` (200 ms, de 50 a 200). `shared/config/RuntimeSettingsGuard.java`: ramo `api` confere o `pool-size`.
+- [x] `docker-compose.yml`: comentário da conta de conexões com os trechos novos, cada um numa linha (67 de 100; overlay do REAL com o worker de 37, 78 de 100). `infra/ComposeFilesTest.java`: 67 e a leitura do `DB_POOL_MAX_SIZE` do worker em `infra/docker-compose.real.yml` (78).
+- [x] Testes: `audit/ReconciliationAuditLimitIT.java` (10 leituras gravam 1 evento e sobem o contador 10 vezes; divergência diferente grava mais 1; duas threads gravam 1; publicação falhando muda nada na resposta; pool próprio preso: desiste em até 250 ms; pool principal preso: o evento é gravado; mesmo `pg_backend_pid()` na trava e no `insert`), `pnl/application/ReconciliationFingerprintTest.java`, `config/MismatchAuditPoolContextIT.java` (o worker sobe sem o bean; a prontidão não muda), `shared/config/RuntimeSettingsGuardMismatchPoolTest.java`, `architecture/AuditArchitectureTest.java` (só o `MismatchAuditWriter` depende do `MismatchAuditDataSource`; `pnl` usa só `audit.api`) e `config/U2PropertiesBindingIT.java` com as chaves desta fase.
 - Cobre: BR8.7, F4, ENT-214, NFR1.16, NFR3.8, NFR3.15, NFR3.16, NFR4.4.
 
 ### Etapa 22 — Métricas e logs (teste depois)
 
-- [ ] `pnl/modeview/PnlModeMetrics.java`: `pnl.mode_block.unavailable` com `market` e `cause` (`TIMEOUT`, `REJECTED`, `ERROR`, `RECONCILIATION_MISMATCH`, `TOO_MANY_ORDERS`), 10 séries com 0 na subida; `TIMEOUT` para qualquer parte do bloco. `ModeBlockExecutor` classifica a causa.
-- [ ] `pnl/application/PnlRealMetrics.java`: `pnl_real_reconciliation_mismatches_total{check}` (8 séries), `pnl_real_reconciliation_audit_failures_total` e as séries `PNL` do temporizador, só na API.
-- [ ] Logs `REAL_PNL_RECONCILIATION_MISMATCH` (`ERROR`) e `REAL_PNL_MISMATCH_AUDIT_FAILED` (`ERROR`), com `correlationId` do MDC, sem endereço, assinatura completa nem diferenças em lamports.
-- [ ] Testes: `pnl/application/PnlRealMetricsTest.java`, `pnl/application/ModePnlViewTest.java` e `testsupport/AbstractPaperRealIT.java` (somam as séries de cada mercado), `pnl/U2MetricsExportIT.java` (as cinco métricas e `hikaricp_connections_pending{pool="pnl-mismatch-audit"}` em `/actuator/prometheus`), `pnl/U2LogCaptureTest.java` e `pnl/CorrelationParityIT.java` (o mesmo `correlationId` no bloco, no evento e no log).
+- [x] `pnl/modeview/PnlModeMetrics.java`: `pnl.mode_block.unavailable` com `market` e `cause` (`TIMEOUT`, `REJECTED`, `ERROR`, `RECONCILIATION_MISMATCH`, `TOO_MANY_ORDERS`), 10 séries com 0 na subida; `TIMEOUT` para qualquer parte do bloco. `ModeBlockExecutor` classifica a causa.
+- [x] `pnl/application/PnlRealMetrics.java`: `pnl_real_reconciliation_mismatches_total{check}` (8 séries), `pnl_real_reconciliation_audit_failures_total` e as séries `PNL` do temporizador, só na API.
+- [x] Logs `REAL_PNL_RECONCILIATION_MISMATCH` (`ERROR`) e `REAL_PNL_MISMATCH_AUDIT_FAILED` (`ERROR`), com `correlationId` do MDC, sem endereço, assinatura completa nem diferenças em lamports.
+- [x] Testes: `pnl/application/PnlRealMetricsTest.java`, `pnl/application/ModePnlViewTest.java` e `testsupport/AbstractPaperRealIT.java` (somam as séries de cada mercado), `pnl/U2MetricsExportIT.java` (as cinco métricas e `hikaricp_connections_pending{pool="pnl-mismatch-audit"}` em `/actuator/prometheus`), `pnl/U2LogCaptureTest.java` e `pnl/CorrelationParityIT.java` (o mesmo `correlationId` no bloco, no evento e no log).
 - Cobre: NFR1.6 (contador do portão), NFR1.23, NFR1.24, NFR2.11, NFR2.12, NFR2.13, NFR3.7, NFR3.12, NFR3.13, NFR3.14, NFR3.16.
 
 ### Etapa 23 — Contrato e textos da tela, no mesmo commit da troca da fórmula (teste depois)
 
-- [ ] `pnl/web/ModePnlDtos.java`: `allowableValues` de `unowned.reasons` com os três motivos; descrição das taxas sem "Na U1, só informação: já incluídas no realizado e no custo"; código `RECONCILIATION_MISMATCH`.
-- [ ] Regenerar `apps/api/openapi/openapi-guest.yaml` e atualizar `contract/GuestOpenApiContractTest.java` (enum novo; nenhum campo de endereço nem de assinatura em C4 e em `GET /api/v1/real/pnl`; nenhum total geral).
-- [ ] Regenerar `apps/web/src/lib/api/schema.d.ts` (`gen:api`) e conferir com `check:api`; nunca à mão.
-- [ ] `apps/web/src/features/pnl/mode-messages.ts` (BR10.4): `fees` do bloco REAL vira "Taxas"; `unownedNote` sai, e `PnlModeBlock.tsx` deixa de mostrá-la.
-- [ ] `apps/web/src/features/pnl/PnlModeBlock.test.tsx`: o rótulo "Taxas" e a ausência da nota; `fixtures.ts` com os motivos novos.
-- [ ] `architecture/NeverSumModesArchitectureTest.java`: os tipos novos (`NetworkOrderedEntry`, `NetworkOrderKey`, `SlotStatus`, `RecordSlotResult`, `RealCost`, `WalletCost`, `ReconciliationResult` e os de `RealCostBasis` e `RealProration`) na lista fechada REAL; `architecture/ModeBoundaryArchitectureTest.java` e uma regra nova de que `ledger.infra` e `pnl` do REAL não dependem de tipos do ledger PAPER.
-- [ ] `architecture/ArchitectureTest.java` (sem ponto flutuante) cobre os pacotes novos.
+- [x] `pnl/web/ModePnlDtos.java`: `allowableValues` de `unowned.reasons` com os três motivos; descrição das taxas sem "Na U1, só informação: já incluídas no realizado e no custo"; código `RECONCILIATION_MISMATCH`.
+- [x] Regenerar `apps/api/openapi/openapi-guest.yaml` e atualizar `contract/GuestOpenApiContractTest.java` (enum novo; nenhum campo de endereço nem de assinatura em C4 e em `GET /api/v1/real/pnl`; nenhum total geral).
+- [x] Regenerar `apps/web/src/lib/api/schema.d.ts` (`gen:api`) e conferir com `check:api`; nunca à mão.
+- [x] `apps/web/src/features/pnl/mode-messages.ts` (BR10.4): `fees` do bloco REAL vira "Taxas"; `unownedNote` sai, e `PnlModeBlock.tsx` deixa de mostrá-la.
+- [x] `apps/web/src/features/pnl/PnlModeBlock.test.tsx`: o rótulo "Taxas" e a ausência da nota; `fixtures.ts` com os motivos novos.
+- [x] `architecture/NeverSumModesArchitectureTest.java`: os tipos novos (`NetworkOrderedEntry`, `NetworkOrderKey`, `SlotStatus`, `RecordSlotResult`, `RealCost`, `WalletCost`, `ReconciliationResult` e os de `RealCostBasis` e `RealProration`) na lista fechada REAL; `architecture/ModeBoundaryArchitectureTest.java` e uma regra nova de que `ledger.infra` e `pnl` do REAL não dependem de tipos do ledger PAPER.
+- [x] `architecture/ArchitectureTest.java` (sem ponto flutuante) cobre os pacotes novos.
 - Cobre: BR5.6, BR10.4, BR10.5, NFR3.8, NFR4.1 a NFR4.3, NFR7.5.
 
 ### Etapa 24 — Alarme, IaC e runbook (teste depois)
 
-- [ ] `infra/observability/real-ops-alerts.yml`: `RealOpsPnlReconciliationMismatch`, `sum(increase(pnl_real_reconciliation_mismatches_total[4m])) > 0`, `critical`, `threshold: "0"`, `window_seconds: "240"`, comentário com o NFR2.14.
-- [ ] `infra/terraform/modules/observability/real-ops.tf`: `aws_cloudwatch_metric_alarm.real_ops_pnl_reconciliation_mismatch` (período 240, `notBreaching`).
-- [ ] `infra/terraform/modules/observability/app-metrics.tf`: a métrica em `app_metric_declarations` (`dimensions = [[]]`), o nome em `alarm_resource_names` e o recurso em `metric_alarms`. `infra/terraform/main.tf` não muda (D-INF1).
-- [ ] `botwallet/RealOpsAlarmParityTest.java`: `hasSize(14)`, `> 0` e `[4m]`; `infra/terraform/tests/observability_metrics.tftest.hcl` com o alarme novo.
-- [ ] `docs/runbooks/real-operations.md`: seção "8. Divergência do P&L REAL" e seção "9. Índice da migração 0023" (os cinco passos do `cicd-pipeline.md`).
+- [x] `infra/observability/real-ops-alerts.yml`: `RealOpsPnlReconciliationMismatch`, `sum(increase(pnl_real_reconciliation_mismatches_total[4m])) > 0`, `critical`, `threshold: "0"`, `window_seconds: "240"`, comentário com o NFR2.14.
+- [x] `infra/terraform/modules/observability/real-ops.tf`: `aws_cloudwatch_metric_alarm.real_ops_pnl_reconciliation_mismatch` (período 240, `notBreaching`).
+- [x] `infra/terraform/modules/observability/app-metrics.tf`: a métrica em `app_metric_declarations` (`dimensions = [[]]`), o nome em `alarm_resource_names` e o recurso em `metric_alarms`. `infra/terraform/main.tf` não muda (D-INF1).
+- [x] `botwallet/RealOpsAlarmParityTest.java`: `hasSize(14)`, `> 0` e `[4m]`; `infra/terraform/tests/observability_metrics.tftest.hcl` com o alarme novo.
+- [x] `docs/runbooks/real-operations.md`: seção "8. Divergência do P&L REAL" e seção "9. Índice da migração 0023" (os cinco passos do `cicd-pipeline.md`).
 - [ ] À mão, antes do commit: `terraform validate`, `terraform test` e Checkov em `infra/terraform/` (pendência da CI do responsável).
 - Cobre: NFR2.14, NFR2.15, NFR8.1, NFR8.2, D-INF1.
 
 ### Etapa 25 — Cenário de carga `pnl-by-mode` e o texto pronto do `load-test.yml` (teste depois)
 
-- [ ] Semente só nos perfis `test,loadtest`: `apps/api/src/main/java/com/memetrade/pnl/loadtest/LoadtestPnlSeed.java` (20 pessoas, 5 bots PAPER e 5 REAL, 730 dias, 4 ordens por bot por dia e a mistura do NFR1.6, os primeiros 365 dias sem slot) e o guarda `architecture/LoadtestPnlSeedProfileGuardTest.java`, como o `RealSeedProfileGuardTest`.
-- [ ] `scripts/load/pnl-by-mode.mjs` (tráfego e portões do D-NFR1), `scripts/load/pnl-plans.mjs` (procura o índice pelo nome; falha com `Seq Scan on real_ledger_entry`), `scripts/load/load-test.mjs` (cenário, leitura do contador `cause` antes e depois, relatório `docs/perf/u2-real-bot-pnl-<data>.md`) e `scripts/load-test.sh` (semente e duração).
-- [ ] Testes: `scripts/load/load-test-pnl-by-mode.test.mjs`, `scripts/load/load-test-pnl-plans.test.mjs` e `pnl/PnlPlanSqlParityTest.java` (o SQL do `pnl-plans.mjs` é a constante do `JdbcRealLedger`).
-- [ ] **Entregável do responsável:** o texto inteiro do `.github/workflows/load-test.yml` do NFR1.9 vai para o `code-summary.md`, com o comando de disparo. Esta geração **não edita** `.github/workflows/` nem `scripts/verify.sh`.
+- [x] Semente só nos perfis `test,loadtest`: `apps/api/src/main/java/com/memetrade/pnl/loadtest/LoadtestPnlSeed.java` (20 pessoas, 5 bots PAPER e 5 REAL, 730 dias, 4 ordens por bot por dia e a mistura do NFR1.6, os primeiros 365 dias sem slot) e o guarda `architecture/LoadtestPnlSeedProfileGuardTest.java`, como o `RealSeedProfileGuardTest`.
+- [x] `scripts/load/pnl-by-mode.mjs` (tráfego e portões do D-NFR1), `scripts/load/pnl-plans.mjs` (procura o índice pelo nome; falha com `Seq Scan on real_ledger_entry`), `scripts/load/load-test.mjs` (cenário, leitura do contador `cause` antes e depois, relatório `docs/perf/u2-real-bot-pnl-<data>.md`) e `scripts/load-test.sh` (semente e duração).
+- [x] Testes: `scripts/load/load-test-pnl-by-mode.test.mjs`, `scripts/load/load-test-pnl-plans.test.mjs` e `pnl/PnlPlanSqlParityTest.java` (o SQL do `pnl-plans.mjs` é a constante do `JdbcRealLedger`).
+- [x] **Entregável do responsável:** o texto inteiro do `.github/workflows/load-test.yml` do NFR1.9 vai para o `code-summary.md`, com o comando de disparo. Esta geração **não edita** `.github/workflows/` nem `scripts/verify.sh`.
 - Cobre: NFR1.1, NFR1.3, NFR1.6, NFR1.9, NFR1.14, NFR1.25, NFR7.8, D-NFR3.
 
 ### Etapa 26 — Ponta a ponta da fatia
@@ -459,28 +463,28 @@ A Etapa 14a resolveu a leitura de custo `GATE` (p95 de 82 ms, sem `TIMEOUT`), ma
 
 ### Etapa 27 — Alinhamentos de texto A1 a A16
 
-- [ ] A1: `functional-design/rules.md` BR2.7 e `functional-spec.md`, 800 ms → **500 ms** no caminho do P&L.
-- [ ] A2: `functional-design/entities.md` ENT-215, `txSignatureAbbrev`, `txSignatureHmac`, `tenantId` e `correlationId`.
-- [ ] A3: nomes das métricas em `functional-spec.md` F4 e F7, `rules.md` BR1.4 e BR8.7 e `contract-summary.md` C13.
-- [ ] A4: `nfr-requirements/nfr-requirements-questions.md`, linha que aponta para D-NFR1 e D-NFR3.
-- [ ] A5: `nfr-requirements/observability-requirements.md`, "as quatro" → "as cinco".
-- [ ] A6, A7 e A8 (pendências da U1): `u1-mode-skeleton/nfr-design/performance-design.md`, `u1-mode-skeleton/nfr-requirements/scalability-requirements.md` NFR8.1 e `u1-mode-skeleton/functional-design/rules.md` BR1.9.
-- [ ] A9: `rules.md` BR1.1 a BR1.3 e `contract-summary.md` C12 (ordem de gravação da herança e `COLLATE "C"`).
-- [ ] A10: `functional-spec.md` suposição 3 e `performance-requirements.md` nota do `real-max-orders` (o teto fica, aplicado no fluxo).
-- [ ] A11: `contract-summary.md` C11 e `entities.md` ENT-206 (`RealPosition` com `RealCost`; `WalletCost` selado).
-- [ ] A12: `u1-mode-skeleton/nfr-requirements/observability-requirements.md` (etiqueta `cause`).
-- [ ] A13: `261113-trading-real-bot/construction/u3-real-risk/functional-design/rules.md` BR4.4 (fotografia adiada, `DAY_SNAPSHOT_PENDING`).
-- [ ] A14: `performance-requirements.md` NFR1.4 e NFR1.26.
-- [ ] A15: `nfr-design/security-design.md` e `nfr-requirements/tech-stack-decisions.md` NFR8.6 (índice `CONCURRENTLY` com `runInTransaction:false`).
-- [ ] A16: `nfr-requirements/scalability-requirements.md` e `nfr-design/scalability-design.md` NFR8.1 e a Q2 da infraestrutura (só o sidecar `metrics-agent` muda).
-- [ ] BR5.6 (5): chaves `pnl.noBotReason.UNOWNED_EXCESS`, `UNOWNED_NO_COST` (proposta "Motivo: venda sem custo registrado") e `ORDER_RECORD_MISSING` em `inception/refined-mockups/design-system-mapping.md`, no lugar de `SURPLUS_WITHOUT_OWNER`.
+- [x] A1: `functional-design/rules.md` BR2.7 e `functional-spec.md`, 800 ms → **500 ms** no caminho do P&L.
+- [x] A2: `functional-design/entities.md` ENT-215, `txSignatureAbbrev`, `txSignatureHmac`, `tenantId` e `correlationId`.
+- [x] A3: nomes das métricas em `functional-spec.md` F4 e F7, `rules.md` BR1.4 e BR8.7 e `contract-summary.md` C13.
+- [x] A4: `nfr-requirements/nfr-requirements-questions.md`, linha que aponta para D-NFR1 e D-NFR3.
+- [x] A5: `nfr-requirements/observability-requirements.md`, "as quatro" → "as cinco".
+- [x] A6, A7 e A8 (pendências da U1): `u1-mode-skeleton/nfr-design/performance-design.md`, `u1-mode-skeleton/nfr-requirements/scalability-requirements.md` NFR8.1 e `u1-mode-skeleton/functional-design/rules.md` BR1.9.
+- [x] A9: `rules.md` BR1.1 a BR1.3 e `contract-summary.md` C12 (ordem de gravação da herança e `COLLATE "C"`).
+- [x] A10: `functional-spec.md` suposição 3 e `performance-requirements.md` nota do `real-max-orders` (o teto fica, aplicado no fluxo).
+- [x] A11: `contract-summary.md` C11 e `entities.md` ENT-206 (`RealPosition` com `RealCost`; `WalletCost` selado).
+- [x] A12: `u1-mode-skeleton/nfr-requirements/observability-requirements.md` (etiqueta `cause`).
+- [x] A13: `261113-trading-real-bot/construction/u3-real-risk/functional-design/rules.md` BR4.4 (fotografia adiada, `DAY_SNAPSHOT_PENDING`).
+- [x] A14: `performance-requirements.md` NFR1.4 e NFR1.26.
+- [x] A15: `nfr-design/security-design.md` e `nfr-requirements/tech-stack-decisions.md` NFR8.6 (índice `CONCURRENTLY` com `runInTransaction:false`).
+- [x] A16: `nfr-requirements/scalability-requirements.md` e `nfr-design/scalability-design.md` NFR8.1 e a Q2 da infraestrutura (só o sidecar `metrics-agent` muda).
+- [x] BR5.6 (5): chaves `pnl.noBotReason.UNOWNED_EXCESS`, `UNOWNED_NO_COST` (proposta "Motivo: venda sem custo registrado") e `ORDER_RECORD_MISSING` em `inception/refined-mockups/design-system-mapping.md`, no lugar de `SURPLUS_WITHOUT_OWNER`.
 - Cobre: BR1.7, BR2.8, BR5.6 e os alinhamentos do NFR Design e do Infrastructure Design.
 
 ### Etapa 28 — Verificação, documentação e rastreabilidade
 
-- [ ] Rodar os comandos da Unit (`unit-test-instructions.md`): fase 1 e fase 2 do backend, Jest e `node:test`.
+- [x] Rodar os comandos da Unit (`unit-test-instructions.md`): fase 1 e fase 2 do backend, Jest e `node:test`.
 - [ ] `./mvnw verify` no `apps/api` com JaCoCo ≥ 80%; `lint`, `format:check`, `typecheck`, `jest --coverage` e `check:api` no `apps/web`. O piso nunca é reduzido.
-- [ ] Escrever `code-summary.md` (com o texto pronto do `load-test.yml`, o comando de disparo e as pendências), `traceability.json` no formato do verificador (IDs `NFRx.y` sem o prefixo da Unit; uma linha por AC, BR e NFR; um único arquivo existente por alvo OK, os demais numa nota) e `source-manifest.json`.
+- [x] Escrever `code-summary.md` (com o texto pronto do `load-test.yml`, o comando de disparo e as pendências), `traceability.json` no formato do verificador (IDs `NFRx.y` sem o prefixo da Unit; uma linha por AC, BR e NFR; um único arquivo existente por alvo OK, os demais numa nota) e `source-manifest.json`.
 - [ ] Verificação do ponto de controle: `bash scripts/verify-checkpoint.sh`.
 - [ ] O Build and Test da U2 só fecha com as medianas de NFR1.4 e NFR1.5 dentro das metas e uma execução verde de `pnl-by-mode` no SHA candidato, depois que o responsável aplicar o texto do NFR1.9 (NFR1.25).
 - Cobre: NFR7.1, NFR7.2, NFR7.3, NFR7.6, NFR1.25.

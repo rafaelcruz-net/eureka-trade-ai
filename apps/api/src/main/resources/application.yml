@@ -283,8 +283,16 @@ memetrade:
     real:
       attribution:
         gate-and-cycle-timeout: 250ms
+        # 261121-paper-real-unico U2 (D-NFR1, NFR1.3): the attribution of the REAL block of the P&L (50 ms to 500 ms,
+        # below block-timeout); it may only go down without the founder.
+        pnl-timeout: 500ms
       read:
         work-mem: 12MB
+    # 261121-paper-real-unico U2 (NFR3.15, NFR3.16): the bounded write of the event of a REAL P&L mismatch, in the api
+    # only: its pool pnl-mismatch-audit and its executor (1 to 2) and its budget (50 ms to 200 ms).
+    mismatch-audit:
+      pool-size: 2
+      write-timeout: 200ms
   auth:
     access-token-signing-key: ${ACCESS_TOKEN_SIGNING_KEY:}
     guest-app-origin: ${GUEST_APP_ORIGIN:http://localhost:3000}

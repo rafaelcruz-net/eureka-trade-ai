@@ -179,7 +179,9 @@ Nenhum token, fonte ou tema novo.
 | `pnl.unknown` | "desconhecido" (hoje é `unknown`) | AC3.8.2 [Q3] |
 | `pnl.unknownTotal` | "desconhecido (depende do não realizado)" | AC3.8.3 |
 | `pnl.noBot` | "Sem bot" | FR3.4 |
-| `pnl.noBotReason.SURPLUS_WITHOUT_OWNER` | "Motivo: excedente sem dono" | AC3.5.2 |
+| `pnl.noBotReason.UNOWNED_EXCESS` | "Motivo: excedente sem dono" (no lugar de `SURPLUS_WITHOUT_OWNER`; BR5.6 da U2) | AC3.5.2 |
+| `pnl.noBotReason.UNOWNED_NO_COST` | "Motivo: venda sem custo registrado" (texto proposto; BR5.6 da U2, suposição 8) | AC3.5.2 |
+| `pnl.noBotReason.ORDER_RECORD_MISSING` | "Motivo: registro da ordem ausente" (texto proposto; BR5.6 da U2) | AC3.5.2 |
 | `pnl.origins.BOT` | "Bot" | AC3.10.2 |
 | `pnl.origins.LIQUIDATION` | "Fechado por liquidação" | AC3.10.2 |
 | `pnl.origins.CONDITIONAL` | "Fechado por condicional" | AC3.10.2 |

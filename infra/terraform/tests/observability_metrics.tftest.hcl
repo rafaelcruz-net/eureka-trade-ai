@@ -155,6 +155,12 @@ run "every_alarm_reads_a_published_metric" {
     condition     = !contains(module.observability.alarm_names, "eureka-real-real-risk-slow") && !contains(module.observability.alarm_names, "eureka-real-real-execution-slow")
     error_message = "the p95 alarms must stay off by default"
   }
+  # 261121-paper-real-unico U2 (NFR2.14): the alarm of a REAL P&L mismatch exists and reads its allowed metric (the
+  # generic checks above cover its metric, its dimension set and its period of 240 s).
+  assert {
+    condition     = contains(module.observability.alarm_names, "eureka-real-real-ops-pnl-reconciliation-mismatch") && contains(module.observability.app_metric_names, "pnl_real_reconciliation_mismatches_total")
+    error_message = "the alarm of a REAL P&L mismatch or its metric is missing"
+  }
   # Q2: one heartbeat per process.
   assert {
     condition     = toset([for name in module.observability.alarm_names : name if startswith(name, "eureka-real-metrics-absent-")]) == toset(["eureka-real-metrics-absent-api", "eureka-real-metrics-absent-worker", "eureka-real-metrics-absent-txsigner"])

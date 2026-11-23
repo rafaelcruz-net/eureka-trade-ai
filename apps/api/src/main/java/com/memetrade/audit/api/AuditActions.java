@@ -62,6 +62,14 @@ public final class AuditActions {
      */
     public static final String REAL_SLOT_CONFLICT = "REAL_SLOT_CONFLICT";
 
+    /**
+     * 261121-paper-real-unico U2 (BR8.7, BR3.4, ENT-214, NFR3.15): the P&L REAL of a person did not reconcile with the
+     * ledger (or an order named a bot outside the person's directory). Actor the person, target {@code real-pnl};
+     * details {@code window}, {@code checks}, {@code diff.<check>} in lamports and {@code fingerprint}; never an address,
+     * a signature nor a mint. Written at most once per hour per person and fingerprint (RateLimitedAuditPublisher).
+     */
+    public static final String REAL_PNL_RECONCILIATION_MISMATCH = "REAL_PNL_RECONCILIATION_MISMATCH";
+
     /** U7 (BR4.2): a ledger entry was corrected by a compensating entry. */
     public static final String LEDGER_ENTRY_COMPENSATED = "LEDGER_ENTRY_COMPENSATED";
 

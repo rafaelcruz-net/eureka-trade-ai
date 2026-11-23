@@ -127,6 +127,38 @@ class AuditArchitectureTest {
             .areAssignableTo(AuditRetentionDataSource.class)
             .because("the retention login may delete trail events; only the purge receives it (NFR6.2)");
 
+    /**
+     * 261121-paper-real-unico U2 (security-design.md "Fiação do pool", R-10): only the dedicated writer of the event of a
+     * REAL P&L mismatch receives the pool {@code pnl-mismatch-audit}.
+     */
+    static final ArchRule MISMATCH_POOL_ONLY_IN_ITS_WRITER = noClasses()
+            .that()
+            .doNotHaveFullyQualifiedName(com.memetrade.audit.infra.MismatchAuditWriter.class.getName())
+            .and()
+            .doNotHaveFullyQualifiedName(com.memetrade.audit.infra.MismatchAuditDataSourceConfig.class.getName())
+            .and()
+            .doNotHaveFullyQualifiedName(com.memetrade.audit.infra.MismatchAuditDataSource.class.getName())
+            .should()
+            .dependOnClassesThat()
+            .areAssignableTo(com.memetrade.audit.infra.MismatchAuditDataSource.class)
+            .because("the pool of the mismatch event is only for its writer (NFR3.15)");
+
+    /** 261121-paper-real-unico U2: the P&L reaches the audit only through audit.api (RateLimitedAuditPublisher). */
+    static final ArchRule PNL_USES_ONLY_THE_AUDIT_API = noClasses()
+            .that()
+            .resideInAPackage("com.memetrade.pnl..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage(
+                    "com.memetrade.audit.domain..", "com.memetrade.audit.infra..", "com.memetrade.audit.web..")
+            .because("the P&L never reads the trail nor knows its pools (security-design.md)");
+
+    @Test
+    void theMismatchPoolIsInjectedOnlyIntoItsWriterAndThePnlUsesOnlyTheAuditApi() {
+        MISMATCH_POOL_ONLY_IN_ITS_WRITER.check(PRODUCTION);
+        PNL_USES_ONLY_THE_AUDIT_API.check(PRODUCTION);
+    }
+
     @Test
     void aPrincipalIsCreatedOnlyOnTheSessionAuthenticationPath() {
         PRINCIPAL_ONLY_FROM_THE_SESSION_PATH.check(PRODUCTION);

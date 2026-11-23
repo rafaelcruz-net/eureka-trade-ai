@@ -7,7 +7,8 @@ import java.util.concurrent.Callable;
 /**
  * 261121-paper-real-unico U1 (performance-design.md "Execução de cada bloco"): the own read-only transaction of one
  * block of the P&L by mode, opened on the thread of the pool, and the statement timeout inside it. PAPER reads in
- * REPEATABLE READ (lines and total from the same snapshot, BR5.10); REAL in READ COMMITTED.
+ * REPEATABLE READ (lines and total from the same snapshot, BR5.10); REAL too since the U2 (the orders and the ledger rows
+ * of its reconciliation from the same snapshot, BR8.1).
  */
 public interface BlockReads {
 

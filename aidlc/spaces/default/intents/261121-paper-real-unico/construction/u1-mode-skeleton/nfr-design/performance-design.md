@@ -20,7 +20,7 @@ Este arquivo diz como as rotas da U1 ficam dentro do p95 de 1.000 ms (NFR1.1 a N
 
 ## Configuração nova
 
-Os valores ficam no `application.yml`, fixos e nunca lidos do ambiente, como o resto de `memetrade.bots` (`BotProperties`). Um valor fora do domínio impede o processo de subir, com uma mensagem que nomeia a propriedade, no mesmo padrão de `BotProperties`.
+Os valores são lidos por `@ConfigurationProperties`, com o padrão no `application.yml` e, para `block-timeout` (e `real-max-orders`), a variável da tarefa `api` (alinhamento A6 da Code Generation da U2; o teto `real-max-orders` fica, decisão F-2). Um valor fora do domínio impede o processo de subir, com uma mensagem que nomeia a propriedade, no mesmo padrão de `BotProperties`.
 
 | Chave | Padrão | Domínio aceito | Dono | Uso |
 |---|---|---|---|---|

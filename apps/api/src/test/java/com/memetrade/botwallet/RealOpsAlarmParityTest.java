@@ -126,7 +126,8 @@ class RealOpsAlarmParityTest {
         Map<String, Alarm> alarms = alarms();
         String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
 
-        assertThat(rules).hasSize(13);
+        // 261121-paper-real-unico U2 (NFR2.14): + RealOpsPnlReconciliationMismatch.
+        assertThat(rules).hasSize(14);
         assertThat(alarms.keySet())
                 .containsExactlyInAnyOrderElementsOf(
                         rules.stream().map(Rule::name).toList());
@@ -157,6 +158,38 @@ class RealOpsAlarmParityTest {
                         .contains("absent(real_ops_job_runs_total{job=\"" + rule.job() + "\"})");
             }
         }
+    }
+
+    /**
+     * 261121-paper-real-unico U2 (NFR2.14, monitoring-design.md): the alert of a REAL P&L mismatch fires on any read with
+     * a mismatch in 4 minutes, critical, and its CloudWatch twin reads the allowed metric without dimensions, one period
+     * of 240 s, not breaching without data.
+     */
+    @Test
+    void theAlertOfARealPnlMismatchHasItsTwinInCloudWatch() throws IOException {
+        Rule rule = rules().stream()
+                .filter(candidate -> candidate.name().equals("real-ops-pnl-reconciliation-mismatch"))
+                .findFirst()
+                .orElseThrow();
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
+        int start =
+                terraform.indexOf("resource \"aws_cloudwatch_metric_alarm\" \"real_ops_pnl_reconciliation_mismatch\"");
+        String block = terraform.substring(start, terraform.indexOf("\n}", start));
+
+        assertThat(rule.expr()).contains("sum(increase(pnl_real_reconciliation_mismatches_total[4m])) > 0");
+        assertThat(rule.threshold()).isEqualByComparingTo("0");
+        assertThat(rule.windowSeconds()).isEqualTo(240);
+        assertThat(rule.job()).isNull();
+        assertThat(block)
+                .contains("metric_name         = \"pnl_real_reconciliation_mismatches_total\"")
+                .contains("statistic           = \"Sum\"")
+                .contains("period              = 240")
+                .contains("treat_missing_data  = \"notBreaching\"")
+                .doesNotContain("dimensions");
+        assertThat(Files.readString(ROOT.resolve("infra/terraform/modules/observability/app-metrics.tf")))
+                .contains("\"pnl_real_reconciliation_mismatches_total\",")
+                .contains("\"real_ops_pnl_reconciliation_mismatch\"")
+                .contains("aws_cloudwatch_metric_alarm.real_ops_pnl_reconciliation_mismatch");
     }
 
     /** U5-NFR5.13: every job of the closed label {@code job} has its stalled rule. */

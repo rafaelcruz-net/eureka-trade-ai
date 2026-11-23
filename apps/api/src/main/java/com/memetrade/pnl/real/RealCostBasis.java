@@ -70,44 +70,19 @@ public final class RealCostBasis implements RealCostMethod {
             return sale(mint, fill);
         }
 
+        /** The quantity of the sale by {@link RealProration#split} (BR2.3, BR4.3, BR4.4, BR5.3), then the cost. */
         private List<CostPart> sale(TreeMap<CostHolder, Lot> mint, CostFill fill) {
-            List<CostPart> parts = new ArrayList<>();
-            long left = fill.tokenBaseUnits();
-            CostHolder seller = fill.holder().orElse(null);
-            if (seller != null) {
-                Lot own = mint.get(seller);
-                long sold = own == null ? 0 : Math.min(left, own.units);
-                if (sold > 0) {
-                    parts.add(give(seller, own, sold));
-                    left = Math.subtractExact(left, sold);
-                }
+            List<RealProration.Holding> held = new ArrayList<>();
+            for (Map.Entry<CostHolder, Lot> entry : mint.entrySet()) {
+                held.add(new RealProration.Holding(entry.getKey(), entry.getValue().units, entry.getValue().cost));
             }
-            if (left > 0) {
-                List<CostHolder> participants = new ArrayList<>();
-                List<Long> weights = new ArrayList<>();
-                long held = 0;
-                for (Map.Entry<CostHolder, Lot> entry : mint.entrySet()) {
-                    if (entry.getValue().units > 0 && !entry.getKey().equals(seller)) {
-                        participants.add(entry.getKey());
-                        weights.add(entry.getValue().units);
-                        held = Math.addExact(held, entry.getValue().units);
-                    }
-                }
-                long shared = Math.min(left, held);
-                if (shared > 0) {
-                    long[] quantities = LargestRemainder.share(
-                            shared, weights.stream().mapToLong(Long::longValue).toArray());
-                    for (int i = 0; i < participants.size(); i++) {
-                        if (quantities[i] > 0) {
-                            CostHolder holder = participants.get(i);
-                            parts.add(give(holder, mint.get(holder), quantities[i]));
-                        }
-                    }
-                }
-                long withoutCost = Math.subtractExact(left, shared);
-                if (withoutCost > 0) {
-                    parts.add(new CostPart(Holder.UNOWNED, withoutCost, 0, true));
-                }
+            List<CostPart> parts = new ArrayList<>();
+            for (RealProration.QuantityPart quantity :
+                    RealProration.split(fill.holder(), fill.tokenBaseUnits(), held)) {
+                parts.add(
+                        quantity.withoutCost()
+                                ? new CostPart(Holder.UNOWNED, quantity.units(), 0, true)
+                                : give(quantity.holder(), mint.get(quantity.holder()), quantity.units()));
             }
             mint.values().removeIf(lot -> lot.units == 0);
             return parts;
@@ -115,13 +90,7 @@ public final class RealCostBasis implements RealCostMethod {
 
         /** BR2.2: all the cost at zero; otherwise rounded up, the rest staying on the open lot. */
         private static CostPart give(CostHolder holder, Lot lot, long units) {
-            long removed = units == lot.units
-                    ? lot.cost
-                    : BigInteger.valueOf(lot.cost)
-                            .multiply(BigInteger.valueOf(units))
-                            .add(BigInteger.valueOf(lot.units - 1))
-                            .divide(BigInteger.valueOf(lot.units))
-                            .longValueExact();
+            long removed = RealProration.costRemoved(lot.units, lot.cost, units);
             lot.units = Math.subtractExact(lot.units, units);
             lot.cost = lot.units == 0 ? 0 : Math.subtractExact(lot.cost, removed);
             return new CostPart(holder, units, removed, false);

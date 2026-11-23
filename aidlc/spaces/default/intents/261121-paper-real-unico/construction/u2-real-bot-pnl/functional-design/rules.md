@@ -29,6 +29,8 @@ rules:
         (3) a ordem do tipo dentro do evento: SWAP_FILL_IN ou SWAP_FILL_OUT = 0, NETWORK_FEE = 1, RENT = 2, demais = 3,
             como o kind_rank do código de hoje;
         (4) idempotencyKey.
+      Todo desempate de texto (txSignature, reference, idempotencyKey) compara com COLLATE "C", byte a byte, na
+      consulta e no código (decisão F-1; alinhamento A9).
       A idempotencyKey é única e montada só com identificadores de negócio (id da ordem e tipo, ou assinatura do fill
       e sufixo). Por isso a ordem é a mesma em toda leitura e em todo ambiente. A ordem de gravação nunca decide entre
       duas linhas com slot gravado e assinaturas diferentes.
@@ -42,7 +44,8 @@ rules:
     trigger: duas linhas com o mesmo slot gravado e assinaturas diferentes
     logic: >
       Comparar as assinaturas como texto, caractere a caractere, pelo código ASCII de cada caractere. Os lançamentos
-      da mesma transação têm a mesma assinatura e seguem createdAt e entryId.
+      da mesma transação têm a mesma assinatura e seguem createdAt, reference, kindRank e idempotencyKey (BR1.1;
+      alinhamento A9). No banco, a comparação usa COLLATE "C".
     violation: não se aplica (ordem total)
     source: [FR3.8, AC3.6.1]
 
@@ -52,7 +55,8 @@ rules:
     applies_to: [ENT-201, ENT-203]
     trigger: slotStatus SLOT_MISSING ou NO_NETWORK_TX
     logic: >
-      Percorrer todas as linhas da carteira na ordem de gravação (createdAt, entryId), de qualquer tipo. SE a linha tem
+      Percorrer todas as linhas da carteira na ordem de gravação (createdAt, reference, kindRank, idempotencyKey, com
+      COLLATE "C" nos textos; nunca entryId; alinhamento A9), de qualquer tipo. SE a linha tem
       slot gravado ENTÃO ele vira o slot corrente. SENÃO a linha recebe effectiveSlot = slot corrente (0 quando ainda
       não houve nenhum) e inherited = true. A herança é calculada sobre todas as linhas, e nunca só sobre os tipos que
       um leitor pediu, para que a chave seja a mesma para todos os leitores.
@@ -70,7 +74,7 @@ rules:
       Na mesma transação da mudança de estado e dos lançamentos, gravar (assinatura, slot) com recordSlot. SE a
       assinatura não tem slot ENTÃO grava (RECORDED). SE já tem o mesmo slot ENTÃO não faz nada (ALREADY_RECORDED). SE
       já tem outro slot ENTÃO mantém o primeiro, recusa o novo (CONFLICT_REFUSED), audita REAL_SLOT_CONFLICT e conta na
-      métrica real_slot_conflicts_total. A confirmação nunca falha por causa do slot. SE o slot não é conhecido na
+      métrica ledger_real_slot_conflicts_total (alinhamento A3). A confirmação nunca falha por causa do slot. SE o slot não é conhecido na
       confirmação ENTÃO nada é gravado e a linha fica SLOT_MISSING. O slot nunca é buscado na rede durante a leitura.
     violation: conflito auditado; o lançamento e a mudança de estado seguem
     source: [ADR-011, C13, C14]
@@ -221,7 +225,8 @@ rules:
       Orçamento inicial, que o NFR Design confirma pela medição sob o lock da carteira e só pode baixar sem o
       fundador:
         - 250 ms para a leitura de atribuição no caminho da barreira e do RealCycle;
-        - 800 ms dentro do p95 de 1 s de C4, no caminho do P&L.
+        - 500 ms no caminho do P&L, dentro do prazo do bloco de 800 ms (memetrade.pnl.by-mode.block-timeout)
+          (alinhamento A1 da Code Generation, decisão D-NFR1 do fundador).
 
       Mapeamento de falha (timeout, erro de leitura ou UNKNOWN_BOT):
         - P&L: o bloco REAL fica UNAVAILABLE. Com erro técnico, a causa é técnica. Com UNKNOWN_BOT, a causa é
@@ -712,7 +717,7 @@ rules:
     logic: >
       O bloco REAL sai com status UNAVAILABLE e cause=RECONCILIATION_MISMATCH. Nenhuma linha, share ou total sai, nem
       em botPnl. O evento REAL_PNL_RECONCILIATION_MISMATCH é auditado com as verificações que falharam e as
-      diferenças em lamports, e a métrica real_pnl_reconciliation_mismatch_total é incrementada. O bloco PAPER sai
+      diferenças em lamports, e a métrica pnl_real_reconciliation_mismatches_total (alinhamento A3) é incrementada. O bloco PAPER sai
       normalmente (BR5.3 da U1). O GET /api/v1/real/pnl responde o mesmo erro técnico da indisponibilidade.
     violation: não se aplica
     source: [Q6, FR5.3, AC5.3.3, AC5.3.4]
@@ -1060,7 +1065,7 @@ Se A vende no máximo o que tem, o excedente é 0, e nenhuma parte SOLD_BY_OTHER
 4. **Resolvido pela BR2.6 e pela BR2.8.** O texto de C11 e do ADR-002 ("o custo restante nunca fica menor que o real") dá lugar ao arredondamento da Q1. A barreira de compra não depende do custo.
 5. [assumption] **RENT no custo (BR2.1) e fora de compra (BR6.6).** O cálculo de hoje do P&L já soma o RENT ao custo da compra; o `RealPositions` não soma. Esta regra mantém o RENT no custo do titular da compra, como "lamports efetivamente pagos" (FR3.10). Os exemplos das histórias não têm RENT, então nenhum resultado muda. A confirmar no gate.
 6. [assumption] **Taxa de uma liquidação que falhou (BR6.2).** O FR3.9 só fala da ordem de um bot. A taxa é rateada entre os titulares do token, pelas quantidades de logo antes da tentativa, a mesma base nos dois modos de pagamento. A confirmar no gate.
-7. [assumption] **Orçamentos da BR2.7.** Os 250 ms (barreira e RealCycle) e os 800 ms (P&L) são valores iniciais. O NFR Design da U2 mede a latência sob o lock da carteira; esse item é obrigatório. Ele só pode baixar esses valores sem o fundador.
+7. [assumption] **Orçamentos da BR2.7.** Os 250 ms (barreira e RealCycle) e os 500 ms (P&L, dentro do prazo do bloco de 800 ms, D-NFR1; alinhamento A1) são valores iniciais. O NFR Design da U2 mede a latência sob o lock da carteira; esse item é obrigatório. Ele só pode baixar esses valores sem o fundador.
 8. [assumption] **Texto da chave `pnl.noBotReason.UNOWNED_NO_COST` (BR5.6).** "Motivo: venda sem custo registrado" é uma proposta; a U3 fixa o texto.
 9. [assumption] **Período.** O período conta pelo instante único do evento (BR7.6), não pelo slot. O FR5.3 pede só o realizado no período; a BR8.2 confere também as taxas, porque elas também são exatas.
 10. [assumption] **O que não é desta Unit.** As pendências de texto da U1 (o `performance-design.md`, o NFR8.1 e o BR1.9) são da U1 e não mudam aqui.

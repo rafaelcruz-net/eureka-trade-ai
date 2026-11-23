@@ -1656,7 +1656,7 @@ export interface components {
     MarketValue: components['schemas']['KnownValue'] | components['schemas']['UnknownValue'];
     /** @description Um modo que falhou; o outro bloco continua na mesma resposta */
     ModeBlockUnavailable: {
-      /** @description Código legível por máquina, por exemplo SERVICE_UNAVAILABLE */
+      /** @description Código legível por máquina: SERVICE_UNAVAILABLE, ou, no bloco REAL desde a U2, RECONCILIATION_MISMATCH quando o P&L REAL não fecha com o ledger */
       code: string;
       correlationId: string;
       /** @enum {string} */
@@ -2001,14 +2001,14 @@ export interface components {
       /** Format: uuid */
       liquidationId: string;
     };
-    /** @description Na U1, realizedLamports é líquido de taxas e totalLamports = realized + unrealized; a partir da U2, realizedLamports passa a ser bruto e o total desconta as taxas (C10) */
+    /** @description realizedLamports é bruto de taxas e totalLamports = realized + unrealized - fees (C10, desde a U2); o total do modo vem do ledger e é igual à soma dos bots mais a linha "Sem bot" */
     RealModeBlock: {
       /** @description Ordem de criação, nunca por valor */
       bots: components['schemas']['RealBotPnlLine'][];
       /** @enum {string} */
       currency: 'SOL';
       empty: boolean;
-      /** @description Na U1, só informação: já incluídas no realizado e no custo */
+      /** @description Taxas do período; descontadas do total, nunca do realizado nem do custo */
       feesLamports: string;
       /** @enum {string} */
       market: 'REAL';
@@ -2019,7 +2019,7 @@ export interface components {
        */
       status: 'AVAILABLE';
       totalLamports: components['schemas']['LamportsAmount'];
-      /** @description Linha "Sem bot" (FR3.4, FR5.3). null até a U2; desde a U2, sempre um objeto */
+      /** @description Linha "Sem bot" (FR3.4, FR5.3). Desde a U2, sempre um objeto: zero e sem motivo quando nada ficou sem dono */
       unowned: components['schemas']['UnownedPnlLine'] | null;
       /** Format: date-time */
       unrealizedAsOf: string;
@@ -2423,8 +2423,8 @@ export interface components {
     UnownedPnlLine: {
       feesLamports: string;
       realizedLamports: string;
-      /** @enum {array} */
-      reasons: 'SURPLUS_WITHOUT_OWNER' | 'ORDER_RECORD_MISSING';
+      /** @description Conjunto, sem repetição (BR5.6: SURPLUS_WITHOUT_OWNER da U1 virou UNOWNED_EXCESS) */
+      reasons: ('UNOWNED_EXCESS' | 'UNOWNED_NO_COST' | 'ORDER_RECORD_MISSING')[];
       unrealizedLamports: components['schemas']['LamportsAmount'];
     };
     VerifyRequest: {

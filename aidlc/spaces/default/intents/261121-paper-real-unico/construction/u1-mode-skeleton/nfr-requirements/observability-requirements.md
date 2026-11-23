@@ -11,7 +11,7 @@ As métricas do código usam Micrometer, exportadas em `/actuator/prometheus` (p
 | ID | Requisito | Nome no Micrometer | Nome exportado (Prometheus) | Etiquetas e valores | Onde é incrementada |
 |---|---|---|---|---|---|
 | NFR3.10 | Contar as recusas REAL na criação por motivo. | `bots.real.create.refusals` | `bots_real_create_refusals_total` | `reason` ∈ {`KILL_SWITCH`, `REAL_DISABLED`, `WALLET_INACTIVE`, `NOT_RELEASED`, `QUARANTINE`} (5 séries no máximo) | no `bots`, uma vez por resposta 409 `REAL_NOT_ELIGIBLE` de `POST /api/v1/bots`, depois da gravação da auditoria (NFR3.5); a repetição com a mesma chave que reavalia e recusa de novo conta de novo |
-| NFR4.6 | Contar os blocos `UNAVAILABLE` de C4 por modo. | `pnl.mode_block.unavailable` | `pnl_mode_block_unavailable_total` | `market` ∈ {`PAPER`, `REAL`} (2 séries no máximo) | no `pnl`, uma vez por bloco devolvido com `status: UNAVAILABLE` em `GET /api/v1/pnl/by-mode`; quando os dois modos falham, as duas séries sobem 1 |
+| NFR4.6 | Contar os blocos `UNAVAILABLE` de C4 por modo. | `pnl.mode_block.unavailable` | `pnl_mode_block_unavailable_total` | `market` ∈ {`PAPER`, `REAL`}; desde a U2, também `cause` ∈ {`TIMEOUT`, `REJECTED`, `ERROR`, `RECONCILIATION_MISMATCH`, `TOO_MANY_ORDERS`} (10 séries, todas registradas com 0; alinhamento A12) | no `pnl`, uma vez por bloco devolvido com `status: UNAVAILABLE` em `GET /api/v1/pnl/by-mode`; quando os dois modos falham, as duas séries sobem 1 |
 
 Critérios mensuráveis das duas métricas:
 

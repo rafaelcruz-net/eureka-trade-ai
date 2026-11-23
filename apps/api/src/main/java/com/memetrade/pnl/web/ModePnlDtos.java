@@ -3,6 +3,7 @@ package com.memetrade.pnl.web;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.memetrade.pnl.modeview.BlockResult;
 import com.memetrade.pnl.web.PnlDtos.PnlAmountDto;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.DiscriminatorMapping;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
@@ -101,7 +102,8 @@ public final class ModePnlDtos {
 
             @Schema(
                     requiredMode = RequiredMode.REQUIRED,
-                    description = "Código legível por máquina, por exemplo SERVICE_UNAVAILABLE")
+                    description = "Código legível por máquina: SERVICE_UNAVAILABLE, ou, no bloco REAL desde a U2,"
+                            + " RECONCILIATION_MISMATCH quando o P&L REAL não fecha com o ledger")
             String code,
 
             @Schema(requiredMode = RequiredMode.REQUIRED) String correlationId)
@@ -180,8 +182,8 @@ public final class ModePnlDtos {
 
     @Schema(
             name = "RealModeBlock",
-            description = "Na U1, realizedLamports é líquido de taxas e totalLamports = realized + unrealized; a partir"
-                    + " da U2, realizedLamports passa a ser bruto e o total desconta as taxas (C10)")
+            description = "realizedLamports é bruto de taxas e totalLamports = realized + unrealized - fees (C10, desde"
+                    + " a U2); o total do modo vem do ledger e é igual à soma dos bots mais a linha \"Sem bot\"")
     public record RealModeBlockDto(
             @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "AVAILABLE")
             String status,
@@ -207,7 +209,7 @@ public final class ModePnlDtos {
             @Schema(
                     requiredMode = RequiredMode.REQUIRED,
                     pattern = LAMPORTS,
-                    description = "Na U1, só informação: já incluídas no realizado e no custo")
+                    description = "Taxas do período; descontadas do total, nunca do realizado nem do custo")
             String feesLamports,
 
             @Schema(requiredMode = RequiredMode.REQUIRED, description = "Ordem de criação, nunca por valor")
@@ -217,7 +219,8 @@ public final class ModePnlDtos {
                     requiredMode = RequiredMode.REQUIRED,
                     implementation = UnownedPnlLineDto.class,
                     types = {"object", "null"},
-                    description = "Linha \"Sem bot\" (FR3.4, FR5.3). null até a U2; desde a U2, sempre um objeto")
+                    description = "Linha \"Sem bot\" (FR3.4, FR5.3). Desde a U2, sempre um objeto: zero e sem motivo"
+                            + " quando nada ficou sem dono")
             @JsonInclude(JsonInclude.Include.ALWAYS)
             UnownedPnlLineDto unowned)
             implements RealModeBlockResultDto {}
@@ -302,9 +305,14 @@ public final class ModePnlDtos {
             @Schema(requiredMode = RequiredMode.REQUIRED, pattern = LAMPORTS)
             String feesLamports,
 
-            @Schema(
-                    requiredMode = RequiredMode.REQUIRED,
-                    allowableValues = {"SURPLUS_WITHOUT_OWNER", "ORDER_RECORD_MISSING"})
+            // The allowed values go on the items: on the array itself they made an enum of the array (U1 defect).
+            @ArraySchema(
+                    schema = @Schema(allowableValues = {"UNOWNED_EXCESS", "UNOWNED_NO_COST", "ORDER_RECORD_MISSING"}),
+                    arraySchema =
+                            @Schema(
+                                    requiredMode = RequiredMode.REQUIRED,
+                                    description =
+                                            "Conjunto, sem repetição (BR5.6: SURPLUS_WITHOUT_OWNER da U1 virou UNOWNED_EXCESS)"))
             List<String> reasons) {}
 
     @Schema(

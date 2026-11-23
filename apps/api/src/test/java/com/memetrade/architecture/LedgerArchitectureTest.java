@@ -40,6 +40,8 @@ class LedgerArchitectureTest {
         noClasses()
                 .that()
                 .resideInAPackage("com.memetrade.pnl..")
+                .and()
+                .resideOutsideOfPackage("com.memetrade.pnl.loadtest..")
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
@@ -49,6 +51,21 @@ class LedgerArchitectureTest {
                         "com.memetrade.ledger.web..",
                         "com.memetrade.ledger.loadtest..")
                 .because("pnl reads the ledger only through LedgerReadModel and FillRecorded (logical-components.md)")
+                .check(PRODUCTION);
+        // 261121-paper-real-unico U2 (Etapa 25): the seed of the scenario pnl-by-mode, itself only in the loadtest
+        // profile, takes its people from the authentication context of the ledger load package and never touches the
+        // internals of the ledger.
+        noClasses()
+                .that()
+                .resideInAPackage("com.memetrade.pnl.loadtest..")
+                .should()
+                .dependOnClassesThat()
+                .resideInAnyPackage(
+                        "com.memetrade.ledger.domain..",
+                        "com.memetrade.ledger.application..",
+                        "com.memetrade.ledger.infra..",
+                        "com.memetrade.ledger.web..")
+                .because("the load seed of the P&L reaches the ledger load package only for its people")
                 .check(PRODUCTION);
     }
 
@@ -195,10 +212,14 @@ class LedgerArchitectureTest {
                 .because("the load bots call PaperExecution, C10 and C11 only, never tables nor internals")
                 .check(PRODUCTION);
         // U6 (Passo 16): the load package of RiskControl, itself only in the loadtest profile, reuses the prepared
-        // bots.
+        // bots; 261121-paper-real-unico U2 (Etapa 25): the load package of the P&L, only in the loadtest profile too,
+        // reuses the people of its authentication context.
         noClasses()
                 .that()
-                .resideOutsideOfPackages("com.memetrade.ledger.loadtest..", "com.memetrade.riskcontrol.loadtest..")
+                .resideOutsideOfPackages(
+                        "com.memetrade.ledger.loadtest..",
+                        "com.memetrade.riskcontrol.loadtest..",
+                        "com.memetrade.pnl.loadtest..")
                 .should()
                 .dependOnClassesThat()
                 .resideInAPackage("com.memetrade.ledger.loadtest..")

@@ -3594,7 +3594,9 @@ components:
       properties:
         code:
           type: string
-          description: "Código legível por máquina, por exemplo SERVICE_UNAVAILABLE"
+          description: "Código legível por máquina: SERVICE_UNAVAILABLE, ou, no bloco\
+            \ REAL desde a U2, RECONCILIATION_MISMATCH quando o P&L REAL não fecha\
+            \ com o ledger"
         correlationId:
           type: string
         currency:
@@ -4366,9 +4368,9 @@ components:
     RealModeBlock:
       type: object
       additionalProperties: false
-      description: "Na U1, realizedLamports é líquido de taxas e totalLamports = realized\
-        \ + unrealized; a partir da U2, realizedLamports passa a ser bruto e o total\
-        \ desconta as taxas (C10)"
+      description: "realizedLamports é bruto de taxas e totalLamports = realized +\
+        \ unrealized - fees (C10, desde a U2); o total do modo vem do ledger e é igual\
+        \ à soma dos bots mais a linha \"Sem bot\""
       properties:
         bots:
           type: array
@@ -4383,7 +4385,8 @@ components:
           type: boolean
         feesLamports:
           type: string
-          description: "Na U1, só informação: já incluídas no realizado e no custo"
+          description: "Taxas do período; descontadas do total, nunca do realizado\
+            \ nem do custo"
           pattern: "^-?[0-9]{1,20}$"
         market:
           type: string
@@ -4399,8 +4402,8 @@ components:
         totalLamports:
           $ref: "#/components/schemas/LamportsAmount"
         unowned:
-          description: "Linha \"Sem bot\" (FR3.4, FR5.3). null até a U2; desde a U2,\
-            \ sempre um objeto"
+          description: "Linha \"Sem bot\" (FR3.4, FR5.3). Desde a U2, sempre um objeto:\
+            \ zero e sem motivo quando nada ficou sem dono"
           oneOf:
           - $ref: "#/components/schemas/UnownedPnlLine"
           - type: "null"
@@ -5319,11 +5322,14 @@ components:
           pattern: "^-?[0-9]{1,20}$"
         reasons:
           type: array
-          enum:
-          - SURPLUS_WITHOUT_OWNER
-          - ORDER_RECORD_MISSING
+          description: "Conjunto, sem repetição (BR5.6: SURPLUS_WITHOUT_OWNER da U1\
+            \ virou UNOWNED_EXCESS)"
           items:
             type: string
+            enum:
+            - UNOWNED_EXCESS
+            - UNOWNED_NO_COST
+            - ORDER_RECORD_MISSING
         unrealizedLamports:
           $ref: "#/components/schemas/LamportsAmount"
       required:

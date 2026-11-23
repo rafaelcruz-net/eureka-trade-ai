@@ -669,7 +669,7 @@ components:
           type: array
           items:
             type: string
-            enum: [SURPLUS_WITHOUT_OWNER, ORDER_RECORD_MISSING]
+            enum: [UNOWNED_EXCESS, UNOWNED_NO_COST, ORDER_RECORD_MISSING]  # BR5.6 da U2
       required: [realizedLamports, unrealizedLamports, feesLamports, reasons]
 ```
 
@@ -1053,7 +1053,7 @@ types:
     fields: { saleRef: String, origin: "LIQUIDATION | CONDITIONAL | SOLD_BY_OTHER_BOT", mint: String, at: Instant, tokenBaseUnits: long, receivedLamports: long, feeLamports: long, realizedLamports: long }
   UnownedPnlLine:
     kind: record
-    fields: { realizedLamports: long, unrealized: LamportsValue, feesLamports: long, reasons: "Set<UnownedReason> (SURPLUS_WITHOUT_OWNER, ORDER_RECORD_MISSING)" }
+    fields: { realizedLamports: long, unrealized: LamportsValue, feesLamports: long, reasons: "Set<UnownedReason> (UNOWNED_EXCESS, UNOWNED_NO_COST, ORDER_RECORD_MISSING; BR5.6 da U2)" }
   RealModeTotal:
     kind: record
     fields: { realizedLamports: long, unrealized: LamportsValue, feesLamports: long, total: LamportsValue, currency: "SOL", unrealizedAsOf: Instant }
@@ -1092,10 +1092,10 @@ types:
       mint: String
       tokenBaseUnits: "long (> 0)"
       lamports: "long (sinal de RealEntry: IN negativo, OUT positivo)"
-  RealPosition: "ledger.api.RealPosition sem mudança: (mint, tokenBaseUnits, costLamports)"
+  RealPosition: "ledger.api.RealPosition: (mint, tokenBaseUnits, RealCost cost), com RealCost selado Known(long) ou Unknown(motivo); RealWalletCost devolve WalletCost selado; um custo desconhecido nunca vira 0 (decisão F-3; alinhamento A11)"
 rules:
   - "um único algoritmo de custo médio REAL; o algoritmo próprio do RealPositions sai (FR5.2)"
-  - "o custo restante nunca fica menor que o real; a regra de arredondamento é fixada no Functional Design da U2"
+  - "o custo retirado numa venda parcial é arredondado para cima e a última venda leva o restante; o custo restante pode ficar até 1 lamport abaixo da fração exata por titular e por venda parcial, e volta a ser exato ao zerar (BR2.6 da U2; alinhamento A11)"
   - "puro: sem I/O, sem Spring, sem relógio, sem ponto flutuante; aplicação incremental, sem carregar o histórico numa lista"
   - "o ledger nunca depende do pnl (LedgerArchitectureTest.theLedgerNeverDependsOnThePnl continua verde sem exceção)"
   - "o bean existe em todo processo que usa o ledger REAL (API e worker)"
@@ -1124,9 +1124,11 @@ types:
       inherited: "boolean (true quando a linha não tem slot gravado)"
       txSignature: "Optional<String>"
       createdAt: Instant
-      entryId: UUID
-    order: "effectiveSlot; depois as linhas com slot gravado antes das herdadas; com slot: txSignature, createdAt, entryId; herdadas: createdAt, entryId"
-    fallback: "linha sem slot herda o slot da última linha com slot gravada antes dela na mesma carteira, pela ordem de gravação (created_at, entry_id) (ADR-011)"
+      reference: "String (alinhamento A9)"
+      kindRank: "int (SWAP_FILL_IN/OUT 0, NETWORK_FEE 1, RENT 2, demais 3; alinhamento A9)"
+      idempotencyKey: "String (alinhamento A9)"
+    order: "effectiveSlot; depois as linhas com slot gravado antes das herdadas; com slot: txSignature, depois createdAt, reference, kindRank e idempotencyKey; herdadas: createdAt, reference, kindRank e idempotencyKey; nunca entryId; todo desempate de texto (tx_signature, reference, idempotency_key) com COLLATE \"C\" (decisão F-1; alinhamento A9)"
+    fallback: "linha sem slot herda o slot da última linha com slot gravada antes dela na mesma carteira, pela ordem de gravação (created_at, reference, kind_rank, idempotency_key) (ADR-011; decisão F-1; alinhamento A9)"
     slotSource: "o slot vem só da tabela lateral real_entry_slot, casada pela tx_signature do lançamento (C14); real_ledger_entry não ganha coluna"
   SlotStatus: { kind: enum, values: [RECORDED, SLOT_MISSING, NO_NETWORK_TX] }
   NetworkOrderedEntry:
@@ -1167,7 +1169,7 @@ changes:
   - type: ledger.api.RealLedger
     add: "RecordSlotResult recordSlot(String txSignature, long slot)"
     behaviour: "insere (assinatura, slot) em real_entry_slot na transação do chamador, com INSERT ... ON CONFLICT DO NOTHING; RECORDED quando gravou; ALREADY_RECORDED quando a assinatura já tem o mesmo slot (idempotente); CONFLICT_REFUSED quando a assinatura já tem outro slot"
-    conflict: "nunca lança para fora da transação de confirmação (revisão R-03): o primeiro slot fica; o slot novo é recusado e registrado como evento de auditoria REAL_SLOT_CONFLICT com o motivo (assinatura, slot gravado, slot recusado) e na métrica real_slot_conflicts_total; o lançamento do ledger e a mudança de estado da ordem seguem na mesma transação. O Functional Design da U2 detalha o evento e o alerta"
+    conflict: "nunca lança para fora da transação de confirmação (revisão R-03): o primeiro slot fica; o slot novo é recusado e registrado como evento de auditoria REAL_SLOT_CONFLICT com o motivo (assinatura, slot gravado, slot recusado) e na métrica ledger_real_slot_conflicts_total (alinhamento A3); o lançamento do ledger e a mudança de estado da ordem seguem na mesma transação. O Functional Design da U2 detalha o evento e o alerta"
     resultType: "RecordSlotResult: enum RECORDED | ALREADY_RECORDED | CONFLICT_REFUSED"
     callers: "a confirmação da ordem (realexecution), o FillPosting da condicional (realexits) e a confirmação de depósito, saque e taxa (botwallet)"
   - type: realexecution.api.RealOrderView

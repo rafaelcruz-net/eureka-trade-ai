@@ -58,35 +58,68 @@ public class ModePnlView {
 
     private <T> BlockResult<T> result(
             CompletableFuture<T> block, PnlMarket market, String currency, long deadline, String correlationId) {
-        String cause;
+        String label;
+        PnlModeMetrics.Cause cause;
         try {
             long left = Math.max(0, deadline - System.nanoTime());
             return new BlockResult.Available<>(block.get(left, TimeUnit.NANOSECONDS));
         } catch (TimeoutException late) {
             block.cancel(false);
-            cause = "TIMEOUT";
+            label = "TIMEOUT";
+            cause = PnlModeMetrics.Cause.TIMEOUT;
         } catch (ExecutionException failed) {
+            label = labelOf(failed.getCause());
             cause = causeOf(failed.getCause());
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
-            cause = "INTERRUPTED";
+            label = "INTERRUPTED";
+            cause = PnlModeMetrics.Cause.ERROR;
         }
-        log.warn("P&L block unavailable: market={}, cause={}", market, cause);
-        metrics.unavailable(market);
-        return new BlockResult.Unavailable<>(market, currency, SERVICE_UNAVAILABLE, correlationId);
+        log.warn("P&L block unavailable: market={}, cause={}", market, label);
+        metrics.unavailable(market, cause);
+        String code = cause == PnlModeMetrics.Cause.RECONCILIATION_MISMATCH
+                ? RealPnlUnavailable.RECONCILIATION_MISMATCH
+                : SERVICE_UNAVAILABLE;
+        return new BlockResult.Unavailable<>(market, currency, code, correlationId);
     }
 
     /** A closed value or the simple name of the class of the failure; never its message (it may carry data). */
-    private static String causeOf(Throwable failure) {
-        if (failure instanceof ModeBlockExecutor.Rejected) {
-            return "REJECTED";
-        }
-        if (failure instanceof ModeBlockExecutor.DeadlineExpired) {
-            return "TIMEOUT";
-        }
+    private static String labelOf(Throwable failure) {
         if (failure instanceof RealPnlUnavailable unavailable) {
             return unavailable.causeLabel();
         }
+        PnlModeMetrics.Cause cause = causeOf(failure);
+        if (cause != PnlModeMetrics.Cause.ERROR) {
+            return cause.name();
+        }
         return failure == null ? "UNKNOWN" : failure.getClass().getSimpleName();
+    }
+
+    /**
+     * 261121-paper-real-unico U2 (NFR1.6, R-03): the label {@code cause}: {@code TIMEOUT} for any deadline of the block
+     * (the queue, the transaction, the attribution, a {@code 57014} or the deadline at a row), {@code REJECTED} for a
+     * full queue, the closed causes of {@link RealPnlUnavailable}, {@code ERROR} for anything else.
+     */
+    static PnlModeMetrics.Cause causeOf(Throwable failure) {
+        if (failure instanceof ModeBlockExecutor.Rejected) {
+            return PnlModeMetrics.Cause.REJECTED;
+        }
+        if (failure instanceof ModeBlockExecutor.DeadlineExpired) {
+            return PnlModeMetrics.Cause.TIMEOUT;
+        }
+        if (failure instanceof RealPnlUnavailable unavailable) {
+            return switch (unavailable.causeLabel()) {
+                case RealPnlUnavailable.TIMEOUT -> PnlModeMetrics.Cause.TIMEOUT;
+                case RealPnlUnavailable.RECONCILIATION_MISMATCH -> PnlModeMetrics.Cause.RECONCILIATION_MISMATCH;
+                case RealPnlUnavailable.TOO_MANY_ORDERS -> PnlModeMetrics.Cause.TOO_MANY_ORDERS;
+                default ->
+                    com.memetrade.shared.jdbc.ReadDeadline.isTimeout(unavailable)
+                            ? PnlModeMetrics.Cause.TIMEOUT
+                            : PnlModeMetrics.Cause.ERROR;
+            };
+        }
+        return failure != null && com.memetrade.shared.jdbc.ReadDeadline.isTimeout(failure)
+                ? PnlModeMetrics.Cause.TIMEOUT
+                : PnlModeMetrics.Cause.ERROR;
     }
 }

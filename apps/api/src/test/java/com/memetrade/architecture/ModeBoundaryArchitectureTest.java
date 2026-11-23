@@ -87,6 +87,10 @@ class ModeBoundaryArchitectureTest {
                                                         "CostFill",
                                                         "CostHolder",
                                                         "NetworkOrderKey",
+                                                        // 261121-paper-real-unico U2 (C12): the rows of the REAL
+                                                        // ledger in network order, read by the P&L in one pass.
+                                                        "NetworkOrderedEntry",
+                                                        "SlotStatus",
                                                         "CostPart",
                                                         "Accumulator")
                                                 .contains(simple);
@@ -94,6 +98,55 @@ class ModeBoundaryArchitectureTest {
                         })
                 .because("the REAL calculation reads nothing PAPER (NFR4.2)")
                 .check(PRODUCTION);
+    }
+
+    /**
+     * 261121-paper-real-unico U2 (NFR4.2, NFR4.3; security-design.md "Separação dos modos"): the REAL ledger of
+     * {@code ledger.infra} and the REAL P&L ({@code pnl.real} and the REAL classes of {@code pnl.application}) never
+     * depend on a type of the PAPER ledger ({@code LedgerReadModel} and the {@code Paper*} types of
+     * {@code ledger.api}, the PAPER repository of {@code ledger.infra}).
+     */
+    @Test
+    void theRealLedgerAndTheRealPnlNeverDependOnThePaperLedger() {
+        noClasses()
+                .that(new com.tngtech.archunit.base.DescribedPredicate<JavaClass>("are REAL ledger or REAL P&L code") {
+                    @Override
+                    public boolean test(JavaClass type) {
+                        String top = topName(type);
+                        return (type.getPackageName().equals("com.memetrade.ledger.infra") && top.contains("Real"))
+                                || type.getPackageName().startsWith("com.memetrade.pnl.real")
+                                || (type.getPackageName().equals("com.memetrade.pnl.application")
+                                        && (top.startsWith("Real")
+                                                || top.equals("AttributedCostReader")
+                                                || top.equals("ReconciliationAuditGate")));
+                    }
+                })
+                .should()
+                .dependOnClassesThat(
+                        new com.tngtech.archunit.base.DescribedPredicate<JavaClass>("a PAPER ledger type") {
+                            @Override
+                            public boolean test(JavaClass type) {
+                                String top = topName(type);
+                                return (type.getPackageName().equals("com.memetrade.ledger.api")
+                                                && (top.startsWith("Paper") || top.equals("LedgerReadModel")))
+                                        || (type.getPackageName().equals("com.memetrade.ledger.infra")
+                                                && (top.equals("JdbcLedgerRepository")
+                                                        || top.equals("LedgerReadModelImpl")
+                                                        || top.startsWith("JdbcPaper")));
+                            }
+                        })
+                .because("PAPER never shares data with REAL (team.md, NFR4.2)")
+                .check(PRODUCTION);
+    }
+
+    /** The simple name of the top-level type of a class ({@code RealCost} for {@code RealCost$Known}); arrays: "". */
+    private static String topName(JavaClass type) {
+        String name = type.getName();
+        String pkg = type.getPackageName();
+        if (pkg.isEmpty() || name.length() <= pkg.length() + 1 || !name.startsWith(pkg + ".")) {
+            return "";
+        }
+        return name.substring(pkg.length() + 1).split("\\$")[0];
     }
 
     @Test

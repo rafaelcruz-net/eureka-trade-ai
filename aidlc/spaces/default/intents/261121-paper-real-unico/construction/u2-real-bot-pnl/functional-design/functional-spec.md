@@ -33,7 +33,7 @@ Entrada: tenant e pessoa (do token), período `All` ou `Range [from, to)`. Saíd
 
 1. Ler do diretório (C8) os bots REAL da pessoa, inclusive os pausados e os removidos, em ordem de criação. Montar a ordem de desempate (BR4.2), com UNOWNED por último.
 2. Ler as carteiras do bot da pessoa (`botwallet.api`). Se não há bot REAL nem carteira, devolver o bloco vazio (`empty = true`) e parar.
-3. Ler em fluxo as ordens da pessoa que chegaram à rede (C13, `streamSettledOrders`), dentro do orçamento da leitura de atribuição (BR2.7), e montar o índice compacto `realOrderId → OrderAttribution` (ENT-204).
+3. Ler em fluxo as ordens da pessoa que chegaram à rede (C13, `streamSettledOrders`), dentro do orçamento da leitura de atribuição (BR2.7: 500 ms no caminho do P&L, dentro do prazo do bloco de 800 ms; alinhamento A1), e montar o índice compacto `realOrderId → OrderAttribution` (ENT-204). O teto `real-max-orders` é contado no próprio fluxo e, acima dele, o bloco fica `UNAVAILABLE` com `TOO_MANY_ORDERS` (decisão F-2; alinhamento A10).
    - Se uma ordem tem bot que não está no passo 1, marcar UNKNOWN_BOT (BR3.4) e ir ao passo 9. Isso afeta só este bloco de P&L.
    - Para cada ordem `FAILED` do modo Assinada, sem lançamento no ledger, montar uma tentativa virtual com a chave de rede pela assinatura da ordem (BR6.2).
 4. Ler em fluxo os lançamentos de negociação das carteiras (BR6.5), na ordem de rede (C12, `streamInNetworkOrder`). A chave e a herança do slot vêm prontas do provedor (BR1.1, BR1.3). Contar as linhas `SLOT_MISSING`. Intercalar as tentativas virtuais do passo 3 na mesma ordem.
@@ -113,8 +113,8 @@ Para um período `Range`, a conferência roda sobre o próprio período e també
 
 Regra: BR8.7.
 
-1. Gravar o evento de auditoria `REAL_PNL_RECONCILIATION_MISMATCH` (ENT-214), com o tenant, a pessoa, o período, as verificações que falharam, as diferenças em lamports e o `correlationId`. O evento nunca traz endereço de carteira.
-2. Incrementar `real_pnl_reconciliation_mismatch_total`.
+1. Gravar o evento de auditoria `REAL_PNL_RECONCILIATION_MISMATCH` (ENT-214), com o tenant, a pessoa, o período, as verificações que falharam, as diferenças em lamports e o `correlationId`. O evento nunca traz endereço de carteira. Ele é gravado depois que a transação de leitura fechou e no máximo 1 vez por hora por impressão digital (a pessoa e os tipos de verificação, sem valores); decisões do fundador de 2026-11-23 sobre as revisões R-01 e R-05 da Code Generation (NFR3.15).
+2. Incrementar `pnl_real_reconciliation_mismatches_total` (uma vez por verificação que falhou; alinhamento A3).
 3. Lançar `RealPnlUnavailable` com `cause = RECONCILIATION_MISMATCH`. O bloco REAL de C4 sai `UNAVAILABLE` com esse código, e o bloco PAPER sai normalmente.
 4. Nenhuma linha, share ou total REAL sai, nem em `botPnl`, nem no `GET /api/v1/real/pnl`.
 
@@ -159,7 +159,7 @@ Gravadores:
 1. Na transação que muda o estado e grava os lançamentos, se a assinatura e o slot da confirmação são conhecidos, chamar `recordSlot(assinatura, slot)`.
 2. `RECORDED`: a linha foi inserida em `real_entry_slot`.
 3. `ALREADY_RECORDED`: a mesma assinatura já tinha o mesmo slot. Nada muda; a repetição é idempotente.
-4. `CONFLICT_REFUSED`: a assinatura já tinha outro slot. O primeiro fica. Gravar o evento `REAL_SLOT_CONFLICT` (ENT-215) com o slot gravado, o recusado e o gravador, e incrementar `real_slot_conflicts_total`. A transação segue: o lançamento e a mudança de estado nunca são desfeitos por causa do slot.
+4. `CONFLICT_REFUSED`: a assinatura já tinha outro slot. O primeiro fica. Gravar o evento `REAL_SLOT_CONFLICT` (ENT-215) com o slot gravado, o recusado e o gravador, e incrementar `ledger_real_slot_conflicts_total` (alinhamento A3). A transação segue: o lançamento e a mudança de estado nunca são desfeitos por causa do slot.
 5. Slot desconhecido na confirmação: nada é gravado, e a linha fica `SLOT_MISSING` na leitura.
 
 Linhas anteriores à migração 0023 não são preenchidas (BR1.5, BR1.7).
@@ -271,5 +271,5 @@ Texto equivalente: a assinatura liga o slot aos lançamentos. Cada lançamento t
 
 1. **Resolvido (revisão R-07).** As tentativas do modo Assinada que falharam entram na ordem de rede pela assinatura da ordem (F1, passos 3 e 4). A taxa de uma liquidação que falhou usa a mesma base nos dois modos, as quantidades de logo antes da tentativa.
 2. [assumption] Para um período `Range`, a passada também confere `All` (F3). O custo é o mesmo, porque o histórico é percorrido inteiro de qualquer jeito.
-3. [assumption] O limite de ordens da U1 (`real-max-orders`, causa `TOO_MANY_ORDERS`) deixa de ser necessário com a leitura em fluxo. Se ele fica como proteção, quem decide é o NFR Design da U2 (PQ-10).
+3. **Decidido (fundador, 2026-11-22, F-2; alinhamento A10).** O limite de ordens da U1 (`real-max-orders`, causa `TOO_MANY_ORDERS`) fica, com o comportamento da U1, aplicado dentro do fluxo de `streamSettledOrders` da U2: a ordem `real-max-orders + 1` deixa o bloco `UNAVAILABLE`, sem número parcial.
 4. O fundador decidiu D1 a D3 em 2026-11-22 (`rules.md`, suposições 1 a 3). Continuam para o gate: o RENT no custo e fora de compra, a taxa da liquidação que falhou, os orçamentos iniciais da BR2.7 e o texto da chave `pnl.noBotReason.UNOWNED_NO_COST` (`rules.md`, suposições 5 a 8).

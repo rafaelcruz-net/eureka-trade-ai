@@ -73,7 +73,22 @@ class NeverSumModesArchitectureTest {
             com.memetrade.pnl.api.RealWalletCost.class,
             com.memetrade.pnl.api.WalletCost.class,
             com.memetrade.pnl.api.WalletCost.Known.class,
-            com.memetrade.pnl.api.WalletCost.Unknown.class);
+            com.memetrade.pnl.api.WalletCost.Unknown.class,
+            // 261121-paper-real-unico U2 (BR10.5, Etapa 23): the network order of the REAL ledger, its slot and its
+            // cost (C11 to C14), and the results of RealCostBasis, RealProration and the reconciliation.
+            com.memetrade.ledger.api.NetworkOrderedEntry.class,
+            com.memetrade.ledger.api.NetworkOrderKey.class,
+            com.memetrade.ledger.api.SlotStatus.class,
+            com.memetrade.ledger.api.RecordSlotResult.class,
+            com.memetrade.ledger.api.RealCost.class,
+            com.memetrade.ledger.api.RealCost.Known.class,
+            com.memetrade.ledger.api.RealCost.Unknown.class,
+            com.memetrade.ledger.api.RealCostMethod.CostPart.class,
+            com.memetrade.pnl.real.ProrationPart.class,
+            com.memetrade.pnl.real.TradeEvent.class,
+            com.memetrade.pnl.real.PositionValue.class,
+            com.memetrade.pnl.real.RealPnlResult.class,
+            com.memetrade.pnl.real.ReconciliationResult.class);
 
     /** The PAPER block on the wire, with its US$ amount shapes (PnlAmountDto is used by PAPER code only). */
     static final Set<Class<?>> PAPER_DTOS = Set.of(

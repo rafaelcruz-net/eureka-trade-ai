@@ -20,7 +20,7 @@ Nada muda na escala: a U1 é leitura por pessoa e uma criação de bot, sobre o 
 
 | ID | Requisito | Valor |
 |---|---|---|
-| NFR8.1 | A U1 roda no mesmo app, sem serviço AWS novo (BR10.4). | 0 recursos novos em `infra/terraform/`; 0 mudanças nas definições de tarefa do ECS. |
+| NFR8.1 | A U1 roda no mesmo app, sem serviço AWS novo (BR10.4). | 0 recursos de serviço novos em `infra/terraform/`; as três variáveis sem segredo do `api_environment` do `infrastructure-specification.md` da U1 (alinhamento A7 da Code Generation da U2). |
 | NFR8.2 | O orçamento de cada conta AWS não muda. | US$ 350 por mês por conta (`devnet` e `mainnet`); a U1 não acrescenta custo recorrente. |
 | NFR8.3 | Os usuários têm um único ambiente, a mainnet; a devnet continua fechada aos usuários (BR10.4). | 0 rotas, telas ou configurações da U1 que abram a devnet a uma conta de usuário. |
 | NFR8.4 | A U1 nunca é implantada num ambiente com usuários antes da U2 (BR10.3). | A U1 só vai para a `mainnet` (ou para uma devnet com convidados) num SHA que já contém a U2 com o Build and Test aprovado. A devnet não tem usuários (NFR8.3), então o fundador pode implantar a U1 nela para os próprios testes antes da U2; o local e a CI continuam sendo a verificação do ponto de controle do esqueleto. |

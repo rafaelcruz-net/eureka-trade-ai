@@ -27,11 +27,11 @@ O `rules.md`, o `functional-spec.md` e o `contract-summary.md` não são editado
 | NFR3.16 | Contar as falhas de gravação do evento de divergência (NFR3.15). | `pnl.real.reconciliation.audit_failures` | `pnl_real_reconciliation_audit_failures_total` | nenhuma (1 série) | no `pnl`, em F4: +1 por gravação do evento que falhou ou passou de 200 ms. Fica só no Prometheus; o alarme de NFR2.14 já dispara pela divergência. |
 | NFR1.23 | Medir o tempo e as falhas da leitura de atribuição, por caminho. | `pnl.real.attribution.read` (temporizador) | `pnl_real_attribution_read_seconds` (`_count`, `_sum`, `_bucket`, `_max`) | `path` ∈ {`GATE`, `CYCLE`, `PNL`}; `outcome` ∈ {`OK`, `TIMEOUT`, `ERROR`, `UNKNOWN_BOT`} (12 combinações). Histograma com os limites fixos 0,1; 0,25; 0,5; 0,8; 1 e 2 s, que contêm os orçamentos de 250 e 500 ms e o prazo de 800 ms do bloco | no `pnl.application`, em volta de cada leitura de atribuição (F6.2): na API para `PNL`, no worker para `GATE` e `CYCLE`. As falhas por caminho são `_count` com `outcome` diferente de `OK`. |
 
-Critérios mensuráveis das quatro métricas:
+Critérios mensuráveis das cinco métricas (alinhamento A5):
 
 - 0 etiquetas com tenant, pessoa, bot, carteira, endereço, assinatura, mint ou `correlationId`; no máximo 133 séries novas por processo: 12 combinações do temporizador vezes 10 séries cada (7 faixas do histograma com a `+Inf`, `_count`, `_sum` e `_max`), mais 8 da divergência, 1 de falha da auditoria, 1 de `SLOT_MISSING` e 3 de conflito;
 - teste de unidade de cada uma: depois de uma divergência forçada em `FEES`, `pnl_real_reconciliation_mismatches_total{check="FEES"}` vale 1 e as outras 7 valem 0; depois de 3 linhas `SLOT_MISSING` lidas, `ledger_real_slot_missing_total` vale 3; depois de um conflito na confirmação da ordem, `ledger_real_slot_conflicts_total{writer="ORDER_CONFIRMATION"}` vale 1; uma leitura com tempo esgotado no caminho `PNL` soma 1 a `_count{path="PNL",outcome="TIMEOUT"}`;
-- teste de integração confere que as quatro aparecem em `/actuator/prometheus` com os nomes exportados acima.
+- teste de integração confere que as cinco aparecem em `/actuator/prometheus` com os nomes exportados acima.
 
 ## Logs
 

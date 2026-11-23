@@ -23,7 +23,7 @@ Este arquivo cobre o comportamento sob falha, a exatidão dos valores e a verifi
 
 | Causa | Código do bloco REAL | `cause` em `pnl_mode_block_unavailable_total` | Evento de auditoria | Outro contador |
 |---|---|---|---|---|
-| Divergência (qualquer das 7 verificações) | `RECONCILIATION_MISMATCH` | `RECONCILIATION_MISMATCH` | 1 por pessoa, impressão digital e hora | `pnl_real_reconciliation_mismatches_total{check}` |
+| Divergência (qualquer das 7 verificações) | `RECONCILIATION_MISMATCH` | `RECONCILIATION_MISMATCH` | 1 por impressão digital (pessoa e tipos de verificação, sem valores; revisão R-05) e hora, gravado depois da transação do bloco (revisão R-01) | `pnl_real_reconciliation_mismatches_total{check}` |
 | `UNKNOWN_BOT` | `RECONCILIATION_MISMATCH` | `RECONCILIATION_MISMATCH` | idem, com a verificação `UNKNOWN_BOT` | idem, `check="UNKNOWN_BOT"` |
 | Atribuição com erro | causa técnica (`SERVICE_UNAVAILABLE`, como na U1) | `ERROR` | nenhum | `pnl_real_attribution_read_seconds{path="PNL",outcome="ERROR"}` |
 | Tempo esgotado em qualquer parte do bloco: atribuição (500 ms), fluxo do ledger, rateio, preços ou conferência (prazo de 800 ms), por `57014` ou pela conferência do instante limite no fluxo | causa técnica | `TIMEOUT` | nenhum | `outcome="TIMEOUT"` quando foi na atribuição |

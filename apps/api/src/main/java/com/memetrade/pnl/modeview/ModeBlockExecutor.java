@@ -35,7 +35,11 @@ import org.springframework.stereotype.Component;
  *       longer than the deadline), then sets the statement timeout to what is left.
  * </ol>
  *
- * A full queue refuses the task at once, on the request thread: {@link #submit} catches that and answers a future
+ * A failed block whose failure is an {@link AfterBlockRelease} gets its deferred work run on its thread right after
+ * the transaction ended and the future was completed (review R-01: the audit of a REAL mismatch never runs while the
+ * block holds a connection of the main pool, and never delays the answer).
+ *
+ * <p>A full queue refuses the task at once, on the request thread: {@link #submit} catches that and answers a future
  * already failed with {@link Rejected}, so a full pool is an UNAVAILABLE block and never a 500.
  */
 @Component
@@ -102,8 +106,24 @@ public class ModeBlockExecutor implements DisposableBean {
             future.complete(value);
         } catch (Exception failure) {
             future.completeExceptionally(failure);
+            // The transaction of the block has ended (its connection is back in the main pool) and the answer is
+            // given: only now the deferred work of the failure runs, still with the MDC of the request.
+            afterTransaction(failure);
         } finally {
             MDC.clear();
+        }
+    }
+
+    /** The first {@link AfterBlockRelease} of the chain of causes of a failed block, run once. */
+    static void afterTransaction(Throwable failure) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof AfterBlockRelease deferred) {
+                deferred.afterTransaction();
+                return;
+            }
+            if (cause.getCause() == cause) {
+                return;
+            }
         }
     }
 

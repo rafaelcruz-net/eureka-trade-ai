@@ -84,7 +84,9 @@ class ModePnlFailureIT extends AbstractPaperRealIT {
         assertThat(real.get("market").asText()).isEqualTo("REAL");
         assertThat(real.get("currency").asText()).isEqualTo("SOL");
         assertThat(real.has("unowned")).isTrue();
-        assertThat(real.get("unowned").isNull()).isTrue();
+        // 261121-paper-real-unico U2 (C4): the line "Sem bot" is always an object; zero and without a reason here.
+        assertThat(real.get("unowned").get("realizedLamports").asText()).isEqualTo("0");
+        assertThat(real.get("unowned").get("reasons")).isEmpty();
         assertThat(real.get("bots")).hasSize(1);
         assertThat(real.get("bots").get(0).get("botId").asText()).isEqualTo(realBot.toString());
         assertThat(real.get("bots").get(0).get("realizedLamports").isTextual()).isTrue();

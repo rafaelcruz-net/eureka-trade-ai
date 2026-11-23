@@ -72,9 +72,11 @@ class RealSettlementIT extends AbstractRealExecutionIT {
                         .query(Long.class)
                         .single())
                 .isEqualTo(2_039_280L);
+        // 261121-paper-real-unico U2 (BR2.1): the cost is what was paid for the token, the SOL leg and the RENT of the
+        // account the buy created (50.000.000 + 2.039.280); the network fee (8.457) is a fee, never part of the cost.
         assertThat(pnl.pnl(setup.tenantId(), setup.userId()).positions())
                 .singleElement()
-                .satisfies(position -> assertThat(position.costLamports()).isEqualTo(52_047_737L));
+                .satisfies(position -> assertThat(position.costLamports()).isEqualTo(52_039_280L));
     }
 
     /**

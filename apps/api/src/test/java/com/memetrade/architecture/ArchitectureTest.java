@@ -174,6 +174,40 @@ class ArchitectureTest {
     }
 
     /**
+     * 261121-paper-real-unico U2 (project.md "NEVER ponto flutuante para valores monetários", Etapa 23): the REAL ledger
+     * API, the REAL calculation and the P&L application keep lamports, base units and prices in exact types only.
+     */
+    @Test
+    void theRealLedgerAndThePnlNeverUseFloatingPoint() {
+        fields().that()
+                .areDeclaredInClassesThat()
+                .resideInAnyPackage(
+                        "com.memetrade.ledger.api..", "com.memetrade.pnl.real..", "com.memetrade.pnl.application..")
+                .should()
+                .notHaveRawType(double.class)
+                .andShould()
+                .notHaveRawType(float.class)
+                .andShould()
+                .notHaveRawType(Double.class)
+                .andShould()
+                .notHaveRawType(Float.class)
+                .check(PRODUCTION);
+        methods()
+                .that()
+                .areDeclaredInClassesThat()
+                .resideInAnyPackage("com.memetrade.ledger.api..", "com.memetrade.pnl.real..")
+                .should()
+                .notHaveRawReturnType(double.class)
+                .andShould()
+                .notHaveRawReturnType(float.class)
+                .andShould()
+                .notHaveRawReturnType(Double.class)
+                .andShould()
+                .notHaveRawReturnType(Float.class)
+                .check(PRODUCTION);
+    }
+
+    /**
      * 261113-trading-real-bot U2 (NFR1.4, security-design.md "Isolamento de rede"): only the CoinGecko adapter package
      * may reach the network; the rest of the market module (and the simulated sources) never does.
      */

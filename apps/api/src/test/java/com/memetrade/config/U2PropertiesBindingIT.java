@@ -26,8 +26,37 @@ import org.springframework.util.unit.DataSize;
 class U2PropertiesBindingIT {
 
     @Configuration(proxyBeanMethods = false)
-    @EnableConfigurationProperties(PnlRealProperties.class)
+    @EnableConfigurationProperties({PnlRealProperties.class, com.memetrade.pnl.infra.PnlMismatchAuditProperties.class})
     static class Bound {}
+
+    /** Phase 2 (Etapa 21, D-NFR1, NFR3.15): the budget of the attribution of the P&L and the bounded audit write. */
+    @Test
+    void thePhase2KeysBindWithTheirDefaults() {
+        runner(Map.of()).run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context.getBean(PnlRealProperties.class).attribution().pnlTimeout())
+                    .isEqualTo(Duration.ofMillis(500));
+            com.memetrade.pnl.infra.PnlMismatchAuditProperties audit =
+                    context.getBean(com.memetrade.pnl.infra.PnlMismatchAuditProperties.class);
+            assertThat(audit.poolSize()).isEqualTo(2);
+            assertThat(audit.writeTimeout()).isEqualTo(Duration.ofMillis(200));
+        });
+    }
+
+    @Test
+    void eachPhase2KeyOutOfItsRangeStopsTheStartNamingTheProperty() {
+        for (Map.Entry<String, Object> wrong : Map.<String, Object>of(
+                        "memetrade.pnl.real.attribution.pnl-timeout", "600ms",
+                        "memetrade.pnl.mismatch-audit.pool-size", "3",
+                        "memetrade.pnl.mismatch-audit.write-timeout", "300ms")
+                .entrySet()) {
+            runner(Map.of(wrong.getKey(), wrong.getValue())).run(context -> assertThat(context)
+                    .hasFailed()
+                    .getFailure()
+                    .rootCause()
+                    .hasMessageContaining(wrong.getKey()));
+        }
+    }
 
     @Test
     void theDefaultsOfTheSharedConfigurationApply() {

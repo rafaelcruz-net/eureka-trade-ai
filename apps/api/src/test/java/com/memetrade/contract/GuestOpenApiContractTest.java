@@ -366,9 +366,42 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
                 .doesNotContain("name=from");
     }
 
+    /**
+     * 261121-paper-real-unico U2 (BR5.6, BR10.3, NFR3.8, NFR4.1): the reasons of the line "Sem bot" are the three of the
+     * U2 (SURPLUS_WITHOUT_OWNER is gone); C4 and {@code GET /api/v1/real/pnl} carry no address nor signature field and
+     * no general total; the fees of the REAL block are no longer "already in the realized".
+     */
+    @Test
+    void u2TheReasonsWithoutOwnerTheRealPnlWithoutAddressAndNoGeneralTotal() {
+        String unowned = String.valueOf(schema("UnownedPnlLine"));
+        assertThat(unowned)
+                .contains("UNOWNED_EXCESS")
+                .contains("UNOWNED_NO_COST")
+                .contains("ORDER_RECORD_MISSING")
+                .doesNotContain("[SURPLUS_WITHOUT_OWNER");
+        // Regression of the U1 defect: the enum belongs to the items, never to the array (which typed it as a string).
+        Map<String, Object> reasons =
+                map(map(schema("UnownedPnlLine").get("properties")).get("reasons"));
+        assertThat(reasons).doesNotContainKey("enum");
+        assertThat(strings(map(reasons.get("items")).get("enum")))
+                .containsExactly("UNOWNED_EXCESS", "UNOWNED_NO_COST", "ORDER_RECORD_MISSING");
+        assertThat(String.valueOf(schema("RealModeBlock"))).doesNotContain("já incluídas no realizado");
+        for (String name : List.of("RealModeBlock", "RealBotPnlLine", "UnownedPnlLine", "RealPnl", "RealPnlPosition")) {
+            String text = String.valueOf(schema(name).get("properties")).toLowerCase(java.util.Locale.ROOT);
+            assertThat(text).as(name).doesNotContain("address").doesNotContain("signature");
+        }
+        assertThat(keys(schema("PnlByMode").get("properties"))).doesNotContain("total", "totalLamports");
+        assertThat(String.valueOf(schema("ModeBlockUnavailable"))).contains("RECONCILIATION_MISMATCH");
+    }
+
     @SuppressWarnings("unchecked")
     private static List<String> strings(Object value) {
         return (List<String>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> map(Object value) {
+        return (Map<String, Object>) value;
     }
 
     @SuppressWarnings("unchecked")

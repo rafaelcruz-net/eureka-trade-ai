@@ -297,6 +297,8 @@ class ComposeFilesTest {
                 "LOADTEST_U5_PEOPLE",
                 // u4-data-requests (Passo 11): the synthetic requests of the scenario data-requests (loadtest only).
                 "LOADTEST_DATA_REQUESTS_SEED",
+                // 261121-paper-real-unico U2 (Etapa 25): the people of the seed of the scenario pnl-by-mode (loadtest).
+                "LOADTEST_PNL_PEOPLE",
                 // U5 (Passo 20): the frequent-signal scenario, accepted by the test profile only.
                 "MARKET_SIMULATED_SCENARIO");
         Matcher variables = Pattern.compile("\\$\\{([A-Z0-9_]+)")
@@ -526,8 +528,12 @@ class ComposeFilesTest {
     /** NFR2.4: the connection tally written in docker-compose.yml fits the max_connections of postgres:17 (100). */
     @Test
     @Tag("u5")
+    @SuppressWarnings("unchecked")
     void theConnectionTallyFitsTheDatabaseLimit() throws IOException {
         int api = 20;
+        // 261121-paper-real-unico U2 (NFR3.15, infrastructure-specification.md "Compose local"): the pool
+        // pnl-mismatch-audit of the api, 2 fixed connections.
+        int mismatchAudit = 2;
         int trailRetention = 1;
         int riskRetention = 1;
         // U8 (infrastructure-specification.md, review R-08): the dedicated pool of the apply lock and the pool of the
@@ -539,6 +545,7 @@ class ComposeFilesTest {
         int startUp = 2;
         int superuserReserved = 3;
         int total = api
+                + mismatchAudit
                 + trailRetention
                 + riskRetention
                 + applyLock
@@ -547,13 +554,20 @@ class ComposeFilesTest {
                 + startUp
                 + superuserReserved;
 
-        assertThat(total).isEqualTo(65).isLessThanOrEqualTo(100);
-        assertThat(total + 10).as("with the TxSigner of the REAL overlay").isEqualTo(75);
+        assertThat(total).isEqualTo(67).isLessThanOrEqualTo(100);
+        // The REAL overlay sets its own pool of the worker (read from the file, never assumed) and adds the TxSigner.
+        Map<String, Object> realWorker = (Map<String, Object>)
+                ((Map<String, Object>) yaml("infra/docker-compose.real.yml").get("services")).get("worker");
+        int realWorkerPool = Integer.parseInt(
+                String.valueOf(((Map<String, Object>) realWorker.get("environment")).get("DB_POOL_MAX_SIZE")));
+        int withTheRealOverlay = total - worker + realWorkerPool + 10;
+        assertThat(withTheRealOverlay).as("with the REAL overlay").isEqualTo(78).isLessThanOrEqualTo(100);
         assertThat(read("docker-compose.yml"))
-                .contains("api 20 + trail retention (U2) 1 + U6 retention 1")
+                .contains("api 20 + pnl-mismatch-audit 2 + trail retention (U2) 1 + U6 retention 1")
                 .contains("+ U8 apply lock 1 + U8 feedback retention 1 + worker 36")
                 .contains("+ db-bootstrap and db-migrate at start-up 2 + 3 reserved")
-                .contains("for the superuser = 65");
+                .contains("for the superuser = 67")
+                .contains("the REAL overlay (worker 37) adds the TxSigner (up to 10), 78 of 100");
     }
 
     // ----- u1-legal-documents (infrastructure-specification.md "Rede" and "Configuração nova da api", NFR6.3) -----

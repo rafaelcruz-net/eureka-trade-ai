@@ -119,7 +119,10 @@ entities:
       A posição de custo médio de um titular num token, numa carteira do bot (ADR-002: dona única da posição REAL).
       Para a carteira, a quantidade vem do caminho só de quantidade, direto do ledger e sem atribuição (BR2.5). O
       custo é a soma dos custos dos titulares, lido com a atribuição só por quem precisa dele (BR2.4, BR2.7). A
-      forma é a de ledger.api.RealPosition, alinhada pela BR2.8.
+      forma é a de ledger.api.RealPosition, alinhada pela BR2.8: (mint, tokenBaseUnits, RealCost cost), com RealCost
+      selado Known(long) ou Unknown(motivo); positions() e view() trazem Unknown(NOT_READ), e a leitura de custo
+      (pnl.api.RealWalletCost) devolve WalletCost selado Known(custo por mint) ou Unknown(motivo). Um custo
+      desconhecido nunca vira 0 (decisão F-3; alinhamento A11).
     kind: value
     attributes:
       - { name: botWalletId, type: "ref<BotWallet>", required: true }
@@ -277,7 +280,10 @@ entities:
     kind: audit
     attributes:
       - { name: type, type: enum, required: true, allowed: [REAL_SLOT_CONFLICT] }
-      - { name: txSignature, type: text, required: true }
+      - { name: tenantId, type: uuid, required: true, constraints: "o tenant da confirmação (alinhamento A2)" }
+      - { name: txSignatureAbbrev, type: text, required: true, constraints: "a assinatura abreviada, 4 primeiros … 4 últimos caracteres; a completa nunca é gravada (alinhamento A2, D-NFR2)" }
+      - { name: txSignatureHmac, type: text, required: true, constraints: "HMAC-SHA-256 em hexadecimal de \"real-tx-signature:\" + assinatura, pelo WalletHasher com a chave memetrade.audit.wallet-hmac-key (alinhamento A2, NFR3.9)" }
+      - { name: correlationId, type: text, required: true, constraints: "o da confirmação (alinhamento A2)" }
       - { name: recordedSlot, type: slot, required: true }
       - { name: refusedSlot, type: slot, required: true }
       - { name: writer, type: enum, required: true, allowed: [ORDER_CONFIRMATION, CONDITIONAL_FILL, WALLET_CONFIRMATION] }
