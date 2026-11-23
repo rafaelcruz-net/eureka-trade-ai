@@ -54,6 +54,14 @@ public final class AuditActions {
     /** U7 (BR5.3): the pending close was completed once by the job, actor {@code system}. */
     public static final String POSITION_CLOSE_COMPLETED = "POSITION_CLOSE_COMPLETED";
 
+    /**
+     * 261121-paper-real-unico U2 (BR1.4, C13, NFR3.9): a confirmation tried to record another slot for a signature that
+     * already had one; the first slot stays. Actor {@code system}, target {@code real-entry-slot}; details
+     * {@code recordedSlot}, {@code refusedSlot}, {@code writer}, {@code txSignatureAbbrev} and {@code txSignatureHmac},
+     * never the full signature.
+     */
+    public static final String REAL_SLOT_CONFLICT = "REAL_SLOT_CONFLICT";
+
     /** U7 (BR4.2): a ledger entry was corrected by a compensating entry. */
     public static final String LEDGER_ENTRY_COMPENSATED = "LEDGER_ENTRY_COMPENSATED";
 

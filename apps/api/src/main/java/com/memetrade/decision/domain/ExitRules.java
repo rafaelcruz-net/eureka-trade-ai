@@ -39,13 +39,22 @@ final class ExitRules {
             return TokenEvaluation.nothing(token, factors, Optional.of(NoTradeReason.STALE_DATA));
         }
         BigDecimal reference = ((MarketValue.Known) inputs.referencePrice()).value();
-        BigDecimal average =
-                position.costBasis().divide(position.quantity(), Numbers.PRICE_SCALE, RoundingMode.HALF_EVEN);
-        BigDecimal pnl = Numbers.changePct(average, reference);
-        boolean target = pnl.compareTo(takeProfit) >= 0;
-        boolean stop = pnl.compareTo(stopLoss.negate()) <= 0;
-        factors.add(Factor.measured(token, "pnlPct", FactorValue.of(pnl), takeProfit, target));
-        factors.add(Factor.measured(token, "stopLossPct", FactorValue.of(pnl), stopLoss.negate(), stop));
+        boolean target = false;
+        boolean stop = false;
+        if (position.costBasis().isPresent()) {
+            BigDecimal average =
+                    position.costBasis().get().divide(position.quantity(), Numbers.PRICE_SCALE, RoundingMode.HALF_EVEN);
+            BigDecimal pnl = Numbers.changePct(average, reference);
+            target = pnl.compareTo(takeProfit) >= 0;
+            stop = pnl.compareTo(stopLoss.negate()) <= 0;
+            factors.add(Factor.measured(token, "pnlPct", FactorValue.of(pnl), takeProfit, target));
+            factors.add(Factor.measured(token, "stopLossPct", FactorValue.of(pnl), stopLoss.negate(), stop));
+        } else {
+            // 261121-paper-real-unico U2 (F-3): without the cost the take profit and the stop loss are skipped in this
+            // cycle (COST_UNKNOWN, unknown factors); the exits of the time and of the price still decide.
+            factors.add(Factor.measured(token, "pnlPct", FactorValue.unknown(), takeProfit, false));
+            factors.add(Factor.measured(token, "stopLossPct", FactorValue.unknown(), stopLoss.negate(), false));
+        }
         factors.add(Factor.measured(token, "holdMinutes", FactorValue.of(heldMinutes), maxHold, timeUp));
         boolean rangeExit = rangeExit(request, window, token, factors);
         if (target) {

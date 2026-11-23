@@ -43,3 +43,9 @@ databaseChangeLog:
       file: db/changelog/changes/0021-real-operations.sql
   - include:
       file: db/changelog/changes/0022-real-exits.sql
+  - include:
+      file: db/changelog/changes/0023-real-entry-slot.sql
+  - include:
+      file: db/changelog/changes/0024-real-risk-day-deferred.sql
+  - include:
+      file: db/changelog/changes/0025-real-position-epoch.sql

@@ -37,10 +37,44 @@ public class JdbcRealExecutionStore {
             last_valid_block_height, sent_at, out_base_units, fee_lamports, fee_payer, created_at, updated_at,
             bot_wallet_id, rent_lamports""";
 
-    private final JdbcClient jdbc;
+    /** 261121-paper-real-unico U2 (C13): the settled orders reach the reader 500 at a time. */
+    static final int STREAM_FETCH_SIZE = 500;
 
-    public JdbcRealExecutionStore(JdbcClient jdbc) {
+    private final JdbcClient jdbc;
+    private final org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate stream;
+
+    public JdbcRealExecutionStore(JdbcClient jdbc, javax.sql.DataSource dataSource) {
         this.jdbc = jdbc;
+        org.springframework.jdbc.core.JdbcTemplate template =
+                new org.springframework.jdbc.core.JdbcTemplate(dataSource);
+        template.setFetchSize(STREAM_FETCH_SIZE);
+        this.stream = new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(template);
+    }
+
+    /**
+     * 261121-paper-real-unico U2 (C13, BR10.1; performance-design.md "Fluxo do JDBC"): the orders of the person that
+     * reached the network, one by one, by the index {@code real_order_user_created_idx}, filtered by tenant and person,
+     * with NO {@code ORDER BY} (the order of the P&L comes from the ledger). Fetched 500 at a time in the transaction
+     * of the caller; with a deadline, the clock is checked at every row and the time that remains is applied as the
+     * statement timeout before the statement and before every block.
+     */
+    public void streamSettled(
+            UUID tenantId,
+            UUID userId,
+            com.memetrade.shared.jdbc.ReadDeadline deadline,
+            java.util.function.Consumer<OrderRow> consumer) {
+        Map<String, Object> params = Map.of("tenant", tenantId, "user", userId);
+        org.springframework.jdbc.core.RowCallbackHandler rows = rs -> consumer.accept(order(rs, 0));
+        String sql = "select " + ORDER_COLUMNS + " from real_order where user_id = :user and tenant_id = :tenant"
+                + " and tx_signature is not null and state in ('CONFIRMED', 'FAILED')";
+        if (deadline == null) {
+            stream.query(sql, params, rows);
+            return;
+        }
+        java.util.function.Consumer<String> execute =
+                statement -> stream.getJdbcTemplate().execute(statement);
+        deadline.applyStatementTimeout(execute);
+        stream.query(sql, params, deadline.guard(rows, STREAM_FETCH_SIZE, execute));
     }
 
     // ----- decisions (real_decision_request) -----

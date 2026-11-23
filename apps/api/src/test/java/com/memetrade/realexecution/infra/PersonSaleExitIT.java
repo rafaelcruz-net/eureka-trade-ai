@@ -90,6 +90,8 @@ class PersonSaleExitIT extends AbstractRealExitsIT {
         UUID order = openSale(setup);
         String signedSale = signed(setup, order);
         String fill = "conditional:" + UUID.randomUUID();
+        // 261121-paper-real-unico U2 (BR1.1): the fill of the conditional comes after the buy in the network order.
+        clock.advance(java.time.Duration.ofSeconds(1));
         transactions.executeWithoutResult(status -> ledger.record(RealEntry.swapFill(
                 setup.tenantId(),
                 setup.botWalletId(),

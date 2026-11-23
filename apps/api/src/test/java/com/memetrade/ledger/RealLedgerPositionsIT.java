@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.memetrade.ledger.api.RealBalance;
+import com.memetrade.ledger.api.RealCost;
+import com.memetrade.ledger.api.RealCostUnknownReason;
 import com.memetrade.ledger.api.RealEntry;
 import com.memetrade.ledger.api.RealEntryKind;
 import com.memetrade.ledger.api.RealFlows;
@@ -63,6 +65,26 @@ class RealLedgerPositionsIT extends AbstractPostgresIT {
                 UUID.randomUUID().toString()));
     }
 
+    private void signedFill(Wallet wallet, RealEntryKind kind, long lamports, String mint, long units, String sig) {
+        ledger.record(new RealEntry(
+                wallet.tenantId(),
+                wallet.botWalletId(),
+                kind,
+                lamports,
+                sig,
+                "order:" + UUID.randomUUID(),
+                UUID.randomUUID().toString(),
+                mint,
+                units));
+    }
+
+    private void slot(String signature, long slot) {
+        jdbc.sql("insert into real_entry_slot (tx_signature, slot, recorded_at) values (:s, :slot, now())")
+                .param("s", signature)
+                .param("slot", slot)
+                .update();
+    }
+
     private void fill(Wallet wallet, RealEntryKind kind, long lamports, String mint, long units) {
         ledger.record(RealEntry.swapFill(
                 wallet.tenantId(),
@@ -75,19 +97,82 @@ class RealLedgerPositionsIT extends AbstractPostgresIT {
                 UUID.randomUUID().toString()));
     }
 
+    /**
+     * 261121-paper-real-unico U2, Etapa 8 (written before the code; BR2.5, F-3, NFR1.11): positions carry only the
+     * quantity of the quantity-only path, with the cost NOT read ({@code Unknown(NOT_READ)}), never 0.
+     */
     @Test
-    void thePositionKeepsTheAverageCostOfTheQuantityStillOpen() {
+    void thePositionCarriesTheOpenQuantityAndACostNotRead() {
         Wallet wallet = wallet();
         String open = SyntheticIds.mint();
         String closed = SyntheticIds.mint();
         record(wallet, RealEntryKind.DEPOSIT, 10 * SOL, "dep:a");
+        // Without a recorded slot the rows follow their instant (BR1.3): each fill one second after the previous.
         fill(wallet, RealEntryKind.SWAP_FILL_IN, -2 * SOL, open, 1_000);
+        clock.advance(Duration.ofSeconds(1));
         fill(wallet, RealEntryKind.SWAP_FILL_OUT, SOL, open, 400);
+        clock.advance(Duration.ofSeconds(1));
         fill(wallet, RealEntryKind.SWAP_FILL_IN, -SOL, closed, 50);
+        clock.advance(Duration.ofSeconds(1));
         fill(wallet, RealEntryKind.SWAP_FILL_OUT, 2 * SOL, closed, 50);
 
         assertThat(ledger.positions(wallet.tenantId(), wallet.botWalletId()))
-                .containsExactly(new RealPosition(open, 600, 1_200_000_000L));
+                .containsExactly(new RealPosition(open, 600, new RealCost.Unknown(RealCostUnknownReason.NOT_READ)));
+    }
+
+    /**
+     * 261121-paper-real-unico U2, Etapa 8 (BR2.5, BR1.1): the quantity follows the network order, not the recording
+     * order: a sale written before the buy in the same slot, but with the bigger signature, sells what the buy brought.
+     * The orders of the references do not exist: the quantity never reads C13 nor C8 (NFR1.11).
+     */
+    @Test
+    void theQuantityFollowsTheNetworkOrderAndNeedsNoOrderNorBot() {
+        Wallet wallet = wallet();
+        String mint = SyntheticIds.mint();
+        String[] signatures = {SyntheticIds.signature(), SyntheticIds.signature()};
+        java.util.Arrays.sort(
+                signatures,
+                (a, b) -> java.util.Arrays.compareUnsigned(
+                        a.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                        b.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        signedFill(wallet, RealEntryKind.SWAP_FILL_OUT, SOL, mint, 100, signatures[1]);
+        signedFill(wallet, RealEntryKind.SWAP_FILL_IN, -2 * SOL, mint, 300, signatures[0]);
+        slot(signatures[1], 50L);
+        slot(signatures[0], 50L);
+
+        assertThat(ledger.positions(wallet.tenantId(), wallet.botWalletId()))
+                .containsExactly(new RealPosition(mint, 200, new RealCost.Unknown(RealCostUnknownReason.NOT_READ)));
+        assertThat(ledger.view(wallet.tenantId(), wallet.botWalletId(), java.util.Optional.empty())
+                        .positions())
+                .containsExactly(new RealPosition(mint, 200, new RealCost.Unknown(RealCostUnknownReason.NOT_READ)));
+    }
+
+    /**
+     * 261121-paper-real-unico U2, Etapa 8 (performance-design.md "Consistência com o view"): the view counts every row
+     * of the wallet, of every kind, with the same filter as the selection of the read in network order.
+     */
+    @Test
+    void theViewCountsEveryRowOfTheWalletLikeTheReadInNetworkOrder() {
+        Wallet wallet = wallet();
+        Wallet other = wallet();
+        record(wallet, RealEntryKind.DEPOSIT, 10 * SOL, "dep:count");
+        record(wallet, RealEntryKind.RESERVE, SOL, "order:count");
+        fill(wallet, RealEntryKind.SWAP_FILL_IN, -SOL, SyntheticIds.mint(), 10);
+        record(other, RealEntryKind.DEPOSIT, SOL, "dep:other");
+        java.util.List<com.memetrade.ledger.api.NetworkOrderedEntry> streamed = new java.util.ArrayList<>();
+        ledger.streamInNetworkOrder(
+                wallet.tenantId(),
+                java.util.List.of(wallet.botWalletId()),
+                java.util.EnumSet.allOf(RealEntryKind.class),
+                streamed::add);
+
+        long counted = ledger.view(wallet.tenantId(), wallet.botWalletId(), java.util.Optional.empty())
+                .walletRowCount();
+
+        assertThat(counted).isEqualTo(3L).isEqualTo(streamed.size());
+        assertThat(ledger.view(other.tenantId(), wallet.botWalletId(), java.util.Optional.empty())
+                        .walletRowCount())
+                .isZero();
     }
 
     @Test
@@ -151,6 +236,7 @@ class RealLedgerPositionsIT extends AbstractPostgresIT {
         record(wallet, RealEntryKind.NETWORK_FEE, -5_000, "wd:v");
         record(wallet, RealEntryKind.RESERVE, SOL, "order:v");
         fill(wallet, RealEntryKind.SWAP_FILL_IN, -3 * SOL, mint, 300);
+        clock.advance(Duration.ofSeconds(1));
         fill(wallet, RealEntryKind.SWAP_FILL_OUT, SOL, mint, 100);
 
         com.memetrade.ledger.api.RealLedgerView view =
@@ -160,7 +246,8 @@ class RealLedgerPositionsIT extends AbstractPostgresIT {
         assertThat(view.positions()).isEqualTo(ledger.positions(wallet.tenantId(), wallet.botWalletId()));
         assertThat(view.flows()).isEqualTo(ledger.flowsSince(wallet.tenantId(), wallet.botWalletId(), photo));
         assertThat(view.flows()).isEqualTo(new RealFlows(2 * SOL, SOL + 5_000));
-        assertThat(view.positions()).containsExactly(new RealPosition(mint, 200, 2 * SOL));
+        assertThat(view.positions())
+                .containsExactly(new RealPosition(mint, 200, new RealCost.Unknown(RealCostUnknownReason.NOT_READ)));
         assertThat(ledger.view(wallet.tenantId(), wallet.botWalletId(), java.util.Optional.empty())
                         .flows())
                 .as("without a photo there are no flows to read")

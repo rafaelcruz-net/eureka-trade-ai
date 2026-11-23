@@ -49,6 +49,7 @@ class RealCycleOrderCapTest {
             mock(MarketDataQuery.class),
             mock(RealDecisionStep.class),
             accountLimits,
+            mock(com.memetrade.pnl.api.RealWalletCost.class),
             transactions);
     private final Bot bot = mock(Bot.class);
     private final RealCycle.Inputs inputs = new RealCycle.Inputs(new BigDecimal("10"), List.of(), List.of(), SOL_USD);

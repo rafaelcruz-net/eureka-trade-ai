@@ -18,6 +18,28 @@ public interface RealLedger {
      */
     boolean record(RealEntry entry);
 
+    /**
+     * 261121-paper-real-unico U2 (C13, C14, BR1.4): records the slot of {@code txSignature} in the caller's transaction,
+     * once and never overwritten. The tenant is the one of the confirmation (it names the audit event of a conflict);
+     * the writer labels the conflict metric. A conflict keeps the first slot, is audited (REAL_SLOT_CONFLICT, the
+     * signature only abbreviated and as its HMAC) and counted after the commit, and never throws: the confirmation and
+     * its entries go on. A slot unknown at the confirmation is never recorded (the caller does not call this).
+     *
+     * @throws IllegalArgumentException for a blank signature or a negative slot (a defect of the caller)
+     */
+    RecordSlotResult recordSlot(UUID tenantId, String txSignature, long slot, SlotWriter writer);
+
+    /**
+     * 261121-paper-real-unico U2a, Etapa 14b (decision of the founder of 2026-11-22): keeps the marks of zero of the
+     * bot wallet ({@code real_position_epoch}) in the caller's transaction, after the entries and the slots the writer
+     * recorded in it. Called by the three writers (the confirmation of an order, the fill of a conditional, the
+     * confirmation of a deposit or a withdrawal) as their last step. A zero of the quantity of the wallet in a mint
+     * (BR2.5) gets a new mark; a late confirmation that lands before the latest mark gets a new one from a read of the
+     * whole history (OUT_OF_ORDER), and a row created before the window of a mark lowers it (EARLY_ROW). It only
+     * inserts: a mark is never updated nor deleted. Nothing is written for a wallet of another tenant.
+     */
+    void markEpochs(UUID tenantId, UUID botWalletId);
+
     /** Balance of the bot wallet of this tenant; an empty balance when the wallet belongs to another tenant. */
     RealBalance balance(UUID tenantId, UUID botWalletId);
 
@@ -62,4 +84,35 @@ public interface RealLedger {
             Instant from,
             Instant to,
             java.util.function.Consumer<RealEntryRecord> consumer);
+
+    /**
+     * 261121-paper-real-unico U2 (C12, BR1.1 to BR1.6): the rows of these bot wallets of this tenant, of the kinds asked
+     * for, handed one by one to {@code consumer} (never as a list), grouped by wallet and, inside it, in the order of
+     * {@link NetworkOrderKey}. The slot comes from {@code real_entry_slot} by the signature; a row without it inherits
+     * the slot of the last recorded row before it in recording order, computed over EVERY row of the wallet before the
+     * kinds are filtered, so the key is the same for every reader. Nothing for a wallet of another tenant; never PAPER;
+     * no lock. Joins the read transaction of the caller when there is one, otherwise opens a read-only one; fetched 500
+     * rows at a time. Each row delivered SLOT_MISSING is counted in {@code ledger_real_slot_missing_total}.
+     */
+    void streamInNetworkOrder(
+            UUID tenantId,
+            java.util.Collection<UUID> botWalletIds,
+            java.util.Set<RealEntryKind> kinds,
+            java.util.function.Consumer<NetworkOrderedEntry> consumer);
+
+    /**
+     * {@link #streamInNetworkOrder(UUID, java.util.Collection, java.util.Set, java.util.function.Consumer)} under a hard
+     * deadline (NFR1.12): the clock is checked at every row and the time that remains is applied as
+     * {@code set local statement_timeout} before the statement and before every block of 500 rows, on the connection of
+     * the caller's transaction. The caller restores the previous {@code statement_timeout} (or rolls back to its
+     * savepoint).
+     *
+     * @throws com.memetrade.shared.jdbc.ReadDeadlineExceeded when the deadline passes at a row
+     */
+    void streamInNetworkOrder(
+            UUID tenantId,
+            java.util.Collection<UUID> botWalletIds,
+            java.util.Set<RealEntryKind> kinds,
+            com.memetrade.shared.jdbc.ReadDeadline deadline,
+            java.util.function.Consumer<NetworkOrderedEntry> consumer);
 }

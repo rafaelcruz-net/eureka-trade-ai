@@ -63,7 +63,8 @@ public class RealChainAdapter implements RealChain {
                 effect.ownerLamportsDelta(),
                 effect.tokenBaseUnitsDelta(),
                 effect.feeLamports(),
-                effect.feePaidByOwner());
+                effect.feePaidByOwner(),
+                effect.slot());
     }
 
     private static <T> T call(Supplier<T> read) {

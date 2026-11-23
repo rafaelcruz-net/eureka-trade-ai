@@ -62,7 +62,10 @@ class RealGateInputsReaderIT extends AbstractRealRiskIT {
         assertThat(inputs.positions()).singleElement().satisfies(position -> {
             assertThat(position.mint()).isEqualTo(held);
             assertThat(position.tokenBaseUnits()).isEqualTo(1_000_000_000L);
-            assertThat(position.costLamports()).isEqualTo(2 * SOL);
+            // 261121-paper-real-unico U2 (R-13, F-3): the buy never reads the cost.
+            assertThat(position.cost())
+                    .isEqualTo(new com.memetrade.ledger.api.RealCost.Unknown(
+                            com.memetrade.ledger.api.RealCostUnknownReason.NOT_READ));
             // 0.0002 USD / 200 USD x 10^9 / 10^6 = 0.001 lamport per base unit.
             assertThat(position.price())
                     .isInstanceOfSatisfying(LamportPrice.Known.class, price -> assertThat(price.lamportsPerBaseUnit())
@@ -149,7 +152,8 @@ class RealGateInputsReaderIT extends AbstractRealRiskIT {
             com.memetrade.riskcontrol.api.RealGateUnavailable failure =
                     org.assertj.core.api.Assertions.catchThrowableOfType(
                             com.memetrade.riskcontrol.api.RealGateUnavailable.class,
-                            () -> failing.value(tenant, UUID.randomUUID(), java.util.Optional.empty()));
+                            () -> failing.value(
+                                    tenant, UUID.randomUUID(), UUID.randomUUID(), java.util.Optional.empty(), false));
             assertThat(failure.dependency())
                     .isEqualTo(com.memetrade.riskcontrol.api.RealGateUnavailable.Dependency.LEDGER);
             assertThat(failure.transactionUsable()).isFalse();

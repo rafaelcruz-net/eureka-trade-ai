@@ -35,7 +35,36 @@ public record BuyInputs(
         long openGateReservedLamports,
         int approvedBuysToday,
         Optional<DaySnapshot> snapshot,
-        RealFlows flowsSinceSnapshot) {
+        RealFlows flowsSinceSnapshot,
+        boolean dayPhotoDeferred) {
+
+    /** The inputs of a day whose photo was not deferred. */
+    public BuyInputs(
+            AssessmentResult assessment,
+            boolean blocked,
+            MarketValue price,
+            MarketValue liquidity,
+            MarketValue volume24h,
+            List<PricedPosition> positions,
+            RealBalance balance,
+            long openGateReservedLamports,
+            int approvedBuysToday,
+            Optional<DaySnapshot> snapshot,
+            RealFlows flowsSinceSnapshot) {
+        this(
+                assessment,
+                blocked,
+                price,
+                liquidity,
+                volume24h,
+                positions,
+                balance,
+                openGateReservedLamports,
+                approvedBuysToday,
+                snapshot,
+                flowsSinceSnapshot,
+                false);
+    }
 
     public BuyInputs {
         Objects.requireNonNull(assessment, "assessment");

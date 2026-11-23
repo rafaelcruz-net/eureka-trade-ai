@@ -54,6 +54,23 @@ public interface RealChain {
      * @param tokenBaseUnitsDelta post minus pre balance of {@code mint} owned by the bot wallet
      * @param feeLamports the fee of the transaction
      * @param feePaidByBot whether the bot wallet is the fee payer (AUTO_FULL)
+     * @param slot 261121-paper-real-unico U2 (BR1.4, C13): the slot of the transaction, from the same getTransaction
+     *     answer (no new call); empty when the answer did not carry it, and then nothing is recorded (SLOT_MISSING)
      */
-    record SwapEffect(long botLamportsDelta, long tokenBaseUnitsDelta, long feeLamports, boolean feePaidByBot) {}
+    record SwapEffect(
+            long botLamportsDelta,
+            long tokenBaseUnitsDelta,
+            long feeLamports,
+            boolean feePaidByBot,
+            java.util.OptionalLong slot) {
+
+        public SwapEffect {
+            Objects.requireNonNull(slot, "slot");
+        }
+
+        /** An effect whose slot is not known. */
+        public SwapEffect(long botLamportsDelta, long tokenBaseUnitsDelta, long feeLamports, boolean feePaidByBot) {
+            this(botLamportsDelta, tokenBaseUnitsDelta, feeLamports, feePaidByBot, java.util.OptionalLong.empty());
+        }
+    }
 }

@@ -3,6 +3,7 @@ package com.memetrade.riskcontrol.real.infra;
 import com.memetrade.botwallet.api.RealStateQuery;
 import com.memetrade.botwallet.api.RealStateView;
 import com.memetrade.ledger.api.RealBalance;
+import com.memetrade.ledger.api.RealCostUnknownReason;
 import com.memetrade.ledger.api.RealFlows;
 import com.memetrade.ledger.api.RealLedger;
 import com.memetrade.ledger.api.RealLedgerView;
@@ -12,6 +13,9 @@ import com.memetrade.marketdata.api.MarketValue;
 import com.memetrade.marketdata.api.SourceKind;
 import com.memetrade.marketdata.api.TokenId;
 import com.memetrade.marketdata.api.UnknownReason;
+import com.memetrade.pnl.api.CostPath;
+import com.memetrade.pnl.api.RealWalletCost;
+import com.memetrade.pnl.api.WalletCost;
 import com.memetrade.riskassessment.api.AssessmentResult;
 import com.memetrade.riskassessment.api.RiskAssessmentQuery;
 import com.memetrade.riskassessment.api.UnavailableReason;
@@ -21,6 +25,7 @@ import com.memetrade.riskcontrol.api.RealGateUnavailable.Dependency;
 import com.memetrade.riskcontrol.real.domain.BuyInputs;
 import com.memetrade.riskcontrol.real.domain.DaySnapshot;
 import com.memetrade.riskcontrol.real.domain.LamportPrice;
+import com.memetrade.riskcontrol.real.domain.PositionsValue;
 import com.memetrade.riskcontrol.real.domain.PricedPosition;
 import com.memetrade.riskcontrol.real.domain.RealRiskPolicy;
 import com.memetrade.shared.config.RecordedSwapFixture;
@@ -62,18 +67,29 @@ public class RealGateInputsReader {
     private final MarketDataQuery market;
     private final RiskAssessmentQuery assessment;
     private final JdbcRealRiskStore store;
+    private final RealWalletCost walletCost;
     private final Optional<RecordedSwapFixture> recordedSwap;
 
+    /** For the tests that never value a position without price: the cost is never read (NOT_READ). */
     public RealGateInputsReader(
             RealStateQuery state,
             RealLedger ledger,
             MarketDataQuery market,
             RiskAssessmentQuery assessment,
             JdbcRealRiskStore store) {
-        this(state, ledger, market, assessment, store, Optional.empty());
+        this(
+                state,
+                ledger,
+                market,
+                assessment,
+                store,
+                (tenant, user, wallet, path, rows) -> new WalletCost.Unknown(RealCostUnknownReason.NOT_READ),
+                Optional.empty());
     }
 
     /**
+     * @param walletCost 261121-paper-real-unico U2 (BR2.7): the cost with attribution, asked only by the rounds
+     *     ({@link #value}), never by the buy
      * @param recordedSwap the swap recorded for the local validator; present ONLY in the test profile with the
      *     recordings ({@link com.memetrade.shared.config.RecordedSwapFixtureConfig}), empty everywhere else
      */
@@ -84,21 +100,28 @@ public class RealGateInputsReader {
             MarketDataQuery market,
             RiskAssessmentQuery assessment,
             JdbcRealRiskStore store,
+            RealWalletCost walletCost,
             Optional<RecordedSwapFixture> recordedSwap) {
         this.state = state;
         this.ledger = ledger;
         this.market = market;
         this.assessment = assessment;
         this.store = store;
+        this.walletCost = walletCost;
         this.recordedSwap = recordedSwap;
     }
 
     /**
      * The value of a wallet now (BR4.3, BR5.2): its REAL balance and its positions at their quote or cost, and the flows
-     * after the photo asked for (none without one), all from the same read.
+     * after the photo asked for (none without one), all from the same read. 261121-paper-real-unico U2 (F-3): the value
+     * is unknown when a position without price has an unknown cost.
      */
     public record WalletValue(
-            RealBalance balance, List<PricedPosition> positions, long positionsValue, long value, RealFlows flows) {}
+            RealBalance balance,
+            List<PricedPosition> positions,
+            PositionsValue positionsValue,
+            PositionsValue value,
+            RealFlows flows) {}
 
     /** M1: the state of the wallet of the person in this tenant. */
     public Optional<RealStateView> wallet(UUID tenantId, UUID userId) {
@@ -138,6 +161,7 @@ public class RealGateInputsReader {
         Prices prices = prices(open, Set.of(token));
         MarketValue liquidity = read(Dependency.MARKET, () -> market.liquidity(token));
         MarketValue volume = read(Dependency.MARKET, () -> market.volume24h(token));
+        // R-13 of the U2: the buy NEVER asks the cost; a position without a usable price refuses it before.
         return new BuyInputs(
                 assess(token),
                 store.isBlocked(token.chain(), token.mint()),
@@ -149,7 +173,8 @@ public class RealGateInputsReader {
                 store.openReservedLamports(tenantId, botWalletId),
                 store.approvedBuys(tenantId, intent.botId(), day),
                 snapshot,
-                flows);
+                flows,
+                snapshot.isEmpty() && store.isDayDeferred(tenantId, botWalletId, day));
     }
 
     /**
@@ -159,17 +184,38 @@ public class RealGateInputsReader {
      * barrier, so separate reads could count a fill or a deposit committed between them twice (or once in the value and
      * once in the flows), whatever their order. One statement shares one snapshot of PostgreSQL.
      */
-    public WalletValue value(UUID tenantId, UUID botWalletId, Optional<Instant> flowsSince) {
+    public WalletValue value(
+            UUID tenantId, UUID userId, UUID botWalletId, Optional<Instant> flowsSince, boolean everyCost) {
         RealLedgerView ledgerView = read(Dependency.LEDGER, () -> ledger.view(tenantId, botWalletId, flowsSince));
         List<RealPosition> open = ledgerView.positions();
         List<PricedPosition> positions = priced(open, prices(open, Set.of()));
-        long positionsValue = RealRiskPolicy.positionsValue(positions);
-        return new WalletValue(
-                ledgerView.balance(),
-                positions,
-                positionsValue,
-                RealRiskPolicy.currentValue(ledgerView.balance(), positionsValue),
-                ledgerView.flows());
+        boolean needsCost = everyCost || positions.stream().anyMatch(p -> !(p.price() instanceof LamportPrice.Known));
+        if (needsCost && !positions.isEmpty()) {
+            // BR2.7, F-3: the cost with attribution, read once AFTER the view in the same transaction, in its own
+            // savepoint; whatever happens there, this transaction stays usable and an unknown cost stays unknown.
+            WalletCost cost = walletCost.costOf(tenantId, userId, botWalletId, CostPath.GATE, ledgerView);
+            positions = positions.stream().map(p -> withCost(p, cost)).toList();
+        }
+        PositionsValue positionsValue = RealRiskPolicy.positionsValue(positions);
+        PositionsValue value = positionsValue instanceof PositionsValue.Known known
+                ? new PositionsValue.Known(RealRiskPolicy.currentValue(ledgerView.balance(), known.lamports()))
+                : positionsValue;
+        return new WalletValue(ledgerView.balance(), positions, positionsValue, value, ledgerView.flows());
+    }
+
+    /** The cost of {@code position} from the read with attribution, or the reason it is unknown. */
+    private static PricedPosition withCost(PricedPosition position, WalletCost cost) {
+        com.memetrade.ledger.api.RealCost read =
+                switch (cost) {
+                    case WalletCost.Known known ->
+                        known.costByMint().containsKey(position.mint())
+                                ? new com.memetrade.ledger.api.RealCost.Known(
+                                        known.costByMint().get(position.mint()))
+                                : new com.memetrade.ledger.api.RealCost.Unknown(
+                                        RealCostUnknownReason.INCONSISTENT_READ);
+                    case WalletCost.Unknown unknown -> new com.memetrade.ledger.api.RealCost.Unknown(unknown.reason());
+                };
+        return new PricedPosition(position.mint(), position.tokenBaseUnits(), read, position.price());
     }
 
     /** The quotes in dollars of the positions, of the extra tokens and of SOL, and the decimals of the positions. */
@@ -197,7 +243,7 @@ public class RealGateInputsReader {
                     return new PricedPosition(
                             position.mint(),
                             position.tokenBaseUnits(),
-                            position.costLamports(),
+                            position.cost(),
                             LamportPrice.from(
                                     prices.usd().getOrDefault(token, notAnswered()),
                                     sol,

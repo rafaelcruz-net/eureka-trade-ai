@@ -25,6 +25,8 @@
 
 <!-- Project-specific specialisation. -->
 
+- Um spec de ponta a ponta que muda a conta do smoke (por exemplo, com uma operação PAPER) roda por último no verify.sh, com o prefixo `zz-` na pasta, porque o Playwright roda os arquivos em ordem alfabética e os specs anteriores esperam a conta sem essas operações. (learned 2026-11-22) <!-- cid:261121-paper-real-unico:code-generation:e2e43ca4edddcaf336eb0bbe3da9898d8543747c21735b19871bf9ee3330774e -->
+
 ## Guard Policy
 
 <!-- Project-specific. Mode: strict, relaxed, or off. Strict here holds for every intent, whatever one person asks in chat; relaxed or off here applies to every intent whose policy came from its scope, unless the person sets another; changing this line changes it. A section under the retired Change Control heading, written by an earlier release, is still read. -->
@@ -36,6 +38,8 @@
 ## Code Style
 
 <!-- Project-specific specialisation. -->
+
+- Em 360 px, uma tabela larga rola dentro de uma região própria (`TableScroll`: `role="region"`, `aria-label` e `tabIndex=0`), e a página nunca rola para o lado; o spec de ponta a ponta confere a largura de 360 px de cada tela nova. (learned 2026-11-22) <!-- cid:261121-paper-real-unico:code-generation:69f1b8574d4c0c6531685caf4f11e7508fadcc0ec0de542f36eca325e035f075 -->
 
 ## Tech Stack
 

@@ -128,6 +128,32 @@ public class RealExecutionService implements RealExecutionPort {
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public void streamSettledOrders(UUID tenantId, UUID userId, java.util.function.Consumer<RealOrderView> consumer) {
+        store.streamSettled(tenantId, userId, null, row -> consumer.accept(view(row)));
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public void streamSettledOrders(
+            UUID tenantId,
+            UUID userId,
+            com.memetrade.shared.jdbc.ReadDeadline deadline,
+            java.util.function.Consumer<RealOrderView> consumer) {
+        store.streamSettled(
+                tenantId, userId, java.util.Objects.requireNonNull(deadline), row -> consumer.accept(view(row)));
+    }
+
+    @Override
+    public Optional<RealOrderView> settledOrder(UUID tenantId, UUID userId, UUID realOrderId) {
+        return store.findForOwner(tenantId, userId, realOrderId)
+                .filter(row -> row.txSignature() != null
+                        && (row.state() == com.memetrade.realexecution.api.RealOrderState.CONFIRMED
+                                || row.state() == com.memetrade.realexecution.api.RealOrderState.FAILED))
+                .map(RealExecutionService::view);
+    }
+
+    @Override
     public long changeMark(UUID tenantId, UUID userId) {
         return store.markFor(tenantId, userId);
     }

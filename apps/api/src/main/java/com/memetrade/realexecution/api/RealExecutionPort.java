@@ -76,4 +76,26 @@ public interface RealExecutionPort {
 
     /** The orders of the person changed strictly after {@code since}, oldest change first, at most {@code limit}. */
     List<RealOrderView> changedSince(UUID tenantId, UUID userId, java.time.Instant since, int limit);
+
+    /**
+     * 261121-paper-real-unico U2 (C13, BR10.1): the orders of the person that reached the network (CONFIRMED, or FAILED
+     * with a transaction), handed one by one to {@code consumer}, never as a list, in no particular order (the order of
+     * the P&L comes from the ledger, C12). Filtered by tenant and person; fetched 500 at a time in the read transaction
+     * of the caller, or in a read-only one of its own; never in the transaction of the cycle that writes.
+     */
+    void streamSettledOrders(UUID tenantId, UUID userId, java.util.function.Consumer<RealOrderView> consumer);
+
+    /** The same read under a hard deadline (NFR1.12), applied at every row and before every block of 500 rows. */
+    void streamSettledOrders(
+            UUID tenantId,
+            UUID userId,
+            com.memetrade.shared.jdbc.ReadDeadline deadline,
+            java.util.function.Consumer<RealOrderView> consumer);
+
+    /**
+     * 261121-paper-real-unico U2 (performance-design.md "Consistência com o view"): one settled order of THIS person by
+     * its id, read on the spot when a ledger row names an order the stream did not bring (it was confirmed meanwhile);
+     * empty when it is not the person's, not settled, or gone (purged).
+     */
+    java.util.Optional<RealOrderView> settledOrder(UUID tenantId, UUID userId, UUID realOrderId);
 }

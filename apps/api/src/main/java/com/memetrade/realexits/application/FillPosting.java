@@ -4,6 +4,7 @@ import com.memetrade.botwallet.api.RealChain;
 import com.memetrade.ledger.api.RealEntry;
 import com.memetrade.ledger.api.RealEntryKind;
 import com.memetrade.ledger.api.RealLedger;
+import com.memetrade.ledger.api.SlotWriter;
 import com.memetrade.realexits.domain.CancellationWatch;
 import com.memetrade.realexits.domain.ConditionalOrder;
 import com.memetrade.realexits.domain.ConditionalState;
@@ -120,6 +121,12 @@ public class FillPosting {
                         reference,
                         "cond:" + fillSignature + ":fee"));
             }
+            // 261121-paper-real-unico U2 (BR1.4, C13): the slot of the fill, read with its effect.
+            effect.slot()
+                    .ifPresent(slot -> ledger.recordSlot(
+                            conditional.tenantId(), fillSignature, slot, SlotWriter.CONDITIONAL_FILL));
+            // 261121-paper-real-unico U2a, Etapa 14b: the marks of zero, after the fill and its slot.
+            ledger.markEpochs(conditional.tenantId(), conditional.botWalletId());
             events.changed(
                     conditional, ConditionalState.FILLED, side.name(), Optional.empty(), Optional.of(fillSignature));
             return true;

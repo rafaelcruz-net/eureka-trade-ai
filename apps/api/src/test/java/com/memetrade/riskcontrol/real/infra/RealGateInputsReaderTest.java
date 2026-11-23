@@ -43,7 +43,11 @@ class RealGateInputsReaderTest {
     private final MarketDataQuery market = mock(MarketDataQuery.class);
     private final RiskAssessmentQuery assessment = mock(RiskAssessmentQuery.class);
     private final JdbcRealRiskStore store = mock(JdbcRealRiskStore.class);
-    private final RealGateInputsReader reader = new RealGateInputsReader(state, ledger, market, assessment, store);
+    // The read from the epoch (Etapa 14a) defaults to the read with the count of rows of the view, stubbed below.
+    private final com.memetrade.pnl.api.RealWalletCost walletCost =
+            mock(com.memetrade.pnl.api.RealWalletCost.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+    private final RealGateInputsReader reader =
+            new RealGateInputsReader(state, ledger, market, assessment, store, walletCost, Optional.empty());
 
     private final UUID tenant = UUID.randomUUID();
     private final UUID user = UUID.randomUUID();
@@ -55,7 +59,10 @@ class RealGateInputsReaderTest {
     private void healthy() {
         when(ledger.view(any(), any(), any()))
                 .thenReturn(new com.memetrade.ledger.api.RealLedgerView(
-                        new RealBalance(0, 0, 0, Set.of(), false), List.of(), com.memetrade.ledger.api.RealFlows.NONE));
+                        new RealBalance(0, 0, 0, Set.of(), false),
+                        List.of(),
+                        com.memetrade.ledger.api.RealFlows.NONE,
+                        0));
         MarketValue unknown = new MarketValue.Unknown(UnknownReason.NOT_PROVIDED, Optional.empty());
         when(market.referencePrices(any())).thenReturn(Map.of());
         when(market.decimalsOf(any())).thenReturn(Map.of());
@@ -149,12 +156,121 @@ class RealGateInputsReaderTest {
         UUID walletId = wallet.botWalletId();
         Instant photo = NOW.minusSeconds(60);
 
-        RealGateInputsReader.WalletValue value = reader.value(tenant, walletId, Optional.of(photo));
+        RealGateInputsReader.WalletValue value = reader.value(tenant, user, walletId, Optional.of(photo), false);
 
-        assertThat(value.value()).isZero();
+        assertThat(value.value()).isEqualTo(new com.memetrade.riskcontrol.real.domain.PositionsValue.Known(0));
         assertThat(value.flows()).isEqualTo(com.memetrade.ledger.api.RealFlows.NONE);
         org.mockito.Mockito.verify(ledger).view(tenant, walletId, Optional.of(photo));
         org.mockito.Mockito.verifyNoMoreInteractions(ledger);
+    }
+
+    // ----- 261121-paper-real-unico U2, Etapa 12 (written before the code; F-3, BR2.7, NFR1.26) -----------------------
+
+    private static final com.memetrade.ledger.api.RealCost NOT_READ =
+            new com.memetrade.ledger.api.RealCost.Unknown(com.memetrade.ledger.api.RealCostUnknownReason.NOT_READ);
+
+    /** Two positions: {@code priced} with a quote (1 lamport per base unit), {@code unpriced} without any. */
+    private void twoPositions(String priced, String unpriced) {
+        healthy();
+        when(ledger.view(any(), any(), any()))
+                .thenReturn(new com.memetrade.ledger.api.RealLedgerView(
+                        new RealBalance(1_000, 0, 1_000, Set.of(), true),
+                        List.of(
+                                new com.memetrade.ledger.api.RealPosition(priced, 100, NOT_READ),
+                                new com.memetrade.ledger.api.RealPosition(unpriced, 50, NOT_READ)),
+                        com.memetrade.ledger.api.RealFlows.NONE,
+                        7));
+        com.memetrade.marketdata.api.TokenId token =
+                new com.memetrade.marketdata.api.TokenId(OrderIntent.SOLANA, priced);
+        com.memetrade.marketdata.api.TokenId sol = RealGateInputsReader.WRAPPED_SOL;
+        when(market.referencePrices(any()))
+                .thenReturn(Map.of(
+                        token, quote("0.2"),
+                        sol, quote("200")));
+        when(market.decimalsOf(any())).thenReturn(Map.of(token, quote("6")));
+    }
+
+    private static MarketValue quote(String value) {
+        return new MarketValue.Known(
+                new java.math.BigDecimal(value),
+                new com.memetrade.marketdata.api.SourceRef("coingecko", "CoinGecko", false),
+                NOW,
+                false);
+    }
+
+    /** NFR1.26, R-13: the buy NEVER reads the cost; a position without price refuses it before the cost is used. */
+    @Test
+    void theBuyNeverAsksTheCostEvenWithAPositionWithoutPrice() {
+        twoPositions(SyntheticIds.mint(), SyntheticIds.mint());
+
+        reader.buy(buy, wallet, NOW);
+
+        org.mockito.Mockito.verifyNoInteractions(walletCost);
+    }
+
+    /** BR2.7: the value of a round asks the cost once, only for a position without price, and uses it. */
+    @Test
+    void theValueAsksTheCostOnlyForAPositionWithoutPriceAndUsesIt() {
+        String priced = SyntheticIds.mint();
+        String unpriced = SyntheticIds.mint();
+        twoPositions(priced, unpriced);
+        when(walletCost.costOf(tenant, user, wallet.botWalletId(), com.memetrade.pnl.api.CostPath.GATE, 7))
+                .thenReturn(new com.memetrade.pnl.api.WalletCost.Known(Map.of(priced, 40L, unpriced, 300L)));
+
+        RealGateInputsReader.WalletValue value =
+                reader.value(tenant, user, wallet.botWalletId(), Optional.empty(), false);
+
+        // 0.2 USD / 200 USD x 10^9 / 10^6 = 1 lamport per base unit: 100 lamports; the unpriced one is worth its cost.
+        assertThat(value.positionsValue())
+                .isEqualTo(new com.memetrade.riskcontrol.real.domain.PositionsValue.Known(400));
+        assertThat(value.value()).isEqualTo(new com.memetrade.riskcontrol.real.domain.PositionsValue.Known(1_400));
+        org.mockito.Mockito.verify(walletCost)
+                .costOf(tenant, user, wallet.botWalletId(), com.memetrade.pnl.api.CostPath.GATE, 7);
+    }
+
+    /** F-3: an unknown cost of a position without price leaves the value unknown, never the cost as zero. */
+    @Test
+    void anUnknownCostLeavesTheValueUnknown() {
+        twoPositions(SyntheticIds.mint(), SyntheticIds.mint());
+        when(walletCost.costOf(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(new com.memetrade.pnl.api.WalletCost.Unknown(
+                        com.memetrade.ledger.api.RealCostUnknownReason.TIMEOUT));
+
+        RealGateInputsReader.WalletValue value =
+                reader.value(tenant, user, wallet.botWalletId(), Optional.empty(), false);
+
+        assertThat(value.value())
+                .isEqualTo(new com.memetrade.riskcontrol.real.domain.PositionsValue.Unknown(
+                        com.memetrade.ledger.api.RealCostUnknownReason.TIMEOUT));
+    }
+
+    /** F-4: with the mark of the day, the round asks the cost of every position, priced ones included. */
+    @Test
+    void theRoundOfADeferredDayAsksTheCostOfEveryPosition() {
+        String priced = SyntheticIds.mint();
+        String unpriced = SyntheticIds.mint();
+        twoPositions(priced, unpriced);
+        when(walletCost.costOf(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(new com.memetrade.pnl.api.WalletCost.Known(Map.of(priced, 40L, unpriced, 300L)));
+
+        RealGateInputsReader.WalletValue value =
+                reader.value(tenant, user, wallet.botWalletId(), Optional.empty(), true);
+
+        assertThat(value.positions())
+                .extracting(com.memetrade.riskcontrol.real.domain.PricedPosition::cost)
+                .containsExactly(
+                        new com.memetrade.ledger.api.RealCost.Known(40),
+                        new com.memetrade.ledger.api.RealCost.Known(300));
+    }
+
+    /** R-02 of the U2: after the savepoint of the read of cost, the transaction of the caller is usable. */
+    @Test
+    void aFailureOfTheAttributionAfterItsSavepointLeavesTheTransactionUsable() {
+        RealGateUnavailable failure = RealGateUnavailable.afterSavepoint(
+                Dependency.ATTRIBUTION, new DataAccessResourceFailureException("57014"));
+
+        assertThat(failure.transactionUsable()).isTrue();
+        assertThat(failure.dependency().label()).isEqualTo("attribution");
     }
 
     /** Review R-02: only a failure without a SQL error leaves the transaction of the caller usable. */

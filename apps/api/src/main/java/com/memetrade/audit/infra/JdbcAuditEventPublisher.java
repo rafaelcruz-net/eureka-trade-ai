@@ -4,11 +4,14 @@ import com.memetrade.audit.api.AuditEventCommand;
 import com.memetrade.audit.api.AuditEventPublisher;
 import com.memetrade.audit.api.AuditPublishRejectedException;
 import com.memetrade.audit.api.AuditPublishRejectedException.Reason;
+import com.memetrade.audit.api.RealReferences;
 import com.memetrade.audit.domain.AuditEventValidator;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,16 +56,18 @@ public class JdbcAuditEventPublisher implements AuditEventPublisher {
     }
 
     @Override
-    public void publish(AuditEventCommand event) {
+    public void publish(AuditEventCommand requested) {
         if (!TransactionSynchronizationManager.isActualTransactionActive()) {
-            refuse(event, new AuditPublishRejectedException("transaction", Reason.NO_TRANSACTION));
+            refuse(requested, new AuditPublishRejectedException("transaction", Reason.NO_TRANSACTION));
             throw new IllegalTransactionStateException(
                     "AuditEventPublisher.publish requires an active transaction (C9, propagation MANDATORY)");
         }
+        AuditEventCommand event;
         try {
+            event = withHashedSignature(requested);
             validator.validate(event);
         } catch (AuditPublishRejectedException rejection) {
-            refuse(event, rejection);
+            refuse(requested, rejection);
             throw rejection;
         }
         jdbc.sql("""
@@ -85,6 +90,45 @@ public class JdbcAuditEventPublisher implements AuditEventPublisher {
             }
         });
     }
+
+    /**
+     * 261121-paper-real-unico U2 (NFR3.9, D-NFR2): a signature of {@link RealReferences#hashedTxSignature()} leaves only
+     * as {@code txSignatureAbbrev} (4 … 4) and {@code txSignatureHmac} in {@code details}; the field itself is dropped,
+     * so {@code audit_event.tx_signature} stays empty and the full signature is never written.
+     */
+    private AuditEventCommand withHashedSignature(AuditEventCommand event) {
+        RealReferences real = event.real();
+        if (real == null || real.hashedTxSignature() == null) {
+            return event;
+        }
+        String hmac;
+        try {
+            hmac = wallets.hmacOfTxSignature(real.hashedTxSignature());
+        } catch (IllegalArgumentException notASignature) {
+            throw new AuditPublishRejectedException("real.hashedTxSignature", Reason.INVALID_FORMAT);
+        }
+        Map<String, String> details = new LinkedHashMap<>(event.details());
+        details.put(TX_SIGNATURE_ABBREV, RealReferences.abbreviate(real.hashedTxSignature()));
+        details.put(TX_SIGNATURE_HMAC, hmac);
+        boolean otherReferences = real.txSignature() != null || real.mint() != null || real.botWalletAddress() != null;
+        return new AuditEventCommand(
+                event.eventId(),
+                event.tenantId(),
+                event.actor(),
+                event.actorType(),
+                event.action(),
+                event.targetRef(),
+                event.correlationId(),
+                event.occurredAt(),
+                details,
+                event.wallet(),
+                otherReferences ? new RealReferences(real.txSignature(), real.mint(), real.botWalletAddress()) : null);
+    }
+
+    /** The detail keys of a hashed signature (security-design.md). */
+    static final String TX_SIGNATURE_ABBREV = "txSignatureAbbrev";
+
+    static final String TX_SIGNATURE_HMAC = "txSignatureHmac";
 
     /** u2-retention (BR2.1, BR2.2): the HMAC of the event's wallet; the full address itself is never written. */
     private Optional<String> walletHmac(AuditEventCommand event) {

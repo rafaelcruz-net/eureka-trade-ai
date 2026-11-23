@@ -92,7 +92,10 @@ public final class DecisionJson {
                 .forEach(node -> positions.add(new PositionInput(
                         readToken(node),
                         decimal(node.get("quantity")),
-                        decimal(node.get("costBasis")),
+                        // 261121-paper-real-unico U2 (F-3): a REAL cost unknown at the decision is recorded as null.
+                        node.get("costBasis") == null || node.get("costBasis").isNull()
+                                ? java.util.Optional.empty()
+                                : java.util.Optional.of(decimal(node.get("costBasis"))),
                         Instant.parse(node.get("openedAt").asText()))));
         return new DecisionRequest(
                 strategy,
@@ -161,7 +164,8 @@ public final class DecisionJson {
     private static ObjectNode position(PositionInput position) {
         ObjectNode node = token(position.token());
         node.put("quantity", position.quantity().toPlainString());
-        node.put("costBasis", position.costBasis().toPlainString());
+        position.costBasis()
+                .ifPresentOrElse(cost -> node.put("costBasis", cost.toPlainString()), () -> node.putNull("costBasis"));
         node.put("openedAt", position.openedAt().toString());
         return node;
     }

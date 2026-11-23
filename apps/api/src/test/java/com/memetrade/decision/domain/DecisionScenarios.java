@@ -162,6 +162,22 @@ public final class DecisionScenarios {
         }
 
         /** An open position of {@code quantity} with cost {@code costBasis}, opened {@code minutesAgo} before now. */
+        /** 261121-paper-real-unico U2: a position as the REAL cycle built it. */
+        public Builder position(PositionInput position) {
+            positions.add(position);
+            return this;
+        }
+
+        /** 261121-paper-real-unico U2 (F-3): a REAL position whose cost the read with attribution could not give. */
+        public Builder positionWithUnknownCost(TokenId token, String quantity, long minutesAgo) {
+            positions.add(new PositionInput(
+                    token,
+                    new BigDecimal(quantity),
+                    java.util.Optional.empty(),
+                    NOW.minus(Duration.ofMinutes(minutesAgo))));
+            return this;
+        }
+
         public Builder position(TokenId token, String quantity, String costBasis, long minutesAgo) {
             positions.add(new PositionInput(
                     token,

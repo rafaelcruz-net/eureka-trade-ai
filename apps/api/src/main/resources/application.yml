@@ -277,6 +277,14 @@ memetrade:
       pool-size: 8
       queue-capacity: 16
       real-max-orders: 50000
+    # 261121-paper-real-unico U2 (NFR1.4, NFR1.12, NFR1.16): the read of cost with attribution of the rounds of the
+    # barrier and of the REAL cycle has a hard deadline (50 ms to 250 ms; it may only go down without the founder),
+    # and the reads that order the whole history of a person sort with a local work_mem (1 MB to 12 MB).
+    real:
+      attribution:
+        gate-and-cycle-timeout: 250ms
+      read:
+        work-mem: 12MB
   auth:
     access-token-signing-key: ${ACCESS_TOKEN_SIGNING_KEY:}
     guest-app-origin: ${GUEST_APP_ORIGIN:http://localhost:3000}

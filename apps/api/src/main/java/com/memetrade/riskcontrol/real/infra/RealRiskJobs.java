@@ -5,9 +5,13 @@ import com.memetrade.botwallet.api.RealPauses;
 import com.memetrade.botwallet.api.RealStateQuery;
 import com.memetrade.botwallet.api.RealStateView;
 import com.memetrade.botwallet.api.RealWalletRef;
+import com.memetrade.ledger.api.RealCost;
 import com.memetrade.ledger.api.RealFlows;
 import com.memetrade.ledger.api.RealLedgerView;
+import com.memetrade.riskcontrol.api.RealGateUnavailable;
 import com.memetrade.riskcontrol.real.domain.DaySnapshot;
+import com.memetrade.riskcontrol.real.domain.PositionsValue;
+import com.memetrade.riskcontrol.real.domain.PricedPosition;
 import com.memetrade.riskcontrol.real.domain.RealRiskLimits;
 import com.memetrade.riskcontrol.real.domain.RealRiskPolicy;
 import com.memetrade.shared.web.CorrelationId;
@@ -107,8 +111,13 @@ public class RealRiskJobs {
         int failures = 0;
         for (RealWalletRef wallet : states.walletsInForce()) {
             try {
-                Boolean written = transactions.execute(status -> photo(wallet));
-                photos += Boolean.TRUE.equals(written) ? 1 : 0;
+                Photo photo = transactions.execute(status -> photo(wallet));
+                photos += photo == Photo.WRITTEN ? 1 : 0;
+                if (photo == Photo.DEFERRED) {
+                    // F-4: the mark is committed; the round counts a failure and tries again in 5 minutes.
+                    failures++;
+                    metrics.error(RealGateUnavailable.Dependency.ATTRIBUTION);
+                }
             } catch (RuntimeException failure) {
                 failures++;
                 warn(DAY, failure);
@@ -138,26 +147,64 @@ public class RealRiskJobs {
      * {@code flowsSince(takenAt)}, and one already inside the value of the photo can only make the loss look larger
      * (the safe side), never hide it. The day of the photo is the UTC day of that same instant.
      */
-    private boolean photo(RealWalletRef wallet) {
+    private enum Photo {
+        WRITTEN,
+        SKIPPED,
+        DEFERRED
+    }
+
+    /**
+     * 261121-paper-real-unico U2 (decision F-4): without a known value (a position without price and an unknown cost)
+     * the round writes the mark of the deferred photo of the day and no photo, so the first buy of the day is refused
+     * until a round takes it; with the mark, the photo is taken only with EVERY cost known, each position at the larger
+     * of its quote and its cost, so an unknown cost never gives a base after a fall.
+     */
+    private Photo photo(RealWalletRef wallet) {
         Instant takenAt = clock.instant();
         LocalDate day = LocalDate.ofInstant(takenAt, ZoneOffset.UTC);
         if (store.snapshot(wallet.tenantId(), wallet.botWalletId(), day).isPresent()) {
-            return false;
+            return Photo.SKIPPED;
         }
         Optional<RealStateView> state = states.readRealState(wallet.tenantId(), wallet.userId());
         if (state.isEmpty()) {
-            return false;
+            return Photo.SKIPPED;
         }
-        long value = reader.value(wallet.tenantId(), wallet.botWalletId(), Optional.empty())
-                .value();
+        boolean deferred = store.isDayDeferred(wallet.tenantId(), wallet.botWalletId(), day);
+        RealGateInputsReader.WalletValue now =
+                reader.value(wallet.tenantId(), wallet.userId(), wallet.botWalletId(), Optional.empty(), deferred);
+        Optional<Long> value = deferred ? baseAfterDeferral(now) : known(now.value());
+        if (value.isEmpty()) {
+            store.deferDay(wallet.tenantId(), wallet.botWalletId(), day, takenAt);
+            log.warn("event=REAL_RISK_DAY_PHOTO_DEFERRED reason=COST_UNKNOWN");
+            return Photo.DEFERRED;
+        }
         return store.insertSnapshot(new DaySnapshot(
-                wallet.tenantId(),
-                wallet.botWalletId(),
-                day,
-                value,
-                state.get().capLamports(),
-                takenAt,
-                DaySnapshot.TakenBy.DAY_JOB));
+                        wallet.tenantId(),
+                        wallet.botWalletId(),
+                        day,
+                        value.get(),
+                        state.get().capLamports(),
+                        takenAt,
+                        DaySnapshot.TakenBy.DAY_JOB))
+                ? Photo.WRITTEN
+                : Photo.SKIPPED;
+    }
+
+    /** F-4: the balance plus, per position, the larger of its quote and its cost; empty while a cost is unknown. */
+    private static Optional<Long> baseAfterDeferral(RealGateInputsReader.WalletValue now) {
+        long base = now.balance().totalLamports();
+        for (PricedPosition position : now.positions()) {
+            if (!(position.cost() instanceof RealCost.Known cost)) {
+                return Optional.empty();
+            }
+            long quoted = RealRiskPolicy.quoted(position).orElse(0L);
+            base = Math.addExact(base, Math.max(quoted, cost.lamports()));
+        }
+        return Optional.of(base);
+    }
+
+    private static Optional<Long> known(PositionsValue value) {
+        return value instanceof PositionsValue.Known known ? Optional.of(known.lamports()) : Optional.empty();
     }
 
     private LossRound lossRound() {
@@ -196,10 +243,19 @@ public class RealRiskJobs {
         // Review R-01: the value and the flows after the photo from ONE read of the ledger.
         RealGateInputsReader.WalletValue now = reader.value(
                 wallet.tenantId(),
+                wallet.userId(),
                 wallet.botWalletId(),
-                Optional.of(snapshot.get().takenAt()));
+                Optional.of(snapshot.get().takenAt()),
+                false);
         RealFlows flows = now.flows();
-        if (!policy.dailyLoss(snapshot.get(), flows, now.value(), state.get().capLamports(), limits)
+        if (!(now.value() instanceof PositionsValue.Known value)) {
+            // 261121-paper-real-unico U2 (F-3): an unknown value neither pauses nor resumes; it is a failure of the
+            // round (the read of cost already rolled back its savepoint, so nothing here was written).
+            metrics.error(RealGateUnavailable.Dependency.ATTRIBUTION);
+            throw RealGateUnavailable.afterSavepoint(RealGateUnavailable.Dependency.ATTRIBUTION, null);
+        }
+        if (!policy.dailyLoss(
+                        snapshot.get(), flows, value.lamports(), state.get().capLamports(), limits)
                 .breached()) {
             return false;
         }

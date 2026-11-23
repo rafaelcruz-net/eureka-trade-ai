@@ -195,6 +195,34 @@ public class JdbcRealRiskStore {
                 .optional();
     }
 
+    /**
+     * 261121-paper-real-unico U2 (decision F-4, migration 0024): the mark that the round of the day could not take the
+     * photo of this wallet (cost unknown); the first mark of the day stays.
+     */
+    public void deferDay(UUID tenantId, UUID botWalletId, LocalDate day, Instant at) {
+        jdbc.sql("""
+                        insert into real_risk_day_deferred (tenant_id, bot_wallet_id, day, reason, deferred_at)
+                        values (:tenant, :wallet, :day, 'COST_UNKNOWN', :at)
+                        on conflict do nothing""")
+                .param("tenant", tenantId)
+                .param("wallet", botWalletId)
+                .param("day", day)
+                .param("at", Timestamp.from(at))
+                .update();
+    }
+
+    /** F-4: whether the photo of {@code day} of this wallet of this tenant was deferred. */
+    public boolean isDayDeferred(UUID tenantId, UUID botWalletId, LocalDate day) {
+        return jdbc.sql("""
+                        select exists (select 1 from real_risk_day_deferred
+                          where bot_wallet_id = :wallet and day = :day and tenant_id = :tenant)""")
+                .param("wallet", botWalletId)
+                .param("day", day)
+                .param("tenant", tenantId)
+                .query(Boolean.class)
+                .single();
+    }
+
     /** BR4.4: the first photo of the day stays; a later one changes nothing ({@code false}). */
     public boolean insertSnapshot(DaySnapshot snapshot) {
         return jdbc.sql("""

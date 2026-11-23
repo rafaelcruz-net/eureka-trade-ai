@@ -66,8 +66,24 @@ public interface ChainPort {
     /** U5 (BR2.5): the signers of a finalized transaction (getTransaction), in the order of the message. */
     List<String> transactionSigners(String signature);
 
-    /** One finalized incoming SOL transfer to the bot wallet. */
-    record IncomingTransfer(String txSignature, String sourceAddress, long lamports, Instant finalizedAt) {}
+    /**
+     * One finalized incoming SOL transfer to the bot wallet.
+     *
+     * @param slot 261121-paper-real-unico U2 (BR1.4): the slot of the transaction from the same getTransaction answer;
+     *     empty when the answer did not carry it
+     */
+    record IncomingTransfer(
+            String txSignature, String sourceAddress, long lamports, Instant finalizedAt, java.util.OptionalLong slot) {
+
+        public IncomingTransfer {
+            java.util.Objects.requireNonNull(slot, "slot");
+        }
+
+        /** A transfer whose slot is not known. */
+        public IncomingTransfer(String txSignature, String sourceAddress, long lamports, Instant finalizedAt) {
+            this(txSignature, sourceAddress, lamports, finalizedAt, java.util.OptionalLong.empty());
+        }
+    }
 
     record RecentBlockhash(String blockhash, long lastValidBlockHeight) {}
 

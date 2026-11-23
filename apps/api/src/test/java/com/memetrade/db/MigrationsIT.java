@@ -64,7 +64,13 @@ class MigrationsIT extends AbstractPostgresIT {
             // U8 (migration 0011).
             "kill_switch_state",
             "kill_switch_change",
-            "feedback_entry");
+            "feedback_entry",
+            // 261121-paper-real-unico U2 (migration 0023): the slot of each REAL signature, insert-only.
+            "real_entry_slot",
+            // 261121-paper-real-unico U2 (migration 0024, F-4): the mark of the deferred photo of the day.
+            "real_risk_day_deferred",
+            // 261121-paper-real-unico U2a (migration 0025, Etapa 14b): the marks of zero of each mint, insert-only.
+            "real_position_epoch");
 
     /**
      * U8 rollback test (cicd-pipeline.md "Implantação e rollback"): the queries of U1 to U7, U6 and U5 keep running on

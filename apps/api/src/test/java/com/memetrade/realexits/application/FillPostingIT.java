@@ -74,6 +74,8 @@ class FillPostingIT extends AbstractRealExitsIT {
     void s13TheFillEntersTheLedgerWithItsFeeAndClosesThePosition() {
         Setup setup = realBot("AUTO_EXITS");
         position(wallet(setup), setup.mint(), 5_000L, 1_000_000L);
+        // 261121-paper-real-unico U2 (BR1.1): the fill comes after the buy in the network order (its instant).
+        clock.advance(java.time.Duration.ofSeconds(1));
         UUID conditional = conditional(setup, "OPEN", 5_000L);
         String signature = filledOnTheNetwork(conditional, ExitSide.STOP, true);
 
@@ -233,6 +235,8 @@ class FillPostingIT extends AbstractRealExitsIT {
         Setup second = realBot("AUTO_EXITS");
         position(wallet(first), first.mint(), 5_000L, 1_000_000L);
         position(wallet(second), second.mint(), 7_000L, 1_000_000L);
+        // 261121-paper-real-unico U2 (BR1.1): the fills come after the buys in the network order (their instant).
+        clock.advance(java.time.Duration.ofSeconds(1));
         UUID one = conditional(first, "OPEN", 5_000L);
         UUID two = conditional(second, "OPEN", 7_000L);
         filledOnTheNetwork(one, ExitSide.STOP, true);

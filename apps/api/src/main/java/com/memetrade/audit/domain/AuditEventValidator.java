@@ -118,6 +118,14 @@ public final class AuditEventValidator {
 
     private static final Pattern SIGNATURE_RUN = Pattern.compile("^[1-9A-HJ-NP-Za-km-z]{80,90}$");
 
+    /**
+     * 261121-paper-real-unico U2 (NFR3.9): true when {@code value} is a whole Base58 transaction signature of 64 bytes,
+     * the same check as {@code real.txSignature}; false for anything else, null included.
+     */
+    public static boolean isTxSignature(String value) {
+        return value != null && isBase58OfBytes(value, SIGNATURE_RUN, SIGNATURE_BYTES);
+    }
+
     private static boolean isBase58OfBytes(String value, Pattern shape, int bytes) {
         return shape.matcher(value).matches() && decodedLength(value) == bytes;
     }

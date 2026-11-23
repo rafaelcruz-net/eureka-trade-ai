@@ -133,6 +133,36 @@ class ChainWatcherTest {
                 .containsExactly(ChainObservation.notFound(200L), ChainObservation.finalized("sigW", 5000L));
     }
 
+    /**
+     * 261121-paper-real-unico U2 (BR1.4, C13): the slot comes from the answers the watcher already reads, with no new
+     * call: getSignatureStatuses for a withdrawal, getTransaction for a swap and for a deposit.
+     */
+    @Test
+    void theSlotIsReadFromTheAnswersAlreadyAskedForWithoutANewCall() {
+        first.answer("getBlockHeight", "200")
+                .answer(
+                        "getSignatureStatuses",
+                        "{\"value\":[{\"slot\":4242,\"confirmationStatus\":\"finalized\",\"err\":null}]}")
+                .answer("getTransaction", "{\"slot\":4242,\"meta\":{\"fee\":5000}}");
+        second.goDown();
+
+        List<ChainObservation> observations =
+                chain.checkSignatures(List.of("sigS")).get("sigS");
+
+        assertThat(observations.getFirst())
+                .isEqualTo(ChainObservation.finalized("sigS", 5000L, java.util.OptionalLong.of(4242L)));
+        assertThat(RpcChainWatcher.slotOf(new com.fasterxml.jackson.databind.ObjectMapper()
+                        .createObjectNode()
+                        .put("slot", 77)))
+                .hasValue(77L);
+        assertThat(RpcChainWatcher.slotOf(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode()))
+                .isEmpty();
+        assertThat(RpcChainWatcher.slotOf(new com.fasterxml.jackson.databind.ObjectMapper()
+                        .createObjectNode()
+                        .put("slot", "not a number")))
+                .isEmpty();
+    }
+
     @Test
     void aProviderThatDoesNotAnswerGivesAnUnavailableObservationNeverANotFound() {
         first.goDown();

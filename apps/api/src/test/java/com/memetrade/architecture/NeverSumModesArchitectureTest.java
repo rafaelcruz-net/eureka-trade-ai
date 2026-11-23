@@ -68,7 +68,12 @@ class NeverSumModesArchitectureTest {
             ProratedShare.class,
             LamportsValue.class,
             LamportsValue.Known.class,
-            LamportsValue.Unknown.class);
+            LamportsValue.Unknown.class,
+            // 261121-paper-real-unico U2 (BR10.5): the cost of a REAL bot wallet read with attribution.
+            com.memetrade.pnl.api.RealWalletCost.class,
+            com.memetrade.pnl.api.WalletCost.class,
+            com.memetrade.pnl.api.WalletCost.Known.class,
+            com.memetrade.pnl.api.WalletCost.Unknown.class);
 
     /** The PAPER block on the wire, with its US$ amount shapes (PnlAmountDto is used by PAPER code only). */
     static final Set<Class<?>> PAPER_DTOS = Set.of(

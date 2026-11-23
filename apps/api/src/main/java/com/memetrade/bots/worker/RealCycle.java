@@ -15,6 +15,9 @@ import com.memetrade.ledger.api.RealPosition;
 import com.memetrade.marketdata.api.MarketDataQuery;
 import com.memetrade.marketdata.api.MarketValue;
 import com.memetrade.marketdata.api.TokenId;
+import com.memetrade.pnl.api.CostPath;
+import com.memetrade.pnl.api.RealWalletCost;
+import com.memetrade.pnl.api.WalletCost;
 import com.memetrade.riskcontrol.api.RealAccountLimits;
 import com.memetrade.riskcontrol.api.RealAccountLimitsView;
 import com.memetrade.riskcontrol.api.RealLimitsUnavailable;
@@ -52,6 +55,7 @@ public class RealCycle {
     private final MarketDataQuery market;
     private final RealDecisionStep step;
     private final RealAccountLimits accountLimits;
+    private final RealWalletCost walletCost;
     private final TransactionTemplate savepoint;
 
     public RealCycle(
@@ -60,12 +64,14 @@ public class RealCycle {
             MarketDataQuery market,
             RealDecisionStep step,
             RealAccountLimits accountLimits,
+            RealWalletCost walletCost,
             PlatformTransactionManager transactions) {
         this.states = states;
         this.ledger = ledger;
         this.market = market;
         this.step = step;
         this.accountLimits = accountLimits;
+        this.walletCost = walletCost;
         this.savepoint = new TransactionTemplate(transactions);
         this.savepoint.setPropagationBehavior(TransactionDefinition.PROPAGATION_NESTED);
     }
@@ -119,6 +125,16 @@ public class RealCycle {
         RealLedgerView view = ledger.view(bot.scope().tenantId(), state.get().botWalletId(), Optional.empty());
         long operable = view.balance()
                 .operableLamports(state.get().capLamports(), state.get().feeReserveLamports());
+        // 261121-paper-real-unico U2 (BR2.7, F-3): the quantity comes from the ledger; the cost, read with attribution
+        // in a savepoint (path CYCLE), may be unknown: then the exits of the cost are skipped and no buy of that token.
+        WalletCost cost = view.positions().isEmpty()
+                ? new WalletCost.Known(Map.of())
+                : walletCost.costOf(
+                        bot.scope().tenantId(),
+                        bot.scope().ownerUserId(),
+                        state.get().botWalletId(),
+                        CostPath.CYCLE,
+                        view);
         List<PositionInput> positions = new ArrayList<>();
         for (RealPosition position : view.positions()) {
             TokenId token = new TokenId("solana", position.mint());
@@ -126,10 +142,20 @@ public class RealCycle {
             if (decimals.isEmpty()) {
                 continue;
             }
+            Optional<BigDecimal> costUsd =
+                    switch (cost) {
+                        case WalletCost.Known known ->
+                            Optional.ofNullable(known.costByMint().get(position.mint()))
+                                    .map(lamports -> RealSizing.dollarsOfLamports(lamports, sol.get()));
+                        case WalletCost.Unknown unknown -> Optional.empty();
+                    };
+            if (costUsd.isEmpty()) {
+                log.info("event=REAL_EXIT_SKIPPED reason=COST_UNKNOWN rule=TAKE_PROFIT,STOP_LOSS");
+            }
             positions.add(new PositionInput(
                     token,
                     RealSizing.tokens(position.tokenBaseUnits(), decimals.get().intValueExact()),
-                    RealSizing.dollarsOfLamports(position.costLamports(), sol.get()),
+                    costUsd,
                     holdings.getOrDefault(token, now)));
         }
         return Optional.of(

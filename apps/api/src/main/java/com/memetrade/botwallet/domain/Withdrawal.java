@@ -128,6 +128,15 @@ public record Withdrawal(
     }
 
     public WithdrawalTransition confirmed(String signature, long realFeeLamports, Instant now) {
+        return confirmed(signature, realFeeLamports, java.util.OptionalLong.empty(), now);
+    }
+
+    /**
+     * 261121-paper-real-unico U2 (BR1.4): the confirmation with the slot of its signature, read with its status; the
+     * store records the slot with the entries.
+     */
+    public WithdrawalTransition confirmed(
+            String signature, long realFeeLamports, java.util.OptionalLong slot, Instant now) {
         if (state.isFinal() || state == WithdrawalState.REQUESTED) {
             throw new IllegalStateException("A " + state + " withdrawal cannot be confirmed");
         }
@@ -146,7 +155,7 @@ public record Withdrawal(
             entries.add(entry(RealEntryKind.NETWORK_FEE, Math.negateExact(realFeeLamports), "fee"));
         }
         entries.add(entry(RealEntryKind.RESERVE_RELEASE, Math.addExact(lamports, feeLamports), "release"));
-        return new WithdrawalTransition(done, entries);
+        return new WithdrawalTransition(done, entries, slot);
     }
 
     public WithdrawalTransition refusedBySigner(String code, Instant now) {
@@ -177,7 +186,7 @@ public record Withdrawal(
     public WithdrawalTransition afterChainCheck(ChainObservation first, ChainObservation second, Instant now) {
         for (ChainObservation observation : List.of(first, second)) {
             if (observation.status() == ChainObservation.Status.FINALIZED) {
-                return confirmed(observation.txSignature(), observation.feeLamports(), now);
+                return confirmed(observation.txSignature(), observation.feeLamports(), observation.slot(), now);
             }
         }
         if (expired(first) && expired(second)) {

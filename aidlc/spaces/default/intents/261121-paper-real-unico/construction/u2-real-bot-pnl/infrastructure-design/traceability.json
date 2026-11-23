@@ -1,0 +1,250 @@
+{
+  "stage": "infrastructure-design",
+  "unit": "u2-real-bot-pnl",
+  "upstream_ids": [
+    "NFR1.1",
+    "NFR1.2",
+    "NFR1.3",
+    "NFR1.4",
+    "NFR1.6",
+    "NFR1.8",
+    "NFR1.9",
+    "NFR1.12",
+    "NFR1.15",
+    "NFR1.16",
+    "NFR1.17",
+    "NFR1.18",
+    "NFR1.19",
+    "NFR1.23",
+    "NFR1.24",
+    "NFR1.25",
+    "NFR2.3",
+    "NFR2.4",
+    "NFR2.7",
+    "NFR2.11",
+    "NFR2.12",
+    "NFR2.13",
+    "NFR2.14",
+    "NFR2.15",
+    "NFR3.4",
+    "NFR3.5",
+    "NFR3.6",
+    "NFR3.9",
+    "NFR3.11",
+    "NFR3.12",
+    "NFR3.14",
+    "NFR3.15",
+    "NFR3.16",
+    "NFR4.4",
+    "NFR7.4",
+    "NFR7.6",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR8.3",
+    "NFR8.4"
+  ],
+  "coverage": [
+    {
+      "id": "NFR1.1",
+      "status": "OK",
+      "target": "índice real_ledger_entry_wallet_created_idx (bot_wallet_id, created_at), lido pelo streamInNetworkOrder no bloco REAL de C4: changeset 0023-real-ledger-entry-wallet-created-idx de apps/api/src/main/resources/db/changelog/changes/0023-real-entry-slot.sql (CREATE INDEX CONCURRENTLY, runInTransaction:false); prazo do bloco memetrade.pnl.by-mode.block-timeout = 800ms no application.yml, sem mudança; portão de 1.000 ms no cenário pnl-by-mode"
+    },
+    {
+      "id": "NFR1.2",
+      "status": "OK",
+      "target": "application.yml, memetrade.pnl.by-mode (pool pnl-mode-block de 8 threads e fila de 16, sem mudança): GET /api/v1/real/pnl passa pelo mesmo pool e prazo"
+    },
+    {
+      "id": "NFR1.3",
+      "status": "OK",
+      "target": "application.yml: memetrade.pnl.real.attribution.pnl-timeout = 500ms (50ms a 500ms, menor que block-timeout), @ConfigurationProperties, só na api"
+    },
+    {
+      "id": "NFR1.4",
+      "status": "OK",
+      "target": "application.yml: memetrade.pnl.real.attribution.gate-and-cycle-timeout = 250ms (50ms a 250ms), @ConfigurationProperties, worker"
+    },
+    {
+      "id": "NFR1.6",
+      "status": "OK",
+      "target": "application.yml: memetrade.pnl.real.read.work-mem = 12MB (1MB a 12MB, set local); cenário pnl-by-mode em scripts/load-test.sh e scripts/load/ com o portão de 0,5% em pnl_mode_block_unavailable_total{cause}"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "OK",
+      "target": ".github/workflows/ci.yml, job backend sem mudança: RealAttributionMeasurementIT e RealRiskMeasurementIT só registram o p95; as medianas decidem no Build and Test"
+    },
+    {
+      "id": "NFR1.9",
+      "status": "OK",
+      "target": ".github/workflows/load-test.yml: texto pronto de nfr-requirements/performance-requirements.md NFR1.9 (opções pnl-by-mode e real, timeout-minutes 75/90/360), aplicado pelo responsável"
+    },
+    {
+      "id": "NFR1.12",
+      "status": "OK",
+      "target": "application.yml: memetrade.pnl.real.attribution.gate-and-cycle-timeout (250ms) e memetrade.pnl.real.attribution.pnl-timeout (500ms), teto da faixa igual ao orçamento"
+    },
+    {
+      "id": "NFR1.15",
+      "status": "OK",
+      "target": "application.yml e infra/terraform/main.tf api_environment sem mudança: memetrade.pnl.by-mode.real-max-orders = 50000 e MEMETRADE_PNL_BYMODE_REALMAXORDERS ficam (F-2)"
+    },
+    {
+      "id": "NFR1.16",
+      "status": "OK",
+      "target": "pool pnl-mismatch-audit (memetrade.pnl.mismatch-audit.pool-size = 2, conferido de 1 a 2 pelo RuntimeSettingsGuard no ramo api); ComposeFilesTest.theConnectionTallyFitsTheDatabaseLimit 65 para 67 e, no overlay do REAL com o worker de 37 lido de infra/docker-compose.real.yml, 78; comentário de docker-compose.yml com cada trecho conferido numa linha; Hikari principal sem mudança"
+    },
+    {
+      "id": "NFR1.17",
+      "status": "OK",
+      "target": "infra/terraform: 0 serviços, tarefas, filas ou caches novos; definições de tarefa api-worker e txsigner só com uma revisão do sidecar metrics-agent (modules/services/metrics-agent.tf, D-INF1)"
+    },
+    {
+      "id": "NFR1.18",
+      "status": "OK",
+      "target": "0023-real-entry-slot.sql: real_entry_slot_pkey e o changeset 0023-real-ledger-entry-wallet-created-idx (DROP INDEX CONCURRENTLY IF EXISTS e CREATE INDEX CONCURRENTLY, splitStatements padrão); Migration0023IndexValidIT, Migration0023IndexRestartIT (recomeço depois de índice INVALID) e RealLedgerNetworkOrderPlanIT; docs/runbooks/real-operations.md seção 9 (Índice da migração 0023)"
+    },
+    {
+      "id": "NFR1.19",
+      "status": "OK",
+      "target": "RDS app (infra/terraform/modules/data/main.tf, db.t4g.micro, 20 GB gp3) sem mudança; cerca de 20 MB por ano de real_entry_slot"
+    },
+    {
+      "id": "NFR1.23",
+      "status": "OK",
+      "target": "/actuator/prometheus: pnl_real_attribution_read_seconds{path,outcome}, só no Prometheus (o agente descarta histogramas)"
+    },
+    {
+      "id": "NFR1.24",
+      "status": "OK",
+      "target": "monitoring-design.md SLIs: http_server_requests_seconds e pnl_real_attribution_read_seconds no relatório de carga; leitura de C4 na devnet em docs/perf/; sem SLO novo"
+    },
+    {
+      "id": "NFR1.25",
+      "status": "OK",
+      "target": "workflow manual load-test, cenário pnl-by-mode, execução verde no SHA candidato com load-test-report.json e docs/perf/u2-real-bot-pnl-<data>.md como portão do Build and Test"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "0023 e 0024 só de criação; rollback só da imagem api-worker; Migration0023AdditiveIT; AnonymizationMigrationIT desfaz e reaplica as duas; docs/runbooks/real-operations.md seção 9 para a falha do db-migrate no meio do índice"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "nenhum preenchimento na 0023; ledger_real_slot_missing_total no /actuator/prometheus"
+    },
+    {
+      "id": "NFR2.7",
+      "status": "OK",
+      "target": ".github/workflows/ci.yml, job backend: RealPnlPropertyTest em até 60 s"
+    },
+    {
+      "id": "NFR2.11",
+      "status": "OK",
+      "target": "infra/terraform/modules/observability/app-metrics.tf, app_metric_declarations, grupo dimensions = [[]]: pnl_real_reconciliation_mismatches_total"
+    },
+    {
+      "id": "NFR2.12",
+      "status": "OK",
+      "target": "/actuator/prometheus: ledger_real_slot_missing_total, só no Prometheus"
+    },
+    {
+      "id": "NFR2.13",
+      "status": "OK",
+      "target": "/actuator/prometheus: ledger_real_slot_conflicts_total{writer}, só no Prometheus"
+    },
+    {
+      "id": "NFR2.14",
+      "status": "OK",
+      "target": "infra/observability/real-ops-alerts.yml (RealOpsPnlReconciliationMismatch, [4m], window_seconds 240, critical); real-ops.tf aws_cloudwatch_metric_alarm.real_ops_pnl_reconciliation_mismatch (Sum, period 240, 1 período, notBreaching, var.alarm_topic_arn); app-metrics.tf alarm_resource_names e metric_alarms; RealOpsAlarmParityTest hasSize(14); docs/runbooks/real-operations.md seção 8 (Divergência do P&L REAL); a lista de permissão gera o CW_CONFIG_CONTENT e o PROMETHEUS_CONFIG_CONTENT do sidecar (modules/services/metrics-agent.tf)"
+    },
+    {
+      "id": "NFR2.15",
+      "status": "OK",
+      "target": "infra/terraform/modules/observability: nenhum outro alarme nem painel da U2"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "OK",
+      "target": "0023-real-entry-slot.sql, changeset 0023-real-entry-slot-append-only (ledger_reject_change)"
+    },
+    {
+      "id": "NFR3.5",
+      "status": "OK",
+      "target": "0023-real-entry-slot.sql, changeset 0023-real-entry-slot-privileges: bloco DO da 0018/0019 (aclexplode, matriz real_entry_slot = SELECT, INSERT, REVOKE TRUNCATE FROM CURRENT_USER), sem nome de login escrito; RealEntrySlotGrantsIT e U2DatabaseRolesIT"
+    },
+    {
+      "id": "NFR3.6",
+      "status": "OK",
+      "target": "0023-real-entry-slot.sql só com CREATE TABLE, CREATE INDEX CONCURRENTLY, CREATE TRIGGER, GRANT, REVOKE e o DROP INDEX IF EXISTS do próprio índice"
+    },
+    {
+      "id": "NFR3.9",
+      "status": "OK",
+      "target": "segredo audit-wallet-hmac-key (MEMETRADE_AUDIT_WALLET_HMAC_KEY) que já existe em modules/services/secrets.tf; nenhum segredo novo"
+    },
+    {
+      "id": "NFR3.11",
+      "status": "OK",
+      "target": "tabela real_risk_day_deferred, marca da fotografia adiada que faz a compra ser recusada com DAY_SNAPSHOT_PENDING (F-4): apps/api/src/main/resources/db/changelog/changes/0024-real-risk-day-deferred.sql, changesets 0024-real-risk-day-deferred e 0024-real-risk-day-deferred-privileges (bloco DO com SELECT, INSERT ao login da aplicação; SELECT, DELETE a risk_retention); DaySnapshotDeferredIT"
+    },
+    {
+      "id": "NFR3.12",
+      "status": "OK",
+      "target": "grupos de log do api-worker no CloudWatch Logs, sem mudança; consulta ad hoc pelo campo event e pelo correlationId"
+    },
+    {
+      "id": "NFR3.14",
+      "status": "OK",
+      "target": "nenhuma biblioteca nem serviço de tracing"
+    },
+    {
+      "id": "NFR3.15",
+      "status": "OK",
+      "target": "application.yml: memetrade.pnl.mismatch-audit.pool-size = 2 e write-timeout = 200ms; espera por conexão constante de 250 ms no MismatchAuditDataSource (menor valor aceito pelo HikariCP 6.3.3), sem chave; HikariConfig.setMetricRegistry para hikaricp_*{pool=\"pnl-mismatch-audit\"}; pool só na api, fora da prontidão, com o login DB_USER que já existe"
+    },
+    {
+      "id": "NFR3.16",
+      "status": "OK",
+      "target": "/actuator/prometheus: pnl_real_reconciliation_audit_failures_total, só no Prometheus"
+    },
+    {
+      "id": "NFR4.4",
+      "status": "OK",
+      "target": "health check do ALB e do ECS em /actuator/health/readiness sem mudança; MismatchAuditDataSource não é bean DataSource"
+    },
+    {
+      "id": "NFR7.4",
+      "status": "OK",
+      "target": ".github/workflows/ci.yml sem mudança: ponto de controle interno da fase 1 com o ci verde no mesmo commit"
+    },
+    {
+      "id": "NFR7.6",
+      "status": "OK",
+      "target": "scripts/verify.sh sem mudança, jobs smoke e e2e do ci"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "0 recursos de serviço novos; ambiente e configuração dos contêineres da aplicação sem mudança (infra/terraform/main.tf api_environment e worker_environment iguais; chaves novas só no application.yml); só o sidecar metrics-agent muda, com uma revisão das definições de tarefa api-worker e txsigner (D-INF1); NFR8.1 e Q2 alinhados na Code Generation (A16)"
+    },
+    {
+      "id": "NFR8.2",
+      "status": "OK",
+      "target": "1 métrica sem dimensões e 1 alarme em Eureka/App, cerca de US$ 0,40 por mês por conta, dentro de US$ 350"
+    },
+    {
+      "id": "NFR8.3",
+      "status": "OK",
+      "target": "nenhuma configuração da U2 por ambiente; devnet sem usuários"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "OK",
+      "target": "tarefa avulsa db-migrate (modules/services/one-off.tf) aplica 0023 e 0024 antes da atualização rolling de api-worker (com a revisão do sidecar); revisão do sidecar do txsigner no passo do fundador com MFA; mainnet só com U1 e U2 no mesmo SHA"
+    }
+  ],
+  "note": "Só os NFRx.y com decisão que pede infraestrutura ou configuração. Os demais IDs do traceability.json do NFR Design são de código, testes ou textos (NFR1.5, NFR1.7, NFR1.10, NFR1.11, NFR1.13, NFR1.14, NFR1.20 a NFR1.22, NFR1.26, NFR2.1, NFR2.2, NFR2.5, NFR2.6, NFR2.8 a NFR2.10, NFR3.1 a NFR3.3, NFR3.7, NFR3.8, NFR3.10, NFR3.13, NFR4.1 a NFR4.3, NFR4.5, NFR7.1 a NFR7.3, NFR7.5) ou de referência de pilha e alternativas rejeitadas (NFR2.16, NFR7.7 a NFR7.9, NFR8.5 a NFR8.14) e não entram aqui.",
+  "revision": "review-01 (R-01 a R-07) e decisões do fundador D-INF1 e D-INF2 (2026-11-22)"
+}

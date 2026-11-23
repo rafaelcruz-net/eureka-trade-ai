@@ -37,6 +37,7 @@ class RecordedSwapSourceKindTest {
                 market,
                 mock(RiskAssessmentQuery.class),
                 mock(JdbcRealRiskStore.class),
+                mock(com.memetrade.pnl.api.RealWalletCost.class),
                 fixture);
     }
 

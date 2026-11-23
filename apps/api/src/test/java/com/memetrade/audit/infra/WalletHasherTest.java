@@ -132,4 +132,37 @@ class WalletHasherTest {
     private static SanitizableData data(String key, String value) {
         return new SanitizableData(null, key, value);
     }
+
+    // --- 261121-paper-real-unico U2, Etapa 4 (written before the code; NFR3.9, D-NFR2, security-design.md R-06) -----
+
+    @Test
+    void theHmacOfASignatureIsTheHmacOfTheMessageWithTheDomainLabel() {
+        String signature = com.memetrade.testsupport.SyntheticIds.signature();
+
+        assertThat(hasher.hmacOfTxSignature(signature))
+                .isEqualTo(TestWalletHmac.of(KEY, "real-tx-signature:" + signature))
+                .matches("^[0-9a-f]{64}$");
+    }
+
+    @Test
+    void theHmacOfASignatureDiffersFromTheHmacOfTheSameTextWithoutTheLabel() {
+        String signature = com.memetrade.testsupport.SyntheticIds.signature();
+
+        assertThat(hasher.hmacOfTxSignature(signature)).isNotEqualTo(TestWalletHmac.of(KEY, signature));
+        assertThat(hasher.hmacOfTxSignature(signature)).isEqualTo(new WalletHasher(KEY).hmacOfTxSignature(signature));
+    }
+
+    @Test
+    void onlyABase58SignatureOf64BytesIsHashedAndTheTextIsNeverEchoed() {
+        String wallet = TestWallet.generate().address();
+        String notBase58 = "0OIl".repeat(22);
+
+        assertThatThrownBy(() -> hasher.hmacOfTxSignature(wallet))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageNotContaining(wallet);
+        assertThatThrownBy(() -> hasher.hmacOfTxSignature(notBase58))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageNotContaining(notBase58);
+        assertThatThrownBy(() -> hasher.hmacOfTxSignature(null)).isInstanceOf(IllegalArgumentException.class);
+    }
 }

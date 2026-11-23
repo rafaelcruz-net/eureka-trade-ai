@@ -66,6 +66,8 @@ final class PolicyFixture {
     long snapshotStartCap = 10 * SOL;
     RealFlows flows = RealFlows.NONE;
     RealRiskLimits limits = RealRiskLimits.DEFAULTS;
+    /** 261121-paper-real-unico U2 (F-4): the round of the day deferred the photo of today (cost unknown). */
+    boolean dayPhotoDeferred;
 
     static MarketValue known(String value, long secondsAgo) {
         return new MarketValue.Known(new BigDecimal(value), SOURCE, NOW.minusSeconds(secondsAgo), false);
@@ -156,7 +158,8 @@ final class PolicyFixture {
                         openGateReservedLamports,
                         approvedBuysToday,
                         snapshot(),
-                        flows))
+                        flows,
+                        dayPhotoDeferred))
                 : Optional.empty();
         return new RealGateInputs(NOW, limits, intent, wallet(), source, buy);
     }

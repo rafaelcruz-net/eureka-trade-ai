@@ -60,11 +60,39 @@ class ModeBoundaryArchitectureTest {
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
-                        "com.memetrade.ledger.api..",
-                        "com.memetrade.pnl.domain..",
-                        "com.memetrade.pnl.application..",
-                        "org.springframework..")
+                        "com.memetrade.pnl.domain..", "com.memetrade.pnl.application..", "org.springframework..")
                 .because("the REAL calculation reads nothing PAPER and stays a pure function (NFR4.2)")
+                .check(PRODUCTION);
+        // 261121-paper-real-unico U2 (C11): the REAL calculation implements the cost port of the ledger, so it reads
+        // the
+        // REAL types of ledger.api (the cost path, the network order key, the REAL positions) and never a PAPER one.
+        noClasses()
+                .that()
+                .resideInAPackage("com.memetrade.pnl.real..")
+                .should()
+                .dependOnClassesThat(
+                        new com.tngtech.archunit.base.DescribedPredicate<com.tngtech.archunit.core.domain.JavaClass>(
+                                "a PAPER type of ledger.api") {
+                            @Override
+                            public boolean test(com.tngtech.archunit.core.domain.JavaClass type) {
+                                if (!type.getPackageName().equals("com.memetrade.ledger.api")) {
+                                    return false;
+                                }
+                                // The top-level type of a nested one (RealCost$Known is of RealCost).
+                                String simple = type.getName()
+                                        .substring(type.getPackageName().length() + 1)
+                                        .split("\\$")[0];
+                                return !simple.startsWith("Real")
+                                        && !java.util.List.of(
+                                                        "CostFill",
+                                                        "CostHolder",
+                                                        "NetworkOrderKey",
+                                                        "CostPart",
+                                                        "Accumulator")
+                                                .contains(simple);
+                            }
+                        })
+                .because("the REAL calculation reads nothing PAPER (NFR4.2)")
                 .check(PRODUCTION);
     }
 

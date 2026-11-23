@@ -4,6 +4,7 @@ import com.memetrade.botwallet.api.RealChain;
 import com.memetrade.ledger.api.RealEntry;
 import com.memetrade.ledger.api.RealEntryKind;
 import com.memetrade.ledger.api.RealLedger;
+import com.memetrade.ledger.api.SlotWriter;
 import com.memetrade.realexecution.api.RealOrderState;
 import com.memetrade.realexecution.domain.RealLedgerEntries;
 import com.memetrade.realexecution.domain.RealOrderStateMachine;
@@ -74,6 +75,16 @@ public class RealOrderLedger {
                     entry.tokenBaseUnits() == null ? null : order.mint(),
                     entry.tokenBaseUnits()));
         }
+        // 261121-paper-real-unico U2 (BR1.4, C13): the slot read with the effect, in the same transaction as the
+        // transition and the entries; unknown, nothing is recorded and the entries are SLOT_MISSING.
+        if (order.txSignature() != null) {
+            effect.slot()
+                    .ifPresent(slot -> ledger.recordSlot(
+                            order.tenantId(), order.txSignature(), slot, SlotWriter.ORDER_CONFIRMATION));
+        }
+        // 261121-paper-real-unico U2a, Etapa 14b: the marks of zero, after the entries and the slot, in the same
+        // transaction (a fill that zeroes the position of the mint, or a late one that lands before the latest mark).
+        ledger.markEpochs(order.tenantId(), botWalletId);
     }
 
     static String reference(UUID realOrderId) {

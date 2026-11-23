@@ -18,7 +18,12 @@ public class RealGateUnavailable extends RuntimeException {
         LEDGER,
         MARKET,
         ASSESSMENT,
-        LOCK;
+        LOCK,
+        /**
+         * 261121-paper-real-unico U2 (BR2.7, NFR3.11): the read of cost with attribution of the rounds of the barrier;
+         * like LEDGER, a failure of the barrier, with its own label {@code attribution}.
+         */
+        ATTRIBUTION;
 
         public String label() {
             return name().toLowerCase(Locale.ROOT);
@@ -36,6 +41,20 @@ public class RealGateUnavailable extends RuntimeException {
 
     public RealGateUnavailable(Dependency dependency) {
         this(dependency, null);
+    }
+
+    private RealGateUnavailable(Dependency dependency, Throwable cause, boolean transactionUsable) {
+        super("The REAL risk barrier is unavailable: dependency=" + dependency.label(), cause);
+        this.dependency = Objects.requireNonNull(dependency, "dependency");
+        this.transactionUsable = transactionUsable;
+    }
+
+    /**
+     * 261121-paper-real-unico U2 (reliability-design.md, assumption 3): a failure of a read that ran in a savepoint
+     * already rolled back; even with a database error in its causes, the transaction of the caller is usable.
+     */
+    public static RealGateUnavailable afterSavepoint(Dependency dependency, Throwable cause) {
+        return new RealGateUnavailable(dependency, cause, true);
     }
 
     public Dependency dependency() {

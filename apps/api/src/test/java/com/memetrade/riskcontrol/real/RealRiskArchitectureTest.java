@@ -149,6 +149,11 @@ class RealRiskArchitectureTest {
                 "com.memetrade.shared.",
                 // M2: only the REAL reads, never PaperExecution nor the PAPER read model.
                 "com.memetrade.ledger.api.Real",
+                // 261121-paper-real-unico U2 (BR2.7, logical-components.md "Fronteiras de módulo"): the rounds ask the
+                // cost only through the public port of the P&L.
+                "com.memetrade.pnl.api.RealWalletCost",
+                "com.memetrade.pnl.api.WalletCost",
+                "com.memetrade.pnl.api.CostPath",
                 // The one shared resource of the module (logical-components.md): the retention pool of the purges.
                 "com.memetrade.riskcontrol.infra.RiskRetentionDataSource");
         return new DescribedPredicate<>("a class outside the boundary of the REAL barrier") {

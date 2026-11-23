@@ -625,12 +625,41 @@ class RealRiskPolicyTest {
     @Nested
     class ValuationBR52AndBR72 {
 
-        /** S14: a position with an unknown price is worth its cost, never zero. */
+        /** S14: a position with an unknown price is worth its KNOWN cost, never zero. */
         @Test
         void anUnknownPriceValuesThePositionAtCost() {
             assertThat(RealRiskPolicy.positionsValue(java.util.List.of(
                             new PricedPosition(SyntheticIds.mint(), 1_000, 2 * SOL, new LamportPrice.Unknown()))))
-                    .isEqualTo(2 * SOL);
+                    .isEqualTo(new PositionsValue.Known(2 * SOL));
+        }
+
+        /**
+         * 261121-paper-real-unico U2, Etapa 12 (written before the code; F-3, BR2.7): an unknown price with an unknown
+         * cost leaves the value of the positions unknown, with the reason of the cost, never zero.
+         */
+        @Test
+        void anUnknownPriceWithAnUnknownCostLeavesTheValueUnknownNeverZero() {
+            assertThat(RealRiskPolicy.positionsValue(java.util.List.of(
+                            new PricedPosition(SyntheticIds.mint(), 3, 7, lamports("0.5", 1)),
+                            new PricedPosition(
+                                    SyntheticIds.mint(),
+                                    1_000,
+                                    new com.memetrade.ledger.api.RealCost.Unknown(
+                                            com.memetrade.ledger.api.RealCostUnknownReason.TIMEOUT),
+                                    new LamportPrice.Unknown()))))
+                    .isEqualTo(new PositionsValue.Unknown(com.memetrade.ledger.api.RealCostUnknownReason.TIMEOUT));
+        }
+
+        /** 261121-paper-real-unico U2 (F-3): a quoted position never needs its cost, even when it was not read. */
+        @Test
+        void aQuotedPositionDoesNotNeedItsCost() {
+            assertThat(RealRiskPolicy.positionsValue(java.util.List.of(new PricedPosition(
+                            SyntheticIds.mint(),
+                            10,
+                            new com.memetrade.ledger.api.RealCost.Unknown(
+                                    com.memetrade.ledger.api.RealCostUnknownReason.NOT_READ),
+                            lamports("2.25", 1)))))
+                    .isEqualTo(new PositionsValue.Known(22));
         }
 
         @Test
@@ -638,7 +667,33 @@ class RealRiskPolicyTest {
             assertThat(RealRiskPolicy.positionsValue(java.util.List.of(
                             new PricedPosition(SyntheticIds.mint(), 3, 7, lamports("0.5", 1)),
                             new PricedPosition(SyntheticIds.mint(), 10, 1, lamports("2.25", 120)))))
-                    .isEqualTo(1 + 22);
+                    .isEqualTo(new PositionsValue.Known(1 + 22));
+        }
+
+        /**
+         * 261121-paper-real-unico U2, Etapa 12 (written before the code; F-4, DaySnapshotDeferredIT): with the mark of
+         * the photo deferred today and no photo, the buy is refused (price of a position, detail of the pending photo)
+         * and records no FIRST_EVALUATION photo; without the mark the first buy of the day still takes it.
+         */
+        @Test
+        void aDeferredPhotoOfTheDayRefusesTheBuyWithoutTakingAPhoto() {
+            PolicyFixture deferred = new PolicyFixture();
+            deferred.snapshotStartValue = java.util.Optional.empty();
+            deferred.dayPhotoDeferred = true;
+            PolicyFixture normal = new PolicyFixture();
+            normal.snapshotStartValue = java.util.Optional.empty();
+
+            RealVerdict refused = policy.evaluate(deferred.inputs(deferred.buy(SOL)));
+            RealVerdict approved = policy.evaluate(normal.inputs(normal.buy(SOL)));
+
+            assertThat(refused.approved()).isFalse();
+            assertThat(refused.code()).isEqualTo(RealRejectionCode.STALE_DATA);
+            assertThat(refused.detail()).isEqualTo(RealRejectionDetail.POSITION_PRICE_UNKNOWN);
+            assertThat(refused.figures()).containsEntry(RealRiskPolicy.DAY_SNAPSHOT_PENDING, 1L);
+            assertThat(refused.snapshotToRecord()).isEmpty();
+            assertThat(approved.approved()).isTrue();
+            assertThat(approved.snapshotToRecord()).hasValueSatisfying(photo -> assertThat(photo.takenBy())
+                    .isEqualTo(DaySnapshot.TakenBy.FIRST_EVALUATION));
         }
 
         @Test
@@ -696,7 +751,7 @@ class RealRiskPolicyTest {
             assertThat(RealRiskPolicy.positionsValue(
                             java.util.List.of(new PricedPosition(SyntheticIds.mint(), 1_000, 5, lamports("3", (int)
                                     Duration.ofHours(2).toSeconds())))))
-                    .isEqualTo(3_000);
+                    .isEqualTo(new PositionsValue.Known(3_000));
         }
     }
 }

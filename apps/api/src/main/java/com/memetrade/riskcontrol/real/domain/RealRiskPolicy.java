@@ -146,9 +146,22 @@ public final class RealRiskPolicy {
                     RealRejectionDetail.DAILY_ORDER_COUNT,
                     figures("approvedBuysToday", buy.approvedBuysToday(), "dailyBuysMax", limits.dailyBuysMax()));
         }
-        long positionsValue = positionsValue(buy.positions());
+        // 261121-paper-real-unico U2 (F-3): every position is priced here (positionPrices above), so the value is
+        // known; were it not, the buy fails closed like an unknown price, never with the cost as zero.
+        if (!(positionsValue(buy.positions()) instanceof PositionsValue.Known knownPositions)) {
+            return reject(RealRejectionCode.STALE_DATA, RealRejectionDetail.POSITION_PRICE_UNKNOWN);
+        }
+        long positionsValue = knownPositions.lamports();
         long currentValue = currentValue(buy.balance(), positionsValue);
         Optional<DaySnapshot> photo = Optional.empty();
+        if (buy.snapshot().isEmpty() && buy.dayPhotoDeferred()) {
+            // F-4: the round of the day deferred the photo (cost unknown); no buy, and no FIRST_EVALUATION photo taken
+            // after the fall, until the round takes the photo with every cost known.
+            return RealVerdict.reject(
+                    RealRejectionCode.STALE_DATA,
+                    RealRejectionDetail.POSITION_PRICE_UNKNOWN,
+                    figures(DAY_SNAPSHOT_PENDING, 1L));
+        }
         if (buy.snapshot().isPresent()) {
             DailyLoss loss = dailyLoss(buy.snapshot().get(), buy.flowsSinceSnapshot(), currentValue, cap, limits);
             if (loss.breached()) {
@@ -256,21 +269,42 @@ public final class RealRiskPolicy {
     public record DailyLoss(long lossLamports, long baseLamports, boolean breached) {}
 
     /**
-     * BR5.2: a position is worth {@code floor(base units x lamports per base unit)} at its quote, stale or not, and its
-     * cost when the quote is unknown; never zero for a missing quote.
+     * 261121-paper-real-unico U2, decision F-4: the figure of a buy refused because the photo of the day was deferred
+     * (the detail column keeps POSITION_PRICE_UNKNOWN, the value its CHECK of the migration 0018 accepts).
      */
-    public static long positionsValue(List<PricedPosition> positions) {
+    public static final String DAY_SNAPSHOT_PENDING = "daySnapshotPending";
+
+    /**
+     * BR5.2: a position is worth {@code floor(base units x lamports per base unit)} at its quote, stale or not, and its
+     * cost when the quote is unknown; never zero for a missing quote. 261121-paper-real-unico U2 (F-3): with an unknown
+     * quote and an unknown cost the value is {@link PositionsValue.Unknown}, with the reason of the cost.
+     */
+    public static PositionsValue positionsValue(List<PricedPosition> positions) {
         long total = 0;
         for (PricedPosition position : positions) {
-            long value = position.price() instanceof LamportPrice.Known known
-                    ? BigDecimal.valueOf(position.tokenBaseUnits())
-                            .multiply(known.lamportsPerBaseUnit())
-                            .setScale(0, RoundingMode.FLOOR)
-                            .longValueExact()
-                    : position.costLamports();
-            total = Math.addExact(total, value);
+            Optional<Long> quoted = quoted(position);
+            if (quoted.isPresent()) {
+                total = Math.addExact(total, quoted.get());
+                continue;
+            }
+            switch (position.cost()) {
+                case com.memetrade.ledger.api.RealCost.Known known -> total = Math.addExact(total, known.lamports());
+                case com.memetrade.ledger.api.RealCost.Unknown unknown -> {
+                    return new PositionsValue.Unknown(unknown.reason());
+                }
+            }
         }
-        return total;
+        return new PositionsValue.Known(total);
+    }
+
+    /** {@code floor(base units x lamports per base unit)} at a known quote, stale or not; empty without one. */
+    public static Optional<Long> quoted(PricedPosition position) {
+        return position.price() instanceof LamportPrice.Known known
+                ? Optional.of(BigDecimal.valueOf(position.tokenBaseUnits())
+                        .multiply(known.lamportsPerBaseUnit())
+                        .setScale(0, RoundingMode.FLOOR)
+                        .longValueExact())
+                : Optional.empty();
     }
 
     /** BR4.3: the total of the REAL balance (reserved lamports included) plus the value of the positions. */

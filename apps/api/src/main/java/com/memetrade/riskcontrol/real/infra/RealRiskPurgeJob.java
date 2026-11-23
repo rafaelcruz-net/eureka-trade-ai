@@ -64,7 +64,9 @@ public class RealRiskPurgeJob {
     private static final List<Target> TARGETS = List.of(
             new Target("real_risk_evaluation", "evaluation_id", "evaluated_at", ""),
             new Target("real_risk_reservation", "approval_id", "created_at", " and state <> 'OPEN'"),
-            new Target("real_risk_day", "bot_wallet_id, day", "taken_at", ""));
+            new Target("real_risk_day", "bot_wallet_id, day", "taken_at", ""),
+            // 261121-paper-real-unico U2 (F-4, migration 0024): the marks of the deferred photo, like the photos.
+            new Target("real_risk_day_deferred", "bot_wallet_id, day", "deferred_at", ""));
 
     private final RiskRetentionDataSource retention;
     private final LockingTaskExecutor locks;

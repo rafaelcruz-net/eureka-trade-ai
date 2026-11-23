@@ -90,6 +90,8 @@ class LiquidationIT extends AbstractRealExecutionIT {
         String second = token("0.0002", 6, 5);
         position(wallet(setup), setup.mint(), 5_000L, 1_000_000L);
         position(wallet(setup), second, 7_000L, 2_000_000L);
+        // 261121-paper-real-unico U2 (BR1.1): the sales come after the buys in the network order (their instant).
+        clock.advance(java.time.Duration.ofSeconds(1));
 
         UUID liquidation = liquidationService.start(person(setup));
         sellOne(liquidation, 5_000L, false);
@@ -188,6 +190,9 @@ class LiquidationIT extends AbstractRealExecutionIT {
         chain.effect(txSignature(buy), new RealChain.SwapEffect(-10_008_457L, 3_000L, 8_457L, true));
         chain.finalize(txSignature(buy));
         confirmation.runOnce();
+        // 261121-paper-real-unico U2 (BR1.1): without a recorded slot the rows follow their instant; on the fixed clock
+        // of the test the sale is written a second after the buy, as on the network.
+        clock.advance(java.time.Duration.ofSeconds(1));
         sellOne(liquidation, 3_000L, false);
         liquidations.runOnce();
 

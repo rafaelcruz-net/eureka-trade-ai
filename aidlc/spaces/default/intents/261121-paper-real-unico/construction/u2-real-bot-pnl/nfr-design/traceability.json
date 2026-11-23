@@ -1,0 +1,526 @@
+{
+  "stage": "nfr-design",
+  "unit": "u2-real-bot-pnl",
+  "revision": "review-01, review-02 e decisões do fundador F-1 a F-4 (2026-11-22)",
+  "upstream_ids": [
+    "NFR1.1",
+    "NFR1.2",
+    "NFR1.3",
+    "NFR1.4",
+    "NFR1.5",
+    "NFR1.6",
+    "NFR1.7",
+    "NFR1.8",
+    "NFR1.9",
+    "NFR1.10",
+    "NFR1.11",
+    "NFR1.12",
+    "NFR1.13",
+    "NFR1.14",
+    "NFR1.15",
+    "NFR1.16",
+    "NFR1.17",
+    "NFR1.18",
+    "NFR1.19",
+    "NFR1.20",
+    "NFR1.21",
+    "NFR1.22",
+    "NFR1.23",
+    "NFR1.24",
+    "NFR1.25",
+    "NFR1.26",
+    "NFR2.1",
+    "NFR2.2",
+    "NFR2.3",
+    "NFR2.4",
+    "NFR2.5",
+    "NFR2.6",
+    "NFR2.7",
+    "NFR2.8",
+    "NFR2.9",
+    "NFR2.10",
+    "NFR2.11",
+    "NFR2.12",
+    "NFR2.13",
+    "NFR2.14",
+    "NFR2.15",
+    "NFR2.16",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.3",
+    "NFR3.4",
+    "NFR3.5",
+    "NFR3.6",
+    "NFR3.7",
+    "NFR3.8",
+    "NFR3.9",
+    "NFR3.10",
+    "NFR3.11",
+    "NFR3.12",
+    "NFR3.13",
+    "NFR3.14",
+    "NFR3.15",
+    "NFR3.16",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR4.3",
+    "NFR4.4",
+    "NFR4.5",
+    "NFR7.1",
+    "NFR7.2",
+    "NFR7.3",
+    "NFR7.4",
+    "NFR7.5",
+    "NFR7.6",
+    "NFR7.7",
+    "NFR7.8",
+    "NFR7.9",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR8.3",
+    "NFR8.4",
+    "NFR8.5",
+    "NFR8.6",
+    "NFR8.7",
+    "NFR8.8",
+    "NFR8.9",
+    "NFR8.10",
+    "NFR8.11",
+    "NFR8.12",
+    "NFR8.13",
+    "NFR8.14"
+  ],
+  "coverage": [
+    {
+      "id": "NFR1.1",
+      "status": "OK",
+      "target": "performance-design.md: leitura em fluxo por pessoa (C13 depois C12) no bloco REAL de 800 ms, REPEATABLE READ, fetchSize 500, índice real_ledger_entry_wallet_created_idx da 0023; portão de 1 s no cenário manual pnl-by-mode"
+    },
+    {
+      "id": "NFR1.2",
+      "status": "OK",
+      "target": "performance-design.md: GET /api/v1/real/pnl faz a mesma leitura na thread do pedido com o mesmo prazo de 800 ms; p95 só registrado no relatório"
+    },
+    {
+      "id": "NFR1.3",
+      "status": "OK",
+      "target": "performance-design.md: atribuição PNL (C8 + C13) com instante limite de 500 ms conferido em cada linha e statement_timeout reaplicado em cada busca; portão efetivo = blocos REAL UNAVAILABLE com cause TIMEOUT <= 0,5% (R-08)"
+    },
+    {
+      "id": "NFR1.4",
+      "status": "OK",
+      "target": "performance-design.md: AttributedCostReader só nas rodadas RealRiskJobs (GATE) e no RealCycle (CYCLE), fora da WalletLock, em PROPAGATION_NESTED com prazo duro de 250 ms (instante limite por linha e statement_timeout reaplicado em cada busca); RealAttributionMeasurementIT com a taxa de INCONSISTENT_READ"
+    },
+    {
+      "id": "NFR1.5",
+      "status": "OK",
+      "target": "performance-design.md: positions e view só de quantidade na ordem de rede pelo índice da 0023; linha de base do RealRiskMeasurementIT no passo 0; medianas de 3 execuções"
+    },
+    {
+      "id": "NFR1.6",
+      "status": "OK",
+      "target": "performance-design.md (Portão de carga): pnl_mode_block_unavailable_total{market=REAL,cause=TIMEOUT} por qualquer parte do bloco / respostas 200 de C4 depois do aquecimento <= 0,5%; 0 de outras causas; pnl-plans.mjs com o índice real_ledger_entry_wallet_created_idx; 0 TOO_MANY_ORDERS na referência"
+    },
+    {
+      "id": "NFR1.7",
+      "status": "OK",
+      "target": "performance-design.md (Medição) e reliability-design.md (passo 0): linha de base em docs/perf/u2-barrier-baseline.md antes do primeiro commit que muda a barreira; RealAttributionMeasurementIT com 10 aquecimentos e 100 medidas"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "OK",
+      "target": "performance-design.md: na CI os testes de medida só registram o p95; no Build and Test as medianas decidem; orçamentos só baixam sem o fundador"
+    },
+    {
+      "id": "NFR1.9",
+      "status": "OK",
+      "target": "performance-design.md e logical-components.md: o texto pronto do load-test.yml fica em nfr-requirements/performance-requirements.md (NFR1.9) e é entregue ao responsável na fase 2, no commit do cenário"
+    },
+    {
+      "id": "NFR1.10",
+      "status": "OK",
+      "target": "performance-design.md e scalability-design.md: transação só de leitura sem FOR UPDATE nem trava consultiva; a única trava consultiva é a do evento limitado, em transação e pool separados"
+    },
+    {
+      "id": "NFR1.11",
+      "status": "OK",
+      "target": "performance-design.md (Só quantidade, Tipo do custo) e logical-components.md: positions, view, LiquidationJob e vendas sem C13 nem C8, com RealCost.Unknown(NOT_READ); LedgerArchitectureTest sem exceção; regra ArchUnit de RealCost"
+    },
+    {
+      "id": "NFR1.12",
+      "status": "OK",
+      "target": "performance-design.md (Prazo duro dentro do fluxo): instante limite do relógio injetado conferido no RowCallbackHandler em cada linha, e set local statement_timeout com o tempo que resta reaplicado antes de cada busca de 500 linhas (sem cancelamento fora de banda, então nenhum cancelamento atrasado atinge o comando seguinte); 250 ms GATE e CYCLE, 500 ms PNL, bloco de 800 ms; ReadDeadlineExceeded e 57014 viram outcome TIMEOUT, nunca OK"
+    },
+    {
+      "id": "NFR1.13",
+      "status": "OK",
+      "target": "performance-design.md: preços lidos uma vez no passo 8, só para os mints com posição aberta"
+    },
+    {
+      "id": "NFR1.14",
+      "status": "OK",
+      "target": "scalability-design.md: volume de referência por pessoa e memória proporcional às ordens; acima disso o prazo do bloco corta a leitura"
+    },
+    {
+      "id": "NFR1.15",
+      "status": "OK",
+      "target": "performance-design.md (Fluxo do JDBC) e scalability-design.md: Consumer com fetchSize 500 em transação só de leitura; nenhum método novo devolve lista; teto real-max-orders aplicado dentro do fluxo (F-2)"
+    },
+    {
+      "id": "NFR1.16",
+      "status": "OK",
+      "target": "scalability-design.md: 1 conexão do pool principal por leitura; no máximo 8 leituras REAL simultâneas pelo pool pnl-mode-block; evento de divergência no pool próprio pnl-mismatch-audit de 2 conexões; pool principal sem mudança"
+    },
+    {
+      "id": "NFR1.17",
+      "status": "OK",
+      "target": "scalability-design.md: 0 serviços, réplicas, filas, caches ou tabelas de P&L guardado"
+    },
+    {
+      "id": "NFR1.18",
+      "status": "OK",
+      "target": "performance-design.md: a 0023 cria real_entry_slot_pkey e real_ledger_entry_wallet_created_idx (bot_wallet_id, created_at); RealLedgerNetworkOrderPlanIT confere o nome do índice e a ausência de Seq Scan em real_ledger_entry, aceitando Seq Scan em tabela pequena"
+    },
+    {
+      "id": "NFR1.19",
+      "status": "OK",
+      "target": "scalability-design.md: 1 linha por assinatura confirmada, cerca de 100 mil linhas e 20 MB por ano no piloto, sem expurgo nesta Unit"
+    },
+    {
+      "id": "NFR1.20",
+      "status": "OK",
+      "target": "reliability-design.md e performance-design.md: RealCycle com RealCost.Unknown não decide compra; venda segue pela quantidade; saídas por preço decidem e saídas por custo são puladas com COST_UNKNOWN; RealCycleAttributionIT"
+    },
+    {
+      "id": "NFR1.21",
+      "status": "OK",
+      "target": "reliability-design.md: recordSlot com INSERT ON CONFLICT DO NOTHING e leitura pela chave; CONFLICT_REFUSED auditado e contado sem lançar; RecordSlotIT nos três gravadores"
+    },
+    {
+      "id": "NFR1.22",
+      "status": "OK",
+      "target": "reliability-design.md: 0 gravações com MATCH, no máximo o evento limitado com MISMATCH; nada guardado entre leituras; RealPnlIdempotentReadIT"
+    },
+    {
+      "id": "NFR1.23",
+      "status": "OK",
+      "target": "observability-design.md: temporizador pnl.real.attribution.read com path e outcome, limites 0,1 a 2 s, 12 combinações registradas na subida; classificação do outcome"
+    },
+    {
+      "id": "NFR1.24",
+      "status": "OK",
+      "target": "observability-design.md: SLI p95 de http.server.requests por uri e de pnl_real_attribution_read_seconds por path; sem SLO novo; repetição na devnet pelo fundador"
+    },
+    {
+      "id": "NFR1.25",
+      "status": "OK",
+      "target": "performance-design.md e logical-components.md: Build and Test só fecha com a execução verde de pnl-by-mode no SHA candidato; redução de pessoas nunca abaixo de 5; plano B de NFR8.11"
+    },
+    {
+      "id": "NFR1.26",
+      "status": "OK",
+      "target": "performance-design.md (Compra com posição sem preço, reescopado): a compra nunca lê a atribuição; a posição sem preço é recusada em positionPrices com a meta da compra de NFR1.5 (teto 150 ms), abaixo do teto de 400 ms; espera da trava <= 1 s; alinhamento A14"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "reliability-design.md (Exatidão) e security-design.md: bloco UNAVAILABLE com RECONCILIATION_MISMATCH sem número parcial; evento limitado; contador por verificação"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "OK",
+      "target": "reliability-design.md: erro técnico e TIMEOUT dão causa técnica, sem evento nem contador de divergência; outcome ERROR ou TIMEOUT no temporizador"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "reliability-design.md: Migration0023AdditiveIT confere que nenhum objeto lido ou escrito pela imagem anterior mudou; rollback só da imagem"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "performance-design.md e reliability-design.md: slotStatus calculado na leitura, 0 escritas em linhas antigas, ledger_real_slot_missing_total"
+    },
+    {
+      "id": "NFR2.5",
+      "status": "OK",
+      "target": "reliability-design.md: long com Math.*Exact, BigInteger nas frações, BigDecimal nos preços; estouro vira UNAVAILABLE; regra ArchUnit de ponto flutuante nos pacotes novos"
+    },
+    {
+      "id": "NFR2.6",
+      "status": "OK",
+      "target": "reliability-design.md: igualdade exata em All e Range, conservação de custo e quantidade, mesma fotografia REPEATABLE READ"
+    },
+    {
+      "id": "NFR2.7",
+      "status": "OK",
+      "target": "reliability-design.md: RealPnlPropertyTest com 3 sementes fixas e pelo menos 1.000 sequências, <= 60 s na CI"
+    },
+    {
+      "id": "NFR2.8",
+      "status": "OK",
+      "target": "reliability-design.md: RealCostParityTest com três oráculos independentes, item 7 da fase 1"
+    },
+    {
+      "id": "NFR2.9",
+      "status": "OK",
+      "target": "reliability-design.md: testes do núcleo financeiro antes do código, conferidos pela ordem dos commits"
+    },
+    {
+      "id": "NFR2.10",
+      "status": "OK",
+      "target": "performance-design.md (Forma da consulta) e reliability-design.md: chave e herança sem entry_id, com COLLATE \"C\" em todo desempate de texto (F-1); teste de AC3.6.2 com oráculo por bytes"
+    },
+    {
+      "id": "NFR2.11",
+      "status": "OK",
+      "target": "observability-design.md: pnl.real.reconciliation.mismatches com check, 8 séries registradas com 0"
+    },
+    {
+      "id": "NFR2.12",
+      "status": "OK",
+      "target": "observability-design.md: ledger.real.slot_missing em streamInNetworkOrder"
+    },
+    {
+      "id": "NFR2.13",
+      "status": "OK",
+      "target": "observability-design.md: ledger.real.slot_conflicts com writer, incrementado no afterCommit da transação do gravador"
+    },
+    {
+      "id": "NFR2.14",
+      "status": "OK",
+      "target": "observability-design.md: regra RealOpsPnlReconciliationMismatch com sum(increase(pnl_real_reconciliation_mismatches_total[4m])) > 0 e window_seconds 240; alarme real_ops_pnl_reconciliation_mismatch (Sum, period 240, notBreaching); métrica em app_metric_declarations [[]]; alarm_resource_names; RealOpsAlarmParityTest hasSize(14); runbook"
+    },
+    {
+      "id": "NFR2.15",
+      "status": "OK",
+      "target": "observability-design.md: nenhum outro alarme; demais métricas só no Prometheus e no relatório de carga"
+    },
+    {
+      "id": "NFR2.16",
+      "status": "N/A",
+      "target": "linha de referência de pilha (tech-stack-decisions.md), não é alvo de cobertura; o desenho a respeita"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "security-design.md: tenant e pessoa do token em cada leitura, filtro de tenant no SQL de C12 mesmo com as carteiras filtradas; RealPnlTenantIsolationIT e AttributedCostTenantIT"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "security-design.md: botPnl confere o diretório antes e devolve vazio para bot alheio (404)"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "security-design.md: UNKNOWN_BOT deixa só o bloco REAL UNAVAILABLE, sem id nem nome do bot alheio"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "OK",
+      "target": "security-design.md: gatilhos real_entry_slot_no_update_delete e real_entry_slot_no_truncate com ledger_reject_change; RealEntrySlotAppendOnlyIT"
+    },
+    {
+      "id": "NFR3.5",
+      "status": "OK",
+      "target": "security-design.md: changeset 0023-real-entry-slot-grants; RealEntrySlotGrantsIT"
+    },
+    {
+      "id": "NFR3.6",
+      "status": "OK",
+      "target": "security-design.md: 0023 só com CREATE TABLE, CREATE INDEX, CREATE TRIGGER, GRANT e REVOKE; Migration0023AdditiveIT"
+    },
+    {
+      "id": "NFR3.7",
+      "status": "OK",
+      "target": "security-design.md e observability-design.md: assinatura só abreviada no log do conflito; U2LogCaptureTest"
+    },
+    {
+      "id": "NFR3.8",
+      "status": "OK",
+      "target": "security-design.md: bloco UNAVAILABLE só com status, code e correlationId; diferenças só no evento"
+    },
+    {
+      "id": "NFR3.9",
+      "status": "OK",
+      "target": "security-design.md: REAL_SLOT_CONFLICT com txSignatureAbbrev e txSignatureHmac (WalletHasher.hmacOfTxSignature, mesma chave, etiqueta de domínio \"real-tx-signature:\"), audit_event.tx_signature nulo; SlotConflictAuditIT"
+    },
+    {
+      "id": "NFR3.10",
+      "status": "OK",
+      "target": "security-design.md: recordSlot só nas três confirmações, sem TxSigner nem rede; REAL desligado por padrão sem mudança"
+    },
+    {
+      "id": "NFR3.11",
+      "status": "OK",
+      "target": "reliability-design.md, performance-design.md e security-design.md: RealCost e WalletCost selados (F-3), nunca 0 nem null; a compra nunca lê a atribuição e é recusada com posição sem preço; NESTED desfeito nas rodadas e no ciclo, RealGateUnavailable(ATTRIBUTION) com transação utilizável; fotografia adiada com recusa DAY_SNAPSHOT_PENDING (F-4, DaySnapshotDeferredIT); venda, liquidação e saque aceitos; AttributionFailureGateIT"
+    },
+    {
+      "id": "NFR3.12",
+      "status": "OK",
+      "target": "observability-design.md: 4 eventos de log com correlationId, enum e nível definidos, mais a falha da gravação do evento"
+    },
+    {
+      "id": "NFR3.13",
+      "status": "OK",
+      "target": "observability-design.md: mesmo correlationId no bloco, no evento e no log; CorrelationParityIT"
+    },
+    {
+      "id": "NFR3.14",
+      "status": "OK",
+      "target": "observability-design.md: sem tracing; correlação pelo correlationId"
+    },
+    {
+      "id": "NFR3.15",
+      "status": "OK",
+      "target": "security-design.md: impressão digital SHA-256; pool próprio pnl-mismatch-audit (2 conexões, espera de 250 ms) e executor com espera limitada ao tempo que resta; prazo conferido de novo depois de abrir a transação; MismatchAuditWriter dedicado com DataSource, DataSourceTransactionManager e JdbcClient próprios do pool; pg_try_advisory_xact_lock por pessoa e impressão digital, consulta de recência (audit_outbox pendente e audit_event) e insert no outbox numa só transação desse pool, sem o JdbcAuditEventPublisher; teste com o pool principal cheio; falha nunca muda a resposta; ReconciliationAuditLimitIT"
+    },
+    {
+      "id": "NFR3.16",
+      "status": "OK",
+      "target": "observability-design.md: pnl.real.reconciliation.audit_failures, só no Prometheus"
+    },
+    {
+      "id": "NFR4.1",
+      "status": "OK",
+      "target": "security-design.md: tipos novos na lista fechada de NeverSumModesArchitectureTest no mesmo commit"
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "security-design.md: testes da U1 de nunca somar os modos continuam verdes com o bloco REAL da U2"
+    },
+    {
+      "id": "NFR4.3",
+      "status": "OK",
+      "target": "security-design.md: regra ArchUnit sem tipos do ledger PAPER nas classes REAL novas; RealNeverPaperIT"
+    },
+    {
+      "id": "NFR4.4",
+      "status": "OK",
+      "target": "reliability-design.md: 0 SLOs novos, prontidão sem mudança, nenhuma leitura da U2 no health check"
+    },
+    {
+      "id": "NFR4.5",
+      "status": "OK",
+      "target": "reliability-design.md: tabela das 7 causas do bloco REAL com a etiqueta cause, resposta 200 e PAPER igual; RealBlockFailureIT"
+    },
+    {
+      "id": "NFR7.1",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): volume Standard por BR com caminho feliz e 2 casos de erro ou borda"
+    },
+    {
+      "id": "NFR7.2",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): piso de 80% no backend e no apps/web"
+    },
+    {
+      "id": "NFR7.3",
+      "status": "OK",
+      "target": "reliability-design.md e security-design.md: os 8 testes obrigatórios por risco mapeados"
+    },
+    {
+      "id": "NFR7.4",
+      "status": "OK",
+      "target": "reliability-design.md e logical-components.md: passo 0, fase 1 com sete itens, ponto de controle interno com o ci verde, gatilho da divisão em U2a e U2b, fase 2"
+    },
+    {
+      "id": "NFR7.5",
+      "status": "OK",
+      "target": "reliability-design.md (Fase 2): textos do PnlModeBlock e motivos de C10 no mesmo commit da troca da fórmula"
+    },
+    {
+      "id": "NFR7.6",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): bash scripts/verify.sh verde com e2e/zz-paper-real-unico"
+    },
+    {
+      "id": "NFR7.7",
+      "status": "N/A",
+      "target": "linha de referência de pilha (tech-stack-decisions.md), não é alvo de cobertura; o desenho a respeita"
+    },
+    {
+      "id": "NFR7.8",
+      "status": "N/A",
+      "target": "linha de referência de pilha (tech-stack-decisions.md), não é alvo de cobertura; o desenho a respeita"
+    },
+    {
+      "id": "NFR7.9",
+      "status": "N/A",
+      "target": "linha de referência de pilha (tech-stack-decisions.md), não é alvo de cobertura; o desenho a respeita"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "scalability-design.md: 0 recursos de serviço novos e 0 mudanças na definição de tarefa (o teto e MEMETRADE_PNL_BYMODE_REALMAXORDERS ficam, F-2); métrica e alarme no CloudWatch existente"
+    },
+    {
+      "id": "NFR8.2",
+      "status": "OK",
+      "target": "scalability-design.md: US$ 350 por conta sem mudança; cerca de US$ 0,40 por mês por conta"
+    },
+    {
+      "id": "NFR8.3",
+      "status": "OK",
+      "target": "scalability-design.md: nenhuma configuração da U2 abre a devnet"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "OK",
+      "target": "scalability-design.md: 0023 e 0024 no db-migrate antes das imagens; imagens anteriores não usam as tabelas nem o índice novos"
+    },
+    {
+      "id": "NFR8.5",
+      "status": "N/A",
+      "target": "linha de referência de pilha (tech-stack-decisions.md), não é alvo de cobertura; o desenho a respeita"
+    },
+    {
+      "id": "NFR8.6",
+      "status": "N/A",
+      "target": "linha de referência de pilha (tech-stack-decisions.md), não é alvo de cobertura; o desenho a respeita"
+    },
+    {
+      "id": "NFR8.7",
+      "status": "N/A",
+      "target": "linha de referência de pilha (tech-stack-decisions.md), não é alvo de cobertura; o desenho a respeita"
+    },
+    {
+      "id": "NFR8.8",
+      "status": "N/A",
+      "target": "linha de referência de pilha (tech-stack-decisions.md), não é alvo de cobertura; o desenho a respeita"
+    },
+    {
+      "id": "NFR8.9",
+      "status": "N/A",
+      "target": "linha de referência de pilha (tech-stack-decisions.md), não é alvo de cobertura; o desenho a respeita"
+    },
+    {
+      "id": "NFR8.10",
+      "status": "N/A",
+      "target": "alternativa rejeitada (biblioteca de propriedades); o desenho usa java.util.Random com sementes fixas"
+    },
+    {
+      "id": "NFR8.11",
+      "status": "N/A",
+      "target": "alternativa rejeitada (P&L guardado); mantida como plano B com gatilho em performance-design.md"
+    },
+    {
+      "id": "NFR8.12",
+      "status": "N/A",
+      "target": "alternativa rejeitada (coluna slot); o desenho usa a tabela lateral real_entry_slot"
+    },
+    {
+      "id": "NFR8.13",
+      "status": "N/A",
+      "target": "alternativa rejeitada (slot pela rede na leitura); security-design.md confirma que a leitura não chama a rede"
+    },
+    {
+      "id": "NFR8.14",
+      "status": "N/A",
+      "target": "alternativa rejeitada (tracing distribuído); observability-design.md usa o correlationId"
+    }
+  ],
+  "note": "As linhas de tech-stack-decisions.md (NFR2.16, NFR7.7 a NFR7.9, NFR8.5 a NFR8.14) são de referência e não contam como cobertura: aparecem como N/A (decisões de pilha mantidas ou alternativas rejeitadas)."
+}

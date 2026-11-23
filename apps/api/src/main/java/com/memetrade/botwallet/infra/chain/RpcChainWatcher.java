@@ -83,7 +83,19 @@ public class RpcChainWatcher implements ChainPort, com.memetrade.botwallet.domai
             return java.util.Optional.empty();
         }
         Instant at = Instant.ofEpochSecond(transaction.path("blockTime").asLong());
-        return java.util.Optional.of(new IncomingTransfer(signature, source, lamports, at));
+        return java.util.Optional.of(new IncomingTransfer(signature, source, lamports, at, slotOf(transaction)));
+    }
+
+    /**
+     * 261121-paper-real-unico U2 (BR1.4, C13): the {@code slot} that getTransaction and each entry of
+     * getSignatureStatuses already carry; empty when the answer has none (the row is then SLOT_MISSING). Never a new
+     * call to the network.
+     */
+    static java.util.OptionalLong slotOf(JsonNode answer) {
+        JsonNode slot = answer.path("slot");
+        return slot.isIntegralNumber() && slot.asLong() >= 0
+                ? java.util.OptionalLong.of(slot.asLong())
+                : java.util.OptionalLong.empty();
     }
 
     @Override
@@ -140,7 +152,8 @@ public class RpcChainWatcher implements ChainPort, com.memetrade.botwallet.domai
                 seen.put(
                         signatures.get(i),
                         finalized
-                                ? ChainObservation.finalized(signatures.get(i), fee(provider, signatures.get(i)))
+                                ? ChainObservation.finalized(
+                                        signatures.get(i), fee(provider, signatures.get(i)), slotOf(status))
                                 : ChainObservation.notFound(status.isNull() || status.isMissingNode() ? height : -1));
             }
         } catch (RpcUnavailableException | SolanaRpcProvider.RpcRefusedException down) {
@@ -252,7 +265,7 @@ public class RpcChainWatcher implements ChainPort, com.memetrade.botwallet.domai
         long tokens = Math.subtractExact(
                 tokenBalance(meta.path("postTokenBalances"), owner, mint),
                 tokenBalance(meta.path("preTokenBalances"), owner, mint));
-        return new Effect(lamports, tokens, meta.path("fee").asLong(), index == 0);
+        return new Effect(lamports, tokens, meta.path("fee").asLong(), index == 0, slotOf(transaction));
     }
 
     private static long tokenBalance(JsonNode balances, String owner, String mint) {

@@ -128,6 +128,8 @@ class DecisionConsumerExitIT extends AbstractRealExitsIT {
         position(wallet(setup), setup.mint(), 5_000L, 1_000_000L);
         UUID request = sell(setup, 5_000L);
         String sold = "conditional:" + UUID.randomUUID();
+        // 261121-paper-real-unico U2 (BR1.1): the fill of the conditional comes after the buy in the network order.
+        clock.advance(java.time.Duration.ofSeconds(1));
         transactions.executeWithoutResult(status -> ledger.record(com.memetrade.ledger.api.RealEntry.swapFill(
                 setup.tenantId(),
                 setup.botWalletId(),

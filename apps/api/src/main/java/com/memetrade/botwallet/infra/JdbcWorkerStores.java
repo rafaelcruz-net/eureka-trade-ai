@@ -8,6 +8,7 @@ import com.memetrade.botwallet.domain.WithdrawalTransition;
 import com.memetrade.ledger.api.RealEntry;
 import com.memetrade.ledger.api.RealEntryKind;
 import com.memetrade.ledger.api.RealLedger;
+import com.memetrade.ledger.api.SlotWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.sql.Timestamp;
@@ -102,6 +103,12 @@ public class JdbcWorkerStores implements DepositStore, WithdrawalStore {
                     signature,
                     "dep:" + signature,
                     "dep:" + signature));
+            deposit.transfer()
+                    .slot()
+                    .ifPresent(slot ->
+                            ledger.recordSlot(wallet.tenantId(), signature, slot, SlotWriter.WALLET_CONFIRMATION));
+            // 261121-paper-real-unico U2a, Etapa 14b: the marks of zero of the wallet, after the deposit and its slot.
+            ledger.markEpochs(wallet.tenantId(), wallet.botWalletId());
             RealReferences real = RealReferences.transaction(signature, wallet.botWalletAddress());
             audit.system(
                     wallet.tenantId(),
@@ -194,6 +201,18 @@ public class JdbcWorkerStores implements DepositStore, WithdrawalStore {
                     .param("tenant", w.tenantId())
                     .update();
             transition.entries().forEach(ledger::record);
+            if (w.txSignature() != null) {
+                // 261121-paper-real-unico U2 (BR1.4): the slot of the confirmed withdrawal and of its fee.
+                transition
+                        .slot()
+                        .ifPresent(slot ->
+                                ledger.recordSlot(w.tenantId(), w.txSignature(), slot, SlotWriter.WALLET_CONFIRMATION));
+            }
+            if (!transition.entries().isEmpty()
+                    || (w.txSignature() != null && transition.slot().isPresent())) {
+                // 261121-paper-real-unico U2a, Etapa 14b: the marks of zero, after the entries and the slot.
+                ledger.markEpochs(w.tenantId(), w.botWalletId());
+            }
             if (!previous.equals(w.state().name())) {
                 metrics.withdrawalState(w.state().name(), w.requestedAt());
                 audit.system(

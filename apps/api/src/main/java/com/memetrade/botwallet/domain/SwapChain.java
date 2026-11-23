@@ -24,7 +24,25 @@ public interface SwapChain {
         NOT_FOUND
     }
 
-    record Effect(long ownerLamportsDelta, long tokenBaseUnitsDelta, long feeLamports, boolean feePaidByOwner) {}
+    /**
+     * @param slot 261121-paper-real-unico U2 (BR1.4): the slot of the transaction read in the same getTransaction answer;
+     *     empty when the answer did not carry it
+     */
+    record Effect(
+            long ownerLamportsDelta,
+            long tokenBaseUnitsDelta,
+            long feeLamports,
+            boolean feePaidByOwner,
+            java.util.OptionalLong slot) {
+
+        public Effect {
+            java.util.Objects.requireNonNull(slot, "slot");
+        }
+
+        public Effect(long ownerLamportsDelta, long tokenBaseUnitsDelta, long feeLamports, boolean feePaidByOwner) {
+            this(ownerLamportsDelta, tokenBaseUnitsDelta, feeLamports, feePaidByOwner, java.util.OptionalLong.empty());
+        }
+    }
 
     /**
      * The swap reads of {@code chain}: the ChainWatcher itself when it has them, or reads that are always unavailable
