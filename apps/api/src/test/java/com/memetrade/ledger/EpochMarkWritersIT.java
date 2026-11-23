@@ -143,11 +143,30 @@ class EpochMarkWritersIT extends AbstractRealExitsIT {
     }
 
     /** A sale of a mint the wallet does not hold, written without the marks: a zero no mark records yet. */
+    /**
+     * The sale has its own recorded slot, below the slots of the writers above (9 101 to 9 104), so it comes first in
+     * network order whatever the clock of the test: with the clock fixed, a sale without a slot ties the buy on
+     * createdAt, the random reference breaks the tie, and half the time the sale inherits the slot of the buy and comes
+     * after it (BR1.1, BR1.3), which leaves 999 999 units and no zero.
+     */
     private String overSale(Setup setup, String mint) {
         String reference = "order:" + UUID.randomUUID();
         String key = reference + ":fill";
-        transactions.executeWithoutResult(status -> ledger.record(RealEntry.swapFill(
-                setup.tenantId(), setup.botWalletId(), RealEntryKind.SWAP_FILL_OUT, 1_000L, mint, 1L, reference, key)));
+        String signature = SyntheticIds.signature();
+        transactions.executeWithoutResult(status -> {
+            ledger.record(new RealEntry(
+                    setup.tenantId(),
+                    setup.botWalletId(),
+                    RealEntryKind.SWAP_FILL_OUT,
+                    1_000L,
+                    signature,
+                    reference,
+                    key,
+                    mint,
+                    1L));
+            ledger.recordSlot(
+                    setup.tenantId(), signature, 9_000L, com.memetrade.ledger.api.SlotWriter.ORDER_CONFIRMATION);
+        });
         return key;
     }
 

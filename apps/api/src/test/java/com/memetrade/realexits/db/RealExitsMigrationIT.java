@@ -346,7 +346,7 @@ class RealExitsMigrationIT extends AbstractPostgresIT {
         migrate(url);
         JdbcClient owner = connect(OWNER, url);
 
-        rollback(url, changesets());
+        rollback(url, changesetsFromThisMigrationOn());
         assertThat(tableExists(owner, "real_conditional_order")).isFalse();
         assertThat(columnExists(owner, "real_decision_request", "not_before")).isTrue();
         assertThat(columnExists(owner, "real_decision_request", "attempts")).isTrue();
@@ -363,7 +363,7 @@ class RealExitsMigrationIT extends AbstractPostgresIT {
                 .param("m", SyntheticIds.mint())
                 .update();
 
-        assertThat(catchThrowable(() -> rollback(url, changesets())))
+        assertThat(catchThrowable(() -> rollback(url, changesetsFromThisMigrationOn())))
                 .hasStackTraceContaining("real_conditional_order is not empty");
         assertThat(tableExists(owner, "real_conditional_order")).isTrue();
         assertThat(owner.sql("select count(*) from pg_trigger where tgname = 'real_conditional_order_guard'")
@@ -378,6 +378,35 @@ class RealExitsMigrationIT extends AbstractPostgresIT {
                 .matcher(Files.readString(MIGRATION, StandardCharsets.UTF_8))
                 .results()
                 .count();
+    }
+
+    /**
+     * The changesets of 0022 and of every later migration of the master changelog, so the rollback reaches 0022 whatever
+     * came after it (as RealOpsMigrationIT and AnonymizationMigrationIT do). A count of 0022 alone rolled back only the
+     * later migrations once 0023 existed.
+     */
+    private static int changesetsFromThisMigrationOn() throws java.io.IOException {
+        Path changelog = Path.of("src", "main", "resources", "db", "changelog");
+        String master = Files.readString(changelog.resolve("db.changelog-master.yaml"), StandardCharsets.UTF_8);
+        java.util.regex.Matcher includes =
+                Pattern.compile("file:\\s*db/changelog/changes/(\\S+\\.sql)").matcher(master);
+        int count = 0;
+        boolean counting = false;
+        while (includes.find()) {
+            counting =
+                    counting || includes.group(1).equals(MIGRATION.getFileName().toString());
+            if (counting) {
+                count += (int) Pattern.compile("(?m)^--changeset ")
+                        .matcher(Files.readString(
+                                changelog.resolve("changes").resolve(includes.group(1)), StandardCharsets.UTF_8))
+                        .results()
+                        .count();
+            }
+        }
+        if (!counting) {
+            throw new IllegalStateException(MIGRATION.getFileName() + " is not in the master changelog");
+        }
+        return count;
     }
 
     private static boolean tableExists(JdbcClient login, String table) {
