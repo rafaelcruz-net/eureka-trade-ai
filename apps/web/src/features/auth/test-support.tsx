@@ -189,6 +189,15 @@ export function fakeApi(overrides: Partial<GuestApi> = {}): jest.Mocked<GuestApi
         unowned: null,
       },
     })),
+    // 261121-paper-real-unico U3 (C5, C6): no line and no comparison unless a test says otherwise.
+    listBotPnlLines: jest.fn(async () => ({
+      currency: 'SOL' as const,
+      items: [],
+      nextCursor: null,
+    })),
+    comparePnl: jest.fn(async () => {
+      throw new ApiError(404, 'NOT_FOUND', 'PAPER_BOT');
+    }),
     // 261113-trading-real-bot U1: no bot wallet unless a test says otherwise.
     getBotWallet: jest.fn(async () => {
       throw new ApiError(404, 'NOT_FOUND');

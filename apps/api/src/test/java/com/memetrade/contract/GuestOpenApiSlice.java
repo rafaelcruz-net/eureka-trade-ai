@@ -216,6 +216,10 @@ public abstract class GuestOpenApiSlice {
     @MockitoBean
     com.memetrade.pnl.web.RealBlockSource realBlockSource;
 
+    /** 261121-paper-real-unico U3 (C4 with market, C5, C6): the parts of the screens of the P&L. */
+    @MockitoBean
+    com.memetrade.pnl.web.PnlViewsParts pnlViewsParts;
+
     @MockitoBean
     com.memetrade.bots.web.DashboardMarkPoller dashboardMarkPoller;
 

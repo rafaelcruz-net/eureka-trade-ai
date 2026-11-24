@@ -293,7 +293,13 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
         // creation (market and 409 REAL_NOT_ELIGIBLE), the eligibility, the refused limits of a REAL bot and the P&L
         // by mode, the owned exceptions of contract-summary.md.
         java.util.Set<String> unified = java.util.Set.of(
-                "/api/v1/bots", "/api/v1/bots/real-eligibility", "/api/v1/bots/{botId}/limits", "/api/v1/pnl/by-mode");
+                "/api/v1/bots",
+                "/api/v1/bots/real-eligibility",
+                "/api/v1/bots/{botId}/limits",
+                "/api/v1/pnl/by-mode",
+                // 261121-paper-real-unico U3 (C5, C6): the lines of a REAL bot and the comparison.
+                "/api/v1/bots/{botId}/pnl/lines",
+                "/api/v1/pnl/compare");
         paths().forEach((path, item) -> {
             if (!path.startsWith("/api/v1/real/") && !unified.contains(path)) {
                 assertThat(String.valueOf(item)).as(path).doesNotContain("REAL");
@@ -346,7 +352,8 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
         assertThat(paths()).containsKey("/api/v1/pnl/by-mode");
         Map<String, Object> byMode = schema("PnlByMode");
         assertThat(keys(byMode.get("properties"))).containsExactlyInAnyOrder("period", "paper", "real");
-        assertThat(strings(byMode.get("required"))).containsExactlyInAnyOrder("period", "paper", "real");
+        // 261121-paper-real-unico U3 (BR3.1): with market only the block asked comes, so paper and real are optional.
+        assertThat(strings(byMode.get("required"))).containsExactly("period");
         assertThat(schema("PaperModeBlockResult")).containsKey("oneOf");
         assertThat(schema("RealModeBlockResult")).containsKey("oneOf");
         assertThat(String.valueOf(schema("PaperModeBlock").get("properties")))
@@ -363,7 +370,56 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
                 .doesNotContain("wallet");
         assertThat(String.valueOf(operation("/api/v1/pnl/by-mode", "get").get("parameters")))
                 .contains("name=period")
-                .doesNotContain("name=from");
+                .contains("name=from")
+                .contains("name=to")
+                .contains("name=market");
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (BR3.1, BR4.3, BR5.2, BR6.2, NFR3.7, NFR4.1, NFR4.2, NFR7.4): C4 takes {@code market}
+     * (PAPER or REAL) and RANGE; {@code listBots} takes {@code market} and answers the two counts of bots; C5 answers
+     * 200, 400, 404 and 503; C6 answers 200, 400, 404 and 422; no field of an address or a signature in C4, C5 and C6;
+     * no general total anywhere and no money in {@code BotPage}.
+     */
+    @Test
+    void u3TheMarketTheLinesAndTheComparisonWithoutAddressAndWithoutGeneralTotal() {
+        String byModeParameters =
+                String.valueOf(operation("/api/v1/pnl/by-mode", "get").get("parameters"));
+        assertThat(byModeParameters).contains("PAPER").contains("REAL").contains("RANGE");
+        assertThat(String.valueOf(operation("/api/v1/bots", "get").get("parameters")))
+                .contains("name=market");
+        assertThat(keys(schema("BotPage").get("properties")))
+                .contains("matchingCount", "totalCount")
+                .doesNotContain("total", "totalLamports", "realized", "pnl");
+        Map<String, Object> lines = operation("/api/v1/bots/{botId}/pnl/lines", "get");
+        assertThat(lines.get("operationId")).isEqualTo("listBotPnlLines");
+        assertThat(keys(lines.get("responses"))).contains("200", "400", "404", "503");
+        assertThat(keys(schema("RealBotPnlLinePage").get("properties")))
+                .containsExactlyInAnyOrder("currency", "items", "nextCursor");
+        assertThat(strings(
+                        map(map(schema("RealBotPnlLineItem").get("properties")).get("origin"))
+                                .get("enum")))
+                .containsExactly("BOT", "LIQUIDATION", "CONDITIONAL", "SOLD_BY_OTHER_BOT");
+        Map<String, Object> compare = operation("/api/v1/pnl/compare", "get");
+        assertThat(compare.get("operationId")).isEqualTo("comparePaperAndRealBots");
+        assertThat(keys(compare.get("responses"))).contains("200", "400", "404", "422");
+        assertThat(keys(schema("PnlComparison").get("properties")))
+                .containsExactlyInAnyOrder("period", "paper", "real");
+        assertThat(keys(schema("PaperComparisonSide").get("properties"))).contains("disclaimer");
+        assertThat(keys(schema("RealComparisonSide").get("properties"))).doesNotContain("disclaimer");
+        for (String name : List.of(
+                "PnlByMode",
+                "RealBotPnlLinePage",
+                "RealBotPnlLineItem",
+                "PnlComparison",
+                "PaperComparisonSide",
+                "RealComparisonSide")) {
+            String text = String.valueOf(schema(name).get("properties")).toLowerCase(java.util.Locale.ROOT);
+            assertThat(text).as(name).doesNotContain("address").doesNotContain("signature");
+            assertThat(keys(schema(name).get("properties")))
+                    .as(name)
+                    .doesNotContain("total", "grandTotal", "difference", "percent", "winner", "ranking");
+        }
     }
 
     /**

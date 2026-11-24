@@ -1,0 +1,418 @@
+{
+  "stage": "nfr-design",
+  "unit": "u3-pnl-views",
+  "revision": "review-01 e decisões do fundador F-1 a F-3 (2026-11-23)",
+  "upstream_ids": [
+    "NFR1.1",
+    "NFR1.2",
+    "NFR1.3",
+    "NFR1.4",
+    "NFR1.5",
+    "NFR1.6",
+    "NFR1.7",
+    "NFR1.8",
+    "NFR1.9",
+    "NFR1.10",
+    "NFR1.11",
+    "NFR1.12",
+    "NFR1.13",
+    "NFR1.14",
+    "NFR1.15",
+    "NFR1.16",
+    "NFR2.1",
+    "NFR2.2",
+    "NFR2.3",
+    "NFR2.4",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.3",
+    "NFR3.4",
+    "NFR3.5",
+    "NFR3.6",
+    "NFR3.7",
+    "NFR3.8",
+    "NFR3.9",
+    "NFR3.10",
+    "NFR3.11",
+    "NFR3.12",
+    "NFR3.13",
+    "NFR3.14",
+    "NFR3.15",
+    "NFR3.16",
+    "NFR3.17",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR4.3",
+    "NFR4.4",
+    "NFR4.5",
+    "NFR4.6",
+    "NFR4.7",
+    "NFR4.8",
+    "NFR4.9",
+    "NFR4.10",
+    "NFR4.11",
+    "NFR4.12",
+    "NFR4.13",
+    "NFR5.1",
+    "NFR5.2",
+    "NFR5.3",
+    "NFR5.4",
+    "NFR6.1",
+    "NFR6.2",
+    "NFR7.1",
+    "NFR7.2",
+    "NFR7.3",
+    "NFR7.4",
+    "NFR7.5",
+    "NFR7.6",
+    "NFR7.7",
+    "NFR7.8",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR8.3",
+    "NFR8.4"
+  ],
+  "coverage": [
+    {
+      "id": "NFR1.1",
+      "status": "OK",
+      "target": "performance-design.md: ModePnlView.single(market, window, bloco, sink) e statement(window, ...) no pool pnl-mode-block com prazo de 800 ms; PaperModeBlockReader com PnlWindow.Range; chave do outro bloco omitida (NON_ABSENT); portão de C4 RANGE 30 e 366 dias no pnl-by-mode ampliado"
+    },
+    {
+      "id": "NFR1.2",
+      "status": "OK",
+      "target": "performance-design.md: market como filtro da consulta paginada de listBots; matchingCount e totalCount por duas contagens na mesma transação só de leitura; p95 só registrado"
+    },
+    {
+      "id": "NFR1.3",
+      "status": "OK",
+      "target": "performance-design.md: C5 como 1 tarefa REAL no pool pnl-mode-block (800 ms), a passada da U2 com coletor das linhas do bot e corte pela âncora do cursor; portão das duas páginas no pnl-by-mode ampliado"
+    },
+    {
+      "id": "NFR1.4",
+      "status": "OK",
+      "target": "performance-design.md: C6 com os dois lados em paralelo no pool pnl-mode-block pela ModePnlView, cada um com o próprio prazo de 800 ms; portão de ALL, RANGE 30 e RANGE 366 dias"
+    },
+    {
+      "id": "NFR1.5",
+      "status": "OK",
+      "target": "performance-design.md: PnlViewsLatencyIT com a semente da U1, 10 de aquecimento e 100 medidos, 11 casos, p95 pelo posto mais próximo só registrado no log"
+    },
+    {
+      "id": "NFR1.6",
+      "status": "OK",
+      "target": "performance-design.md: números do NFR1.6 aprovado, 9 leituras e 7 portões de 1 s; pnl-by-mode.mjs com CYCLE rotulado e p95 no cliente; load-test.mjs com bot REAL e par por pessoa e docs/perf/u3-pnl-views-<data>.md; load-test-pnl-by-mode.test.mjs; texto pronto do load-test.yml só no code-summary da U3, e no da U2 só uma linha de ponteiro (logical-components.md A5, A6)"
+    },
+    {
+      "id": "NFR1.7",
+      "status": "OK",
+      "target": "performance-design.md: windowedRefresh em features/dashboard/concurrency.ts, um por cartão, janela de 30 s com 1 releitura imediata e 1 pendente; eventos por modo no DashboardProvider"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "OK",
+      "target": "performance-design.md: vagas de pedido com AbortController e requestId; signal e RequestCancelled no client.ts; retry: false em C5 e na tabela por token, com teste de exatamente 1 fetch num 503; tabela de pedidos por troca"
+    },
+    {
+      "id": "NFR1.9",
+      "status": "OK",
+      "target": "performance-design.md: detalhe lê GET /api/v1/bots/{id}, C4 com o market do bot e period=ALL e, no REAL, C5 com limit=50; dentro do prazo de 800 ms do bloco"
+    },
+    {
+      "id": "NFR1.10",
+      "status": "OK",
+      "target": "performance-design.md: 0 FOR UPDATE e 0 travas consultivas nas leituras; só a consulta ownedByAnotherTenant pela chave primária nos 404; gravação da auditoria no executor pnl-read-audit sem espera e fora da transação; PnlReadsDoNotBlockCycleIT"
+    },
+    {
+      "id": "NFR1.11",
+      "status": "OK",
+      "target": "performance-design.md: C5 limit 1 a 100 (padrão 50, tela pede 50), até 10 parcelas por bot em C4, paginação de listBots sem mudança, C6 só com os 2 bots"
+    },
+    {
+      "id": "NFR1.12",
+      "status": "OK",
+      "target": "scalability-design.md: referência de 10 bots por pessoa e 2 anos; teto real-max-orders da U2 como limite duro (TOO_MANY_ORDERS)"
+    },
+    {
+      "id": "NFR1.13",
+      "status": "OK",
+      "target": "scalability-design.md: 0 processos, réplicas, filas ou caches novos; C4, C5 e C6 no pool pnl-mode-block (8 threads, fila de 16); executor pnl-read-audit de 1 thread no processo da API"
+    },
+    {
+      "id": "NFR1.14",
+      "status": "OK",
+      "target": "scalability-design.md: no máximo 2 pedidos de C4 com market por cartão a cada 30 s; 40 cartões dão até 1,3 e 2,7 pedidos por segundo, abaixo dos 10 do cenário pnl-by-mode; canal sem evento novo"
+    },
+    {
+      "id": "NFR1.15",
+      "status": "OK",
+      "target": "scalability-design.md: 0 tabelas, colunas, índices e migrações; única gravação o evento de auditoria limitado a 1 por hora por pessoa e ação; contadores só em memória e no Prometheus"
+    },
+    {
+      "id": "NFR1.16",
+      "status": "OK",
+      "target": "observability-design.md: SLI pelo histograma http_server_requests_seconds por uri das 4 rotas; sem SLO novo; portão de 1 s no cenário pnl-by-mode ampliado medido por rótulo no cliente"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "reliability-design.md: regra ArchUnit de ponto flutuante cobrindo C5 e C6, long com Math.*Exact; bigint só em features/real/money.ts e lints de dinheiro"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "OK",
+      "target": "reliability-design.md: PnlModeBlock, ProratedLines, BotPnlLines e ComparisonView só formatam o texto da API por money-format.ts; total do detalhe vem da API"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "reliability-design.md e performance-design.md: lado PAPER por PaperModeBlockReader.lineOf e lado REAL por botPnl da mesma passada (PnlCompareEqualsByModeIT); C5 da mesma passada de C4 (BotPnlLinesSumIT, soma exata em long, sem escrita entre as páginas); cursor por âncora idempotencyKey + origin na ordem de rede (BotPnlLinesCursorStabilityIT); cursor recusado leva a Recarregar do início"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "reliability-design.md: period.ts sem mudança; par UTC calculado na aplicação e fixo no reducer; início futuro recusado no PeriodSelector; casos de period.test.ts com relógio e fuso fixos"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "security-design.md: tenant e pessoa só do Principal; QueryParameters com lista fechada recusa tenantId com 400; filtros por tenant e pessoa em cada leitura, com a única exceção ownedByAnotherTenant (decisão F-2: só boolean, ArchUnit ONLY_THE_404_PATH_ASKS_OTHER_TENANTS; exceção a anotar no team.md pelo ritual de aprendizado)"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "security-design.md: C5 com botOf filtrado por tenant e por REAL; 404 NOT_FOUND com o mesmo corpo nos 3 casos; ownedByAnotherTenant na thread do pedido nos 3 casos e só o positivo gera evento (decisão F-1)"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "security-design.md: C6 consulta sempre a posse dos dois bots; 404 PAPER_BOT ou REAL_BOT antes da comparação de templateId; 422 TEMPLATE_MISMATCH sem valor de P&L"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "OK",
+      "target": "security-design.md: as 4 rotas fora da lista pública e fora da exceção do novo aceite; 401 sem token e 403 TERMS_REACCEPTANCE_REQUIRED"
+    },
+    {
+      "id": "NFR3.5",
+      "status": "OK",
+      "target": "security-design.md: contagens filtradas por tenant e dono; PnlBotCountsTenantIT com duas pessoas e matchingCount <= totalCount"
+    },
+    {
+      "id": "NFR3.6",
+      "status": "OK",
+      "target": "security-design.md: 400 VALIDATION_FAILED sem banco para market, cursor (comprimento, alfabeto, versão, botId), limit, período e uuid; performance-design.md: forma estrita do cursor"
+    },
+    {
+      "id": "NFR3.7",
+      "status": "OK",
+      "target": "security-design.md: cursor sem assinatura, slot, mint ou endereço; esquemas de C5 e C6 sem endereço; eventos e logs só com ids e enums; etiquetas só de enum; Gitleaks"
+    },
+    {
+      "id": "NFR3.8",
+      "status": "OK",
+      "target": "security-design.md: C5 e C6 só leem; 0 chamadas novas ao TxSigner ou ao KMS; teste REAL desligado por padrão verde"
+    },
+    {
+      "id": "NFR3.9",
+      "status": "OK",
+      "target": "observability-design.md: pnl.compare.template_mismatches registrado com 0 em PnlCompareMetrics (pnl.modeview), +1 por 422 depois da posse; PnlCompareMetricsTest e PnlViewsPrometheusIT"
+    },
+    {
+      "id": "NFR3.10",
+      "status": "OK",
+      "target": "observability-design.md: tabela de logs com nível, event e campos em enum; PNL_READ_NOT_FOUND com reason TENANT_MISMATCH ou NOT_FOUND na thread do pedido; ERROR de falha limitado a 1 por minuto por pessoa e ação; PnlViewsLogCaptureTest"
+    },
+    {
+      "id": "NFR3.11",
+      "status": "OK",
+      "target": "observability-design.md: CorrelationId.current() da thread do pedido levado pelo MDC copiado ao pool e ao executor de auditoria; PnlViewsCorrelationIT"
+    },
+    {
+      "id": "NFR3.12",
+      "status": "OK",
+      "target": "observability-design.md: 0 bibliotecas de tracing e 0 telemetria no apps/web; correlação pelo correlationId"
+    },
+    {
+      "id": "NFR3.13",
+      "status": "OK",
+      "target": "security-design.md: ReadRefusalAudit com tarefas tenantMismatch (só 404 confirmado por ownedByAnotherTenant) e templateMismatch (PNL_COMPARE_TEMPLATE_MISMATCH); details com route, side, botIds e fingerprint; ReadRefusalAuditLimitIT"
+    },
+    {
+      "id": "NFR3.14",
+      "status": "OK",
+      "target": "security-design.md: filtro em memória de 60 minutos por pessoa e ação na frente do executor pnl-read-audit (THREADS = 1, QUEUE = 16, AbortPolicy, BUDGET de 200 ms); RateLimitedAuditPublisher.publishOncePerHour; fila cheia ou falha com log ERROR limitado a 1 por minuto e contador, resposta igual"
+    },
+    {
+      "id": "NFR3.15",
+      "status": "OK",
+      "target": "observability-design.md: pnl.compare.side_unavailable{market,cause} com 10 séries em PnlCompareMetrics, incrementado pelo sink de C6 na ModePnlView; pnl.mode_block.unavailable só para C4"
+    },
+    {
+      "id": "NFR3.16",
+      "status": "OK",
+      "target": "observability-design.md: pnl.read_audit.failures{action} com 2 séries em PnlReadAuditMetrics (pnl.application), +1 por falha, prazo, conexão ou fila cheia; só casos reais de outro tenant e 422 chegam ao executor (decisão F-1)"
+    },
+    {
+      "id": "NFR3.17",
+      "status": "OK",
+      "target": "security-design.md: os dois 404 pelo mesmo código até a resposta (mesma consulta filtrada e a mesma consulta ownedByAnotherTenant), só o envio do caso positivo depois, sem espera; mudança da Q2 e do NFR3.17 registrada (decisão F-1, logical-components.md A1); BotNotFoundTimingParityIT e ReadRefusalAuditNonBlockingTest"
+    },
+    {
+      "id": "NFR4.1",
+      "status": "OK",
+      "target": "security-design.md: nenhum total fora dos blocos ou lados; tipos de C5 e C6 na lista fechada de NEVER_SUM_MODES; propriedade nenhum terceiro número em C4 e C6"
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "security-design.md e performance-design.md: paper e real opcionais com @JsonInclude(NON_ABSENT), chave do bloco não pedido ausente, nunca null"
+    },
+    {
+      "id": "NFR4.3",
+      "status": "OK",
+      "target": "security-design.md: PAPER em US$ e REAL em SOL em todas as telas da U3; testes de componente e spec"
+    },
+    {
+      "id": "NFR4.4",
+      "status": "OK",
+      "target": "security-design.md: /bots na ordem de criação em todos os filtros; C6 sem diferença, percentual, ranking ou vencedor"
+    },
+    {
+      "id": "NFR4.5",
+      "status": "OK",
+      "target": "security-design.md: bigint só em features/real/money.ts; lints de dinheiro de features/pnl e features/dashboard; valores só formatados por money-format.ts"
+    },
+    {
+      "id": "NFR4.6",
+      "status": "OK",
+      "target": "reliability-design.md: 0 SLOs novos; prontidão sem mudança; executor e pools fora da prontidão"
+    },
+    {
+      "id": "NFR4.7",
+      "status": "OK",
+      "target": "reliability-design.md: ModePnlView.single converte toda falha em BlockResult.Unavailable com code e correlationId, resposta 200; PnlByModeMarketFailureIT"
+    },
+    {
+      "id": "NFR4.8",
+      "status": "OK",
+      "target": "reliability-design.md: vaga retry:<market>, C4 com o market e o par UTC em vigor, BLOCK_RETRY_REQUESTED só no bloco, foco no título"
+    },
+    {
+      "id": "NFR4.9",
+      "status": "OK",
+      "target": "reliability-design.md: lados de C6 como blocos independentes no servidor (PnlCompareSideFailureIT); COMPARE_SIDE_RETRIED aplica só o lado em erro"
+    },
+    {
+      "id": "NFR4.10",
+      "status": "OK",
+      "target": "reliability-design.md: BotPnlLinesState com loadingMore e moreError mantendo items; Tentar de novo com o mesmo cursor; fase cursorStale com Recarregar do início para 400 de cursor; sem repetição automática do cliente"
+    },
+    {
+      "id": "NFR4.11",
+      "status": "OK",
+      "target": "reliability-design.md: AbortController por vaga com RequestCancelled ignorado e requestId conferido no reducer"
+    },
+    {
+      "id": "NFR4.12",
+      "status": "OK",
+      "target": "reliability-design.md: windowedRefresh com relógio e temporizador injetáveis; tabela de casos por cartão"
+    },
+    {
+      "id": "NFR4.13",
+      "status": "OK",
+      "target": "reliability-design.md: leituras sem gravação (PnlViewsReadOnlyIT); única gravação a auditoria limitada, que não muda a resposta"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "reliability-design.md: controles nativos, :focus-visible e foco programático por caso depois do resultado aplicado"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "OK",
+      "target": "reliability-design.md: só tokens de cor medidos, sinal e palavra, selos e desconhecido em texto"
+    },
+    {
+      "id": "NFR5.3",
+      "status": "OK",
+      "target": "reliability-design.md: aria-live polite e aria-atomic, lastAnnouncedAt por cartão com 30 s, 0 anúncios na carga inicial, nomes acessíveis"
+    },
+    {
+      "id": "NFR5.4",
+      "status": "OK",
+      "target": "reliability-design.md: headingLevel no PnlModeBlock, caption e th scope=col, aria-expanded e aria-controls"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "reliability-design.md: TableScroll a partir de 768 px, cartões abaixo, troca única por media query; spec em 360 px"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "reliability-design.md: loading, error, unknown e empty distintos em BlockLoad, linhas e lados; releitura por evento mantém o valor"
+    },
+    {
+      "id": "NFR7.1",
+      "status": "OK",
+      "target": "reliability-design.md: Test Strategy Standard, caminho feliz e 2 casos de erro ou borda por componente"
+    },
+    {
+      "id": "NFR7.2",
+      "status": "OK",
+      "target": "reliability-design.md: lista dos testes por risco com os nomes dos testes de isolamento, paridade, soma, cursor e auditoria"
+    },
+    {
+      "id": "NFR7.3",
+      "status": "OK",
+      "target": "reliability-design.md: piso de 80% por JaCoCo e Jest, nunca reduzido"
+    },
+    {
+      "id": "NFR7.4",
+      "status": "OK",
+      "target": "reliability-design.md: GuestOpenApiContractTest e teste de rota com os 3 casos de C4; check:api do apps/web"
+    },
+    {
+      "id": "NFR7.5",
+      "status": "OK",
+      "target": "reliability-design.md: casos de período de NFR2.4 mais endereço futuro, comparar depois da meia-noite e 0 pedidos a GET /api/v1/pnl em Desde o início"
+    },
+    {
+      "id": "NFR7.6",
+      "status": "OK",
+      "target": "reliability-design.md: spec e2e/zz-paper-real-unico com os 10 casos, page.route com fixtures sintéticas, último da suíte, verify.sh"
+    },
+    {
+      "id": "NFR7.7",
+      "status": "OK",
+      "target": "reliability-design.md e logical-components.md: 5 testes do núcleo financeiro antes do código; demais camadas depois"
+    },
+    {
+      "id": "NFR7.8",
+      "status": "OK",
+      "target": "reliability-design.md: openapi-guest.yaml, schema.d.ts, by-mode.ts e testes de contrato no mesmo commit, inclusive o 503 de C5"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "scalability-design.md: 0 recursos Terraform, 0 variáveis de ambiente, 0 chaves de application.yml; tamanhos do executor como constantes testadas"
+    },
+    {
+      "id": "NFR8.2",
+      "status": "OK",
+      "target": "scalability-design.md: orçamento de US$ 350 por conta sem custo novo; métricas fora do CloudWatch; carga no runner do GitHub"
+    },
+    {
+      "id": "NFR8.3",
+      "status": "OK",
+      "target": "scalability-design.md: nenhuma tela, rota ou configuração abre a devnet a usuários"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "OK",
+      "target": "observability-design.md: 0 regras em infra/observability, 0 alarmes CloudWatch, métricas fora de app_metric_declarations, 0 painéis"
+    }
+  ],
+  "note": "As linhas de tech-stack-decisions.md (NFR7.9 a NFR7.13, NFR8.5 a NFR8.13) são decisões de pilha e alternativas rejeitadas, de referência, e não são alvos de cobertura, como no traceability.json do NFR Requirements desta Unit."
+}

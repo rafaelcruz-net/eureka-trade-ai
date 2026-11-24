@@ -226,6 +226,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/bots/{botId}/pnl/lines': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** As linhas que formam o P&L de um bot REAL, com a origem de cada uma, da mais recente para a mais antiga, desde o início (FR3.6) */
+    get: operations['listBotPnlLines'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/bots/{botId}/rejections': {
     parameters: {
       query?: never;
@@ -388,6 +405,23 @@ export interface paths {
     };
     /** P&L em dois blocos separados, PAPER (US$) e REAL (SOL), no mesmo período; nunca somados (FR4.1, ADR-003) */
     get: operations['getPnlByMode'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/pnl/compare': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Um bot PAPER e um bot REAL da mesma estratégia, cada um na sua moeda, sem nenhuma diferença calculada (FR8.1) */
+    get: operations['comparePaperAndRealBots'];
     put?: never;
     post?: never;
     delete?: never;
@@ -1090,7 +1124,17 @@ export interface components {
       /** Format: int32 */
       activeLimit: number;
       items: components['schemas']['BotSummary'][];
+      /**
+       * Format: int64
+       * @description 261121-paper-real-unico U3 (BR1.5): bots da pessoa que passam pelos filtros da página (estado e modo); contagem de bots, nunca de dinheiro
+       */
+      matchingCount: number;
       nextCursor: string | null;
+      /**
+       * Format: int64
+       * @description 261121-paper-real-unico U3 (BR1.3): todos os bots da pessoa, sem filtro
+       */
+      totalCount: number;
     };
     BotSummary: {
       /** Format: uuid */
@@ -1711,6 +1755,26 @@ export interface components {
       total: components['schemas']['PnlAmount'];
       unrealized: components['schemas']['PnlAmount'];
     };
+    PaperComparisonSide: {
+      /** Format: date-time */
+      createdAt: string;
+      /** @enum {string} */
+      currency: 'USD';
+      /** @description Aviso fixo do simulado: "O resultado simulado não garante o resultado real." */
+      disclaimer: string;
+      line: components['schemas']['PaperBotPnlLine'];
+      /** @enum {string} */
+      market: 'PAPER';
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'AVAILABLE';
+      templateId: string;
+    };
+    PaperComparisonSideResult:
+      | components['schemas']['PaperComparisonSide']
+      | components['schemas']['ModeBlockUnavailable'];
     PaperModeBlock: {
       /** @description Ordem de criação, nunca por valor */
       bots: components['schemas']['PaperBotPnlLine'][];
@@ -1797,11 +1861,17 @@ export interface components {
       total: number;
     };
     PnlAmount: components['schemas']['PnlKnown'] | components['schemas']['PnlUnknown'];
-    /** @description Só o período e os dois blocos. Não existe campo de total fora dos blocos (FR4.1, NFR3) */
+    /** @description Só o período e os blocos. Sem market, os dois blocos; com market, só o bloco pedido, e a chave do outro fica ausente (nunca null). Não existe campo de total fora dos blocos (FR4.1, NFR3) */
     PnlByMode: {
-      paper: components['schemas']['PaperModeBlockResult'];
+      paper?: components['schemas']['PaperModeBlockResult'];
       period: components['schemas']['PnlPeriod'];
-      real: components['schemas']['RealModeBlockResult'];
+      real?: components['schemas']['RealModeBlockResult'];
+    };
+    /** @description Só o período e os dois lados; nenhum campo de diferença, percentual, ranking ou total */
+    PnlComparison: {
+      paper: components['schemas']['PaperComparisonSideResult'];
+      period: components['schemas']['PnlPeriod'];
+      real: components['schemas']['RealComparisonSideResult'];
     };
     PnlKnown: {
       /**
@@ -1943,6 +2013,29 @@ export interface components {
       totalLamports: components['schemas']['LamportsAmount'];
       unrealizedLamports: components['schemas']['LamportsAmount'];
     };
+    RealBotPnlLineItem: {
+      amountLamports: string;
+      /** Format: date-time */
+      at: string;
+      feeLamports: string;
+      mint: string;
+      /**
+       * @description BOT para as ordens do próprio bot; as demais são parcelas rateadas
+       * @enum {string}
+       */
+      origin: 'BOT' | 'LIQUIDATION' | 'CONDITIONAL' | 'SOLD_BY_OTHER_BOT';
+      realizedLamports: string;
+      /** @enum {string} */
+      side: 'BUY' | 'SELL';
+      tokenBaseUnits: string;
+    };
+    RealBotPnlLinePage: {
+      /** @enum {string} */
+      currency: 'SOL';
+      items: components['schemas']['RealBotPnlLineItem'][];
+      /** @description Cursor opaco da página seguinte; null quando não há mais linhas */
+      nextCursor: string | null;
+    };
     RealChallengeRequest: {
       capLamports?: string;
       /** @enum {string} */
@@ -1958,6 +2051,24 @@ export interface components {
       message?: string;
       nonce?: string;
     };
+    RealComparisonSide: {
+      /** Format: date-time */
+      createdAt: string;
+      /** @enum {string} */
+      currency: 'SOL';
+      line: components['schemas']['RealBotPnlLine'];
+      /** @enum {string} */
+      market: 'REAL';
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      status: 'AVAILABLE';
+      templateId: string;
+    };
+    RealComparisonSideResult:
+      | components['schemas']['RealComparisonSide']
+      | components['schemas']['ModeBlockUnavailable'];
     /** @description data do evento real.conditional.state (R6, adendo da U7) */
     RealConditionalStateChanged: {
       /** Format: date-time */
@@ -2627,6 +2738,8 @@ export interface operations {
     parameters: {
       query?: {
         state?: 'DRAFT' | 'VALIDATED' | 'ACTIVE' | 'PAUSED' | 'CLOSING_PENDING' | 'STOPPED';
+        /** @description 261121-paper-real-unico U3 (BR1.2): só os bots deste modo; ausente, os dois */
+        market?: 'PAPER' | 'REAL';
         cursor?: string;
         limit?: number;
       };
@@ -2942,6 +3055,58 @@ export interface operations {
       };
       /** @description LIMIT_INCOHERENT, ou VALIDATION_FAILED no campo limits num bot REAL: um bot REAL usa os limites REAL da conta e não tem limites próprios (BR1.9) */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  listBotPnlLines: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        botId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Uma página das linhas */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RealBotPnlLinePage'];
+        };
+      };
+      /** @description VALIDATION_FAILED: cursor ou limit inválido, ou cursor de outro bot */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description NOT_FOUND: bot de outra pessoa, inexistente ou PAPER; o mesmo corpo nos três */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description SERVICE_UNAVAILABLE: não foi possível calcular as linhas agora; com correlationId */
+      503: {
         headers: {
           [name: string]: unknown;
         };
@@ -3372,7 +3537,13 @@ export interface operations {
   getPnlByMode: {
     parameters: {
       query?: {
-        period?: 'ALL';
+        period?: 'ALL' | 'RANGE';
+        /** @description Obrigatório em RANGE; instante UTC inicial, incluído */
+        from?: string;
+        /** @description Obrigatório em RANGE; instante UTC final, excluído */
+        to?: string;
+        /** @description 261121-paper-real-unico U3 (BR3.1): só o bloco deste modo; ausente, os dois */
+        market?: 'PAPER' | 'REAL';
       };
       header?: never;
       path?: never;
@@ -3389,8 +3560,61 @@ export interface operations {
           'application/json': components['schemas']['PnlByMode'];
         };
       };
-      /** @description VALIDATION_FAILED: na U1, só o período ALL; from e to são recusados */
+      /** @description VALIDATION_FAILED: RANGE sem from ou to, from >= to, período acima de 366 dias, from ou to sem RANGE, market fora de PAPER e REAL ou parâmetro desconhecido */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  comparePaperAndRealBots: {
+    parameters: {
+      query: {
+        paperBotId: string;
+        realBotId: string;
+        period?: 'ALL' | 'RANGE';
+        from?: string;
+        to?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Os dois lados; um lado que falhou vem UNAVAILABLE */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PnlComparison'];
+        };
+      };
+      /** @description VALIDATION_FAILED: id ou período inválido */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description NOT_FOUND: um dos bots é de outra pessoa, não existe ou é do modo errado; reason diz qual lado (PAPER_BOT ou REAL_BOT) */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description VALIDATION_FAILED com reason TEMPLATE_MISMATCH: os dois bots não têm o mesmo templateId; sem nenhum valor de P&L */
+      422: {
         headers: {
           [name: string]: unknown;
         };

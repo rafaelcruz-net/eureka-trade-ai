@@ -1,0 +1,418 @@
+{
+  "stage": "code-generation",
+  "unit": "u3-pnl-views",
+  "version": 1,
+  "writes": [
+    {
+      "path": "apps/api/openapi/openapi-guest.yaml"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/audit/api/AuditActions.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/audit/api/RateLimitedAuditPublisher.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/application/BotDirectoryImpl.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/application/BotQueries.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/infra/JdbcBotRepository.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/web/BotController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/bots/web/BotDtos.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/api/BotDirectory.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/api/RealBotPnlQuery.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/api/RealPnlLineCursorRejected.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/api/RealPnlLineItem.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/api/RealPnlLineOrigin.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/api/RealPnlLinePage.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/application/BotLinesCursor.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/application/PaperModeBlockReader.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/application/PnlReadAuditMetrics.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/application/ReadAuditAction.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/application/ReadRefusalAudit.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/application/RealBotPnl.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/modeview/ModePnlStatement.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/modeview/ModePnlView.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/modeview/PnlCompareMetrics.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/modeview/UnavailableSink.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/real/RealPnlEngine.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/web/ModePnlDtos.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/web/PaperBlockSource.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/web/PnlController.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/web/PnlViewsParts.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/web/PnlWindows.java"
+    },
+    {
+      "path": "apps/api/src/main/java/com/memetrade/pnl/web/RealBlockSource.java"
+    },
+    {
+      "path": "apps/api/src/main/resources/tenancy/route-registry.yml"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/architecture/NeverSumModesArchitectureTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/architecture/PnlViewsArchitectureTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/architecture/othertenant/AskingOtherTenantsSample.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/architecture/othertenant/AskingThroughTheImplementationSample.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/application/BotDirectoryOwnedByAnotherTenantIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/web/BotListMarketIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/bots/web/PnlBotCountsTenantIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/contract/GuestOpenApiContractTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/contract/GuestOpenApiSlice.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/BotNotFoundTimingParityIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/BotPnlLinesCursorStabilityIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/BotPnlLinesSumIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/BotPnlLinesTenantIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/PnlCompareEqualsByModeIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/PnlCompareTenantIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/PnlRangeBoundaryIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/PnlReadsDoNotBlockCycleIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/PnlViewsCorrelationIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/PnlViewsLogCaptureTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/PnlViewsPrometheusIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/PnlViewsReadOnlyIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/PnlViewsRows.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/ReadRefusalAuditLimitIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/RealPnlSeed.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/application/BotLinesCursorTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/application/ModePnlViewTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/application/PnlReadAuditMetricsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/application/ReadRefusalAuditFilterTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/application/ReadRefusalAuditNonBlockingTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/application/ReadRefusalAuditTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/application/RealBotPnlBotLinesTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/modeview/PnlCompareMetricsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/web/BotPnlLinesRouteIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/web/ModePnlFailureIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/web/PnlByModeMarketFailureIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/web/PnlByModeMarketRouteIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/web/PnlCompareRouteIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/web/PnlCompareSideFailureIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/web/PnlNoThirdNumberTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/web/PnlViewsLatencyIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/pnl/web/PnlWindowsTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/riskcontrol/real/AttributionFailureGateIT.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/tenancy/RouteRegistryTest.java"
+    },
+    {
+      "path": "apps/api/src/test/java/com/memetrade/testsupport/AbstractPaperRealIT.java"
+    },
+    {
+      "path": "apps/web/e2e/u5-bots-decision/smoke.spec.ts"
+    },
+    {
+      "path": "apps/web/e2e/u7-ledger-pnl/smoke.spec.ts"
+    },
+    {
+      "path": "apps/web/e2e/u9-dashboard/smoke.spec.ts"
+    },
+    {
+      "path": "apps/web/e2e/zz-paper-real-unico/mounted-pnl-fixtures.ts"
+    },
+    {
+      "path": "apps/web/e2e/zz-paper-real-unico/paper-real-unico.spec.ts"
+    },
+    {
+      "path": "apps/web/src/app/bots/page.tsx"
+    },
+    {
+      "path": "apps/web/src/app/globals.css"
+    },
+    {
+      "path": "apps/web/src/app/pnl/page.tsx"
+    },
+    {
+      "path": "apps/web/src/features/auth/test-support.tsx"
+    },
+    {
+      "path": "apps/web/src/features/bots/BotDetail.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/bots/BotDetail.tsx"
+    },
+    {
+      "path": "apps/web/src/features/bots/BotList.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/bots/BotList.tsx"
+    },
+    {
+      "path": "apps/web/src/features/bots/BotModeFilter.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/bots/BotModeFilter.tsx"
+    },
+    {
+      "path": "apps/web/src/features/bots/BotScreens.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/bots/mode-messages.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DashboardModeCards.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DashboardModeCards.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DashboardProvider.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DashboardScreen.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/DashboardScreen.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/ReconciliationLine.tsx"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/concurrency.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/concurrency.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/dashboard-loader.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/dashboard-reducer.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/dashboard-state.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/messages.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/test-support.ts"
+    },
+    {
+      "path": "apps/web/src/features/pnl/BotPnlLines.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/BotPnlLines.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/ComparisonView.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/ComparisonView.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/PeriodSelector.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/PeriodSelector.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/PnlModeBlock.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/PnlModeBlockVariants.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/PnlScreen.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/PnlScreen.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/PnlScreenViews.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/ProratedLines.test.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/ProratedLines.tsx"
+    },
+    {
+      "path": "apps/web/src/features/pnl/by-mode.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/pnl/by-mode.ts"
+    },
+    {
+      "path": "apps/web/src/features/pnl/fixtures.ts"
+    },
+    {
+      "path": "apps/web/src/features/pnl/mode-messages.ts"
+    },
+    {
+      "path": "apps/web/src/features/pnl/money-format.ts"
+    },
+    {
+      "path": "apps/web/src/features/pnl/period.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/pnl/pnl-screen-state.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/pnl/pnl-screen-state.ts"
+    },
+    {
+      "path": "apps/web/src/features/real/components/DashboardRealPnl.test.tsx"
+    },
+    {
+      "path": "apps/web/src/lib/api/client.test.ts"
+    },
+    {
+      "path": "apps/web/src/lib/api/client.ts"
+    },
+    {
+      "path": "apps/web/src/lib/api/guest-api.ts"
+    },
+    {
+      "path": "apps/web/src/lib/api/pnl-routes.test.ts"
+    },
+    {
+      "path": "apps/web/src/lib/api/schema.d.ts"
+    },
+    {
+      "path": "apps/web/src/lib/format/format.ts"
+    },
+    {
+      "path": "scripts/load/load-test-pnl-by-mode.test.mjs"
+    },
+    {
+      "path": "scripts/load/load-test.mjs"
+    },
+    {
+      "path": "scripts/load/pnl-by-mode.mjs"
+    }
+  ]
+}

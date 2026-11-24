@@ -1,6 +1,7 @@
 package com.memetrade.pnl.application;
 
 import com.memetrade.botwallet.api.RealStateQuery;
+import com.memetrade.ledger.api.NetworkOrderKey;
 import com.memetrade.ledger.api.RealCostMethod;
 import com.memetrade.ledger.api.RealEntryKind;
 import com.memetrade.ledger.api.RealLedger;
@@ -14,6 +15,9 @@ import com.memetrade.pnl.api.RealBotPnlLine;
 import com.memetrade.pnl.api.RealBotPnlQuery;
 import com.memetrade.pnl.api.RealModePnl;
 import com.memetrade.pnl.api.RealModeTotal;
+import com.memetrade.pnl.api.RealPnlLineCursorRejected;
+import com.memetrade.pnl.api.RealPnlLineItem;
+import com.memetrade.pnl.api.RealPnlLinePage;
 import com.memetrade.pnl.api.RealPnlUnavailable;
 import com.memetrade.pnl.infra.PnlByModeProperties;
 import com.memetrade.pnl.infra.PnlRealProperties;
@@ -25,6 +29,7 @@ import com.memetrade.pnl.real.ReconciliationResult;
 import com.memetrade.realexecution.api.RealExecutionPort;
 import com.memetrade.realexecution.api.RealOrderState;
 import com.memetrade.realexecution.api.RealOrderView;
+import com.memetrade.realexecution.api.RealSide;
 import com.memetrade.shared.config.ProcessRole;
 import com.memetrade.shared.jdbc.ReadDeadline;
 import java.math.BigDecimal;
@@ -149,6 +154,93 @@ public class RealBotPnl implements RealBotPnlQuery {
                 .findFirst();
     }
 
+    /**
+     * 261121-paper-real-unico U3 (C5, C10 {@code botLines}; BR4.2, BR4.3, BR4.6, NFR1.3, NFR1.11, NFR2.3): the SAME pass
+     * of the person as {@link #modePnl} with the window ALL, with a collector of the lines of the bot; no calculation of
+     * its own, and a mismatch of the reconciliation fails it like the block. The lines are sorted by the network order
+     * key of their event (an attempt of the mode Assinada takes the key of the event before it), then by the order the
+     * pass applied them and by the order of {@code origin}; the page is read from the newest and starts after the line
+     * of the anchor, found by its identity.
+     */
+    @Override
+    public Optional<RealPnlLinePage> botLines(
+            UUID tenantId, UUID userId, UUID botId, Optional<String> cursor, int limit) {
+        if (limit < 1 || limit > MAX_LINES) {
+            throw new IllegalArgumentException("limit is 1 to " + MAX_LINES);
+        }
+        Optional<BotLinesCursor.Anchor> anchor = cursor.map(text -> BotLinesCursor.parse(text, botId));
+        Optional<BotEntry> bot =
+                directory.botOf(tenantId, userId, botId).filter(entry -> entry.market() == PnlMarket.REAL);
+        if (bot.isEmpty()) {
+            return Optional.empty();
+        }
+        Map<UUID, RealSide> sides = new HashMap<>();
+        List<RealPnlEngine.CollectedLine> collected = new ArrayList<>();
+        pass(
+                tenantId,
+                userId,
+                PnlWindow.all(),
+                line -> {
+                    if (line.botId().equals(botId)) {
+                        collected.add(line);
+                    }
+                },
+                sides);
+        collected.sort(NEWEST_FIRST);
+        int start = 0;
+        if (anchor.isPresent()) {
+            start = -1;
+            for (int i = 0; i < collected.size() && start < 0; i++) {
+                RealPnlEngine.CollectedLine line = collected.get(i);
+                if (anchor.get().matches(line.identity(), line.origin())) {
+                    start = i + 1;
+                }
+            }
+            if (start < 0) {
+                throw new RealPnlLineCursorRejected("The line of the cursor is not among the lines of the bot.");
+            }
+        }
+        int end = Math.min(collected.size(), start + limit);
+        List<RealPnlLineItem> items = new ArrayList<>();
+        for (RealPnlEngine.CollectedLine line : collected.subList(start, end)) {
+            items.add(item(line, sides));
+        }
+        Optional<String> next = end < collected.size() && !items.isEmpty()
+                ? Optional.of(BotLinesCursor.encode(
+                        botId, items.getLast().identity(), items.getLast().origin()))
+                : Optional.empty();
+        return Optional.of(new RealPnlLinePage(items, next));
+    }
+
+    /** The largest page of C5. */
+    static final int MAX_LINES = 100;
+
+    /** Newest first: the key of the event, then the order of application, descending; ties by the origin. */
+    static final Comparator<RealPnlEngine.CollectedLine> NEWEST_FIRST =
+            Comparator.<RealPnlEngine.CollectedLine, NetworkOrderKey>comparing(
+                            line -> line.key().orElse(null),
+                            Comparator.nullsFirst(Comparator.<NetworkOrderKey>naturalOrder()))
+                    .thenComparingLong(RealPnlEngine.CollectedLine::sequence)
+                    .reversed()
+                    .thenComparing(RealPnlEngine.CollectedLine::origin);
+
+    private static RealPnlLineItem item(RealPnlEngine.CollectedLine line, Map<UUID, RealSide> sides) {
+        RealPnlLineItem.Side side = line.side().orElseGet(() -> line.orderId()
+                .map(sides::get)
+                .map(known -> known == RealSide.SELL ? RealPnlLineItem.Side.SELL : RealPnlLineItem.Side.BUY)
+                .orElse(RealPnlLineItem.Side.BUY));
+        return new RealPnlLineItem(
+                line.at(),
+                side,
+                line.mint(),
+                line.origin(),
+                line.tokenBaseUnits(),
+                line.amountLamports(),
+                line.feeLamports(),
+                line.realizedLamports(),
+                line.identity());
+    }
+
     /** BR10.3: the total and the positions of {@code GET /api/v1/real/pnl}, since the beginning. */
     public RealPnlResult realPnl(UUID tenantId, UUID userId) {
         return pass(tenantId, userId, PnlWindow.all());
@@ -158,10 +250,19 @@ public class RealBotPnl implements RealBotPnlQuery {
     private record Pass(RealPnlResult result, ReadDeadline block) {}
 
     private RealPnlResult pass(UUID tenantId, UUID userId, PnlWindow window) {
+        return pass(tenantId, userId, window, null, null);
+    }
+
+    private RealPnlResult pass(
+            UUID tenantId,
+            UUID userId,
+            PnlWindow window,
+            RealPnlEngine.LineCollector collector,
+            Map<UUID, RealSide> sides) {
         Pass pass;
         try {
             pass = read.execute(status -> {
-                Pass computed = compute(tenantId, userId, window);
+                Pass computed = compute(tenantId, userId, window, collector, sides);
                 // An UNKNOWN_BOT found inside a @Transactional read of another module (the stream of the orders or of
                 // the ledger) marks the shared transaction rollback-only. When this read owns the transaction it ends
                 // it with an explicit rollback (it only read), so the mismatch reaches the audit gate instead of an
@@ -196,7 +297,12 @@ public class RealBotPnl implements RealBotPnlQuery {
         return pass.result();
     }
 
-    private Pass compute(UUID tenantId, UUID userId, PnlWindow window) {
+    private Pass compute(
+            UUID tenantId,
+            UUID userId,
+            PnlWindow window,
+            RealPnlEngine.LineCollector collector,
+            Map<UUID, RealSide> sides) {
         ReadDeadline block = ReadDeadline.after(clock, blockBudget());
         ReadDeadline attribution = block.within(properties.attribution().pnlTimeout());
         jdbc.execute("set local work_mem = '" + properties.read().workMemSetting() + "'");
@@ -221,6 +327,9 @@ public class RealBotPnl implements RealBotPnlQuery {
                     throw new RealPnlUnavailable(RealPnlUnavailable.TOO_MANY_ORDERS);
                 }
                 OrderAttribution order = attributionOf(view);
+                if (sides != null) {
+                    sides.put(view.realOrderId(), view.side());
+                }
                 order.botId().ifPresent(botId -> bots.computeIfAbsent(botId, id -> spotBot(tenantId, userId, id)));
                 index.put(order.realOrderId(), order);
                 if (order.virtualAttempt()) {
@@ -244,8 +353,8 @@ public class RealBotPnl implements RealBotPnlQuery {
         List<BotEntry> holders = new ArrayList<>(bots.values());
         holders.sort(Comparator.comparing(BotEntry::createdAt)
                 .thenComparing(bot -> bot.botId().toString().toLowerCase(Locale.ROOT)));
-        RealPnlEngine engine =
-                new RealPnlEngine(method, holders, attribution(tenantId, userId, index, bots), window, attempts);
+        RealPnlEngine engine = new RealPnlEngine(
+                method, holders, attribution(tenantId, userId, index, bots, sides), window, attempts, collector);
         try {
             if (!walletIds.isEmpty()) {
                 block.applyStatementTimeout(jdbc::execute);
@@ -263,7 +372,11 @@ public class RealBotPnl implements RealBotPnlQuery {
 
     /** The orders of the index, or read on the spot (confirmed meanwhile); the bots of the person, or read on the spot. */
     private RealPnlEngine.Attribution attribution(
-            UUID tenantId, UUID userId, Map<UUID, OrderAttribution> index, Map<UUID, BotEntry> bots) {
+            UUID tenantId,
+            UUID userId,
+            Map<UUID, OrderAttribution> index,
+            Map<UUID, BotEntry> bots,
+            Map<UUID, RealSide> sides) {
         return new RealPnlEngine.Attribution() {
             @Override
             public Optional<OrderAttribution> order(UUID realOrderId) {
@@ -271,8 +384,13 @@ public class RealBotPnl implements RealBotPnlQuery {
                 if (known != null) {
                     return Optional.of(known);
                 }
-                Optional<OrderAttribution> read =
-                        orders.settledOrder(tenantId, userId, realOrderId).map(RealBotPnl::attributionOf);
+                Optional<OrderAttribution> read = orders.settledOrder(tenantId, userId, realOrderId)
+                        .map(view -> {
+                            if (sides != null) {
+                                sides.put(view.realOrderId(), view.side());
+                            }
+                            return attributionOf(view);
+                        });
                 read.ifPresent(found -> index.put(realOrderId, found));
                 return read;
             }

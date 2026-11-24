@@ -17,6 +17,8 @@ import com.memetrade.pnl.api.ProratedShare;
 import com.memetrade.pnl.api.RealBotPnlLine;
 import com.memetrade.pnl.api.RealModePnl;
 import com.memetrade.pnl.api.RealModeTotal;
+import com.memetrade.pnl.api.RealPnlLineItem;
+import com.memetrade.pnl.api.RealPnlLineOrigin;
 import com.memetrade.pnl.api.UnownedPnlLine;
 import com.memetrade.pnl.real.ProrationPart.Origin;
 import com.memetrade.pnl.real.RealProration.Holding;
@@ -83,6 +85,43 @@ public final class RealPnlEngine {
         Optional<BotEntry> bot(UUID botId);
     }
 
+    /**
+     * 261121-paper-real-unico U3 (C10 {@code botLines}, C5; BR4.6, NFR2.3): receives, event by event, what the pass
+     * applied to each bot: the realized and the fees given to its line, its quantity and its amount, by origin. It adds
+     * no calculation: the realized and the fees of the lines of a bot add up exactly to its line of the block.
+     */
+    @FunctionalInterface
+    public interface LineCollector {
+
+        void line(CollectedLine line);
+    }
+
+    /**
+     * One line of one bot in one event.
+     *
+     * @param identity the idempotency key of the main row of the event, or {@code attempt:<reference>} for a failed
+     *     attempt of the mode Assinada (no row)
+     * @param key the network order key of the main row; for an attempt, the key of the last event applied before it
+     *     (the position of the attempt among the rows); empty only when nothing came before
+     * @param sequence the order in which the pass applied the event (the tie-break of equal keys)
+     * @param side BUY or SELL; empty for an event of a fee alone of an own order (the side of the order decides)
+     * @param orderId the REAL order of the event, when it has one
+     */
+    public record CollectedLine(
+            UUID botId,
+            String identity,
+            Optional<NetworkOrderKey> key,
+            long sequence,
+            Instant at,
+            Optional<RealPnlLineItem.Side> side,
+            Optional<UUID> orderId,
+            String mint,
+            RealPnlLineOrigin origin,
+            long tokenBaseUnits,
+            long amountLamports,
+            long feeLamports,
+            long realizedLamports) {}
+
     /** BR3.4: an order names a bot that is not a REAL bot of the person; the pass stops, nothing is delivered. */
     public static final class UnknownBot extends RuntimeException {
         private static final long serialVersionUID = 1L;
@@ -113,6 +152,10 @@ public final class RealPnlEngine {
     private UUID currentWallet;
     private long currentSlot = -1;
     private boolean closed;
+    private final LineCollector collector;
+    private EventLines collecting;
+    private long sequence;
+    private NetworkOrderKey lastKey;
 
     /**
      * @param bots the REAL bots of the person, paused and removed included, in order of creation (C8)
@@ -124,6 +167,22 @@ public final class RealPnlEngine {
             Attribution attribution,
             PnlWindow window,
             List<OrderAttribution> virtualAttempts) {
+        this(method, bots, attribution, window, virtualAttempts, null);
+    }
+
+    /**
+     * 261121-paper-real-unico U3: the same pass, with a collector of the lines of each bot (C10 {@code botLines}).
+     *
+     * @param collector receives the lines of the bots event by event; null collects nothing
+     */
+    public RealPnlEngine(
+            RealCostMethod method,
+            List<BotEntry> bots,
+            Attribution attribution,
+            PnlWindow window,
+            List<OrderAttribution> virtualAttempts,
+            LineCollector collector) {
+        this.collector = collector;
         this.method = Objects.requireNonNull(method, "method");
         this.attribution = Objects.requireNonNull(attribution, "attribution");
         this.window = Objects.requireNonNull(window, "window");
@@ -533,11 +592,106 @@ public final class RealPnlEngine {
     // ----------------------------------------------------------------- F2
 
     private void apply(TradeEvent event) {
+        if (collector != null) {
+            collecting = new EventLines(event);
+        }
         switch (event.type()) {
             case BUY -> buy(event);
             case OWN_SALE, SALE_WITHOUT_BOT -> sale(event);
             case FEE_ONLY -> feeOnly(event);
         }
+        if (collecting != null) {
+            collecting.emit();
+            collecting = null;
+        }
+        event.key().ifPresent(key -> lastKey = key);
+    }
+
+    /** 261121-paper-real-unico U3: what one event gave to one bot, by origin; nothing for "Sem bot". */
+    private void collect(
+            CostHolder holder,
+            RealPnlLineOrigin origin,
+            Optional<RealPnlLineItem.Side> side,
+            long units,
+            long amount,
+            long fee,
+            long realized) {
+        if (collecting != null && !holder.unowned()) {
+            collecting.add((Holder) holder, origin, side, units, amount, fee, realized);
+        }
+    }
+
+    /** BR4.7: the origin of a part of a bot in a line of C5; its own part is the line of the bot ({@code BOT}). */
+    private static RealPnlLineOrigin originOf(Origin origin) {
+        return switch (origin) {
+            case LIQUIDATION -> RealPnlLineOrigin.LIQUIDATION;
+            case CONDITIONAL -> RealPnlLineOrigin.CONDITIONAL;
+            case SOLD_BY_OTHER_BOT -> RealPnlLineOrigin.SOLD_BY_OTHER_BOT;
+            case OWN, UNOWNED_EXCESS, UNOWNED_NO_COST -> RealPnlLineOrigin.BOT;
+        };
+    }
+
+    /** The lines of one event, by bot and origin, merged when the same bot gets two amounts of the same origin. */
+    private final class EventLines {
+        private final TradeEvent event;
+        private final Map<Holder, Map<RealPnlLineOrigin, long[]>> amounts = new LinkedHashMap<>();
+        private final Map<Holder, Map<RealPnlLineOrigin, Optional<RealPnlLineItem.Side>>> sides = new HashMap<>();
+
+        EventLines(TradeEvent event) {
+            this.event = event;
+        }
+
+        void add(
+                Holder holder,
+                RealPnlLineOrigin origin,
+                Optional<RealPnlLineItem.Side> side,
+                long units,
+                long amount,
+                long fee,
+                long realized) {
+            long[] sums = amounts.computeIfAbsent(holder, h -> new java.util.EnumMap<>(RealPnlLineOrigin.class))
+                    .computeIfAbsent(origin, o -> new long[4]);
+            sums[0] = Math.addExact(sums[0], units);
+            sums[1] = Math.addExact(sums[1], amount);
+            sums[2] = Math.addExact(sums[2], fee);
+            sums[3] = Math.addExact(sums[3], realized);
+            sides.computeIfAbsent(holder, h -> new java.util.EnumMap<>(RealPnlLineOrigin.class))
+                    .merge(origin, side, (known, next) -> known.isPresent() ? known : next);
+        }
+
+        void emit() {
+            String identity = event.key().map(NetworkOrderKey::idempotencyKey).orElse("attempt:" + event.reference());
+            Optional<NetworkOrderKey> key = event.key().or(() -> Optional.ofNullable(lastKey));
+            long order = sequence++;
+            Optional<UUID> orderId = event.order().map(OrderAttribution::realOrderId);
+            String mint = event.mint().orElse("");
+            amounts.forEach((holder, byOrigin) -> byOrigin.forEach((origin, sums) -> collector.line(new CollectedLine(
+                    holder.botId().orElseThrow(),
+                    identity,
+                    key,
+                    order,
+                    event.at(),
+                    sides.get(holder).get(origin),
+                    orderId,
+                    mint,
+                    origin,
+                    sums[0],
+                    sums[1],
+                    sums[2],
+                    sums[3]))));
+        }
+    }
+
+    private static final Optional<RealPnlLineItem.Side> BUY_SIDE = Optional.of(RealPnlLineItem.Side.BUY);
+    private static final Optional<RealPnlLineItem.Side> SELL_SIDE = Optional.of(RealPnlLineItem.Side.SELL);
+
+    /** The side of a line of an event: BUY for a buy, SELL for a sale, the side of its order for a fee alone. */
+    private static Optional<RealPnlLineItem.Side> sideOf(TradeEvent event) {
+        return switch (event.type()) {
+            case BUY -> BUY_SIDE;
+            case OWN_SALE, SALE_WITHOUT_BOT -> SELL_SIDE;
+            case FEE_ONLY -> Optional.empty();
+        };
     }
 
     /** F2.1 (BR2.1, BR3.1, BR6.1): one holder; the cost is the SOL leg plus the RENT, never the fee. */
@@ -560,6 +714,14 @@ public final class RealPnlEngine {
         book.buyUnits = Math.addExact(book.buyUnits, event.tokenBaseUnits());
         Line line = line(holder);
         line.fee(event.feeLamports(), event.at());
+        collect(
+                holder,
+                RealPnlLineOrigin.BOT,
+                BUY_SIDE,
+                event.tokenBaseUnits(),
+                event.swapLamports(),
+                event.feeLamports(),
+                0);
         if (holder.unowned()) {
             unowned.touched = true;
             unowned.reasons.add(ORDER_RECORD_MISSING);
@@ -609,6 +771,14 @@ public final class RealPnlEngine {
             Line line = line((Holder) part.participant());
             line.realized(part.realizedLamports(), event.at());
             line.fee(part.feeLamports(), event.at());
+            collect(
+                    part.participant(),
+                    originOf(part.origin()),
+                    SELL_SIDE,
+                    part.tokenBaseUnits(),
+                    part.receivedLamports(),
+                    part.feeLamports(),
+                    part.realizedLamports());
             if (part.isShare() && inWindow(event.at())) {
                 line.shares.add(new ProratedShare(
                         event.reference(),
@@ -654,7 +824,9 @@ public final class RealPnlEngine {
             if (event.orderMissing()) {
                 unownedFee(event.feeLamports(), event.at(), ORDER_RECORD_MISSING);
             } else if (order.flatMap(OrderAttribution::botId).isPresent()) {
-                line(holder(order.get().botId().get())).fee(event.feeLamports(), event.at());
+                Holder owner = holder(order.get().botId().get());
+                line(owner).fee(event.feeLamports(), event.at());
+                collect(owner, RealPnlLineOrigin.BOT, Optional.empty(), 0, 0, event.feeLamports(), 0);
             } else {
                 failedSaleWithoutBot(event);
             }
@@ -686,6 +858,7 @@ public final class RealPnlEngine {
             fees = Math.addExact(fees, part.feeLamports());
             Line line = line((Holder) part.participant());
             line.fee(part.feeLamports(), event.at());
+            collect(part.participant(), originOf(part.origin()), SELL_SIDE, 0, 0, part.feeLamports(), 0);
             if (part.isShare() && inWindow(event.at())) {
                 line.shares.add(new ProratedShare(
                         event.reference(),
@@ -714,6 +887,7 @@ public final class RealPnlEngine {
             unownedFee(event.rentLamports(), event.at(), ORDER_RECORD_MISSING);
         } else if (owner.isPresent() && !owner.get().unowned()) {
             line((Holder) owner.get()).fee(event.rentLamports(), event.at());
+            collect(owner.get(), RealPnlLineOrigin.BOT, sideOf(event), 0, 0, event.rentLamports(), 0);
         } else {
             unownedFee(event.rentLamports(), event.at(), UNOWNED_NO_COST);
         }

@@ -166,6 +166,16 @@ paths:
           - PAUSED
           - CLOSING_PENDING
           - STOPPED
+      - description: "261121-paper-real-unico U3 (BR1.2): só os bots deste modo; ausente,\
+          \ os dois"
+        in: query
+        name: market
+        required: false
+        schema:
+          type: string
+          enum:
+          - PAPER
+          - REAL
       - in: query
         name: cursor
         required: false
@@ -501,6 +511,63 @@ paths:
       summary: "Nova versão dos limites, válida só para operações futuras (US4.9)"
       tags:
       - bot-controller
+  /api/v1/bots/{botId}/pnl/lines:
+    get:
+      operationId: listBotPnlLines
+      parameters:
+      - in: path
+        name: botId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: cursor
+        required: false
+        schema:
+          type: string
+      - in: query
+        name: limit
+        required: false
+        schema:
+          type: integer
+          default: 50
+          maximum: 100
+          minimum: 1
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RealBotPnlLinePage"
+          description: Uma página das linhas
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: cursor ou limit inválido, ou cursor de\
+            \ outro bot"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: bot de outra pessoa, inexistente ou PAPER; o mesmo\
+            \ corpo nos três"
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "SERVICE_UNAVAILABLE: não foi possível calcular as linhas agora;\
+            \ com correlationId"
+      security:
+      - accessToken: []
+      summary: "As linhas que formam o P&L de um bot REAL, com a origem de cada uma,\
+        \ da mais recente para a mais antiga, desde o início (FR3.6)"
+      tags:
+      - pnl-controller
   /api/v1/bots/{botId}/rejections:
     get:
       operationId: listBotRejections
@@ -920,6 +987,31 @@ paths:
           default: ALL
           enum:
           - ALL
+          - RANGE
+      - description: "Obrigatório em RANGE; instante UTC inicial, incluído"
+        in: query
+        name: from
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - description: "Obrigatório em RANGE; instante UTC final, excluído"
+        in: query
+        name: to
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - description: "261121-paper-real-unico U3 (BR3.1): só o bloco deste modo; ausente,\
+          \ os dois"
+        in: query
+        name: market
+        required: false
+        schema:
+          type: string
+          enum:
+          - PAPER
+          - REAL
       responses:
         "200":
           content:
@@ -933,12 +1025,83 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/Problem"
-          description: "VALIDATION_FAILED: na U1, só o período ALL; from e to são\
-            \ recusados"
+          description: "VALIDATION_FAILED: RANGE sem from ou to, from >= to, perí\
+            odo acima de 366 dias, from ou to sem RANGE, market fora de PAPER e REAL\
+            \ ou parâmetro desconhecido"
       security:
       - accessToken: []
       summary: "P&L em dois blocos separados, PAPER (US$) e REAL (SOL), no mesmo perí\
         odo; nunca somados (FR4.1, ADR-003)"
+      tags:
+      - pnl-controller
+  /api/v1/pnl/compare:
+    get:
+      operationId: comparePaperAndRealBots
+      parameters:
+      - in: query
+        name: paperBotId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: realBotId
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: period
+        required: false
+        schema:
+          type: string
+          default: ALL
+          enum:
+          - ALL
+          - RANGE
+      - in: query
+        name: from
+        required: false
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: to
+        required: false
+        schema:
+          type: string
+          format: date-time
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PnlComparison"
+          description: Os dois lados; um lado que falhou vem UNAVAILABLE
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED: id ou período inválido"
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "NOT_FOUND: um dos bots é de outra pessoa, não existe ou é\
+            \ do modo errado; reason diz qual lado (PAPER_BOT ou REAL_BOT)"
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "VALIDATION_FAILED com reason TEMPLATE_MISMATCH: os dois bots\
+            \ não têm o mesmo templateId; sem nenhum valor de P&L"
+      security:
+      - accessToken: []
+      summary: "Um bot PAPER e um bot REAL da mesma estratégia, cada um na sua moeda,\
+        \ sem nenhuma diferença calculada (FR8.1)"
       tags:
       - pnl-controller
   /api/v1/privacy/requests:
@@ -2349,15 +2512,30 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BotSummary"
+        matchingCount:
+          type: integer
+          format: int64
+          description: "261121-paper-real-unico U3 (BR1.5): bots da pessoa que passam\
+            \ pelos filtros da página (estado e modo); contagem de bots, nunca de\
+            \ dinheiro"
+          minimum: 0
         nextCursor:
           type:
           - string
           - "null"
+        totalCount:
+          type: integer
+          format: int64
+          description: "261121-paper-real-unico U3 (BR1.3): todos os bots da pessoa,\
+            \ sem filtro"
+          minimum: 0
       required:
       - activeCount
       - activeLimit
       - items
+      - matchingCount
       - nextCursor
+      - totalCount
     BotSummary:
       type: object
       additionalProperties: false
@@ -3714,6 +3892,50 @@ components:
       - realized
       - total
       - unrealized
+    PaperComparisonSide:
+      type: object
+      additionalProperties: false
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        currency:
+          type: string
+          enum:
+          - USD
+        disclaimer:
+          type: string
+          description: "Aviso fixo do simulado: \"O resultado simulado não garante\
+            \ o resultado real.\""
+        line:
+          $ref: "#/components/schemas/PaperBotPnlLine"
+        market:
+          type: string
+          enum:
+          - PAPER
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+        templateId:
+          type: string
+      required:
+      - createdAt
+      - currency
+      - disclaimer
+      - line
+      - market
+      - status
+      - templateId
+    PaperComparisonSideResult:
+      discriminator:
+        mapping:
+          AVAILABLE: "#/components/schemas/PaperComparisonSide"
+          UNAVAILABLE: "#/components/schemas/ModeBlockUnavailable"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/PaperComparisonSide"
+      - $ref: "#/components/schemas/ModeBlockUnavailable"
     PaperModeBlock:
       type: object
       additionalProperties: false
@@ -3922,8 +4144,9 @@ components:
     PnlByMode:
       type: object
       additionalProperties: false
-      description: "Só o período e os dois blocos. Não existe campo de total fora\
-        \ dos blocos (FR4.1, NFR3)"
+      description: "Só o período e os blocos. Sem market, os dois blocos; com market,\
+        \ só o bloco pedido, e a chave do outro fica ausente (nunca null). Não existe\
+        \ campo de total fora dos blocos (FR4.1, NFR3)"
       properties:
         paper:
           $ref: "#/components/schemas/PaperModeBlockResult"
@@ -3931,6 +4154,20 @@ components:
           $ref: "#/components/schemas/PnlPeriod"
         real:
           $ref: "#/components/schemas/RealModeBlockResult"
+      required:
+      - period
+    PnlComparison:
+      type: object
+      additionalProperties: false
+      description: "Só o período e os dois lados; nenhum campo de diferença, percentual,\
+        \ ranking ou total"
+      properties:
+        paper:
+          $ref: "#/components/schemas/PaperComparisonSideResult"
+        period:
+          $ref: "#/components/schemas/PnlPeriod"
+        real:
+          $ref: "#/components/schemas/RealComparisonSideResult"
       required:
       - paper
       - period
@@ -4259,6 +4496,70 @@ components:
       - realizedLamports
       - totalLamports
       - unrealizedLamports
+    RealBotPnlLineItem:
+      type: object
+      additionalProperties: false
+      properties:
+        amountLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        at:
+          type: string
+          format: date-time
+        feeLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        mint:
+          type: string
+        origin:
+          type: string
+          description: BOT para as ordens do próprio bot; as demais são parcelas rateadas
+          enum:
+          - BOT
+          - LIQUIDATION
+          - CONDITIONAL
+          - SOLD_BY_OTHER_BOT
+        realizedLamports:
+          type: string
+          pattern: "^-?[0-9]{1,20}$"
+        side:
+          type: string
+          enum:
+          - BUY
+          - SELL
+        tokenBaseUnits:
+          type: string
+          pattern: "^[0-9]{1,30}$"
+      required:
+      - amountLamports
+      - at
+      - feeLamports
+      - mint
+      - origin
+      - realizedLamports
+      - side
+      - tokenBaseUnits
+    RealBotPnlLinePage:
+      type: object
+      additionalProperties: false
+      properties:
+        currency:
+          type: string
+          enum:
+          - SOL
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RealBotPnlLineItem"
+        nextCursor:
+          type:
+          - string
+          - "null"
+          description: Cursor opaco da página seguinte; null quando não há mais linhas
+      required:
+      - currency
+      - items
+      - nextCursor
     RealChallengeRequest:
       type: object
       additionalProperties: false
@@ -4291,6 +4592,45 @@ components:
           type: string
         nonce:
           type: string
+    RealComparisonSide:
+      type: object
+      additionalProperties: false
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+        currency:
+          type: string
+          enum:
+          - SOL
+        line:
+          $ref: "#/components/schemas/RealBotPnlLine"
+        market:
+          type: string
+          enum:
+          - REAL
+        status:
+          type: string
+          enum:
+          - AVAILABLE
+        templateId:
+          type: string
+      required:
+      - createdAt
+      - currency
+      - line
+      - market
+      - status
+      - templateId
+    RealComparisonSideResult:
+      discriminator:
+        mapping:
+          AVAILABLE: "#/components/schemas/RealComparisonSide"
+          UNAVAILABLE: "#/components/schemas/ModeBlockUnavailable"
+        propertyName: status
+      oneOf:
+      - $ref: "#/components/schemas/RealComparisonSide"
+      - $ref: "#/components/schemas/ModeBlockUnavailable"
     RealConditionalStateChanged:
       type: object
       additionalProperties: false

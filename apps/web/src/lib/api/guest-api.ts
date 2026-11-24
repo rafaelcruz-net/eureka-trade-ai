@@ -312,11 +312,12 @@ export function guestApi(
       return withRenewal(() => client.request<Account>('/api/v1/account', { authenticated: true }));
     },
     /** U7 (C5): the P&L of a period [from, to) in UTC. */
-    getPnl(request: PnlRequest) {
+    getPnl(request: PnlRequest, options: { signal?: AbortSignal; retry?: boolean } = {}) {
       return withRenewal(() =>
         client.request<PnlReport>(
           `/api/v1/pnl${query({ from: request.from, to: request.to, botId: request.botId })}`,
-          { authenticated: true },
+          // 261121-paper-real-unico U3 (alignment A8): the table by token of /pnl passes retry false and its signal.
+          { authenticated: true, signal: options.signal, retry: options.retry },
         ),
       );
     },
@@ -386,19 +387,33 @@ export function guestApi(
       );
     },
     /** U5 (C4): the bots of the person, optionally of one state, with the active counter. */
-    listBots(request: { state?: BotState; cursor?: string | null; limit?: number } = {}) {
+    listBots(
+      request: {
+        state?: BotState;
+        market?: 'PAPER' | 'REAL';
+        cursor?: string | null;
+        limit?: number;
+      } = {},
+      options: { signal?: AbortSignal } = {},
+    ) {
       return withRenewal(() =>
         client.request<BotPage>(
-          `/api/v1/bots${query({ state: request.state, cursor: request.cursor, limit: request.limit })}`,
-          { authenticated: true },
+          `/api/v1/bots${query({
+            state: request.state,
+            market: request.market,
+            cursor: request.cursor,
+            limit: request.limit,
+          })}`,
+          { authenticated: true, signal: options.signal },
         ),
       );
     },
     /** U5 (C4): one bot with its draft and limits. */
-    getBot(botId: string) {
+    getBot(botId: string, options: { signal?: AbortSignal } = {}) {
       return withRenewal(() =>
         client.request<BotDetail>(`/api/v1/bots/${encodeURIComponent(botId)}`, {
           authenticated: true,
+          signal: options.signal,
         }),
       );
     },
@@ -428,10 +443,62 @@ export function guestApi(
         client.request<RealAccountLimits>('/api/v1/real/account-limits', { authenticated: true }),
       );
     },
-    /** 261121-paper-real-unico U1 (C4): the P&L in two separate blocks, PAPER and REAL, never added. */
-    getPnlByMode() {
+    /**
+     * 261121-paper-real-unico U1 (C4): the P&L in two separate blocks, PAPER and REAL, never added.
+     * 261121-paper-real-unico U3 (BR2.4, BR3.1, BR3.2): with `market`, only that block comes (the key of the other is
+     * absent); the period goes as ALL, or RANGE with `from` and `to` in UTC. Never a tenant nor a person id.
+     */
+    getPnlByMode(request: PnlByModeRequest = {}, options: { signal?: AbortSignal } = {}) {
+      const period = request.period ?? { kind: 'ALL' };
       return withRenewal(() =>
-        client.request<PnlByMode>('/api/v1/pnl/by-mode', { authenticated: true }),
+        client.request<PnlByMode>(
+          `/api/v1/pnl/by-mode${query({
+            period: period.kind,
+            from: period.kind === 'RANGE' ? period.from : undefined,
+            to: period.kind === 'RANGE' ? period.to : undefined,
+            market: request.market,
+          })}`,
+          { authenticated: true, signal: options.signal },
+        ),
+      );
+    },
+    /**
+     * 261121-paper-real-unico U3 (C5; BR4.3, NFR4.10): one page of the lines of a REAL bot, newest first. Never
+     * repeated by the client: a failure keeps the lines on screen and the screen offers "Tentar de novo".
+     */
+    listBotPnlLines(
+      botId: string,
+      request: { cursor?: string | null; limit?: number } = {},
+      options: { signal?: AbortSignal } = {},
+    ) {
+      return withRenewal(() =>
+        client.request<RealBotPnlLinePage>(
+          `/api/v1/bots/${encodeURIComponent(botId)}/pnl/lines${query({
+            cursor: request.cursor,
+            limit: request.limit ?? 50,
+          })}`,
+          { authenticated: true, signal: options.signal, retry: false },
+        ),
+      );
+    },
+    /**
+     * 261121-paper-real-unico U3 (C6; BR5.1 to BR5.5): one PAPER bot and one REAL bot of the same strategy. Never
+     * repeated by the client (review finding 2): C6 runs two REAL passes, so a 503 or a timeout is shown at once and
+     * the screen offers "Tentar de novo" by side. C4 keeps the repetition: one read of one block, as before.
+     */
+    comparePnl(request: ComparePnlRequest, options: { signal?: AbortSignal } = {}) {
+      const period = request.period ?? { kind: 'ALL' };
+      return withRenewal(() =>
+        client.request<PnlComparison>(
+          `/api/v1/pnl/compare${query({
+            paperBotId: request.paperBotId,
+            realBotId: request.realBotId,
+            period: period.kind,
+            from: period.kind === 'RANGE' ? period.from : undefined,
+            to: period.kind === 'RANGE' ? period.to : undefined,
+          })}`,
+          { authenticated: true, signal: options.signal, retry: false },
+        ),
       );
     },
     /** U5 (AC4.1.3): one accepted step of the wizard. */
@@ -775,6 +842,19 @@ export type RealModeBlock = components['schemas']['RealModeBlock'];
 export type PaperBotPnlLine = components['schemas']['PaperBotPnlLine'];
 export type RealBotPnlLine = components['schemas']['RealBotPnlLine'];
 export type ModeBlockUnavailable = components['schemas']['ModeBlockUnavailable'];
+// 261121-paper-real-unico U3 (C4 with market and RANGE, C5, C6).
+export type PnlPeriodRequest = { kind: 'ALL' } | { kind: 'RANGE'; from: string; to: string };
+export type PnlByModeRequest = { market?: 'PAPER' | 'REAL'; period?: PnlPeriodRequest };
+export type ComparePnlRequest = {
+  paperBotId: string;
+  realBotId: string;
+  period?: PnlPeriodRequest;
+};
+export type RealBotPnlLinePage = components['schemas']['RealBotPnlLinePage'];
+export type RealBotPnlLineItem = components['schemas']['RealBotPnlLineItem'];
+export type PnlComparison = components['schemas']['PnlComparison'];
+export type PaperComparisonSide = components['schemas']['PaperComparisonSide'];
+export type RealComparisonSide = components['schemas']['RealComparisonSide'];
 export type LamportsAmount = components['schemas']['LamportsAmount'];
 
 // U8 (C6): the comment of a guest.

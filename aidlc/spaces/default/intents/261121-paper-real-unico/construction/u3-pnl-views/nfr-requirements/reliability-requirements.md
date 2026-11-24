@@ -1,0 +1,78 @@
+# Requisitos de confiabilidade — U3 `u3-pnl-views`
+
+Conversa: português (Brasil). Data: 2026-11-23.
+
+Reúne o comportamento sob falha, a exatidão do que a tela mostra (NFR2), a acessibilidade (NFR5), as telas (NFR6) e a verificação (NFR7). Como na U1, este estágio não tem arquivo próprio para acessibilidade e testes; eles ficam aqui porque são parte de "a U3 faz o que promete" [Q2] [Q3].
+
+## Disponibilidade
+
+| ID | Requisito | Valor |
+|---|---|---|
+| NFR4.6 | A U3 não cria meta de disponibilidade nova além da do monólito [Q4]. | 0 SLOs novos; o grupo de prontidão (`readinessState`, `db`, `migrations`) não muda; nenhuma rota da U3 entra na verificação de saúde. |
+
+## Tolerância a falhas e degradação
+
+| ID | Requisito | Valor |
+|---|---|---|
+| NFR4.7 | C4 com `market`: se o bloco pedido falha, a resposta é 200 com o bloco `UNAVAILABLE`, `code` e `correlationId` (BR3.3). | Teste de integração com falha injetada no bloco pedido, nos 2 valores de `market`: 200 em 100% dos casos, 0 respostas 500 inteiras. |
+| NFR4.8 | "Tentar de novo" de um bloco relê só aquele bloco; o outro bloco não volta a carregar nem muda de valor (BR3.2, BR3.4). | Teste de componente em `/pnl`, no painel e em `/bots`: 1 pedido com `market` do bloco em erro, 0 pedidos para o outro, o outro bloco com o mesmo texto antes e depois; o foco vai ao título do bloco relido. |
+| NFR4.9 | C6: um lado que falha vem `UNAVAILABLE` e o outro mostra os valores; "Tentar de novo" atualiza só o lado em erro (BR5.5). | Teste de integração: falha injetada em cada lado, um de cada vez e os dois juntos (3 cenários), sempre 200. Teste de componente: o lado sem erro não volta a carregar. |
+| NFR4.10 | C5: a falha da página seguinte mantém as linhas já mostradas (BR4.3). | Teste de componente: com a 2ª página falhando, as 50 linhas da 1ª continuam, o erro mostra o código, e "Tentar de novo" repete o mesmo cursor (1 pedido). |
+| NFR4.11 | Uma resposta antiga nunca substitui uma nova (BR1.2, BR2.6). | Teste de componente com 2 pedidos em sequência e a 1ª resposta chegando depois da 2ª: a tela mostra só a 2ª, em 100% dos casos (filtro de modo, período e comparação). |
+| NFR4.12 | Nenhum evento do canal ao vivo se perde no limite de no máximo 2 pedidos por cartão a cada 30 s, 1 imediato e 1 pendente no fim da janela (BR7.5, NFR1.7). | Teste de componente com relógio injetável: 5 eventos do mesmo modo dentro de 30 s dão 1 releitura imediata e 1 no fim da janela (2 pedidos); um evento logo depois da releitura pendente espera o fim da janela seguinte (30 s depois dela); o valor final é o da última resposta. |
+| NFR4.13 | As leituras da U3 são idempotentes e podem ser repetidas sem efeito colateral. | 0 gravações no banco por leitura com 200 de C4 com `market` ou `RANGE`, `listBots`, C5 e C6 (teste de integração conta as linhas das tabelas tocadas antes e depois de 3 leituras seguidas). A única gravação da U3 é o evento de auditoria das recusas 404 de outro tenant e 422 (NFR3.13), limitado por NFR3.14, que nunca muda a resposta: 3 recusas iguais seguidas dão 3 respostas iguais. |
+
+## Exatidão
+
+| ID | Requisito | Valor |
+|---|---|---|
+| NFR2.1 | Nenhum valor monetário em ponto flutuante na U3 (BR11.1). | Backend: a regra ArchUnit de ponto flutuante continua verde para o código de C5 e C6; `apps/web`: `bigint` só em `features/real/money.ts`, o lint de dinheiro passa (NFR4.5). |
+| NFR2.2 | O que a tela mostra é o valor da API, só formatado; nenhuma conta sobre o texto de um valor (BR6.1, BR4.6). | Teste de componente de cada componente que escreve dinheiro (`PnlModeBlock`, `ProratedLines`, `BotPnlLines`, `ComparisonView`): cada valor mostrado é igual ao texto da fixture formatado por `money-format.ts`; o total do detalhe é o da API, nunca a soma das linhas. Corte sem arredondar: 2 casas em US$ e pelo menos 2 em SOL (BR11.1). |
+| NFR2.3 | Os lados de C6 e as linhas de C5 vêm do mesmo cálculo da U2 e fecham com ele por igualdade exata (BR4.6). | Teste de integração com cenário de resultado conhecido: total, realizado, não realizado e taxas do lado PAPER de C6 iguais à linha do mesmo bot no bloco PAPER de C4, no mesmo período; o mesmo para o lado REAL em lamports; comparação com `compareTo == 0` (PAPER) e igualdade de `long` (REAL), diferença 0. As linhas de C5 vêm de C10 `botLines` sobre o RealBotPnl, sem cálculo próprio, e o servidor prova que elas fecham com o P&L do bot (revisão R-02): **(a) soma exata das páginas** — teste de integração com cenário de resultado conhecido (compras, vendas, uma liquidação, uma venda condicional e uma parcela vendida por outro bot, mais de 100 linhas): percorrer todas as páginas de C5 com `limit=50` até `nextCursor` nulo e somar, em `long` com operações exatas, `realizedLamports` e `feesLamports` de todas as linhas; as duas somas são iguais, em lamports, ao realizado e às taxas da linha do mesmo bot no bloco REAL de C4 com `period=ALL`; diferença 0; o número de linhas lidas é igual ao número de lançamentos do bot no cenário. **(b) estabilidade do cursor** — teste de integração: ler a 1ª página, gravar uma ordem nova confirmada do mesmo bot e ler as páginas seguintes com o cursor recebido; 0 linhas repetidas entre as páginas (pela identidade da linha), 0 linhas perdidas (todas as linhas que existiam antes da 1ª leitura aparecem uma vez), e a linha nova, mais recente que o cursor, não aparece nas páginas seguintes e aparece numa 1ª página lida de novo. |
+| NFR2.4 | O período é convertido para instantes UTC sem erro de dia (BR2.2 a BR2.4). | Testes de unidade em `period.test.ts` com relógio e fuso fixos: "Hoje" em America/Sao_Paulo às 2026-11-23T02:30Z dá `from` 2026-11-22T03:00Z e `to` 2026-11-23T03:00Z; intervalo inclusivo (dia final inteiro); intervalo com início futuro recusado; 366 dias que atravessam o fim do horário de verão em America/New_York recusados e 365 dias aceitos; o par UTC fixado continua igual depois da meia-noite local. |
+
+## Acessibilidade
+
+| ID | Requisito | Valor |
+|---|---|---|
+| NFR5.1 | Navegação por teclado e foco visível no filtro, no período, no painel, no detalhe e na comparação, com ordem de foco definida (BR1.4, BR3.4, BR4.3, BR9.3) [Q3]. | 100% dos controles da U3 alcançáveis por Tab e acionáveis por Enter, Espaço ou setas (rádios); foco visível pelo `:focus-visible` que já existe. Ordem testada: foco inicial no rádio marcado do filtro em `/bots`; depois de "Tentar de novo", no título do bloco relido; depois de "Carregar mais", na primeira linha nova; ao abrir a comparação, no select "Bot simulado", e ao fechar, de volta ao botão; depois de 404 ou 422 na comparação, no select do lado afetado. Um teste de componente por caso. |
+| NFR5.2 | Contraste mínimo de 4,5:1 no tema escuro, e cor sempre acompanhada de texto (BR9.1) [Q3]. | Os componentes usam só os tokens já medidos (text, textMuted, accent, danger, unknown, warning sobre surface), todos ≥ 4,5:1; 0 estados indicados só por cor: ganho e perda com "+" ou "−" e a palavra, selos SIMULADO e REAL em texto, "desconhecido" em palavra. |
+| NFR5.3 | Cada total tem rótulo com o modo e a moeda, e a mudança é anunciada por `aria-live` no máximo uma vez a cada 30 s por bloco (BR9.2) [Q3]. | Nomes acessíveis testados: "Total simulado, em dólares", "Total real, em SOL", "Total do bot simulado, em dólares", "Total do bot real, em SOL", "Total do bot, em dólares" e "Total do bot, em SOL". Região do total com `aria-live="polite"` e `aria-atomic="true"`; 0 anúncios na carga inicial; no máximo 1 anúncio por bloco a cada 30 s. |
+| NFR5.4 | Estrutura: cabeçalhos em ordem, tabelas com `caption` e `th scope="col"`, botões de abrir e fechar com `aria-expanded` e `aria-controls` (BR9.3). | Teste de componente confere a hierarquia (h1 do bot, h2 "P&L do bot" e "Linhas do P&L" no detalhe; h3 por cartão no painel; h2 "Comparação" e h3 por lado), o `caption` de cada tabela e os atributos dos botões. |
+
+## Telas
+
+| ID | Requisito | Valor |
+|---|---|---|
+| NFR6.1 | Em 360 px nenhuma tela da U3 rola para o lado; tabelas largas rolam dentro de um `TableScroll`; troca de layout única em 768 px (BR10.1) [Q3]. | No spec de ponta a ponta, em 360 px, `scrollWidth` do documento igual a `clientWidth` em `/`, `/bots?mode=REAL`, `/bots/{id}` dos dois bots e `/pnl` com a comparação aberta, e no caso com dados montados (12 parcelas abertas e 2ª página de linhas), antes e depois. Abaixo de 768 px, linhas e parcelas viram cartões com rótulo em cada valor e alvos de toque de 44 × 44 px; a partir de 768 px, tabela dentro de `TableScroll` (`role="region"`, `aria-label`, `tabIndex=0`). Teste de componente confere a troca em 768 px. |
+| NFR6.2 | Carregando, erro, desconhecido e vazio são estados distintos em cada tela com P&L (BR10.2). | Teste de componente dos 4 estados no painel (por cartão), no detalhe, nas linhas e na comparação (por lado), com texto próprio em cada um; carregando nunca mostra zero; "P&L indisponível agora" diferente de "desconhecido". |
+
+## Verificação
+
+| ID | Requisito | Valor |
+|---|---|---|
+| NFR7.1 | Volume de testes da U3: a Test Strategy `Standard` registrada no estado do intent [Q2]. O NFR7 do intent diz volume `Comprehensive`, que continua sendo o volume do projeto; o `team.md` (Testing Posture, "Volume de testes") diz que cada intent segue a Test Strategy que o próprio estado registra, e que o intent `261121-paper-real-unico` registra `Standard` [Q8]. O piso de 80% de NFR7.3 é somado a essa estratégia e nunca a substitui. | Testes de unidade, de componente e de integração de cada regra BR1.1 a BR12.1, com caminho feliz e pelo menos 2 casos de erro ou borda por componente. |
+| NFR7.2 | Testes obrigatórios por risco que a U3 toca, sempre verdes [Q2]. | (1) isolamento entre contas e 404 em C5 e C6, com o 404 antes do 422 (NFR3.2, NFR3.3, NFR3.5); (2) nunca somar os modos no painel, na comparação e no filtro "Todos" (NFR4.1); (3) `unknown` como estado visível, nunca zero (NFR6.2, BR11.2); (4) REAL desligado por padrão (NFR3.8); (5) novo aceite dos termos nas 4 rotas (NFR3.4); (6) P&L com cenários determinísticos: a soma exata das páginas de C5 e a estabilidade do cursor (NFR2.3); (7) auditoria do 404 de outro tenant e do 422 com o limite por hora (NFR3.13, NFR3.14). |
+| NFR7.3 | Piso de cobertura de 80% de linhas, medido em cada parte [Q2]. | `apps/web`: Jest, `coverageThreshold.global.lines = 80`; backend: JaCoCo, unitários e integração mesclados, ≥ 80%; `apps/admin` e `apps/txsigner` não mudam e continuam ≥ 80%. A ferramenta falha o build abaixo do piso; o piso nunca é reduzido. |
+| NFR7.4 | Teste de contrato dos 3 casos de C4 (BR3.1) [Q2]. | O `GuestOpenApiContractTest` e o teste de rota cobrem: sem `market` (as duas chaves presentes e não nulas), `market=PAPER` (`real` ausente) e `market=REAL` (`paper` ausente); `paper` e `real` deixam de ser obrigatórios no esquema; o `check:api` do `apps/web` passa com os tipos gerados; o do `apps/admin` não muda, porque ele não consome C4. |
+| NFR7.5 | Testes do período (BR2.2, BR2.3, BR2.6) [Q2]. | Os casos de NFR2.4 (fuso, intervalo inclusivo, horário de verão, intervalo no futuro) e mais: um endereço com intervalo futuro aplica "Desde o início" sem pedido com `RANGE`; trocar `?comparar=` depois da meia-noite lê C6 com o mesmo `from` e `to` dos blocos; em "Desde o início", 0 pedidos a `GET /api/v1/pnl` (BR2.9). |
+| NFR7.6 | Spec de ponta a ponta `e2e/zz-paper-real-unico` ampliado, que continua o último da suíte (prefixo `zz-`) e não muda a conta do smoke antes dos specs anteriores (BR12.1) [Q2]. | 10 casos novos: (1) painel com "Resultado simulado" em US$ e o aviso, "Resultado real" em SOL sem o aviso, nenhum "Total geral" e o link para `/pnl`; (2) filtro em `/bots`: foco inicial no filtro, "Simulado" só com o bot PAPER, "Real" só com o bot REAL e sem o aviso, `?mode=` no endereço; (3) detalhe do bot REAL com a coluna "Origem", a compra com "Bot" e "—" e a data dd/mm HH:MM; (4) detalhe do bot PAPER com o aviso; (5) detalhe de id inexistente com "Bot não encontrado." e nenhum dado; (6) "Últimos 7 dias" em `/pnl`: `?periodo=7d`, C4 com `period=RANGE` e `from`/`to` terminando em `Z`, dois blocos separados e sem "Total geral"; (7) comparação dos dois bots de mesma estratégia, cada um na sua moeda, aviso só no lado simulado, sem "Total geral" nem diferença; (8) 360 px sem rolagem lateral em `/`, `/bots?mode=REAL`, `/bots/{id}` dos dois bots e `/pnl` com a comparação aberta; (9) 360 px com dados montados: o Playwright intercepta C4 (bot REAL com 12 parcelas e linha "Sem bot") e C5 (50 linhas com `nextCursor` e a página seguinte), com fixtures sintéticas sem carteira nem mint real, abre "Ver 12 linhas rateadas", clica em "Carregar mais" e mede a largura antes e depois; (10) "Desde o início" com a nota no lugar da tabela por token e "Hoje" com a tabela e `?periodo=hoje`. `bash scripts/verify.sh` devolve 0 nos jobs `smoke` e `e2e`. Os casos de 404 e 422 de C6 ficam nos testes de rota do backend. |
+| NFR7.7 | Ordem dos testes (`team.md`, Ordering). | Antes do código, a partir da regra de negócio: (1) a igualdade dos lados de C6 com a linha do bot em C4 (NFR2.3); (2) a soma exata de todas as páginas de C5 igual à linha do bot em C4 com `period=ALL` (NFR2.3 a); (3) a estabilidade do cursor de C5 com uma ordem nova entre duas páginas (NFR2.3 b); (4) os limites do `RANGE` de C4: `from` incluído e `to` excluído (um lançamento em `from` entra, um em `to` fica de fora, um 1 ms antes de `to` entra), e o mesmo par de instantes dá o mesmo realizado em C4 e no lado de C6 (revisão R-05); (5) o teste de propriedade "nenhum terceiro número" de C6 (NFR4.1). Depois de cada camada: telas, rotas de leitura (filtro `market`, contagens), auditoria, período na tela e configuração. |
+| NFR7.8 | A mudança de esquema de C4 e o leitor do `apps/web` entram no mesmo commit. | No mesmo commit: o `openapi-guest.yaml` com `market` e `paper`/`real` opcionais, os tipos regenerados em `schema.d.ts`, o `by-mode.ts` que trata a chave ausente e os testes de contrato dos dois lados; os jobs `backend`, `frontend` e `contract` ficam verdes. |
+
+## Sources
+
+- `nfr-requirements-questions.md`: Q2, Q3, Q4 e o resumo confirmado [Q2] [Q3] [Q4].
+- `reviews/review-01.md` (R-02, R-04, R-05, R-07) e a decisão do fundador de 2026-11-23 (D-NFR1 em `security-requirements.md`).
+- `aidlc-state.md` do intent: Test Strategy `Standard`.
+- `inception/requirements-analysis/requirements.md`: NFR2, NFR4, NFR5, NFR6, NFR7.
+- `construction/u3-pnl-views/functional-design/rules.md`: BR1.2, BR1.4, BR2.2 a BR2.6, BR2.9, BR3.1 a BR3.4, BR4.3, BR4.6, BR5.5, BR6.1, BR7.5, BR9.1 a BR9.3, BR10.1, BR10.2, BR11.1, BR11.2, BR12.1.
+- `construction/u3-pnl-views/functional-design/frontend-components.md`: "Acréscimos ao spec de ponta a ponta `e2e/zz-paper-real-unico`" (os 10 casos).
+- `construction/u1-mode-skeleton/nfr-requirements/reliability-requirements.md`: forma e IDs herdados.
+- `inception/contract-design/contract-summary.md`: C4 (estado parcial), C5, C6, C10.
+- `aidlc/spaces/default/memory/team.md`: Testing Posture (Ordering, Volume, Piso, testes obrigatórios por risco, Acessibilidade); `project.md`: spec `zz-` por último, `TableScroll` em 360 px, critérios de acessibilidade do beta.
+
+## Assumptions & Open Questions
+
+1. [assumption] O contraste de NFR5.2 é conferido sobre os tokens de cor, sem portão automático de acessibilidade na CI (`team.md`); a conferência visual fica nos gates de aprovação.
+2. [assumption] NFR7.7 classifica como núcleo financeiro o que no servidor decide ou compõe o P&L: C5 e C6 sobre o cálculo da U2 e a janela `RANGE` de C4, que decide quais lançamentos entram. O filtro `market`, as contagens, a auditoria e as telas seguem a ordem "depois de cada camada".

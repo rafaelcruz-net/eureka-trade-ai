@@ -42,6 +42,12 @@ public class BotDirectoryImpl implements BotDirectory {
                 .map(BotDirectoryImpl::entry);
     }
 
+    /** 261121-paper-real-unico U3 (F-2): by the primary key, in the read-only transaction of the request; a boolean. */
+    @Override
+    public boolean ownedByAnotherTenant(UUID tenantId, UUID botId) {
+        return bots.ownedByAnotherTenant(tenantId, botId);
+    }
+
     /** BR4.1: the state of a bot reduced for the P&L. */
     static BotPnlStatus status(BotState state) {
         return switch (state) {

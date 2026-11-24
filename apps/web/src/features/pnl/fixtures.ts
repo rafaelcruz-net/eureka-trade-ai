@@ -3,7 +3,11 @@ import type {
   PaperModeBlock,
   PaperTrade,
   PnlByMode,
+  PnlComparison,
   PnlReport,
+  RealBotPnlLine,
+  RealBotPnlLineItem,
+  RealBotPnlLinePage,
   RealModeBlock,
   ReconciliationResult,
 } from '@/lib/api/guest-api';
@@ -108,6 +112,107 @@ export const REAL_BLOCK_WITH_UNOWNED: RealModeBlock = {
 };
 
 export const BY_MODE: PnlByMode = { period: { kind: 'ALL' }, paper: PAPER_BLOCK, real: REAL_BLOCK };
+
+// ---------------- 261121-paper-real-unico U3 (synthetic: no real wallet, mint nor signature) ----------------
+
+/** A synthetic mint of the U3 lines (never a real token). */
+export const MINT_C = 'MintCccc3333333333333333333333333333333333';
+
+const ORIGINS = ['LIQUIDATION', 'CONDITIONAL', 'SOLD_BY_OTHER_BOT'] as const;
+
+/** Twelve prorated shares of the REAL bot (the API sends at most 10 lines with `count = 12`). */
+export const TWELVE_SHARES: RealBotPnlLine['prorated'] = {
+  count: 12,
+  summary: [
+    { origin: 'LIQUIDATION', realizedLamports: '400000' },
+    { origin: 'CONDITIONAL', realizedLamports: '-120000' },
+    { origin: 'SOLD_BY_OTHER_BOT', realizedLamports: '50000' },
+  ],
+  lines: Array.from({ length: 10 }, (_, index) => ({
+    at: `2026-10-28T${String(10 + index).padStart(2, '0')}:05:00Z`,
+    mint: MINT_C,
+    origin: ORIGINS[index % 3] as (typeof ORIGINS)[number],
+    tokenBaseUnits: String(100 + index),
+    receivedLamports: String(300000 + index * 1000),
+    feeLamports: '2500',
+    realizedLamports: String(10000 + index),
+  })),
+};
+
+/** BR4.7, BR4.8: a REAL block with a bot of 12 shares and a line "Sem bot" with the three reasons. */
+export const REAL_BLOCK_PRORATED: RealModeBlock = {
+  ...REAL_BLOCK,
+  bots: REAL_BLOCK.bots.map((bot) => ({ ...bot, prorated: TWELVE_SHARES })),
+  unowned: {
+    realizedLamports: '25000000',
+    unrealizedLamports: { status: 'KNOWN', value: '0' },
+    feesLamports: '1000',
+    reasons: ['UNOWNED_EXCESS', 'UNOWNED_NO_COST', 'ORDER_RECORD_MISSING'],
+  },
+};
+
+/** BR3.1: C4 with `market=REAL`: the key of the PAPER block is absent, never null. */
+export const ONLY_REAL: PnlByMode = { period: { kind: 'ALL' }, real: REAL_BLOCK };
+/** BR3.1: C4 with `market=PAPER`. */
+export const ONLY_PAPER: PnlByMode = { period: { kind: 'ALL' }, paper: PAPER_BLOCK };
+
+/** A line of C5 (synthetic). The first one is a buy of the bot: no result. */
+export function lineItem(
+  index: number,
+  overrides: Partial<RealBotPnlLineItem> = {},
+): RealBotPnlLineItem {
+  return {
+    at: `2026-10-28T${String(14 - (index % 10)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}:00Z`,
+    side: index % 2 === 0 ? 'BUY' : 'SELL',
+    mint: MINT_C,
+    origin: 'BOT',
+    tokenBaseUnits: String(1000 + index),
+    amountLamports: String(500000 + index),
+    feeLamports: '5000',
+    realizedLamports: index % 2 === 0 ? '0' : String(20000 + index),
+    ...overrides,
+  };
+}
+
+/** C5: a first page of 50 lines with a cursor and the next one of 3 lines, newest first. */
+export const LINES_CURSOR = 'AQAAAAAAAAAAAAAAAAAAAACq7rdq8e7S7a5qY2Fz1A';
+export const LINES_PAGE_1: RealBotPnlLinePage = {
+  currency: 'SOL',
+  items: Array.from({ length: 50 }, (_, index) => lineItem(index)),
+  nextCursor: LINES_CURSOR,
+};
+export const LINES_PAGE_2: RealBotPnlLinePage = {
+  currency: 'SOL',
+  items: [
+    lineItem(50, { origin: 'LIQUIDATION', side: 'SELL', realizedLamports: '-7000' }),
+    lineItem(51, { origin: 'CONDITIONAL', side: 'SELL' }),
+    lineItem(52, { origin: 'SOLD_BY_OTHER_BOT', side: 'SELL' }),
+  ],
+  nextCursor: null,
+};
+
+/** C6 of the PAPER bot and the REAL bot of the same strategy (synthetic ids and template). */
+export const TEMPLATE_ID = 'MOMENTUM_VOLUME';
+export const COMPARISON: PnlComparison = {
+  period: { kind: 'ALL' },
+  paper: {
+    status: 'AVAILABLE',
+    market: 'PAPER',
+    currency: 'USD',
+    templateId: TEMPLATE_ID,
+    createdAt: '2026-10-20T12:00:00Z',
+    disclaimer: 'O resultado simulado não garante o resultado real.',
+    line: PAPER_BLOCK.bots[0] as PaperModeBlock['bots'][number],
+  },
+  real: {
+    status: 'AVAILABLE',
+    market: 'REAL',
+    currency: 'SOL',
+    templateId: TEMPLATE_ID,
+    createdAt: '2026-10-21T12:00:00Z',
+    line: REAL_BLOCK.bots[0] as RealModeBlock['bots'][number],
+  },
+};
 
 /** Synthetic mints of the U7 screen tests (never real tokens). */
 export const MINT_A = 'MintAaaa1111111111111111111111111111111111';

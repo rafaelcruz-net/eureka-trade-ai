@@ -8,8 +8,10 @@ import java.time.Instant;
  * itself (the pending outbox and {@code audit_event}), under an advisory lock of the person and fingerprint, in a
  * transaction of a pool of its own, never the main one. Nothing is kept in memory nor in a table of the caller.
  *
- * <p>Used only by the P&L REAL (the reconciliation mismatch); the caller never waits more than its own budget and never
- * changes its answer because of this write.
+ * <p>Used only by the P&L: the P&L REAL (the reconciliation mismatch) and, since 261121-paper-real-unico U3 (D-NFR1,
+ * alignment A10), the refused reads of the screens of the P&L ({@code ReadRefusalAudit}: the 404 of a bot of another
+ * tenant and the 422 {@code TEMPLATE_MISMATCH}); the caller never waits more than its own budget and never changes its
+ * answer because of this write.
  */
 public interface RateLimitedAuditPublisher {
 

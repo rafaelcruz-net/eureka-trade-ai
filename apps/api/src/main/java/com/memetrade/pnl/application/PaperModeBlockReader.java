@@ -40,25 +40,17 @@ public class PaperModeBlockReader {
         this.clock = clock;
     }
 
+    /**
+     * The PAPER block of the window: ALL from {@link #BEGINNING} to now, or the RANGE {@code [from, to)} by the same
+     * {@code PnlQueryService.reportSince} as {@code GET /api/v1/pnl} (261121-paper-real-unico U3, BR2.4, NFR2.3).
+     */
     public PaperModeBlock block(Principal person, PnlWindow window) {
-        if (!(window instanceof PnlWindow.All)) {
-            throw new IllegalArgumentException("The U1 answers only the period ALL");
-        }
-        Instant now = clock.instant();
+        Bounds bounds = bounds(window);
         List<PaperBotPnlLine> lines = new ArrayList<>();
         for (BotEntry bot : directory.botsOf(person.tenantId(), person.userId(), PnlMarket.PAPER)) {
-            PnlCalculator.Report report = pnl.reportSince(person, BEGINNING, now, Optional.of(bot.botId()))
-                    .report();
-            lines.add(new PaperBotPnlLine(
-                    bot.botId(),
-                    bot.name(),
-                    bot.status(),
-                    report.realized(),
-                    report.unrealized(),
-                    report.fees(),
-                    total(report)));
+            lines.add(line(person, bot, bounds));
         }
-        PnlView mode = pnl.reportSince(person, BEGINNING, now, Optional.empty());
+        PnlView mode = pnl.reportSince(person, bounds.from(), bounds.to(), Optional.empty());
         PnlCalculator.Report report = mode.report();
         return new PaperModeBlock(
                 PaperModeBlock.DISCLAIMER,
@@ -70,6 +62,40 @@ public class PaperModeBlockReader {
                 report.fees(),
                 lines);
     }
+
+    /**
+     * 261121-paper-real-unico U3 (C6, BR5.4, NFR2.3): the line of ONE PAPER bot of the person in the window, by the SAME
+     * calculation as the line of the bot in the PAPER block of C4; used by the block and by the PAPER side of C6.
+     */
+    public PaperBotPnlLine lineOf(Principal person, BotEntry bot, PnlWindow window) {
+        if (bot.market() != PnlMarket.PAPER) {
+            throw new IllegalArgumentException("Only a PAPER bot has a PAPER line");
+        }
+        return line(person, bot, bounds(window));
+    }
+
+    private PaperBotPnlLine line(Principal person, BotEntry bot, Bounds bounds) {
+        PnlCalculator.Report report = pnl.reportSince(person, bounds.from(), bounds.to(), Optional.of(bot.botId()))
+                .report();
+        return new PaperBotPnlLine(
+                bot.botId(),
+                bot.name(),
+                bot.status(),
+                report.realized(),
+                report.unrealized(),
+                report.fees(),
+                total(report));
+    }
+
+    /** {@code [from, to)} of the window; ALL ends at the instant of the injectable clock. */
+    private Bounds bounds(PnlWindow window) {
+        return switch (window) {
+            case PnlWindow.All all -> new Bounds(BEGINNING, clock.instant());
+            case PnlWindow.Range range -> new Bounds(range.from(), range.to());
+        };
+    }
+
+    private record Bounds(Instant from, Instant to) {}
 
     /** BR5.4: {@code realized + unrealized - fees}, exact; unknown when the unrealized is unknown. */
     static Amount total(PnlCalculator.Report report) {

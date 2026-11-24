@@ -64,6 +64,27 @@ export interface RequestOptions {
    * stays in memory only until the browser saves it; nothing is kept by the app.
    */
   responseType?: 'json' | 'blob';
+  /**
+   * 261121-paper-real-unico U3 (NFR1.8, NFR4.11): a signal of the screen. When it aborts, the request stops at once
+   * with {@link RequestCancelled}, never repeated and never waiting for the backoff.
+   */
+  signal?: AbortSignal;
+  /**
+   * 261121-paper-real-unico U3 (NFR4.10, alignment A8): `false` turns off the automatic repetition; a 503 or a timeout
+   * become an error at the first attempt (the screen offers its own "Tentar de novo"). Default `true`.
+   */
+  retry?: boolean;
+}
+
+/**
+ * 261121-paper-real-unico U3 (NFR1.8): the screen aborted the request (a newer one replaced it, or the screen left).
+ * Never shown as an error.
+ */
+export class RequestCancelled extends Error {
+  constructor() {
+    super('request cancelled');
+    this.name = 'RequestCancelled';
+  }
 }
 
 export interface ClientSettings {
@@ -90,13 +111,28 @@ export function createApiClient(settings: ClientSettings) {
   const sleep = settings.sleep ?? realSleep;
   const newId = settings.newId ?? (() => crypto.randomUUID());
 
-  async function attempt(path: string, init: RequestInit): Promise<Response> {
+  async function attempt(
+    path: string,
+    init: RequestInit,
+    external?: AbortSignal,
+  ): Promise<Response> {
+    if (external?.aborted) {
+      throw new RequestCancelled();
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const cancel = () => controller.abort();
+    external?.addEventListener('abort', cancel, { once: true });
     try {
       return await doFetch(`${settings.baseUrl}${path}`, { ...init, signal: controller.signal });
+    } catch (failure) {
+      if (external?.aborted) {
+        throw new RequestCancelled();
+      }
+      throw failure;
     } finally {
       clearTimeout(timer);
+      external?.removeEventListener('abort', cancel);
     }
   }
 
@@ -126,13 +162,17 @@ export function createApiClient(settings: ClientSettings) {
       ...(options.revalidate ? { cache: 'no-cache' as RequestCache } : {}),
     };
     const retryable =
-      method === 'GET' || Boolean(options.idempotent) || Boolean(options.idempotencyKey);
+      options.retry !== false &&
+      (method === 'GET' || Boolean(options.idempotent) || Boolean(options.idempotencyKey));
 
     for (let tries = 0; ; tries++) {
       let response: Response;
       try {
-        response = await attempt(path, init);
+        response = await attempt(path, init, options.signal);
       } catch (failure) {
+        if (failure instanceof RequestCancelled) {
+          throw failure;
+        }
         const timedOut = failure instanceof Error && failure.name === 'AbortError';
         if (timedOut && retryable && tries < maxRetries) {
           await sleep(backoffMs * 2 ** tries);

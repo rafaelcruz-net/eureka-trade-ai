@@ -42,6 +42,9 @@ export function botPage(items: BotSummary[], overrides: Partial<BotPage> = {}): 
     nextCursor: null,
     activeCount: items.filter((bot) => bot.state === 'ACTIVE').length,
     activeLimit: 3,
+    // 261121-paper-real-unico U3 (BR1.3, BR1.5): the counts of the page, from the API.
+    matchingCount: items.length,
+    totalCount: items.length,
     ...overrides,
   };
 }

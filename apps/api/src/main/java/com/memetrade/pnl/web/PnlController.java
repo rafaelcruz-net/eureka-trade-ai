@@ -11,6 +11,12 @@ import com.memetrade.identity.api.IdempotentOperation;
 import com.memetrade.identity.api.IdempotentOutcome;
 import com.memetrade.identity.api.IdempotentResponse;
 import com.memetrade.identity.api.Principal;
+import com.memetrade.pnl.api.BotDirectory;
+import com.memetrade.pnl.api.BotEntry;
+import com.memetrade.pnl.api.PnlMarket;
+import com.memetrade.pnl.api.PnlWindow;
+import com.memetrade.pnl.api.RealPnlLineCursorRejected;
+import com.memetrade.pnl.application.BotLinesCursor;
 import com.memetrade.pnl.application.PnlQueryService;
 import com.memetrade.pnl.application.ReconciliationService;
 import com.memetrade.pnl.application.ReconciliationService.Trigger;
@@ -39,6 +45,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -46,6 +54,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -60,6 +69,8 @@ import org.springframework.web.bind.annotation.RestController;
 @com.memetrade.shared.config.ProcessRole(com.memetrade.shared.config.ProcessRole.Kind.API)
 public class PnlController {
 
+    private static final Logger log = LoggerFactory.getLogger(PnlController.class);
+
     private final PnlQueryService pnl;
     private final ReconciliationService reconciliation;
     private final ReconciliationRunLimiter limiter;
@@ -70,6 +81,8 @@ public class PnlController {
     private final ModePnlView modeView;
     private final PaperBlockSource paperBlocks;
     private final RealBlockSource realBlocks;
+    private final PnlViewsParts views;
+    private final TransactionTemplate readOnly;
 
     @SuppressWarnings("checkstyle:ParameterNumber")
     public PnlController(
@@ -82,10 +95,14 @@ public class PnlController {
             PlatformTransactionManager transactions,
             ModePnlView modeView,
             PaperBlockSource paperBlocks,
-            RealBlockSource realBlocks) {
+            RealBlockSource realBlocks,
+            PnlViewsParts views) {
         this.modeView = modeView;
         this.paperBlocks = paperBlocks;
         this.realBlocks = realBlocks;
+        this.views = views;
+        this.readOnly = new TransactionTemplate(transactions);
+        this.readOnly.setReadOnly(true);
         this.pnl = pnl;
         this.reconciliation = reconciliation;
         this.limiter = limiter;
@@ -155,7 +172,8 @@ public class PnlController {
                                 + " outro"),
                 @ApiResponse(
                         responseCode = "400",
-                        description = "VALIDATION_FAILED: na U1, só o período ALL; from e to são recusados",
+                        description = "VALIDATION_FAILED: RANGE sem from ou to, from >= to, período acima de 366 dias,"
+                                + " from ou to sem RANGE, market fora de PAPER e REAL ou parâmetro desconhecido",
                         content =
                                 @Content(
                                         mediaType = ProblemWriter.PROBLEM_JSON,
@@ -163,24 +181,322 @@ public class PnlController {
             })
     @GetMapping("/api/v1/pnl/by-mode")
     public ResponseEntity<ModePnlDtos.PnlByModeDto> byMode(
-            @Parameter(schema = @Schema(type = "string", allowableValues = "ALL", defaultValue = "ALL"))
+            @Parameter(
+                            schema =
+                                    @Schema(
+                                            type = "string",
+                                            allowableValues = {"ALL", "RANGE"},
+                                            defaultValue = "ALL"))
                     @RequestParam(required = false)
                     String period,
+            @Parameter(
+                            description = "Obrigatório em RANGE; instante UTC inicial, incluído",
+                            schema = @Schema(type = "string", format = "date-time"))
+                    @RequestParam(required = false)
+                    String from,
+            @Parameter(
+                            description = "Obrigatório em RANGE; instante UTC final, excluído",
+                            schema = @Schema(type = "string", format = "date-time"))
+                    @RequestParam(required = false)
+                    String to,
+            @Parameter(
+                            description = "261121-paper-real-unico U3 (BR3.1): só o bloco deste modo; ausente, os dois",
+                            schema =
+                                    @Schema(
+                                            type = "string",
+                                            allowableValues = {"PAPER", "REAL"}))
+                    @RequestParam(required = false)
+                    String market,
             @Parameter(hidden = true) @RequestParam MultiValueMap<String, String> parameters) {
         Principal person = auth.current();
-        // 261121-paper-real-unico U1 (BR5.6): only ALL; the U3 adds RANGE with from and to. A tenantId is ignored: the
-        // person of the token is always the one read (BR8.1).
-        if (parameters.containsKey("from") || parameters.containsKey("to")) {
-            throw ApiException.validation("from", "Na U1 o período é só ALL.");
+        // 261121-paper-real-unico U3 (BR2.4, BR3.1, BR8.1): a closed list of parameters, read without any read of the
+        // database; a tenantId or accountId is refused, the person of the token is always the one read.
+        QueryParameters query = QueryParameters.of(parameters, Set.of("period", "from", "to", "market"));
+        Optional<PnlWindow> read = PnlWindows.read(query);
+        Optional<PnlMarket> only = query.text("market").flatMap(text -> market(text, query));
+        query.validate();
+        PnlWindow window = read.orElseThrow();
+        ModePnlDtos.PnlPeriodDto periodDto = PnlWindows.dto(window);
+        ModePnlDtos.PnlByModeDto body;
+        if (only.isEmpty()) {
+            ModePnlStatement<ModePnlDtos.PaperModeBlockDto, ModePnlDtos.RealModeBlockDto> statement =
+                    modeView.statement(
+                            window,
+                            () -> paperBlocks.block(person, window),
+                            () -> realBlocks.block(person, window),
+                            views.modeMetrics::unavailable);
+            body = ModePnlDtos.PnlByModeDto.of(
+                    periodDto, Optional.of(statement.paper()), Optional.of(statement.real()));
+        } else if (only.get() == PnlMarket.PAPER) {
+            body = ModePnlDtos.PnlByModeDto.of(
+                    periodDto,
+                    Optional.of(modeView.single(
+                            PnlMarket.PAPER, () -> paperBlocks.block(person, window), views.modeMetrics::unavailable)),
+                    Optional.empty());
+        } else {
+            body = ModePnlDtos.PnlByModeDto.of(
+                    periodDto,
+                    Optional.empty(),
+                    Optional.of(modeView.single(
+                            PnlMarket.REAL, () -> realBlocks.block(person, window), views.modeMetrics::unavailable)));
         }
-        if (period != null && !ModePnlStatement.ALL.equals(period)) {
-            throw ApiException.validation("period", "Na U1 o período é só ALL.");
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
+    }
+
+    @Operation(
+            operationId = "listBotPnlLines",
+            summary = "As linhas que formam o P&L de um bot REAL, com a origem de cada uma, da mais recente para a mais"
+                    + " antiga, desde o início (FR3.6)",
+            security = @SecurityRequirement(name = "accessToken"),
+            responses = {
+                @ApiResponse(responseCode = "200", description = "Uma página das linhas"),
+                @ApiResponse(
+                        responseCode = "400",
+                        description = "VALIDATION_FAILED: cursor ou limit inválido, ou cursor de outro bot",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class))),
+                @ApiResponse(
+                        responseCode = "404",
+                        description = "NOT_FOUND: bot de outra pessoa, inexistente ou PAPER; o mesmo corpo nos três",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class))),
+                @ApiResponse(
+                        responseCode = "503",
+                        description =
+                                "SERVICE_UNAVAILABLE: não foi possível calcular as linhas agora; com correlationId",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class)))
+            })
+    @GetMapping("/api/v1/bots/{botId}/pnl/lines")
+    public ResponseEntity<ModePnlDtos.RealBotPnlLinePageDto> botLines(
+            @Parameter(schema = @Schema(type = "string", format = "uuid")) @PathVariable("botId") String botId,
+            @Parameter(schema = @Schema(type = "string")) @RequestParam(required = false) String cursor,
+            @Parameter(schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "50"))
+                    @RequestParam(required = false)
+                    String limit,
+            @Parameter(hidden = true) @RequestParam MultiValueMap<String, String> parameters) {
+        Principal person = auth.current();
+        // 1. Validation without the database (NFR3.6): the id, the limit, the form and the bot of the cursor.
+        UUID bot = QueryParameters.requireUuid("botId", botId);
+        QueryParameters query = QueryParameters.of(parameters, Set.of("cursor", "limit"));
+        int size = query.integer("limit", LINES_PAGE, 1, LINES_MAX);
+        Optional<String> after = query.text("cursor");
+        after.ifPresent(text -> {
+            try {
+                BotLinesCursor.parse(text, bot);
+            } catch (BotLinesCursor.Malformed malformed) {
+                query.violation("cursor", "The cursor is not valid for this bot.");
+            }
+        });
+        query.validate();
+        // 2. The ownership, before any task: a bot of somebody else, unknown or PAPER is the same 404.
+        Optional<BotEntry> entry = readOnly.execute(status -> views.directory
+                .botOf(person.tenantId(), person.userId(), bot)
+                .filter(found -> found.market() == PnlMarket.REAL));
+        if (entry == null || entry.isEmpty()) {
+            throw refuseNotFound(person, ReadRoute.LINES, ReadSide.NONE, bot);
         }
-        ModePnlStatement<ModePnlDtos.PaperModeBlockDto, ModePnlDtos.RealModeBlockDto> statement =
-                modeView.statement(() -> paperBlocks.block(person), () -> realBlocks.block(person));
+        // 3. One REAL task in the pool of the blocks, under the deadline of a block.
+        ModePnlView.Attempt<Optional<ModePnlDtos.RealBotPnlLinePageDto>> outcome =
+                modeView.attempt(PnlMarket.REAL, () -> realBlocks.lines(person, bot, after, size));
+        return switch (outcome) {
+            case ModePnlView.Attempt.Done<Optional<ModePnlDtos.RealBotPnlLinePageDto>> done ->
+                done.value()
+                        .map(page -> ResponseEntity.ok()
+                                .cacheControl(CacheControl.noStore())
+                                .body(page))
+                        .orElseThrow(() -> refuseNotFound(person, ReadRoute.LINES, ReadSide.NONE, bot));
+            case ModePnlView.Attempt.Failed<Optional<ModePnlDtos.RealBotPnlLinePageDto>> failed -> {
+                if (failed.failure() instanceof RealPnlLineCursorRejected) {
+                    throw ApiException.validation("cursor", "The list changed since the last page.");
+                }
+                log.warn("event=PNL_BOT_LINES_UNAVAILABLE cause={}", failed.label());
+                throw new ApiException(ErrorCode.SERVICE_UNAVAILABLE, "The lines could not be computed now.");
+            }
+        };
+    }
+
+    @Operation(
+            operationId = "comparePaperAndRealBots",
+            summary = "Um bot PAPER e um bot REAL da mesma estratégia, cada um na sua moeda, sem nenhuma diferença"
+                    + " calculada (FR8.1)",
+            security = @SecurityRequirement(name = "accessToken"),
+            responses = {
+                @ApiResponse(responseCode = "200", description = "Os dois lados; um lado que falhou vem UNAVAILABLE"),
+                @ApiResponse(
+                        responseCode = "400",
+                        description = "VALIDATION_FAILED: id ou período inválido",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class))),
+                @ApiResponse(
+                        responseCode = "404",
+                        description = "NOT_FOUND: um dos bots é de outra pessoa, não existe ou é do modo errado; reason"
+                                + " diz qual lado (PAPER_BOT ou REAL_BOT)",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class))),
+                @ApiResponse(
+                        responseCode = "422",
+                        description = "VALIDATION_FAILED com reason TEMPLATE_MISMATCH: os dois bots não têm o mesmo"
+                                + " templateId; sem nenhum valor de P&L",
+                        content =
+                                @Content(
+                                        mediaType = ProblemWriter.PROBLEM_JSON,
+                                        schema = @Schema(implementation = ProblemResponse.class)))
+            })
+    @GetMapping("/api/v1/pnl/compare")
+    public ResponseEntity<ModePnlDtos.PnlComparisonDto> compare(
+            @Parameter(required = true, schema = @Schema(type = "string", format = "uuid"))
+                    @RequestParam(required = false)
+                    String paperBotId,
+            @Parameter(required = true, schema = @Schema(type = "string", format = "uuid"))
+                    @RequestParam(required = false)
+                    String realBotId,
+            @Parameter(
+                            schema =
+                                    @Schema(
+                                            type = "string",
+                                            allowableValues = {"ALL", "RANGE"},
+                                            defaultValue = "ALL"))
+                    @RequestParam(required = false)
+                    String period,
+            @Parameter(schema = @Schema(type = "string", format = "date-time")) @RequestParam(required = false)
+                    String from,
+            @Parameter(schema = @Schema(type = "string", format = "date-time")) @RequestParam(required = false)
+                    String to,
+            @Parameter(hidden = true) @RequestParam MultiValueMap<String, String> parameters) {
+        Principal person = auth.current();
+        // 1. Validation without the database: the two ids and the period.
+        QueryParameters query =
+                QueryParameters.of(parameters, Set.of("paperBotId", "realBotId", "period", "from", "to"));
+        Optional<UUID> paperId = required(query, "paperBotId");
+        Optional<UUID> realId = required(query, "realBotId");
+        Optional<PnlWindow> read = PnlWindows.read(query);
+        query.validate();
+        PnlWindow window = read.orElseThrow();
+        // 2. The ownership of BOTH bots, always both, before the strategy: the 422 never tells anything of a bot of
+        // somebody else (BR5.2, BR5.3).
+        Owned owned = readOnly.execute(status -> owned(person, paperId.get(), realId.get()));
+        if (owned == null || owned.paper().isEmpty()) {
+            throw refuseNotFound(person, ReadRoute.COMPARE, ReadSide.PAPER, paperId.get());
+        }
+        if (owned.real().isEmpty()) {
+            throw refuseNotFound(person, ReadRoute.COMPARE, ReadSide.REAL, realId.get());
+        }
+        BotEntry paper = owned.paper().get();
+        BotEntry real = owned.real().get();
+        // 3. The strategy (BR5.2, PQ-8): a 422 with no value of P&L, counted and audited without waiting.
+        if (!paper.templateId().equals(real.templateId())) {
+            views.compareMetrics.templateMismatch();
+            log.info("event=PNL_COMPARE_TEMPLATE_MISMATCH");
+            views.refusals.templateMismatch(person, ReadRoute.COMPARE.name(), List.of(paper.botId(), real.botId()));
+            throw new ApiException(
+                    ErrorCode.UNPROCESSABLE_FIELDS,
+                    "The two bots use different strategies.",
+                    List.of(),
+                    "TEMPLATE_MISMATCH",
+                    Map.of());
+        }
+        // 4. The two sides in parallel, each under the deadline of a block; a side that fails is UNAVAILABLE.
+        ModePnlStatement<ModePnlDtos.PaperComparisonSideDto, ModePnlDtos.RealComparisonSideDto> statement =
+                modeView.statement(
+                        window,
+                        () -> paperBlocks.side(person, paper, window),
+                        () -> realBlocks.side(person, real, window),
+                        (market, cause) -> {
+                            views.compareMetrics.sideUnavailable(market, cause);
+                            log.warn("event=PNL_COMPARE_SIDE_UNAVAILABLE market={} cause={}", market, cause);
+                        });
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(ModePnlDtos.PnlByModeDto.of(statement.period(), statement.paper(), statement.real()));
+                .body(ModePnlDtos.PnlComparisonDto.of(PnlWindows.dto(window), statement.paper(), statement.real()));
+    }
+
+    /** The first page of C5 and its largest. */
+    static final int LINES_PAGE = 50;
+
+    static final int LINES_MAX = 100;
+
+    /** The routes whose 404 may be audited (closed values of the log and of the event). */
+    enum ReadRoute {
+        LINES,
+        COMPARE
+    }
+
+    /** The side of C6 of a 404; {@code NONE} in C5. */
+    enum ReadSide {
+        NONE,
+        PAPER,
+        REAL
+    }
+
+    /** The two bots of a comparison, each a bot of the person in its expected mode, or empty. */
+    private record Owned(Optional<BotEntry> paper, Optional<BotEntry> real) {}
+
+    private Owned owned(Principal person, UUID paperId, UUID realId) {
+        Optional<BotEntry> paper = views.directory
+                .botOf(person.tenantId(), person.userId(), paperId)
+                .filter(found -> found.market() == PnlMarket.PAPER);
+        Optional<BotEntry> real = views.directory
+                .botOf(person.tenantId(), person.userId(), realId)
+                .filter(found -> found.market() == PnlMarket.REAL);
+        return new Owned(paper, real);
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (BR8.2, BR5.3; decision F-1 of the NFR Design; NFR3.2, NFR3.13, NFR3.17): the ONLY
+     * caller of {@link BotDirectory#ownedByAnotherTenant}. It runs the query on the request thread in BOTH cases of 404
+     * (an id that does not exist and a bot of another tenant), so the time of the answer does not tell one from the
+     * other; only a {@code true} is handed to the audit, which never waits. The body is the same in every case.
+     *
+     * @return the 404 to throw
+     */
+    private ApiException refuseNotFound(Principal person, ReadRoute route, ReadSide side, UUID botId) {
+        Boolean other = readOnly.execute(status -> views.directory.ownedByAnotherTenant(person.tenantId(), botId));
+        boolean anotherTenant = Boolean.TRUE.equals(other);
+        log.info(
+                "event=PNL_READ_NOT_FOUND route={} side={} reason={}",
+                route,
+                side,
+                anotherTenant ? "TENANT_MISMATCH" : "NOT_FOUND");
+        if (anotherTenant) {
+            views.refusals.tenantMismatch(person, route.name(), side.name(), List.of(botId));
+        }
+        String reason =
+                switch (side) {
+                    case NONE -> null;
+                    case PAPER -> "PAPER_BOT";
+                    case REAL -> "REAL_BOT";
+                };
+        return new ApiException(ErrorCode.NOT_FOUND, "Bot not found.", List.of(), reason, Map.of());
+    }
+
+    private static Optional<UUID> required(QueryParameters query, String name) {
+        Optional<UUID> id = query.uuid(name);
+        if (query.text(name).isEmpty()) {
+            query.violation(name, "Required.");
+        }
+        return id;
+    }
+
+    private static Optional<PnlMarket> market(String text, QueryParameters query) {
+        if ("PAPER".equals(text)) {
+            return Optional.of(PnlMarket.PAPER);
+        }
+        if ("REAL".equals(text)) {
+            return Optional.of(PnlMarket.REAL);
+        }
+        query.violation("market", "Must be PAPER or REAL.");
+        return Optional.empty();
     }
 
     @Operation(

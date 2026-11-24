@@ -29,7 +29,16 @@ import { legalMarkdown, runLegal } from './legal.mjs';
 import { reacceptanceMarkdown, runReacceptance } from './reacceptance.mjs';
 import { dataRequestsMarkdown, runDataRequests, walletFromSmokeFile } from './data-requests.mjs';
 import { REAL_DEFAULTS, realMarkdown, runReal } from './real.mjs';
-import { histogramP95, pnlByModeFailures, pnlByModeTraffic, snapshot } from './pnl-by-mode.mjs';
+import {
+  histogramP95,
+  pnlByModeFailures,
+  pnlByModeGroups,
+  pnlByModeTraffic,
+  pnlViewsMarkdown,
+  readStats,
+  snapshot,
+  targetsOf,
+} from './pnl-by-mode.mjs';
 import { PNL_SAMPLE_SQL, checkPnlPlan, parsePnlSample, pnlPlanQuery } from './pnl-plans.mjs';
 import { createRequire } from 'node:module';
 
@@ -1755,6 +1764,12 @@ if (SCENARIO === 'real') {
 //                              200, no mismatch, timeouts <= 0.5%, no other UNAVAILABLE) and the plan of the main REAL
 //                              read in scripts/load/pnl-plans.mjs. Report: load-test-report.json and
 //                              docs/perf/u2-real-bot-pnl-<date>.md.
+//                              261121-paper-real-unico U3 (NFR1.6, D-NFR2, R-04): before the warm-up each person reads
+//                              GET /api/v1/bots?market=REAL and ?market=PAPER to choose the bot of C5 and a pair of the
+//                              same templateId for C6 (the run stops at once when one is missing); the cycle has 9
+//                              labelled reads (scripts/load/pnl-by-mode.mjs) and the report adds `reads` (count, p50,
+//                              p95, p99 per label), the sides of C6 UNAVAILABLE by cause, the two groups U2 and U3 and
+//                              docs/perf/u3-pnl-views-<date>.md.
 async function waitForPnlSeed() {
   const deadline = Date.now() + 90 * 60 * 1_000;
   let lastProgress = 0;
@@ -1816,6 +1831,20 @@ async function runPnlByModeScenario() {
   }
   await waitForPnlSeed();
   for (const person of people) await signIn(person);
+  // U3: the bot of C5 and the pair of C6 of each person, read through the API like the screens (never from the seed).
+  for (const person of people) {
+    const bots = async (market) => {
+      const response = await fetch(`${API}/api/v1/bots?market=${market}&limit=100`, {
+        headers: { Authorization: `Bearer ${person.token}` },
+      });
+      if (response.status !== 200) throw new Error(`listBots with market ${market} failed with ${response.status}`);
+      return (await response.json()).items ?? [];
+    };
+    person.targets = targetsOf(await bots('PAPER'), await bots('REAL'));
+    if (person.targets === null) {
+      throw new Error('a person of the seed has no REAL bot or no PAPER and REAL pair of the same templateId');
+    }
+  }
   const warmupS = Number(process.env.PNL_WARMUP_S ?? 60);
   const io = {
     now: () => Date.now(),
@@ -1844,6 +1873,13 @@ async function runPnlByModeScenario() {
   const unavailable = Object.fromEntries(
     Object.keys(after.unavailable).map((cause) => [cause, after.unavailable[cause] - before.unavailable[cause]]),
   );
+  const compareUnavailable = Object.fromEntries(
+    Object.keys(after.compareUnavailable).map((cause) => [
+      cause,
+      after.compareUnavailable[cause] - before.compareUnavailable[cause],
+    ]),
+  );
+  const { times, ...measured } = counts;
   const plan = await pnlPlan();
   const report = {
     scenario: SCENARIO,
@@ -1854,20 +1890,28 @@ async function runPnlByModeScenario() {
     byModeP95Seconds: p95(metrics, '/api/v1/pnl/by-mode'),
     realPnlP95Seconds: p95(metrics, '/api/v1/real/pnl'),
     attributionP95Seconds: histogramP95(metrics, 'pnl_real_attribution_read_seconds', { path: 'PNL' }),
-    ...counts,
+    ...measured,
+    reads: readStats(times),
     unavailable,
+    compareUnavailable,
     mismatches: after.mismatches - before.mismatches,
     plan: { usesIndex: plan.usesIndex, seqScan: plan.seqScan, passed: plan.passed },
     longestPendingSeconds: pool.longestPendingSeconds,
     maxMemoryMb: memory.maxMemoryMb,
     memoryLimitMb: MEMORY_LIMIT_MB,
   };
+  report.groups = pnlByModeGroups(report);
   report.failures = pnlByModeFailures(report);
   report.passed = report.failures.length === 0;
   writeFileSync('load-test-report.json', JSON.stringify(report, null, 2));
   mkdirSync('docs/perf', { recursive: true });
-  writeFileSync(`docs/perf/u2-real-bot-pnl-${report.date}.md`, pnlByModeMarkdown(report));
-  console.warn(JSON.stringify({ passed: report.passed, failures: report.failures }));
+  // The report of the U2 keeps its own gates: its failures and result are those of the group U2 (R-04).
+  writeFileSync(
+    `docs/perf/u2-real-bot-pnl-${report.date}.md`,
+    pnlByModeMarkdown({ ...report, passed: report.groups.u2.passed, failures: report.groups.u2.failures }),
+  );
+  writeFileSync(`docs/perf/u3-pnl-views-${report.date}.md`, pnlViewsMarkdown(report));
+  console.warn(JSON.stringify({ passed: report.passed, groups: report.groups }));
   process.exit(report.passed ? 0 : 1);
 }
 

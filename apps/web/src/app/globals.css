@@ -755,3 +755,121 @@ fieldset label {
     margin: 0 0 8px;
   }
 }
+
+/* 261121-paper-real-unico U3 (BR10.1, BR9.3; NFR5.x, NFR6.x): one switch at 768 px for every new screen. Below it the
+   lines of the P&L and the prorated shares are cards with labels; from it, a table with a caption inside its own
+   TableScroll. The options of the filters are 44 px tall below 768 px. No horizontal page scroll from 360 px. */
+.mode-filter fieldset,
+.period-selector fieldset {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-width: 0;
+}
+
+.mode-filter-options,
+.period-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.mode-filter-option,
+.period-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mode-filter-option input:focus-visible,
+.period-option input:focus-visible,
+.pnl-line-card:focus-visible,
+.bot-pnl-lines tr:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.period-range {
+  display: grid;
+  gap: 4px;
+  max-width: 320px;
+  margin-top: 8px;
+}
+
+.pnl-lines-cards {
+  display: none;
+  list-style: none;
+  padding: 0;
+}
+
+.pnl-line-card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  overflow-wrap: anywhere;
+}
+
+.pnl-line-card dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 2px 8px;
+  margin: 0;
+}
+
+.pnl-line-card dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.prorated-summary {
+  padding-left: 16px;
+}
+
+.pnl-nobot {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.comparison-selects,
+.comparison-sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.comparison-selects select {
+  max-width: 100%;
+}
+
+.dashboard-mode-cards {
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .mode-filter-options,
+  .period-options {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .mode-filter-option,
+  .period-option {
+    min-height: 44px;
+  }
+
+  .pnl-lines-table {
+    display: none;
+  }
+
+  .pnl-lines-cards {
+    display: grid;
+    gap: 8px;
+  }
+
+  .comparison-selects,
+  .comparison-sides {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

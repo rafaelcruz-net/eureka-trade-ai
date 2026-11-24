@@ -36,6 +36,33 @@ describe('period of S6 in the person time zone, sent in UTC', () => {
     expect(todayIn('America/Sao_Paulo', new Date('2026-10-29T02:00:00Z'))).toBe('2026-10-28');
     expect(() => addDays('28/10/2026', 1)).toThrow();
   });
+
+  // 261121-paper-real-unico U3, Step 18 (BR2.2, BR2.3; AC7.1.1, AC7.1.3): period.ts does not change; new cases only.
+  it('"Hoje" in São Paulo at 2026-11-23T02:30Z is the local day 22, from 03:00Z to 03:00Z', () => {
+    const today = todayIn('America/Sao_Paulo', new Date('2026-11-23T02:30:00Z'));
+
+    expect(today).toBe('2026-11-22');
+    expect(toUtcPeriod(today, today, 'America/Sao_Paulo')).toEqual({
+      from: '2026-11-22T03:00:00Z',
+      to: '2026-11-23T03:00:00Z',
+    });
+  });
+
+  it('an interval is inclusive of its last day', () => {
+    expect(toUtcPeriod('2026-11-01', '2026-11-01', 'UTC')).toEqual({
+      from: '2026-11-01T00:00:00Z',
+      to: '2026-11-02T00:00:00Z',
+    });
+  });
+
+  it('366 calendar days in New York across the end of daylight saving time are refused; 365 are accepted', () => {
+    // 2025-11-01 starts in EDT (04:00Z) and the day after 2026-11-01 starts in EST (05:00Z): 366 days and one hour.
+    expect(toUtcPeriod('2025-11-01', '2026-11-01', 'America/New_York')).toBeNull();
+    expect(toUtcPeriod('2025-11-02', '2026-11-01', 'America/New_York')).toEqual({
+      from: '2025-11-02T04:00:00Z',
+      to: '2026-11-02T05:00:00Z',
+    });
+  });
 });
 
 describe('decimals stay text', () => {

@@ -1,4 +1,9 @@
-import { formatSignedSolCompact, lamportsSign, type LamportsSign } from '@/features/real/money';
+import {
+  formatSignedSolCompact,
+  formatSolCompact,
+  lamportsSign,
+  type LamportsSign,
+} from '@/features/real/money';
 
 /**
  * 261121-paper-real-unico U1 (BR7.1, BR7.2, BR7.5; C17): the money texts of the blocks by mode and of the bot list.
@@ -47,6 +52,22 @@ export function formatUsd(value: string): string {
 /** BR7.1: a P&L in lamports (integer text) as signed SOL, by the money module of the REAL. */
 export function formatSol(lamports: string): string {
   return formatSignedSolCompact(lamports);
+}
+
+/**
+ * 261121-paper-real-unico U3 (BR4.7, BR4.4): an amount in lamports that is not a result (received, fee) as SOL,
+ * without a sign: "0,0025 SOL".
+ */
+export function formatSolAmount(lamports: string): string {
+  return formatSolCompact(lamports);
+}
+
+/**
+ * 261121-paper-real-unico U3 (BR4.8): the only reading of a money text the screen does: whether it is exactly zero, to
+ * decide if a line appears. A text comparison, never arithmetic: "0", "-0", "0.000000" are zero.
+ */
+export function isZeroText(value: string): boolean {
+  return /^-?0+(?:\.0+)?$/.test(value);
 }
 
 /** gain, loss or zero of an integer text of lamports. */

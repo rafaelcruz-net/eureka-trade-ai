@@ -61,7 +61,9 @@ test('U5: wizard, start, pause, resume and stop of a PAPER bot', async ({ page }
   await page.waitForURL((url) => /^\/bots\/[0-9a-f-]{36}$/.test(url.pathname));
   await expect(page.getByTestId('bot-state')).toHaveText('Ativo');
   expect(Date.now() - started).toBeLessThan(SCREEN_BUDGET_MS);
-  await expect(page.getByTestId('bot-title')).toContainText('MODO PAPER (simulado)');
+  // 261121-paper-real-unico U3 (BR9.3): the badge of the mode replaces "MODO PAPER (simulado)" next to the name.
+  await expect(page.getByTestId('bot-title')).toContainText('SIMULADO');
+  await expect(page.getByTestId('bot-mode-line')).toContainText('Modo: Simulado');
 
   await page.getByTestId('bot-pause').click();
   await expect(page.getByTestId('bot-state')).toHaveText('Pausado');

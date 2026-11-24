@@ -105,7 +105,10 @@ class RouteRegistryTest {
                         // account and the P&L by mode of the caller.
                         "GET /api/v1/bots/real-eligibility",
                         "GET /api/v1/real/account-limits",
-                        "GET /api/v1/pnl/by-mode");
+                        "GET /api/v1/pnl/by-mode",
+                        // 261121-paper-real-unico U3 (C5, C6): the lines of a REAL bot and the comparison.
+                        "GET /api/v1/bots/{botId}/pnl/lines",
+                        "GET /api/v1/pnl/compare");
         assertThat(registry.routes())
                 .extracting(RouteRegistry.Entry::scope)
                 .allMatch(s -> Set.of("GLOBAL", "SESSION", "ADMIN", "CLIENT").contains(s));

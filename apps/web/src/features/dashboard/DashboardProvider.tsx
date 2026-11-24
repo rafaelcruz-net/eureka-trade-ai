@@ -25,7 +25,6 @@ import {
 } from '@/features/dashboard/dashboard-reducer';
 import type { DashboardEvent } from '@/features/dashboard/envelopes';
 import { dashboardMessages as text } from '@/features/dashboard/messages';
-import { msUntilNextUtcMidnight } from '@/features/dashboard/period';
 import { useLiveChannel, type LiveKind } from '@/features/live/LiveChannelProvider';
 import { formatClock } from '@/lib/format/format';
 
@@ -53,7 +52,21 @@ export interface DashboardContextValue {
   retryChannel(): void;
   /** Bot ids whose next state change is announced by "Pausar" itself, not by the list difference. */
   announcedByPause: Set<string>;
+  /**
+   * 261121-paper-real-unico U3 (BR7.5): the cards by mode listen here to the events that change the result of their
+   * mode; the returned function stops listening.
+   */
+  subscribeModeCards(listener: ModeCardListener): () => void;
 }
+
+/** A card by mode to read again, because an event of its mode arrived (or the channel came back). */
+export type ModeCardListener = (market: 'PAPER' | 'REAL') => void;
+
+/**
+ * BR7.5: `real.order.state` changes the REAL result only when the order ended on the network (CONFIRMED or FAILED,
+ * with its sale, buy or fee); the other states and `real.signing.requested` never read the card again.
+ */
+const REAL_FINAL_STATES: readonly string[] = ['CONFIRMED', 'FAILED'];
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
 
@@ -65,13 +78,18 @@ export function useDashboard(): DashboardContextValue {
   return value;
 }
 
-/** The kinds of the live channel the dashboard reads (the REAL events are for the signing banner). */
+/**
+ * The kinds of the live channel the dashboard reads. 261121-paper-real-unico U3 (BR7.5): also `real.order.state` and
+ * `real.conditional.state`, for the card "Resultado real" (the channel does not change).
+ */
 const DASHBOARD_KINDS: readonly LiveKind[] = [
   'bot.state',
   'trade.recorded',
   'pnl.updated',
   'data.status',
   'heartbeat',
+  'real.order.state',
+  'real.conditional.state',
 ];
 
 export function DashboardProvider({
@@ -96,6 +114,18 @@ export function DashboardProvider({
   stateRef.current = state;
   const announcedByPause = useRef(new Set<string>());
   const sourcesSeen = useRef(false);
+  const modeCardListeners = useRef(new Set<ModeCardListener>());
+
+  const notifyModeCards = useCallback((market: 'PAPER' | 'REAL') => {
+    modeCardListeners.current.forEach((listener) => listener(market));
+  }, []);
+
+  const subscribeModeCards = useCallback((listener: ModeCardListener) => {
+    modeCardListeners.current.add(listener);
+    return () => {
+      modeCardListeners.current.delete(listener);
+    };
+  }, []);
 
   const loader = useMemo(
     () =>
@@ -130,8 +160,17 @@ export function DashboardProvider({
           return;
         }
         case 'pnl.updated':
-          void loader.refreshPnl();
+          // U3 (BR7.5): the PAPER ledger changed; the card "Resultado simulado" reads C4 again.
+          notifyModeCards('PAPER');
           void loader.refreshReconciliation();
+          return;
+        case 'real.order.state':
+          if (REAL_FINAL_STATES.includes(event.data.state)) {
+            notifyModeCards('REAL');
+          }
+          return;
+        case 'real.conditional.state':
+          notifyModeCards('REAL');
           return;
         case 'data.status':
           sourcesSeen.current = true;
@@ -145,7 +184,7 @@ export function DashboardProvider({
           return;
       }
     },
-    [announce, loader],
+    [announce, loader, notifyModeCards],
   );
 
   // F1: the three cards load and the subscriptions to the live channel start together once the session is known.
@@ -154,7 +193,6 @@ export function DashboardProvider({
       return undefined;
     }
     void loader.reloadBots(true);
-    void loader.refreshPnl(true);
     void loader.refreshReconciliation(true);
     const fallback = setTimeout(() => {
       if (!sourcesSeen.current) {
@@ -187,21 +225,7 @@ export function DashboardProvider({
     return () => clearInterval(tick);
   }, []);
 
-  // BR3.1: at 00:00 UTC the period of the P&L is computed again and read again.
-  useEffect(() => {
-    if (status !== 'authenticated') {
-      return undefined;
-    }
-    let timer: ReturnType<typeof setTimeout>;
-    const schedule = () => {
-      timer = setTimeout(() => {
-        void loader.refreshPnl();
-        schedule();
-      }, msUntilNextUtcMidnight(clock.current()));
-    };
-    schedule();
-    return () => clearTimeout(timer);
-  }, [status, loader]);
+  // 261121-paper-real-unico U3 (BR2.8, BR7.1): the cards by mode are "desde o início"; nothing is read at 00:00 UTC.
 
   useBotAnnouncements(state, announce, announcedByPause.current);
   useSourceAnnouncements(state, announce, timeZone);
@@ -209,9 +233,10 @@ export function DashboardProvider({
   const retryChannel = useCallback(() => {
     retryNow();
     void loader.reloadBots();
-    void loader.refreshPnl();
     void loader.refreshReconciliation();
-  }, [loader, retryNow]);
+    notifyModeCards('PAPER');
+    notifyModeCards('REAL');
+  }, [loader, notifyModeCards, retryNow]);
 
   const value = useMemo<DashboardContextValue>(
     () => ({
@@ -222,8 +247,9 @@ export function DashboardProvider({
       timeZone,
       retryChannel,
       announcedByPause: announcedByPause.current,
+      subscribeModeCards,
     }),
-    [state, loader, timeZone, retryChannel],
+    [state, loader, timeZone, retryChannel, subscribeModeCards],
   );
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
 }

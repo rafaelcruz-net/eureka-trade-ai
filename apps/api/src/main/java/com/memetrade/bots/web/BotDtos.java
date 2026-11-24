@@ -266,7 +266,21 @@ final class BotDtos {
             long activeCount,
 
             @Schema(requiredMode = Schema.RequiredMode.REQUIRED)
-            int activeLimit) {}
+            int activeLimit,
+
+            @Schema(
+                    requiredMode = Schema.RequiredMode.REQUIRED,
+                    minimum = "0",
+                    description =
+                            "261121-paper-real-unico U3 (BR1.5): bots da pessoa que passam pelos filtros da página"
+                                    + " (estado e modo); contagem de bots, nunca de dinheiro")
+            long matchingCount,
+
+            @Schema(
+                    requiredMode = Schema.RequiredMode.REQUIRED,
+                    minimum = "0",
+                    description = "261121-paper-real-unico U3 (BR1.3): todos os bots da pessoa, sem filtro")
+            long totalCount) {}
 
     /** U5 addition to C4: one bot with its draft and limits, for the wizard (AC4.4.1) and the bot screen (BR6.2). */
     @Schema(name = "BotDetail")

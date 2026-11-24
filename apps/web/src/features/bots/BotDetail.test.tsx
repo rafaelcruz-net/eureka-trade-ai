@@ -15,6 +15,7 @@ import {
   summary,
 } from '@/features/bots/fixtures';
 import { botMessages } from '@/features/bots/messages';
+import { LINES_PAGE_2, PAPER_BLOCK, REAL_BLOCK } from '@/features/pnl/fixtures';
 import BotPage from '@/app/bots/[botId]/page';
 
 const replace = jest.fn();
@@ -101,7 +102,9 @@ describe('S5 bot screen /bots/{botId}', () => {
     const api = renderBot(fakeApi({ getBot: jest.fn(async () => ACTIVE) }));
 
     expect(await screen.findByTestId('bot-state')).toHaveTextContent('Ativo');
-    expect(screen.getByTestId('bot-title')).toHaveTextContent(botMessages.paperLabel);
+    // 261121-paper-real-unico U3 (BR9.3): the badge of the mode replaces "MODO PAPER (simulado)" in the title.
+    expect(screen.getByTestId('bot-title')).toHaveTextContent('SIMULADO');
+    expect(screen.getByTestId('bot-title')).not.toHaveTextContent(botMessages.paperLabel);
     expect(screen.getByText(text.limitsVersion(2))).toBeInTheDocument();
     expect(screen.getByTestId('bot-limit-maxOrderSize')).toHaveTextContent('100,000000 USDC');
     expect(await screen.findByTestId('bot-day-loss')).toHaveTextContent(
@@ -416,5 +419,126 @@ describe('S5 bot screen /bots/{botId}', () => {
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith(`/entrar?origem=%2Fbots%2F${BOT_ID}&expirada=1`),
     );
+  });
+});
+
+/** 261121-paper-real-unico U3, Step 21 (BR4.5, BR4.6, BR8.2, BR9.3; AC3.10.1, AC3.10.3, AC4.2.4). */
+describe('S5 bot screen with the P&L of its mode', () => {
+  const REAL_DETAIL = detail({
+    botId: BOT_ID,
+    name: 'Real B',
+    market: 'REAL',
+    mode: 'REAL',
+    state: 'ACTIVE',
+    activatedAt: '2026-10-28T10:00:00Z',
+  });
+  const realBlock = {
+    ...REAL_BLOCK,
+    bots: REAL_BLOCK.bots.map((bot) => ({ ...bot, botId: BOT_ID, name: 'Real B' })),
+  };
+  const paperBlock = {
+    ...PAPER_BLOCK,
+    bots: PAPER_BLOCK.bots.map((bot) => ({ ...bot, botId: BOT_ID, name: 'Meu bot' })),
+  };
+
+  it('a REAL bot: one getBot, one C4 with market REAL and one C5; its line, no disclaimer', async () => {
+    const api = renderBot(
+      fakeApi({
+        getBot: jest.fn(async () => REAL_DETAIL),
+        getPnlByMode: jest.fn(async () => ({ period: { kind: 'ALL' as const }, real: realBlock })),
+        listBotPnlLines: jest.fn(async () => LINES_PAGE_2),
+      }),
+    );
+
+    expect(await screen.findByTestId('bot-pnl-total')).toHaveTextContent('+0,0312 SOL');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Real B');
+    expect(screen.getByTestId('bot-title')).toHaveTextContent('REAL');
+    expect(screen.getByTestId('bot-mode-line')).toHaveTextContent(
+      'Modo: Real · não pode ser trocado',
+    );
+    expect(screen.getByRole('heading', { level: 2, name: /P&L do bot/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Linhas do P&L' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByTestId('bot-lines-row-0')).toBeInTheDocument();
+    expect(api.getBot).toHaveBeenCalledTimes(1);
+    expect(api.getPnlByMode).toHaveBeenCalledTimes(1);
+    expect(api.getPnlByMode).toHaveBeenCalledWith({ market: 'REAL' });
+    expect(api.listBotPnlLines).toHaveBeenCalledTimes(1);
+    expect(api.getPnl).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('bot-pnl-disclaimer')).toBeNull();
+    expect(screen.queryByText('O resultado simulado não garante o resultado real.')).toBeNull();
+  });
+
+  it('a PAPER bot: one C4 with market PAPER, the disclaimer and no request to C5', async () => {
+    const api = renderBot(
+      fakeApi({
+        getBot: jest.fn(async () => ACTIVE),
+        getPnlByMode: jest.fn(async () => ({
+          period: { kind: 'ALL' as const },
+          paper: paperBlock,
+        })),
+      }),
+    );
+
+    expect(await screen.findByTestId('bot-pnl-total')).toHaveTextContent('+US$ 12,00');
+    expect(screen.getByTestId('bot-pnl-disclaimer')).toHaveTextContent(
+      'O resultado simulado não garante o resultado real.',
+    );
+    expect(screen.getByTestId('bot-mode-line')).toHaveTextContent(
+      'Modo: Simulado · não pode ser trocado',
+    );
+    expect(api.getPnlByMode).toHaveBeenCalledWith({ market: 'PAPER' });
+    expect(api.listBotPnlLines).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('bot-lines')).toBeNull();
+  });
+
+  it('a bot without a line in C4 shows "—"', async () => {
+    renderBot(fakeApi({ getBot: jest.fn(async () => ACTIVE) }));
+
+    expect(await screen.findByTestId('bot-pnl-none')).toHaveTextContent('—');
+  });
+
+  it('a 404 of C5 shows only "Bot não encontrado." with the way back, no name, mode, P&L nor code', async () => {
+    renderBot(
+      fakeApi({
+        getBot: jest.fn(async () => REAL_DETAIL),
+        getPnlByMode: jest.fn(async () => ({ period: { kind: 'ALL' as const }, real: realBlock })),
+        listBotPnlLines: jest.fn(async () => {
+          throw new ApiError(404, 'NOT_FOUND', undefined, 'corr-404');
+        }),
+      }),
+    );
+
+    const notFound = await screen.findByTestId('bot-not-found');
+    expect(notFound).toHaveAttribute('role', 'alert');
+    expect(notFound).toHaveTextContent('Bot não encontrado.');
+    expect(screen.getByTestId('bot-not-found-back')).toHaveTextContent('Voltar para Meus bots');
+    expect(screen.getByTestId('bot-not-found-back')).toHaveAttribute('href', '/bots');
+    const main = screen.getByRole('main');
+    expect(main).not.toHaveTextContent('Real B');
+    expect(main).not.toHaveTextContent('SOL');
+    expect(main).not.toHaveTextContent('corr-404');
+    expect(main).not.toHaveTextContent(/Modo:/);
+  });
+
+  it('an unavailable block of C4 is an error of the P&L of the bot with its code', async () => {
+    renderBot(
+      fakeApi({
+        getBot: jest.fn(async () => ACTIVE),
+        getPnlByMode: jest.fn(async () => ({
+          period: { kind: 'ALL' as const },
+          paper: {
+            status: 'UNAVAILABLE' as const,
+            market: 'PAPER' as const,
+            currency: 'USD' as const,
+            code: 'SERVICE_UNAVAILABLE',
+            correlationId: 'corr-11',
+          },
+        })),
+      }),
+    );
+
+    expect(await screen.findByTestId('bot-pnl-code')).toHaveTextContent('corr-11');
   });
 });

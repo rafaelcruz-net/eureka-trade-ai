@@ -25,6 +25,8 @@ import {
   tradeNotice,
   ZONE,
 } from '@/features/dashboard/test-support';
+import { BY_MODE, PAPER_BLOCK } from '@/features/pnl/fixtures';
+import { modeMessages } from '@/features/pnl/mode-messages';
 import HomePage from '@/app/page';
 
 /**
@@ -48,10 +50,14 @@ function botsApi(bots: BotSummary[], overrides: Partial<GuestApi> = {}) {
       botPage(bots.filter((bot) => bot.state === request.state)),
     ),
     getPnl: jest.fn(async () => pnlReport()),
+    // 261121-paper-real-unico U3 (BR7.1): the two cards by mode read C4 since the start.
+    getPnlByMode: jest.fn(async () => BY_MODE),
     getReconciliation: jest.fn(async () => reconciliation()),
     ...overrides,
   });
 }
+
+const modeText = modeMessages.compact;
 
 function renderDashboard(
   api: jest.Mocked<GuestApi> = botsApi([]),
@@ -108,13 +114,19 @@ describe('S2 dashboard: loading, errors and empty state', () => {
     renderDashboard(
       fakeApi({
         listBots: jest.fn(never),
-        getPnl: jest.fn(never),
+        getPnlByMode: jest.fn(never),
         getReconciliation: jest.fn(never),
       }),
     );
 
     expect(screen.getByTestId('dashboard-bots-loading')).toHaveTextContent(text.bots.loading);
-    expect(screen.getByTestId('dashboard-pnl-loading')).toHaveTextContent(text.pnl.loading);
+    // U3 (BR7.2): each card by mode has its own loading.
+    expect(screen.getByTestId('pnl-compact-PAPER-loading')).toHaveTextContent(
+      modeMessages.PAPER.loading,
+    );
+    expect(screen.getByTestId('pnl-compact-REAL-loading')).toHaveTextContent(
+      modeMessages.REAL.loading,
+    );
     expect(screen.getByTestId('dashboard-sources-loading')).toBeInTheDocument();
     expect(screen.getByTestId('dashboard-bots-card')).toHaveAttribute('aria-busy', 'true');
   });
@@ -122,30 +134,40 @@ describe('S2 dashboard: loading, errors and empty state', () => {
   it('a failing card shows its own error and the other cards still appear', async () => {
     renderDashboard(
       botsApi([ACTIVE], {
-        getPnl: jest.fn(async () => {
+        getPnlByMode: jest.fn(async () => {
           throw new ApiError(503, 'SERVICE_UNAVAILABLE');
         }),
       }),
     );
 
-    expect(await screen.findByTestId('dashboard-card-error-pnl')).toHaveTextContent(text.pnl.error);
+    expect(await screen.findByTestId('pnl-compact-PAPER-error')).toHaveTextContent(
+      modeText.PAPER.error,
+    );
+    expect(screen.getByTestId('pnl-compact-REAL-error')).toHaveTextContent(modeText.REAL.error);
     expect(await screen.findByTestId(`dashboard-bot-row-${BOT_A}`)).toBeInTheDocument();
     expect(screen.queryByTestId('dashboard-card-error-bots')).toBeNull();
   });
 
   it('"Tentar de novo" of a card repeats only the calls of that card', async () => {
-    const getPnl = jest
+    const getPnlByMode = jest
       .fn()
       .mockRejectedValueOnce(new ApiError(503, 'SERVICE_UNAVAILABLE'))
-      .mockResolvedValue(pnlReport());
-    const { api } = renderDashboard(botsApi([ACTIVE], { getPnl }));
-    await screen.findByTestId('dashboard-card-error-pnl');
+      .mockResolvedValue({ period: { kind: 'ALL' }, paper: PAPER_BLOCK });
+    const { api } = renderDashboard(botsApi([ACTIVE], { getPnlByMode }));
+    await screen.findByTestId('pnl-compact-PAPER-error');
     const botCalls = api.listBots.mock.calls.length;
 
-    await userEvent.click(screen.getByTestId('dashboard-card-retry-pnl'));
+    await userEvent.click(screen.getByTestId('pnl-compact-PAPER-retry'));
 
-    expect(await screen.findByTestId('dashboard-pnl-realized')).toBeInTheDocument();
-    expect(getPnl).toHaveBeenCalledTimes(2);
+    // U3 (BR3.2, BR3.4): only the card retried, with its market, and the focus on its title.
+    expect(await screen.findByTestId('pnl-compact-PAPER-total')).toBeInTheDocument();
+    expect(getPnlByMode).toHaveBeenCalledTimes(2);
+    expect(getPnlByMode).toHaveBeenLastCalledWith(
+      { market: 'PAPER', period: { kind: 'ALL' } },
+      expect.anything(),
+    );
+    expect(screen.getByTestId('pnl-compact-REAL-error')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('pnl-compact-PAPER-title')).toHaveFocus());
     expect(api.listBots).toHaveBeenCalledTimes(botCalls);
   });
 
@@ -161,7 +183,7 @@ describe('S2 dashboard: loading, errors and empty state', () => {
     expect(await screen.findByTestId('dashboard-card-error-bots')).toHaveTextContent(
       text.bots.error,
     );
-    expect(await screen.findByTestId('dashboard-pnl-realized')).toBeInTheDocument();
+    expect(await screen.findByTestId('pnl-compact-PAPER-total')).toBeInTheDocument();
     await userEvent.click(screen.getByTestId('dashboard-card-retry-bots'));
 
     expect(await screen.findByTestId(`dashboard-bot-row-${BOT_A}`)).toBeInTheDocument();
@@ -355,72 +377,78 @@ describe('S2 dashboard: bots in use and "Pausar"', () => {
   });
 });
 
-describe('S2 dashboard: P&L and reconciliation', () => {
-  it('shows the UTC day in the person time zone and realized, unrealized and fees with written signs', async () => {
+/**
+ * 261121-paper-real-unico U3 (BR7.1 to BR7.4, BR2.8; AC4.3.1 to AC4.3.4): the cases of the card of the UTC day now
+ * expect the two cards by mode, since the start.
+ */
+describe('S2 dashboard: the cards by mode and the reconciliation', () => {
+  it('shows "Resultado simulado" in US$ with the disclaimer and "Resultado real" in SOL without it', async () => {
     renderDashboard();
 
-    expect(await screen.findByTestId('dashboard-pnl-period')).toHaveTextContent(
-      'Hoje (dia UTC, desde 21:00 no seu horário)',
-    );
-    expect(await screen.findByTestId('dashboard-pnl-realized')).toHaveTextContent('+12,500000');
-    expect(screen.getByTestId('dashboard-pnl-unrealized')).toHaveTextContent('−3,250000');
-    expect(screen.getByTestId('dashboard-pnl-fees')).toHaveTextContent('−0,750000 USDC (pagas)');
+    expect(await screen.findByTestId('pnl-compact-PAPER-total')).toHaveTextContent('+US$ 12,00');
+    expect(screen.getByTestId('pnl-compact-PAPER-realized')).toHaveTextContent('+US$ 12,40');
+    expect(screen.getByTestId('pnl-compact-PAPER-fees')).toHaveTextContent('US$ 0,40');
+    expect(screen.getByTestId('pnl-compact-PAPER-disclaimer')).toBeInTheDocument();
+    expect(screen.getByTestId('pnl-compact-REAL-total')).toHaveTextContent('+0,0312 SOL');
+    expect(screen.queryByTestId('pnl-compact-REAL-disclaimer')).toBeNull();
+    expect(screen.getByTestId('dashboard-mode-cards')).not.toHaveTextContent(/total geral/i);
+    expect(screen.getByTestId('pnl-compact-REAL-open')).toHaveAttribute('href', '/pnl');
   });
 
-  it('asks the P&L from 00:00 UTC to now', async () => {
+  it('asks C4 once without market and since the start, and C2, never the P&L of the UTC day', async () => {
     const { api } = renderDashboard();
 
-    await waitFor(() =>
-      expect(api.getPnl).toHaveBeenCalledWith({
-        from: '2026-10-28T00:00:00.000Z',
-        to: '2026-10-28T12:00:00.000Z',
-      }),
-    );
+    await screen.findByTestId('pnl-compact-PAPER-total');
+    expect(api.getPnlByMode).toHaveBeenCalledTimes(1);
+    expect(api.getPnlByMode).toHaveBeenCalledWith({ period: { kind: 'ALL' } }, expect.anything());
+    expect(api.getRealEligibility).toHaveBeenCalledTimes(1);
+    expect(api.getPnl).not.toHaveBeenCalled();
   });
 
-  it('an unknown unrealized is "unknown" with its reason and never zero, with the partial notice', async () => {
+  it('an unknown total is "desconhecido" and never zero, with the realized and fees exact', async () => {
     renderDashboard(
       botsApi([], {
-        getPnl: jest.fn(async () =>
-          pnlReport({ unrealized: { status: 'UNKNOWN', reason: 'PRICE_UNKNOWN' }, partial: true }),
-        ),
+        getPnlByMode: jest.fn(async () => ({
+          ...BY_MODE,
+          paper: {
+            ...PAPER_BLOCK,
+            total: { status: 'UNKNOWN' as const, reason: 'PRICE_UNKNOWN' as const },
+          },
+        })),
       }),
     );
 
-    const unrealized = await screen.findByTestId('dashboard-pnl-unrealized');
-    expect(unrealized).toHaveTextContent('unknown (sem preço)');
-    expect(unrealized).not.toHaveTextContent('0');
-    expect(screen.getByTestId('dashboard-pnl-partial')).toHaveTextContent(text.pnl.partial);
-    expect(screen.getByTestId('dashboard-pnl-realized')).toHaveTextContent('+12,500000');
+    const total = await screen.findByTestId('pnl-compact-PAPER-total');
+    expect(total).toHaveTextContent('desconhecido (depende do não realizado)');
+    expect(total).not.toHaveTextContent('0');
+    expect(screen.getByTestId('pnl-compact-PAPER-partial')).toBeInTheDocument();
+    expect(screen.getByTestId('pnl-compact-PAPER-realized')).toHaveTextContent('+US$ 12,40');
   });
 
-  it('a day without operations says "Nenhuma operação hoje" and no number', async () => {
-    renderDashboard(botsApi([], { getPnl: jest.fn(async () => pnlReport({ empty: true })) }));
+  it('without simulated bots the card says "Sem bots simulados." and no number', async () => {
+    // The default C4 of the API double has both blocks empty.
+    renderDashboard(botsApi([], { getPnlByMode: fakeApi().getPnlByMode }));
 
-    expect(await screen.findByTestId('dashboard-pnl-empty')).toHaveTextContent(text.pnl.empty);
-    expect(screen.queryByTestId('dashboard-pnl-realized')).toBeNull();
+    expect(await screen.findByTestId('pnl-compact-PAPER-empty')).toHaveTextContent(
+      modeText.PAPER.empty,
+    );
+    expect(screen.queryByTestId('pnl-compact-PAPER-total')).toBeNull();
+    expect(screen.getByTestId('pnl-compact-REAL-empty')).toHaveTextContent(modeText.REAL.empty);
   });
 
-  it('keeps every one of 18 decimal places, without floating point', async () => {
+  it('writes the values of the API as text, cut and never rounded, without floating point', async () => {
     renderDashboard(
       botsApi([], {
-        getPnl: jest.fn(async () =>
-          pnlReport({
-            realized: '123456789.123456789012345678',
-            unrealized: { status: 'KNOWN', value: '0.000000000000000001' },
-            fees: '0.000000000000000000',
-          }),
-        ),
+        getPnlByMode: jest.fn(async () => ({
+          ...BY_MODE,
+          paper: { ...PAPER_BLOCK, realized: '123456789.129999999999999999' },
+        })),
       }),
     );
 
-    expect(await screen.findByTestId('dashboard-pnl-realized')).toHaveTextContent(
-      '+123.456.789,123456789012345678',
+    expect(await screen.findByTestId('pnl-compact-PAPER-realized')).toHaveTextContent(
+      '+US$ 123.456.789,12',
     );
-    expect(screen.getByTestId('dashboard-pnl-unrealized')).toHaveTextContent(
-      '+0,000000000000000001',
-    );
-    expect(screen.getByTestId('dashboard-pnl-fees')).toHaveTextContent('0,000000000000000000 USDC');
   });
 
   it.each([
@@ -447,7 +475,7 @@ describe('S2 dashboard: P&L and reconciliation', () => {
         messages.dashboard.reconciliation.error,
       ),
     );
-    expect(screen.getByTestId('dashboard-pnl-realized')).toBeInTheDocument();
+    expect(await screen.findByTestId('pnl-compact-PAPER-total')).toBeInTheDocument();
     await userEvent.click(screen.getByTestId('dashboard-reconciliation-retry'));
     await waitFor(() =>
       expect(screen.getByTestId('dashboard-reconciliation')).toHaveTextContent('Reconciliado'),
@@ -456,21 +484,26 @@ describe('S2 dashboard: P&L and reconciliation', () => {
 });
 
 describe('S2 dashboard: live updates, notices and accessibility', () => {
-  it('the first focus goes to the title "Bots PAPER" and both card titles say MODO PAPER (simulado)', async () => {
+  it('the first focus goes to the title "Bots PAPER"; the cards by mode have their section and h3 titles', async () => {
     renderDashboard();
 
     const botsTitle = screen.getByRole('heading', { level: 2, name: /Bots PAPER/ });
     expect(botsTitle).toHaveFocus();
     expect(botsTitle).toHaveTextContent('MODO PAPER (simulado)');
-    expect(screen.getByRole('heading', { level: 2, name: /P&L PAPER/ })).toHaveTextContent(
-      'MODO PAPER (simulado)',
-    );
-    await screen.findByTestId('dashboard-pnl-realized');
+    // U3 (BR7.1, BR9.2): one section "Resultados por modo · desde o início" with two h3.
+    expect(
+      screen.getByRole('region', { name: 'Resultados por modo · desde o início' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 3, name: /Resultado simulado/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /Resultado real/ })).toBeInTheDocument();
+    await screen.findByTestId('pnl-compact-PAPER-total');
   });
 
   it('no text of the dashboard promises profit', async () => {
     renderDashboard(botsApi([ACTIVE, PAUSED]));
-    await screen.findByTestId('dashboard-pnl-realized');
+    await screen.findByTestId('pnl-compact-PAPER-total');
 
     const shown = [{ path: 'dashboard', text: document.body.textContent ?? '' }];
     expect(findProhibited(shown, prohibitedTerms())).toEqual([]);
@@ -639,19 +672,20 @@ describe('S2 dashboard: live updates, notices and accessibility', () => {
     net.respond(first.response, fakeChannel().response);
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     const { api } = renderDashboard(botsApi([]), { net });
-    await screen.findByTestId('dashboard-pnl-realized');
+    await screen.findByTestId('pnl-compact-PAPER-total');
 
     await act(async () => first.end());
     const notice = await screen.findByTestId('dashboard-stale-notice');
     expect(notice).toHaveTextContent(
       'Os valores podem estar desatualizados; última atualização às 09:00',
     );
-    const pnlCalls = api.getPnl.mock.calls.length;
+    const pnlCalls = api.getPnlByMode.mock.calls.length;
     await userEvent.click(within(notice).getByTestId('dashboard-stale-retry-button'));
 
     await waitFor(() => expect(screen.queryByTestId('dashboard-stale-notice')).toBeNull());
     expect(net.requests).toHaveLength(2);
-    await waitFor(() => expect(api.getPnl.mock.calls.length).toBeGreaterThan(pnlCalls));
+    // U3 (BR7.5): the cards by mode are read again through their windows of 30 s.
+    await waitFor(() => expect(api.getPnlByMode.mock.calls.length).toBeGreaterThan(pnlCalls));
   });
 
   it('announces only changes, joined within 2 s, and never the heartbeat', async () => {
@@ -702,22 +736,20 @@ describe('S2 dashboard: live updates, notices and accessibility', () => {
     );
   });
 
-  it('at 00:00 UTC the period is computed again and the P&L read again', async () => {
+  it('at 00:00 UTC nothing is read again: the cards by mode are since the start (U3, BR2.8)', async () => {
     jest.useFakeTimers({ now: new Date('2026-10-28T23:59:00Z') });
     const { api } = renderDashboard(botsApi([]), { now: () => new Date(Date.now()) });
     await act(async () => {
       await jest.advanceTimersByTimeAsync(10);
     });
+    const calls = api.getPnlByMode.mock.calls.length;
 
     await act(async () => {
       await jest.advanceTimersByTimeAsync(60_000);
     });
 
-    expect(api.getPnl).toHaveBeenLastCalledWith({
-      from: '2026-10-29T00:00:00.000Z',
-      to: '2026-10-29T00:00:00.000Z',
-    });
-    expect(screen.getByTestId('dashboard-pnl-period')).toHaveTextContent('desde 21:00');
+    expect(api.getPnlByMode).toHaveBeenCalledTimes(calls);
+    expect(api.getPnl).not.toHaveBeenCalled();
   });
 
   it('a failed renewal of the channel sends the person to the entry with the return to the dashboard', async () => {
@@ -728,7 +760,7 @@ describe('S2 dashboard: live updates, notices and accessibility', () => {
     // The renewal of the API double fails (no refresh cookie).
     const api = botsApi([]);
     renderDashboard(api, { net });
-    await screen.findByTestId('dashboard-pnl-realized');
+    await screen.findByTestId('pnl-compact-PAPER-total');
 
     await act(async () =>
       channel.push(sseBlock('auth.expired', { expiredAt: '2026-10-28T12:00:00Z' })),

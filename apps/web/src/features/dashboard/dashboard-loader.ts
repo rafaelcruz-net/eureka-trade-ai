@@ -9,7 +9,6 @@ import {
   type DashboardAction,
 } from '@/features/dashboard/dashboard-reducer';
 import type { TradeNotice } from '@/features/dashboard/envelopes';
-import { utcDayPeriod } from '@/features/dashboard/period';
 import { dashboardWarn } from '@/features/dashboard/warn';
 
 /**
@@ -23,7 +22,8 @@ import { dashboardWarn } from '@/features/dashboard/warn';
  * - Last order: `GET /bots/{botId}/trades?limit=1` of every bot that is not a draft, at most 3 at the same time
  *   (NFR3.3); a bot already read is not read again by a later full load (the order of a STOPPED bot never changes),
  *   only when `trade.recorded` names it (BR2.3).
- * - P&L and reconciliation: one in progress and at most one pending each (BR3.3, NFR3.4).
+ * - Reconciliation: one in progress and at most one pending (BR3.3, NFR3.4). 261121-paper-real-unico U3 (BR7.1): the
+ *   P&L of the UTC day left the dashboard; the cards by mode read C4 themselves (DashboardModeCards).
  * - Sources: the fallback `GET /scanner/tokens?limit=1` when no `data.status` arrives in 5 s (F1 step 3).
  */
 export const PAGE_LIMIT = 100;
@@ -48,7 +48,6 @@ export function createDashboardLoader(options: LoaderOptions) {
   const lastTradeRead = new Set<string>();
   let lastTradeLoadedOnce = false;
   let showBotsLoading = true;
-  let showPnlLoading = true;
   let showReconciliationLoading = true;
 
   function isUnauthenticated(failure: unknown): boolean {
@@ -137,20 +136,6 @@ export function createDashboardLoader(options: LoaderOptions) {
     });
   }
 
-  async function loadPnl(): Promise<void> {
-    const period = utcDayPeriod(now());
-    dispatch({ type: 'PNL_REQUESTED', period, showLoading: showPnlLoading });
-    showPnlLoading = false;
-    try {
-      const report = await api.getPnl(period);
-      dispatch({ type: 'PNL_LOADED', report, at: now().toISOString() });
-    } catch (failure) {
-      if (!isUnauthenticated(failure)) {
-        dispatch({ type: 'PNL_FAILED' });
-      }
-    }
-  }
-
   async function loadReconciliation(): Promise<void> {
     dispatch({ type: 'RECONCILIATION_REQUESTED', showLoading: showReconciliationLoading });
     showReconciliationLoading = false;
@@ -165,7 +150,6 @@ export function createDashboardLoader(options: LoaderOptions) {
   }
 
   const bots = singleFlight(loadBots);
-  const pnl = singleFlight(loadPnl);
   const reconciliation = singleFlight(loadReconciliation);
 
   return {
@@ -173,10 +157,6 @@ export function createDashboardLoader(options: LoaderOptions) {
     reloadBots(showLoading = false) {
       showBotsLoading = showBotsLoading || showLoading;
       return bots.trigger();
-    },
-    refreshPnl(showLoading = false) {
-      showPnlLoading = showPnlLoading || showLoading;
-      return pnl.trigger();
     },
     refreshReconciliation(showLoading = false) {
       showReconciliationLoading = showReconciliationLoading || showLoading;

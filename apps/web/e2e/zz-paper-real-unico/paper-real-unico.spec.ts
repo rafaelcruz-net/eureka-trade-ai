@@ -13,6 +13,7 @@ import {
   signInWithinLoginLimit,
 } from '../support/login-limit';
 import { LAMPORTS_PER_SOL, airdrop, encode, transfer } from '../real-bot-wallet/local-validator';
+import { mountedByMode, mountedLines } from './mounted-pnl-fixtures';
 
 const API = process.env.API_BASE_URL ?? 'http://localhost:8080';
 const PAPER_NAME = 'Simulado e2e U1';
@@ -349,5 +350,205 @@ test.describe.serial('PAPER and REAL bots in one view, one buy in each mode, nev
       );
       expect(overflow, `${path} scrolls sideways at 360 px`).toBeLessThanOrEqual(0);
     }
+  });
+
+  // ---------------- 261121-paper-real-unico U3, Step 25: the views of the P&L (they only read) ----------------
+
+  /** How far the page scrolls sideways; 0 or less means it does not (BR10.1, AC4.5.1). */
+  async function sideScroll(): Promise<number> {
+    return page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+  }
+
+  async function wide() {
+    await page.setViewportSize({ width: 1280, height: 900 });
+  }
+
+  test('U3 1. the dashboard shows "Resultado simulado" in US$ with the disclaimer and "Resultado real" in SOL without it', async () => {
+    await wide();
+    await page.goto('/');
+    const cards = page.getByTestId('dashboard-mode-cards');
+    await expect(cards).toContainText('Resultados por modo · desde o início', { timeout: 30_000 });
+    await expect(page.getByTestId('pnl-compact-PAPER-total')).toContainText(/US\$|desconhecido/, {
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId('pnl-compact-PAPER-disclaimer')).toHaveText(
+      'O resultado simulado não garante o resultado real.',
+    );
+    await expect(page.getByTestId('pnl-compact-REAL-total')).toContainText(/SOL|desconhecido/);
+    await expect(page.getByTestId('pnl-compact-REAL-disclaimer')).toHaveCount(0);
+    await expect(page.getByTestId('pnl-compact-REAL')).not.toContainText('US$');
+    await expect(cards).not.toContainText(/total geral/i);
+    await page.getByTestId('pnl-compact-REAL-open').click();
+    await page.waitForURL((url) => url.pathname === '/pnl');
+  });
+
+  test('U3 2. /bots starts with the focus on the filter; Simulado and Real show only their bots, in the address', async () => {
+    await wide();
+    await page.goto('/bots');
+    await expect(page.getByTestId('bots-mode-filter-ALL')).toBeFocused({ timeout: 30_000 });
+
+    await page.getByTestId('bots-mode-filter-PAPER').check();
+    await page.waitForURL((url) => url.searchParams.get('mode') === 'PAPER');
+    await expect(page.getByTestId(`bots-row-${paperBotId}`)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId(`bots-row-${realBotId}`)).toHaveCount(0);
+    await expect(page.getByTestId('bots-shown')).toContainText(/Mostrando \d+ de \d+ bots?\./);
+
+    await page.getByTestId('bots-mode-filter-REAL').check();
+    await page.waitForURL((url) => url.searchParams.get('mode') === 'REAL');
+    await expect(page.getByTestId(`bots-row-${realBotId}`)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId(`bots-row-${paperBotId}`)).toHaveCount(0);
+    await expect(page.getByTestId('bots-disclaimer')).toHaveCount(0);
+  });
+
+  test('U3 3. the screen of the REAL bot lists its lines with the origin, the buy with "Bot" and "—", dates dd/mm HH:MM', async () => {
+    await wide();
+    await page.goto(`/bots/${realBotId}`);
+    const table = page.getByTestId('bot-lines-table');
+    await expect(table).toBeVisible({ timeout: 30_000 });
+    await expect(table.getByRole('columnheader', { name: 'Origem' })).toBeVisible();
+    const buy = table.locator('tbody tr').filter({ hasText: 'Compra' }).first();
+    await expect(buy).toContainText('Bot');
+    await expect(buy).toContainText('—');
+    await expect(buy.locator('td').first()).toHaveText(/^\d{2}\/\d{2} \d{2}:\d{2}$/);
+    await expect(page.getByTestId('bot-pnl-disclaimer')).toHaveCount(0);
+    await expect(page.getByTestId('bot-mode-line')).toContainText('Modo: Real');
+  });
+
+  test('U3 4. the screen of the PAPER bot shows the disclaimer of the simulated mode', async () => {
+    await wide();
+    await page.goto(`/bots/${paperBotId}`);
+    await expect(page.getByTestId('bot-pnl-disclaimer')).toHaveText(
+      'O resultado simulado não garante o resultado real.',
+      { timeout: 30_000 },
+    );
+    await expect(page.getByTestId('bot-lines')).toHaveCount(0);
+  });
+
+  test('U3 5. a bot id that does not exist shows only "Bot não encontrado." and no data', async () => {
+    await wide();
+    await page.goto(`/bots/${randomUUID()}`);
+    await expect(page.getByTestId('bot-not-found')).toContainText('Bot não encontrado.', {
+      timeout: 30_000,
+    });
+    const main = page.getByRole('main');
+    await expect(main).not.toContainText(/US\$|SOL|Modo:/);
+  });
+
+  test('U3 6. "Últimos 7 dias" goes to the address and reads C4 with RANGE in UTC; two blocks, no general total', async () => {
+    await wide();
+    await page.goto('/pnl');
+    await expect(page.getByTestId('pnl-block-PAPER-title')).toBeVisible({ timeout: 30_000 });
+    const ranged = page.waitForRequest(
+      (request) =>
+        request.url().includes('/api/v1/pnl/by-mode') && request.url().includes('period=RANGE'),
+    );
+
+    await page.getByTestId('pnl-period-LAST_7').check();
+
+    const url = new URL((await ranged).url());
+    expect(url.searchParams.get('from')).toMatch(/Z$/);
+    expect(url.searchParams.get('to')).toMatch(/Z$/);
+    expect(url.searchParams.has('market')).toBe(false);
+    await page.waitForURL((current) => current.searchParams.get('periodo') === '7d');
+    await expect(page.getByTestId('pnl-block-PAPER')).toBeVisible();
+    await expect(page.getByTestId('pnl-block-REAL')).toBeVisible();
+    await expect(page.getByTestId('pnl-modes')).not.toContainText(/total geral/i);
+  });
+
+  test('U3 7. the comparison puts the two bots of the same strategy side by side, each in its currency', async () => {
+    await wide();
+    await page.goto('/pnl');
+    await page.getByTestId('compare-toggle').click();
+    await expect(page.getByTestId('compare-paper-select')).toBeFocused();
+    await page.getByTestId('compare-paper-select').selectOption(paperBotId);
+    await page.getByTestId('compare-real-select').selectOption(realBotId);
+
+    await expect(page.getByTestId('compare-PAPER-total')).toContainText(/US\$|desconhecido/, {
+      timeout: 30_000,
+    });
+    await expect(page.getByTestId('compare-REAL-total')).toContainText(/SOL|desconhecido/);
+    await expect(page.getByTestId('compare-PAPER-disclaimer')).toBeVisible();
+    await expect(page.getByTestId('compare-REAL-disclaimer')).toHaveCount(0);
+    await expect(page.getByTestId('compare-REAL')).not.toContainText('US$');
+    await expect(page.getByTestId('compare-sides')).not.toContainText(/total geral|diferença/i);
+    expect(new URL(page.url()).searchParams.get('comparar')).toBe(`${paperBotId},${realBotId}`);
+  });
+
+  test('U3 8. at 360 px no new screen scrolls sideways', async () => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    const screens: [string, string][] = [
+      ['/', 'dashboard-mode-cards'],
+      ['/bots?mode=REAL', 'bots-mode-filter'],
+      [`/bots/${realBotId}`, 'bot-lines'],
+      [`/bots/${paperBotId}`, 'bot-pnl'],
+      [`/pnl?comparar=${paperBotId},${realBotId}`, 'compare-sides'],
+    ];
+    for (const [path, ready] of screens) {
+      await page.goto(path);
+      await expect(page.getByTestId(ready)).toBeVisible({ timeout: 30_000 });
+      expect(await sideScroll(), `${path} scrolls sideways at 360 px`).toBeLessThanOrEqual(0);
+    }
+  });
+
+  test('U3 9. at 360 px with mounted data: 12 shares, "Sem bot" and two pages of lines become cards', async () => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    const paper = { botId: paperBotId, name: PAPER_NAME };
+    const real = { botId: realBotId, name: REAL_NAME };
+    // Synthetic answers only (mounted-pnl-fixtures.ts): the screens never know they were mounted.
+    await page.route('**/api/v1/pnl/by-mode**', async (route) => {
+      const market = new URL(route.request().url()).searchParams.get('market');
+      const body = mountedByMode(paper, real);
+      await route.fulfill({
+        json:
+          market === 'REAL'
+            ? { period: body.period, real: body.real }
+            : market === 'PAPER'
+              ? { period: body.period, paper: body.paper }
+              : body,
+      });
+    });
+    await page.route(`**/api/v1/bots/${realBotId}/pnl/lines**`, async (route) => {
+      const cursor = new URL(route.request().url()).searchParams.get('cursor');
+      await route.fulfill({ json: mountedLines(cursor) });
+    });
+    try {
+      await page.goto('/pnl');
+      const toggle = page.getByTestId(`prorated-${realBotId}-toggle`);
+      await expect(toggle).toContainText('Ver 12 linhas rateadas', { timeout: 30_000 });
+      await expect(page.getByTestId('pnl-block-REAL-nobot')).toContainText('Sem bot');
+      expect(await sideScroll(), '/pnl before the shares').toBeLessThanOrEqual(0);
+      await toggle.click();
+      await expect(page.getByTestId(`prorated-${realBotId}-cards`)).toBeVisible();
+      await expect(page.getByTestId(`prorated-${realBotId}-table`)).toBeHidden();
+      expect(await sideScroll(), '/pnl with the shares open').toBeLessThanOrEqual(0);
+
+      await page.goto(`/bots/${realBotId}`);
+      await expect(page.getByTestId('bot-lines-card-49')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('bot-lines-table')).toBeHidden();
+      expect(await sideScroll(), '/bots/{id} with 50 lines').toBeLessThanOrEqual(0);
+      await page.getByTestId('bot-lines-more').click();
+      await expect(page.getByTestId('bot-lines-card-52')).toBeVisible();
+      expect(await sideScroll(), '/bots/{id} with 53 lines').toBeLessThanOrEqual(0);
+    } finally {
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+    }
+  });
+
+  test('U3 10. "Desde o início" shows the note instead of the table by token; "Hoje" shows the table', async () => {
+    await wide();
+    await page.goto('/pnl');
+    await expect(page.getByTestId('pnl-by-token-note')).toHaveText(
+      'Escolha um período para ver o resultado por token',
+      { timeout: 30_000 },
+    );
+    await expect(page.getByTestId('pnl-report')).toHaveCount(0);
+
+    await page.getByTestId('pnl-period-TODAY').check();
+
+    await page.waitForURL((url) => url.searchParams.get('periodo') === 'hoje');
+    await expect(page.getByTestId('pnl-report')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('pnl-by-token-note')).toHaveCount(0);
   });
 });

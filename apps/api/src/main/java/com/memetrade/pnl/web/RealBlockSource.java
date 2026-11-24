@@ -10,12 +10,14 @@ import com.memetrade.pnl.api.ProratedShare;
 import com.memetrade.pnl.api.RealBotPnlLine;
 import com.memetrade.pnl.api.RealBotPnlQuery;
 import com.memetrade.pnl.api.RealModePnl;
+import com.memetrade.pnl.api.RealPnlLinePage;
 import com.memetrade.pnl.api.UnownedPnlLine;
 import com.memetrade.shared.config.ProcessRole;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Function;
@@ -50,7 +52,12 @@ public class RealBlockSource {
     }
 
     public ModePnlDtos.RealModeBlockDto block(Principal person) {
-        RealModePnl pnl = query.modePnl(person.tenantId(), person.userId(), PnlWindow.all());
+        return block(person, PnlWindow.all());
+    }
+
+    /** 261121-paper-real-unico U3 (BR2.4): the REAL block of the window ALL or RANGE. */
+    public ModePnlDtos.RealModeBlockDto block(Principal person, PnlWindow window) {
+        RealModePnl pnl = query.modePnl(person.tenantId(), person.userId(), window);
         Map<UUID, String> names = directory.botsOf(person.tenantId(), person.userId(), PnlMarket.REAL).stream()
                 .collect(Collectors.toMap(BotEntry::botId, BotEntry::name, (first, second) -> first));
         return new ModePnlDtos.RealModeBlockDto(
@@ -65,6 +72,51 @@ public class RealBlockSource {
                 Long.toString(pnl.total().feesLamports()),
                 pnl.lines().stream().map(line(names)).toList(),
                 unowned(pnl));
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (C6, BR5.4, NFR2.3): the REAL side of the comparison: the line of the bot by the SAME
+     * pass as its line in the REAL block of C4 ({@code RealBotPnlQuery.botPnl}), its creation and its strategy; no
+     * disclaimer. A bot without a line (not a REAL bot of the person any more) is a failure of the side.
+     */
+    public ModePnlDtos.RealComparisonSideDto side(Principal person, BotEntry bot, PnlWindow window) {
+        RealBotPnlLine line = query.botPnl(person.tenantId(), person.userId(), bot.botId(), window)
+                .orElseThrow(() -> new IllegalStateException("The REAL bot of the comparison has no line"));
+        return new ModePnlDtos.RealComparisonSideDto(
+                "AVAILABLE",
+                "REAL",
+                "SOL",
+                bot.createdAt(),
+                bot.templateId(),
+                line(Map.of(bot.botId(), bot.name())).apply(line));
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (C5; BR4.2, BR4.3, BR4.4): one page of the lines of a REAL bot of the person, mapped to
+     * the wire: lamports and base units as integer text, the side and the origin as their enum names; no address, no
+     * identity of a line (only the opaque cursor). Empty when the bot is not a REAL bot of the person.
+     */
+    public Optional<ModePnlDtos.RealBotPnlLinePageDto> lines(
+            Principal person, UUID botId, Optional<String> cursor, int limit) {
+        return query.botLines(person.tenantId(), person.userId(), botId, cursor, limit)
+                .map(RealBlockSource::page);
+    }
+
+    private static ModePnlDtos.RealBotPnlLinePageDto page(RealPnlLinePage page) {
+        return new ModePnlDtos.RealBotPnlLinePageDto(
+                "SOL",
+                page.items().stream()
+                        .map(item -> new ModePnlDtos.RealBotPnlLineItemDto(
+                                item.at(),
+                                item.side().name(),
+                                item.mint(),
+                                item.origin().name(),
+                                Long.toString(item.tokenBaseUnits()),
+                                Long.toString(item.amountLamports()),
+                                Long.toString(item.feeLamports()),
+                                Long.toString(item.realizedLamports())))
+                        .toList(),
+                page.nextCursor().orElse(null));
     }
 
     private static Function<RealBotPnlLine, ModePnlDtos.RealBotPnlLineDto> line(Map<UUID, String> names) {

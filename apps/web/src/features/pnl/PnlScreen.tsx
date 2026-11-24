@@ -1,215 +1,279 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { ApiError } from '@/lib/api/client';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { ApiError, RequestCancelled } from '@/lib/api/client';
 import { useApi } from '@/lib/api/ApiProvider';
 import type { PnlReport } from '@/lib/api/guest-api';
 import { abbreviateMint, formatClock, formatDecimal } from '@/lib/format/format';
 import { messages } from '@/lib/i18n/messages';
 import { AppShell } from '@/components/shell/AppShell';
+import { TableScroll } from '@/components/TableScroll';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useRequireSession } from '@/features/auth/useRequireSession';
+import { failureCode, paperLoad, realLoad } from '@/features/pnl/by-mode';
+import {
+  ComparisonView,
+  comparisonAddress,
+  parseComparison,
+  periodRequest,
+  type ComparisonSelection,
+} from '@/features/pnl/ComparisonView';
 import { LedgerList } from '@/features/pnl/LedgerList';
-import { addDays, todayIn, toUtcPeriod } from '@/features/pnl/period';
+import { modeMessages } from '@/features/pnl/mode-messages';
+import {
+  PeriodSelector,
+  periodAddress,
+  periodFromAddress,
+  type AppliedPeriod,
+} from '@/features/pnl/PeriodSelector';
+import { PnlModeBlock } from '@/features/pnl/PnlModeBlock';
+import {
+  initialPnlScreenState,
+  pnlScreenReducer,
+  type PnlSlot,
+} from '@/features/pnl/pnl-screen-state';
 import { ReconciliationPanel } from '@/features/pnl/ReconciliationPanel';
 import { PnlAmountView, SignedValue } from '@/features/pnl/SignedValue';
-import type { PaperModeBlock, RealModeBlock } from '@/lib/api/guest-api';
-import { SimulatedBadge } from '@/components/SimulatedBadge';
-import { TableScroll } from '@/components/TableScroll';
-import { failureCode, paperLoad, realLoad } from '@/features/pnl/by-mode';
-import { modeMessages } from '@/features/pnl/mode-messages';
-import { PnlModeBlock, type BlockLoad } from '@/features/pnl/PnlModeBlock';
 
 const text = messages.pnl;
-
-type Load =
-  | { kind: 'loading' }
-  | { kind: 'error' }
-  | { kind: 'invalid' }
-  | { kind: 'ready'; report: PnlReport };
+const periodText = modeMessages.period;
 
 /** The browser's time zone; the screen converts the chosen days to UTC instants (project.md). */
 function browserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
+/** The address of /pnl with the period and the comparison (BR2.6, BR5.6). */
+function addressOf(period: AppliedPeriod, selection: ComparisonSelection | null): string {
+  const params = new URLSearchParams(periodAddress(period));
+  if (selection !== null) {
+    params.set('comparar', comparisonAddress(selection));
+  }
+  const query = params.toString();
+  return query ? `/pnl?${query}` : '/pnl';
+}
+
 /**
- * S6 - P&L (US5.1, US5.2; BR6.1 to BR6.6, BR8.4, BR10.1): "MODO PAPER (simulado)" in the title; the period chosen
- * in the person's time zone and sent in UTC; realized, unrealized and fees separated, each with sign and word;
- * unknown with its reason and "parcial"; "sem liquidez" with source and time; loading, empty and error are distinct
- * and nothing partial looks complete. Decimals stay text from the API to the screen.
+ * S6 - P&L (US5.1, US5.2; BR6.1 to BR6.6, BR8.4, BR10.1): realized, unrealized and fees separated, each with sign and
+ * word; unknown with its reason and "parcial"; "sem liquidez" with source and time; loading, empty and error are
+ * distinct and nothing partial looks complete. Decimals stay text from the API to the screen.
+ *
+ * 261121-paper-real-unico U3 (decision F-3; BR2.1 to BR2.9, BR3.1 to BR3.4, BR5.6, BR6.2; AC7.1.x, AC7.2.3): a pure
+ * reducer (pnl-screen-state.ts) with one AbortController per slot, all aborted when the screen leaves. The period
+ * starts on "Desde o início" and lives in the address (an invalid one opens on "Desde o início"); C4 is read without
+ * `market` on the load and on every change; "Tentar de novo" of a block reads C4 with its `market` and the same
+ * period and puts the focus on the title of that block. The table by token of the PAPER is inside the block Simulado
+ * and is read from `GET /api/v1/pnl` with the same pair only with a concrete period; in "Desde o início" a note takes
+ * its place (BR2.9). The comparison (C6) reads the same period. Nothing is ever added across the modes.
  */
 export function PnlScreen({ timeZone, now }: { timeZone?: string; now?: Date } = {}) {
   const zone = timeZone ?? browserTimeZone();
   const status = useRequireSession('/pnl');
   const api = useApi();
+  const router = useRouter();
+  const search = useSearchParams();
   const { expire } = useSession();
-  const heading = useRef<HTMLHeadingElement>(null);
-  const today = todayIn(zone, now ?? new Date());
-  const [fromDay, setFromDay] = useState(addDays(today, -6));
-  const [toDay, setToDay] = useState(today);
-  const [period, setPeriod] = useState(() => toUtcPeriod(addDays(today, -6), today, zone));
-  const [load, setLoad] = useState<Load>({ kind: 'loading' });
-  const [paperBlock, setPaperBlock] = useState<BlockLoad<PaperModeBlock>>({ kind: 'loading' });
-  const [realBlock, setRealBlock] = useState<BlockLoad<RealModeBlock>>({ kind: 'loading' });
-  const [retried, setRetried] = useState<'PAPER' | 'REAL' | null>(null);
-
-  /**
-   * 261121-paper-real-unico U1 (BR5.3, NFR4.8): one read of C4 fills both blocks on load; "Tentar de novo" of a block
-   * reads the route again and updates ONLY that block, leaving the other as it was.
-   */
-  const fetchByMode = useCallback(
-    async (only?: 'PAPER' | 'REAL') => {
-      if (only !== 'REAL') {
-        setPaperBlock({ kind: 'loading' });
-      }
-      if (only !== 'PAPER') {
-        setRealBlock({ kind: 'loading' });
-      }
-      try {
-        const answer = await api.getPnlByMode();
-        if (only !== 'REAL') {
-          setPaperBlock(paperLoad(answer.paper));
-        }
-        if (only !== 'PAPER') {
-          setRealBlock(realLoad(answer.real));
-        }
-      } catch (failure) {
-        if (failure instanceof ApiError && failure.status === 401) {
-          expire();
-          return;
-        }
-        const code = failureCode(failure);
-        if (only !== 'REAL') {
-          setPaperBlock({ kind: 'error', code });
-        }
-        if (only !== 'PAPER') {
-          setRealBlock({ kind: 'error', code });
-        }
-      }
-    },
-    [api, expire],
+  const clock = useCallback(() => now ?? new Date(), [now]);
+  const [state, dispatch] = useReducer(pnlScreenReducer, undefined, () =>
+    initialPnlScreenState(periodFromAddress(search, zone, now ?? new Date())),
   );
+  const [selection, setSelection] = useState<ComparisonSelection | null>(() =>
+    parseComparison(search?.get('comparar')),
+  );
+  const [periodTouched, setPeriodTouched] = useState(false);
+  const controllers = useRef<Partial<Record<PnlSlot, AbortController>>>({});
+  const requestIds = useRef(0);
+  const { period } = state;
 
   useEffect(() => {
-    if (status === 'authenticated') {
-      void fetchByMode();
-    }
-  }, [status, fetchByMode]);
+    const slots = controllers.current;
+    return () => Object.values(slots).forEach((controller) => controller?.abort());
+  }, []);
 
-  function retryBlock(market: 'PAPER' | 'REAL') {
-    setRetried(market);
-    void fetchByMode(market);
-  }
+  /** A fresh request of a slot: the previous one of the same slot is aborted. */
+  const start = useCallback((slot: PnlSlot) => {
+    controllers.current[slot]?.abort();
+    const controller = new AbortController();
+    controllers.current[slot] = controller;
+    requestIds.current += 1;
+    return { requestId: requestIds.current, signal: controller.signal };
+  }, []);
 
-  const fetchReport = useCallback(async () => {
-    if (!period) {
-      setLoad({ kind: 'invalid' });
-      return;
-    }
-    setLoad({ kind: 'loading' });
-    try {
-      setLoad({ kind: 'ready', report: await api.getPnl(period) });
-    } catch (failure) {
+  /** A failure that is not the business of the block: cancelled (ignored) or the expired session. */
+  const handled = useCallback(
+    (failure: unknown) => {
+      if (failure instanceof RequestCancelled) {
+        return true;
+      }
       if (failure instanceof ApiError && failure.status === 401) {
         expire();
-        return;
+        return true;
       }
-      setLoad({ kind: 'error' });
+      return false;
+    },
+    [expire],
+  );
+
+  const readByMode = useCallback(async () => {
+    const { requestId, signal } = start('byMode');
+    dispatch({ type: 'BY_MODE_REQUESTED', requestId });
+    try {
+      const answer = await api.getPnlByMode({ period: periodRequest(period) }, { signal });
+      dispatch({
+        type: 'BY_MODE_LOADED',
+        requestId,
+        paper: paperLoad(answer.paper),
+        real: realLoad(answer.real),
+      });
+    } catch (failure) {
+      if (!handled(failure)) {
+        dispatch({ type: 'BY_MODE_FAILED', requestId, code: failureCode(failure) });
+      }
     }
-  }, [api, expire, period]);
+  }, [api, handled, period, start]);
+
+  const readTokens = useCallback(async () => {
+    if (period.utc === null) {
+      controllers.current.tokens?.abort();
+      dispatch({ type: 'TOKENS_IDLE' });
+      return;
+    }
+    const { requestId, signal } = start('tokens');
+    dispatch({ type: 'TOKENS_REQUESTED', requestId });
+    try {
+      const report = await api.getPnl(
+        { from: period.utc.from, to: period.utc.to },
+        { signal, retry: false },
+      );
+      dispatch({ type: 'TOKENS_LOADED', requestId, report });
+    } catch (failure) {
+      if (!handled(failure)) {
+        dispatch({ type: 'TOKENS_FAILED', requestId, code: failureCode(failure) });
+      }
+    }
+  }, [api, handled, period, start]);
 
   useEffect(() => {
     if (status === 'authenticated') {
-      void fetchReport();
+      void readByMode();
+      void readTokens();
     }
-  }, [status, fetchReport]);
-  function apply(event: FormEvent) {
-    event.preventDefault();
-    setPeriod(toUtcPeriod(fromDay, toDay, zone));
+  }, [status, readByMode, readTokens]);
+
+  async function retryBlock(market: 'PAPER' | 'REAL') {
+    const { requestId, signal } = start(`retry:${market}`);
+    dispatch({ type: 'BLOCK_RETRY_REQUESTED', market, requestId });
+    try {
+      const answer = await api.getPnlByMode({ market, period: periodRequest(period) }, { signal });
+      dispatch({
+        type: 'BLOCK_RETRY_LOADED',
+        market,
+        requestId,
+        load: market === 'PAPER' ? paperLoad(answer.paper) : realLoad(answer.real),
+      });
+    } catch (failure) {
+      if (!handled(failure)) {
+        dispatch({ type: 'BLOCK_RETRY_FAILED', market, requestId, code: failureCode(failure) });
+      }
+    }
   }
 
+  function applyPeriod(next: AppliedPeriod) {
+    setPeriodTouched(true);
+    dispatch({ type: 'PERIOD_APPLIED', period: next });
+    router.replace(addressOf(next, selection));
+  }
+
+  function select(next: ComparisonSelection | null) {
+    setSelection(next);
+    router.replace(addressOf(period, next));
+  }
+
+  const periodLine =
+    period.kind === 'ALL' ? modeMessages.sinceStart : periodText.options[period.kind];
   return (
     <AppShell current="pnl" titleId="pnl-title">
-      <h1 id="pnl-title" ref={heading} tabIndex={-1} data-testid="pnl-title">
+      <h1 id="pnl-title" tabIndex={-1} data-testid="pnl-title">
         {modeMessages.title}
       </h1>
       <p className="muted">{modeMessages.intro}</p>
+      <PeriodSelector value={period} onChange={applyPeriod} timeZone={zone} now={clock} />
       <div className="pnl-modes" data-testid="pnl-modes">
         <PnlModeBlock
           market="PAPER"
-          load={paperBlock}
-          period={modeMessages.sinceStart}
+          load={state.paper}
+          period={periodLine}
           timeZone={zone}
-          focusHeading={retried === null || retried === 'PAPER'}
-          onRetry={() => retryBlock('PAPER')}
-        />
+          focusHeading={state.focus === 'PAPER' || (state.focus === null && !periodTouched)}
+          onRetry={() => void retryBlock('PAPER')}
+        >
+          <TokensSection
+            state={state.tokens}
+            concrete={period.utc !== null}
+            timeZone={zone}
+            onRetry={() => void readTokens()}
+          />
+        </PnlModeBlock>
         <PnlModeBlock
           market="REAL"
-          load={realBlock}
-          period={modeMessages.sinceStart}
+          load={state.real}
+          period={periodLine}
           timeZone={zone}
-          focusHeading={retried === 'REAL'}
-          onRetry={() => retryBlock('REAL')}
+          focusHeading={state.focus === 'REAL'}
+          onRetry={() => void retryBlock('REAL')}
         />
       </div>
-      <h2 data-testid="pnl-paper-section">
-        {modeMessages.paperSection} <SimulatedBadge testId="pnl-paper-badge" />{' '}
-        <span className="tag">{text.paperLabel}</span>
-      </h2>
-      <p className="muted">{text.intro}</p>
-      <form onSubmit={apply} data-testid="pnl-period">
-        <fieldset>
-          <legend>{text.periodLegend}</legend>
-          <label htmlFor="pnl-from">{text.from}</label>
-          <input
-            id="pnl-from"
-            type="date"
-            value={fromDay}
-            data-testid="pnl-from"
-            onChange={(event) => setFromDay(event.target.value)}
-          />
-          <label htmlFor="pnl-to">{text.to}</label>
-          <input
-            id="pnl-to"
-            type="date"
-            value={toDay}
-            data-testid="pnl-to"
-            onChange={(event) => setToDay(event.target.value)}
-          />
-          <p className="muted">{text.periodHelp(zone)}</p>
-          <button type="submit" data-testid="pnl-apply">
-            {text.apply}
-          </button>
-        </fieldset>
-      </form>
-      {load.kind === 'invalid' && (
-        <p role="alert" className="notice notice-error" data-testid="pnl-invalid">
-          {text.invalidPeriod}
+      <ComparisonView selection={selection} onSelect={select} period={period} timeZone={zone} />
+      <ReconciliationPanel timeZone={zone} />
+      <LedgerList timeZone={zone} />
+    </AppShell>
+  );
+}
+
+/**
+ * BR2.9 (decision of the founder): "Ver por token" of the PAPER, with its own loading, error with code and "Tentar de
+ * novo"; in "Desde o início" the note "Escolha um período para ver o resultado por token" and no request.
+ */
+function TokensSection({
+  state,
+  concrete,
+  timeZone,
+  onRetry,
+}: {
+  state: ReturnType<typeof initialPnlScreenState>['tokens'];
+  concrete: boolean;
+  timeZone: string;
+  onRetry: () => void;
+}) {
+  return (
+    <section aria-labelledby="pnl-paper-section" className="pnl-by-token">
+      <h3 id="pnl-paper-section" data-testid="pnl-paper-section">
+        {periodText.byToken}
+      </h3>
+      {!concrete && (
+        <p className="muted" data-testid="pnl-by-token-note">
+          {periodText.byTokenNote}
         </p>
       )}
-      {load.kind === 'loading' && (
+      {concrete && state.kind === 'loading' && (
         <p role="status" data-testid="pnl-loading">
           {text.loading}
         </p>
       )}
-      {load.kind === 'error' && (
+      {concrete && state.kind === 'error' && (
         <div role="alert" className="notice notice-error" data-testid="pnl-error">
           <p>{text.error}</p>
-          <button
-            type="button"
-            className="secondary"
-            data-testid="pnl-retry"
-            onClick={() => void fetchReport()}
-          >
+          <p className="muted" data-testid="pnl-error-code">
+            {modeMessages.supportCode(state.code)}
+          </p>
+          <button type="button" className="secondary" data-testid="pnl-retry" onClick={onRetry}>
             {text.retry}
           </button>
         </div>
       )}
-      {load.kind === 'ready' && <Report report={load.report} timeZone={zone} />}
-      <ReconciliationPanel timeZone={zone} />
-      <LedgerList timeZone={zone} />
-    </AppShell>
+      {concrete && state.kind === 'ready' && <Report report={state.report} timeZone={timeZone} />}
+    </section>
   );
 }
 
@@ -223,7 +287,7 @@ function Report({ report, timeZone }: { report: PnlReport; timeZone: string }) {
   }
   return (
     <section aria-labelledby="pnl-totals-title" data-testid="pnl-report">
-      <h2 id="pnl-totals-title">{text.totalsCaption}</h2>
+      <h4 id="pnl-totals-title">{text.totalsCaption}</h4>
       {report.partial && (
         <p role="note" className="notice notice-warning" data-testid="pnl-partial">
           {text.partial}

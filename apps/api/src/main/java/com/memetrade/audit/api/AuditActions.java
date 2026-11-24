@@ -70,6 +70,14 @@ public final class AuditActions {
      */
     public static final String REAL_PNL_RECONCILIATION_MISMATCH = "REAL_PNL_RECONCILIATION_MISMATCH";
 
+    /**
+     * 261121-paper-real-unico U3 (BR5.2, D-NFR1, NFR3.13): the comparison of C6 was asked for two bots of the person with
+     * different strategies (422 {@code TEMPLATE_MISMATCH}). Actor the person, target {@code pnl-compare}; details
+     * {@code route}, {@code side}, {@code botIds} and {@code fingerprint}; never a name, a strategy, a value nor an
+     * address. Written at most once per hour per person (RateLimitedAuditPublisher).
+     */
+    public static final String PNL_COMPARE_TEMPLATE_MISMATCH = "PNL_COMPARE_TEMPLATE_MISMATCH";
+
     /** U7 (BR4.2): a ledger entry was corrected by a compensating entry. */
     public static final String LEDGER_ENTRY_COMPENSATED = "LEDGER_ENTRY_COMPENSATED";
 

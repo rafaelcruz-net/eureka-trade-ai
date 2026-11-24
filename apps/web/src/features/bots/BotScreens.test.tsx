@@ -81,6 +81,8 @@ describe('bot list /bots', () => {
         nextCursor: null,
         activeCount: 2,
         activeLimit: 3,
+        matchingCount: 2,
+        totalCount: 2,
       })),
     });
     renderWith(<BotList timeZone="America/Sao_Paulo" />, api);
@@ -104,6 +106,8 @@ describe('bot list /bots', () => {
         nextCursor: null,
         activeCount: 3,
         activeLimit: 3,
+        matchingCount: 1,
+        totalCount: 1,
       })),
       runBotCommand: jest.fn(async () => {
         throw new ApiError(409, 'ACTIVE_BOT_LIMIT');
@@ -129,7 +133,14 @@ describe('bot list /bots', () => {
     await user.click(screen.getByTestId('bots-retry'));
     await screen.findByTestId('bots-empty');
     await user.selectOptions(screen.getByTestId('bots-filter'), 'ACTIVE');
-    await waitFor(() => expect(api.listBots).toHaveBeenLastCalledWith({ state: 'ACTIVE' }));
+    // 261121-paper-real-unico U3 (BR1.2, NFR1.8): the state filter goes with the market of the filter by mode (none in
+    // "Todos") and the signal of the slot of the list.
+    await waitFor(() =>
+      expect(api.listBots).toHaveBeenLastCalledWith(
+        { state: 'ACTIVE', market: undefined },
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      ),
+    );
   });
 
   it('a 401 hands over to the session expiry', async () => {

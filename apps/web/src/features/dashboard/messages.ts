@@ -54,21 +54,11 @@ export const dashboardMessages = {
     notFilledWithReason: (reason: string) => `não preenchida: ${reason}`,
     announced: (bot: string, side: string) => `Nova operação simulada do bot ${bot}: ${side}`,
   },
-  pnl: {
-    title: 'P&L PAPER (simulado)',
-    termHelp: 'P&L: resultado simulado, em USDC, das operações PAPER. Não é dinheiro real.',
-    loading: 'Calculando o P&L de hoje…',
-    error: 'Não foi possível carregar o P&L agora. Os outros quadros continuam funcionando.',
-    period: (time: string) => `Hoje (dia UTC, desde ${time} no seu horário)`,
-    realized: 'Realizado',
-    unrealized: 'Não realizado',
-    fees: 'Taxas',
-    unit: 'USDC',
-    feesPaid: 'pagas',
-    partial: 'Parte das posições está sem preço confiável',
-    empty: 'Nenhuma operação hoje',
-    simulatedNote: 'Valores simulados; resultados passados não indicam resultados futuros.',
-    open: 'Ver P&L',
+  // 261121-paper-real-unico U3 (BR7.1): the cards by mode replace the card "P&L PAPER (simulado)" of the UTC day.
+  modes: {
+    title: 'Resultados por modo · desde o início',
+    intro:
+      'O resultado simulado e o resultado real ficam em cartões separados e nunca são somados.',
   },
   reconciliation: {
     loading: 'Carregando a reconciliação…',

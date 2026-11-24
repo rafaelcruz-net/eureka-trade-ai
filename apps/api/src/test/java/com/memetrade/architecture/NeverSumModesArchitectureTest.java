@@ -88,7 +88,13 @@ class NeverSumModesArchitectureTest {
             com.memetrade.pnl.real.TradeEvent.class,
             com.memetrade.pnl.real.PositionValue.class,
             com.memetrade.pnl.real.RealPnlResult.class,
-            com.memetrade.pnl.real.ReconciliationResult.class);
+            com.memetrade.pnl.real.ReconciliationResult.class,
+            // 261121-paper-real-unico U3 (C5, C10 botLines): the lines of the P&L of a REAL bot.
+            com.memetrade.pnl.api.RealPnlLinePage.class,
+            com.memetrade.pnl.api.RealPnlLineItem.class,
+            com.memetrade.pnl.api.RealPnlLineOrigin.class,
+            com.memetrade.pnl.api.RealPnlLineCursorRejected.class,
+            com.memetrade.pnl.real.RealPnlEngine.CollectedLine.class);
 
     /** The PAPER block on the wire, with its US$ amount shapes (PnlAmountDto is used by PAPER code only). */
     static final Set<Class<?>> PAPER_DTOS = Set.of(
@@ -97,7 +103,10 @@ class NeverSumModesArchitectureTest {
             ModePnlDtos.PaperBotPnlLineDto.class,
             PnlDtos.PnlAmountDto.class,
             PnlDtos.KnownPnlDto.class,
-            PnlDtos.UnknownPnlDto.class);
+            PnlDtos.UnknownPnlDto.class,
+            // 261121-paper-real-unico U3 (C6): the PAPER side of the comparison.
+            ModePnlDtos.PaperComparisonSideResultDto.class,
+            ModePnlDtos.PaperComparisonSideDto.class);
 
     /** The REAL block on the wire, with its lamport amount shapes. */
     static final Set<Class<?>> REAL_DTOS = Set.of(
@@ -110,21 +119,31 @@ class NeverSumModesArchitectureTest {
             ModePnlDtos.ProratedLineDto.class,
             ModePnlDtos.LamportsAmountDto.class,
             ModePnlDtos.LamportsKnownDto.class,
-            ModePnlDtos.LamportsUnknownDto.class);
+            ModePnlDtos.LamportsUnknownDto.class,
+            // 261121-paper-real-unico U3 (C5, C6): the lines of a REAL bot and the REAL side of the comparison.
+            ModePnlDtos.RealBotPnlLinePageDto.class,
+            ModePnlDtos.RealBotPnlLineItemDto.class,
+            ModePnlDtos.RealComparisonSideResultDto.class,
+            ModePnlDtos.RealComparisonSideDto.class);
 
     /** The types of ModePnlDtos that carry no value of either mode. */
     static final Set<Class<?>> NEUTRAL_DTOS = Set.of(
             ModePnlDtos.class,
             ModePnlDtos.PnlByModeDto.class,
             ModePnlDtos.PnlPeriodDto.class,
-            ModePnlDtos.ModeBlockUnavailableDto.class);
+            ModePnlDtos.ModeBlockUnavailableDto.class,
+            // 261121-paper-real-unico U3 (C6): the envelope of the two sides of the comparison.
+            ModePnlDtos.PnlComparisonDto.class);
 
     /**
-     * CLOSED list of the classes outside the mode view allowed to see both modes: they only put the two blocks in one
-     * envelope. Parts 2 and 3 hold for them as for the mode view.
+     * CLOSED list of the classes outside the mode view allowed to see both modes: they only put the two blocks (or the
+     * two sides of C6, since the U3) in one envelope. Parts 2 and 3 hold for them as for the mode view.
      */
-    static final Set<Class<?>> ASSEMBLERS =
-            Set.of(PnlController.class, ModePnlDtos.PnlByModeDto.class, ModePnlDtos.ModeBlockUnavailableDto.class);
+    static final Set<Class<?>> ASSEMBLERS = Set.of(
+            PnlController.class,
+            ModePnlDtos.PnlByModeDto.class,
+            ModePnlDtos.ModeBlockUnavailableDto.class,
+            ModePnlDtos.PnlComparisonDto.class);
 
     static final Set<Class<?>> PAPER_RESULTS = union(PAPER_DOMAIN, PAPER_DTOS);
 

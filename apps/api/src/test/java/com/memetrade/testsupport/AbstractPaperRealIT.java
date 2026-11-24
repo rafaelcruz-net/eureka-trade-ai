@@ -90,6 +90,8 @@ public abstract class AbstractPaperRealIT extends AbstractRealExecutionIT {
         faultyAudit.failNext.set(false);
         faultyPaper.fault.set(Fault.NONE);
         faultyReal.fault.set(Fault.NONE);
+        faultyReal.botFault.set(Fault.NONE);
+        faultyPaper.lineFault.set(Fault.NONE);
         killSwitch(false);
     }
 
@@ -312,6 +314,16 @@ public abstract class AbstractPaperRealIT extends AbstractRealExecutionIT {
             Faults.apply(fault.get(), "PAPER");
             return super.block(person, window);
         }
+
+        /** 261121-paper-real-unico U3: the fault of the PAPER side of C6. */
+        public final AtomicReference<Fault> lineFault = new AtomicReference<>(Fault.NONE);
+
+        @Override
+        public com.memetrade.pnl.application.PaperBotPnlLine lineOf(
+                Principal person, com.memetrade.pnl.api.BotEntry bot, PnlWindow window) {
+            Faults.apply(lineFault.get(), "PAPER");
+            return super.lineOf(person, bot, window);
+        }
     }
 
     /** The REAL block (C10), which can fail or sleep past the deadline. */
@@ -332,7 +344,18 @@ public abstract class AbstractPaperRealIT extends AbstractRealExecutionIT {
         @Override
         public Optional<com.memetrade.pnl.api.RealBotPnlLine> botPnl(
                 UUID tenantId, UUID userId, UUID botId, PnlWindow window) {
+            Faults.apply(botFault.get(), "REAL");
             return real.botPnl(tenantId, userId, botId, window);
+        }
+
+        /** 261121-paper-real-unico U3: the fault of the REAL side of C6 and of the pass of C5. */
+        public final AtomicReference<Fault> botFault = new AtomicReference<>(Fault.NONE);
+
+        @Override
+        public Optional<com.memetrade.pnl.api.RealPnlLinePage> botLines(
+                UUID tenantId, UUID userId, UUID botId, Optional<String> cursor, int limit) {
+            Faults.apply(botFault.get(), "REAL");
+            return real.botLines(tenantId, userId, botId, cursor, limit);
         }
     }
 

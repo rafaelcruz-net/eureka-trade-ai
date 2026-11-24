@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -24,17 +25,35 @@ public final class ModePnlDtos {
 
     private ModePnlDtos() {}
 
+    /**
+     * 261121-paper-real-unico U3 (BR3.1, PQ-6): with {@code market} only the block asked comes; the key of the other
+     * block is ABSENT from the JSON, never {@code null} ({@code NON_ABSENT}). Without {@code market}, both.
+     */
     @Schema(
             name = "PnlByMode",
-            description = "Só o período e os dois blocos. Não existe campo de total fora dos blocos" + " (FR4.1, NFR3)")
+            description =
+                    "Só o período e os blocos. Sem market, os dois blocos; com market, só o bloco pedido, e a chave"
+                            + " do outro fica ausente (nunca null). Não existe campo de total fora dos blocos (FR4.1, NFR3)")
     public record PnlByModeDto(
             @Schema(requiredMode = RequiredMode.REQUIRED) PnlPeriodDto period,
-            @Schema(requiredMode = RequiredMode.REQUIRED) PaperModeBlockResultDto paper,
-            @Schema(requiredMode = RequiredMode.REQUIRED) RealModeBlockResultDto real) {
+
+            @Schema(requiredMode = RequiredMode.NOT_REQUIRED) @JsonInclude(JsonInclude.Include.NON_ABSENT)
+            PaperModeBlockResultDto paper,
+
+            @Schema(requiredMode = RequiredMode.NOT_REQUIRED) @JsonInclude(JsonInclude.Include.NON_ABSENT)
+            RealModeBlockResultDto real) {
 
         static PnlByModeDto of(
-                String period, BlockResult<PaperModeBlockDto> paper, BlockResult<RealModeBlockDto> real) {
-            return new PnlByModeDto(new PnlPeriodDto(period, null, null), paperOf(paper), realOf(real));
+                PnlPeriodDto period,
+                Optional<BlockResult<PaperModeBlockDto>> paper,
+                Optional<BlockResult<RealModeBlockDto>> real) {
+            if (paper.isEmpty() && real.isEmpty()) {
+                throw new IllegalArgumentException("The P&L by mode has at least one block");
+            }
+            return new PnlByModeDto(
+                    period,
+                    paper.map(PnlByModeDto::paperOf).orElse(null),
+                    real.map(PnlByModeDto::realOf).orElse(null));
         }
 
         private static PaperModeBlockResultDto paperOf(BlockResult<PaperModeBlockDto> result) {
@@ -107,7 +126,10 @@ public final class ModePnlDtos {
             String code,
 
             @Schema(requiredMode = RequiredMode.REQUIRED) String correlationId)
-            implements PaperModeBlockResultDto, RealModeBlockResultDto {
+            implements PaperModeBlockResultDto,
+                    RealModeBlockResultDto,
+                    PaperComparisonSideResultDto,
+                    RealComparisonSideResultDto {
 
         static ModeBlockUnavailableDto of(BlockResult.Unavailable<?> unavailable) {
             return new ModeBlockUnavailableDto(
@@ -314,6 +336,151 @@ public final class ModePnlDtos {
                                     description =
                                             "Conjunto, sem repetição (BR5.6: SURPLUS_WITHOUT_OWNER da U1 virou UNOWNED_EXCESS)"))
             List<String> reasons) {}
+
+    // ----------------------------------------------------------------- C5 (261121-paper-real-unico U3)
+
+    /** C5 (BR4.2, BR4.3): one page of the lines of a REAL bot, newest first; {@code nextCursor} null at the end. */
+    @Schema(name = "RealBotPnlLinePage")
+    public record RealBotPnlLinePageDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "SOL")
+            String currency,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED) List<RealBotPnlLineItemDto> items,
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    types = {"string", "null"},
+                    description = "Cursor opaco da página seguinte; null quando não há mais linhas")
+            @JsonInclude(JsonInclude.Include.ALWAYS)
+            String nextCursor) {}
+
+    /** C5 (BR4.1, BR4.4): one line; a buy realizes {@code "0"}, which is not missing data. */
+    @Schema(name = "RealBotPnlLineItem")
+    public record RealBotPnlLineItemDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
+            Instant at,
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {"BUY", "SELL"})
+            String side,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED) String mint,
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    allowableValues = {"BOT", "LIQUIDATION", "CONDITIONAL", "SOLD_BY_OTHER_BOT"},
+                    description = "BOT para as ordens do próprio bot; as demais são parcelas rateadas")
+            String origin,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, pattern = "^[0-9]{1,30}$")
+            String tokenBaseUnits,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, pattern = LAMPORTS)
+            String amountLamports,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, pattern = LAMPORTS)
+            String feeLamports,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, pattern = LAMPORTS)
+            String realizedLamports) {}
+
+    // ----------------------------------------------------------------- C6 (261121-paper-real-unico U3)
+
+    /**
+     * C6 (BR5.4, BR6.2, AC8.1.2): only the period and the two sides; no field of a difference, a percentage, a ranking
+     * nor a total.
+     */
+    @Schema(
+            name = "PnlComparison",
+            description = "Só o período e os dois lados; nenhum campo de diferença, percentual, ranking ou total")
+    public record PnlComparisonDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED) PnlPeriodDto period,
+            @Schema(requiredMode = RequiredMode.REQUIRED) PaperComparisonSideResultDto paper,
+            @Schema(requiredMode = RequiredMode.REQUIRED) RealComparisonSideResultDto real) {
+
+        static PnlComparisonDto of(
+                PnlPeriodDto period,
+                BlockResult<PaperComparisonSideDto> paper,
+                BlockResult<RealComparisonSideDto> real) {
+            PaperComparisonSideResultDto paperSide =
+                    switch (paper) {
+                        case BlockResult.Available<PaperComparisonSideDto> available -> available.block();
+                        case BlockResult.Unavailable<PaperComparisonSideDto> unavailable ->
+                            ModeBlockUnavailableDto.of(unavailable);
+                    };
+            RealComparisonSideResultDto realSide =
+                    switch (real) {
+                        case BlockResult.Available<RealComparisonSideDto> available -> available.block();
+                        case BlockResult.Unavailable<RealComparisonSideDto> unavailable ->
+                            ModeBlockUnavailableDto.of(unavailable);
+                    };
+            return new PnlComparisonDto(period, paperSide, realSide);
+        }
+    }
+
+    @Schema(
+            name = "PaperComparisonSideResult",
+            oneOf = {PaperComparisonSideDto.class, ModeBlockUnavailableDto.class},
+            discriminatorProperty = "status",
+            discriminatorMapping = {
+                @DiscriminatorMapping(value = "AVAILABLE", schema = PaperComparisonSideDto.class),
+                @DiscriminatorMapping(value = "UNAVAILABLE", schema = ModeBlockUnavailableDto.class)
+            })
+    public sealed interface PaperComparisonSideResultDto permits PaperComparisonSideDto, ModeBlockUnavailableDto {}
+
+    @Schema(
+            name = "RealComparisonSideResult",
+            oneOf = {RealComparisonSideDto.class, ModeBlockUnavailableDto.class},
+            discriminatorProperty = "status",
+            discriminatorMapping = {
+                @DiscriminatorMapping(value = "AVAILABLE", schema = RealComparisonSideDto.class),
+                @DiscriminatorMapping(value = "UNAVAILABLE", schema = ModeBlockUnavailableDto.class)
+            })
+    public sealed interface RealComparisonSideResultDto permits RealComparisonSideDto, ModeBlockUnavailableDto {}
+
+    /** C6, the PAPER side (AC8.1.3): in US$, with the fixed disclaimer. */
+    @Schema(name = "PaperComparisonSide")
+    public record PaperComparisonSideDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "AVAILABLE")
+            String status,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "PAPER")
+            String market,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "USD")
+            String currency,
+
+            @Schema(
+                    requiredMode = RequiredMode.REQUIRED,
+                    description = "Aviso fixo do simulado: \"O resultado simulado não garante o resultado real.\"")
+            String disclaimer,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
+            Instant createdAt,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED) String templateId,
+            @Schema(requiredMode = RequiredMode.REQUIRED) PaperBotPnlLineDto line)
+            implements PaperComparisonSideResultDto {}
+
+    /** C6, the REAL side (AC8.1.3): in SOL, never a disclaimer. */
+    @Schema(name = "RealComparisonSide")
+    public record RealComparisonSideDto(
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "AVAILABLE")
+            String status,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "REAL")
+            String market,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, allowableValues = "SOL")
+            String currency,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED, format = "date-time")
+            Instant createdAt,
+
+            @Schema(requiredMode = RequiredMode.REQUIRED) String templateId,
+            @Schema(requiredMode = RequiredMode.REQUIRED) RealBotPnlLineDto line)
+            implements RealComparisonSideResultDto {}
 
     @Schema(
             name = "LamportsAmount",

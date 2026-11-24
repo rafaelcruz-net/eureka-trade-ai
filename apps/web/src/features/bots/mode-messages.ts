@@ -73,4 +73,29 @@ export const botListModeMessages = {
   draftPnl: '—',
   pnlUnavailable: 'P&L indisponível agora',
   disclaimer: 'O resultado simulado não garante o resultado real.',
+  // 261121-paper-real-unico U3 (BR1.1 to BR1.5): the filter by mode of /bots.
+  filter: {
+    legend: 'Modo',
+    ALL: 'Todos',
+    PAPER: 'Simulado',
+    REAL: 'Real',
+  },
+  shown: (matching: number, total: number) =>
+    total === 1 ? `Mostrando ${matching} de 1 bot.` : `Mostrando ${matching} de ${total} bots.`,
+  emptyNone: 'Você ainda não tem bots.',
+  emptyNoneLink: '+ Novo bot',
+  emptyPaper: 'Você não tem bots simulados.',
+  emptyReal: 'Você não tem bots reais.',
+  emptyState: 'Nenhum bot neste estado.',
+  showAll: 'Ver todos os bots',
+};
+
+/** 261121-paper-real-unico U3 (BR4.5, BR4.6, BR8.2, BR9.3): the head and the P&L of the bot screen. */
+export const botDetailModeMessages = {
+  modeLine: (mode: string) => `Modo: ${mode} · não pode ser trocado`,
+  modes: { PAPER: 'Simulado', REAL: 'Real' } as Record<string, string>,
+  pnlHeading: 'P&L do bot',
+  sinceStart: 'Desde o início',
+  notFound: 'Bot não encontrado.',
+  back: 'Voltar para Meus bots',
 };

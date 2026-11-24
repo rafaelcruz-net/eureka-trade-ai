@@ -28,9 +28,10 @@ test('U9: the dashboard shows a pause made in another tab without reloading', as
   await expect(page.getByTestId('dashboard-title')).toHaveText('Painel');
   await expect(page.getByTestId('app-nav-dashboard-link')).toHaveAttribute('aria-current', 'page');
   await expect(page.getByTestId('dashboard-bots-card')).toContainText('MODO PAPER (simulado)');
-  await expect(page.getByTestId('dashboard-pnl-card')).toContainText('MODO PAPER (simulado)');
+  // 261121-paper-real-unico U3 (BR7.1): the card of the UTC day became the two cards by mode, since the start.
+  await expect(page.getByTestId('dashboard-mode-cards')).toContainText('Resultado simulado');
   await expect(page.getByTestId('dashboard-data-notices')).toBeVisible();
-  await expect(page.getByTestId('dashboard-pnl-card')).not.toContainText('Calculando');
+  await expect(page.getByTestId('dashboard-mode-cards')).not.toContainText('Calculando');
   await expect(page.getByTestId('app-wallet-badge')).toContainText(
     `${wallet.address.slice(0, 4)}…${wallet.address.slice(-4)}`,
   );

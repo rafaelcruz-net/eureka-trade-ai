@@ -1,4 +1,4 @@
-import { ApiError, createApiClient } from '@/lib/api/client';
+import { ApiError, createApiClient, RequestCancelled } from '@/lib/api/client';
 import { tokenStore } from '@/lib/auth/token-store';
 
 interface FakeResponse {
@@ -189,5 +189,74 @@ describe('api client', () => {
 
     await expect(pending).rejects.toMatchObject({ code: 'TIMEOUT' });
     jest.useRealTimers();
+  });
+});
+
+/** 261121-paper-real-unico U3, Etapa 16 (NFR1.8, NFR4.10, NFR4.11, alignment A8): the signal and `retry: false`. */
+describe('api client signal and retry (U3)', () => {
+  it('an aborted signal throws RequestCancelled at once, without fetching nor waiting', async () => {
+    const { client, fetchImpl, sleep } = setup(respond(200, {}));
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(client.request('/x', { signal: controller.signal })).rejects.toBeInstanceOf(
+      RequestCancelled,
+    );
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('a signal aborted during the request is never repeated and removes its listener', async () => {
+    const controller = new AbortController();
+    const removed = jest.spyOn(controller.signal, 'removeEventListener');
+    const fetchImpl = jest.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(abortError()));
+        }),
+    );
+    const sleep = jest.fn(async () => undefined);
+    const client = createApiClient({
+      baseUrl: 'http://api',
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleep,
+    });
+
+    const pending = client.request('/x', { signal: controller.signal });
+    controller.abort();
+
+    await expect(pending).rejects.toBeInstanceOf(RequestCancelled);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(removed).toHaveBeenCalledWith('abort', expect.any(Function));
+  });
+
+  it('with retry false a 503 is an error at the first attempt with its correlation id', async () => {
+    const { client, fetchImpl } = setup(
+      respond(503, { code: 'SERVICE_UNAVAILABLE', correlationId: 'corr-503' }),
+      respond(200, {}),
+    );
+
+    await expect(client.request('/lines', { retry: false })).rejects.toMatchObject({
+      status: 503,
+      correlationId: 'corr-503',
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('with retry false a timeout is an error at the first attempt', async () => {
+    const { client, fetchImpl } = setup(abortError(), respond(200, {}));
+
+    await expect(client.request('/lines', { retry: false })).rejects.toMatchObject({
+      code: 'TIMEOUT',
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('without retry false a GET is still repeated on a 503', async () => {
+    const { client, fetchImpl } = setup(respond(503, {}), respond(200, { ok: 1 }));
+
+    await expect(client.request('/by-mode')).resolves.toEqual({ ok: 1 });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 });

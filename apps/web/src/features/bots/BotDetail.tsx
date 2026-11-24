@@ -13,14 +13,22 @@ import type {
   DayUsage,
   Decision,
   OrderRejection,
+  PaperBotPnlLine,
   PauseReason,
   PnlTokenLine,
+  RealBotPnlLine,
 } from '@/lib/api/guest-api';
 import { abbreviateMint, formatDecimal, formatInstant } from '@/lib/format/format';
 import { messages } from '@/lib/i18n/messages';
+import { SimulatedBadge } from '@/components/SimulatedBadge';
+import { RealBadge } from '@/features/real/components/RealBadge';
 import { useSession } from '@/features/auth/SessionProvider';
 import { useRequireSession } from '@/features/auth/useRequireSession';
+import { BotPnlLines } from '@/features/pnl/BotPnlLines';
 import { BotTradesTable } from '@/features/pnl/BotTradesTable';
+import { failureCode } from '@/features/pnl/by-mode';
+import { PnlModeBlock, type BotLineLoad } from '@/features/pnl/PnlModeBlock';
+import { botDetailModeMessages as modeText } from '@/features/bots/mode-messages';
 import { BotsShell } from '@/features/bots/BotsShell';
 import { compareDecimal } from '@/features/bots/decimal';
 import { Dialog } from '@/features/bots/Dialog';
@@ -37,6 +45,11 @@ type Load =
   | { kind: 'error' }
   | { kind: 'not-found' }
   | { kind: 'ready'; bot: BotDetailData };
+
+/** 261121-paper-real-unico U3 (BR4.6): the line of the bot in the block of its mode of C4, since the start. */
+type BotPnl =
+  | { market: 'PAPER'; load: BotLineLoad<PaperBotPnlLine>; disclaimer?: string }
+  | { market: 'REAL'; load: BotLineLoad<RealBotPnlLine> };
 
 function browserTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -64,11 +77,73 @@ export function BotDetail({ timeZone, now }: { timeZone?: string; now?: () => Da
   const [revision, setRevision] = useState(0);
   const stopButton = useRef<HTMLButtonElement>(null);
   const limitsButton = useRef<HTMLButtonElement>(null);
+  const [botPnl, setBotPnl] = useState<BotPnl | null>(null);
+
+  /**
+   * 261121-paper-real-unico U3 (BR4.6, BR2.8): the result of the bot is ITS line in the block of its mode of C4, with
+   * `period=ALL` (the same computation of the U2, never a sum of the lines); no line yet is "—".
+   */
+  const fetchBotPnl = useCallback(
+    async (market: 'PAPER' | 'REAL') => {
+      setBotPnl(
+        market === 'PAPER'
+          ? { market, load: { kind: 'loading' } }
+          : { market, load: { kind: 'loading' } },
+      );
+      try {
+        const answer = await api.getPnlByMode({ market });
+        if (market === 'PAPER') {
+          const block = answer.paper;
+          if (block === undefined || block.status !== 'AVAILABLE') {
+            setBotPnl({
+              market,
+              load: { kind: 'error', code: block?.correlationId ?? 'SERVICE_UNAVAILABLE' },
+            });
+            return;
+          }
+          const line = block.bots.find((entry) => entry.botId === botId);
+          setBotPnl({
+            market,
+            load: line ? { kind: 'ready', block: line } : { kind: 'none' },
+            disclaimer: block.disclaimer,
+          });
+          return;
+        }
+        const block = answer.real;
+        if (block === undefined || block.status !== 'AVAILABLE') {
+          setBotPnl({
+            market,
+            load: { kind: 'error', code: block?.correlationId ?? 'SERVICE_UNAVAILABLE' },
+          });
+          return;
+        }
+        const line = block.bots.find((entry) => entry.botId === botId);
+        setBotPnl({ market, load: line ? { kind: 'ready', block: line } : { kind: 'none' } });
+      } catch (failure) {
+        if (isUnauthenticated(failure)) {
+          expire();
+          return;
+        }
+        setBotPnl(
+          market === 'PAPER'
+            ? { market, load: { kind: 'error', code: failureCode(failure) } }
+            : { market, load: { kind: 'error', code: failureCode(failure) } },
+        );
+      }
+    },
+    [api, botId, expire],
+  );
 
   const fetchBot = useCallback(async () => {
     try {
       const bot = await api.getBot(botId);
       setLoad({ kind: 'ready', bot });
+      void fetchBotPnl(bot.market);
+      if (bot.market === 'REAL') {
+        // The REAL bot has no simulated positions; its lines come from C5.
+        setPositions([]);
+        return;
+      }
       try {
         const report = await api.getPnl({
           from: bot.activatedAt ?? bot.updatedAt,
@@ -92,7 +167,7 @@ export function BotDetail({ timeZone, now }: { timeZone?: string; now?: () => Da
     }
     // The clock is a test seam; the screen reloads on the bot and the session only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, botId, expire]);
+  }, [api, botId, expire, fetchBotPnl]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -126,10 +201,14 @@ export function BotDetail({ timeZone, now }: { timeZone?: string; now?: () => Da
             {text.loading}
           </p>
         )}
+        {/* 261121-paper-real-unico U3 (BR8.2, AC3.10.3): only the sentence and the way back, no data at all. */}
         {load.kind === 'not-found' && (
-          <p role="alert" className="notice" data-testid="bot-not-found">
-            {text.notFound} <Link href="/bots">{botMessages.listTitle}</Link>
-          </p>
+          <div role="alert" className="notice" data-testid="bot-not-found">
+            <p>{modeText.notFound}</p>
+            <Link href="/bots" data-testid="bot-not-found-back">
+              {modeText.back}
+            </Link>
+          </div>
         )}
         {load.kind === 'error' && (
           <div role="alert" className="notice notice-error" data-testid="bot-error">
@@ -154,9 +233,19 @@ export function BotDetail({ timeZone, now }: { timeZone?: string; now?: () => Da
   const restart = resumesAtText(bot.resumesAt, zone);
   const commands = validCommands(state).filter((command) => command !== 'start');
   const limitsEditable = state === 'ACTIVE' || state === 'PAUSED';
+  const real = bot.market === 'REAL';
+  // 261121-paper-real-unico U3 (BR9.3): the badge of the mode next to the name; "MODO PAPER (simulado)" is gone.
+  const badge = real ? (
+    <RealBadge testId="bot-mode-badge" />
+  ) : (
+    <SimulatedBadge testId="bot-mode-badge" />
+  );
   return (
-    <BotsShell title={bot.name} testId="bot">
+    <BotsShell title={bot.name} testId="bot" tag={badge}>
       <section aria-label={text.state} data-testid="bot-header">
+        <p data-testid="bot-mode-line">
+          {modeText.modeLine(modeText.modes[bot.market] ?? bot.market)}
+        </p>
         <p>
           {text.state}: <strong data-testid="bot-state">{stateText(state)}</strong>
           {reasons.length > 0 && (
@@ -209,13 +298,46 @@ export function BotDetail({ timeZone, now }: { timeZone?: string; now?: () => Da
           </button>
         )}
       </div>
+      {botPnl && botPnl.market === 'PAPER' && (
+        <PnlModeBlock
+          variant="bot"
+          market="PAPER"
+          heading={modeText.pnlHeading}
+          testId="bot-pnl"
+          load={botPnl.load}
+          disclaimer={botPnl.disclaimer}
+          onRetry={() => void fetchBotPnl('PAPER')}
+        >
+          <p className="muted">{modeText.sinceStart}</p>
+        </PnlModeBlock>
+      )}
+      {botPnl && botPnl.market === 'REAL' && (
+        <PnlModeBlock
+          variant="bot"
+          market="REAL"
+          heading={modeText.pnlHeading}
+          testId="bot-pnl"
+          load={botPnl.load}
+          onRetry={() => void fetchBotPnl('REAL')}
+        >
+          <p className="muted">{modeText.sinceStart}</p>
+        </PnlModeBlock>
+      )}
+      {real && (
+        <BotPnlLines
+          botId={bot.botId}
+          botName={bot.name}
+          timeZone={zone}
+          onNotFound={() => setLoad({ kind: 'not-found' })}
+        />
+      )}
       {bot.limits && <LimitsInUse limits={bot.limits} version={bot.limitsVersion} />}
-      {state !== 'DRAFT' && state !== 'VALIDATED' && (
+      {!real && state !== 'DRAFT' && state !== 'VALIDATED' && (
         <DayUsagePanel key={`usage-${revision}`} botId={botId} limits={bot.limits} />
       )}
-      <StaleDataNotice key={`stale-${revision}`} botId={botId} timeZone={zone} />
-      <TradesPanel key={`trades-${revision}`} bot={bot} timeZone={zone} />
-      <RejectionsPanel botId={botId} timeZone={zone} />
+      {!real && <StaleDataNotice key={`stale-${revision}`} botId={botId} timeZone={zone} />}
+      {!real && <TradesPanel key={`trades-${revision}`} bot={bot} timeZone={zone} />}
+      {!real && <RejectionsPanel botId={botId} timeZone={zone} />}
       <DecisionsList key={`decisions-${revision}`} botId={botId} timeZone={zone} />
       {dialog === 'stop' && (
         <StopConfirmDialog

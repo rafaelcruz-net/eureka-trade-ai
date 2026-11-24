@@ -84,6 +84,39 @@ public class JdbcBotRepository {
                 .list();
     }
 
+    /**
+     * 261121-paper-real-unico U3 (C8, decision F-2 of the NFR Design; NFR3.13, NFR3.17): whether the bot exists in
+     * ANOTHER tenant. The only read of the module outside the tenant of the caller: by the primary key, only a boolean,
+     * never a field of the bot; only the path of the 404 of the P&L asks it (ArchUnit
+     * {@code ONLY_THE_404_PATH_ASKS_OTHER_TENANTS}).
+     */
+    public boolean ownedByAnotherTenant(UUID tenantId, UUID botId) {
+        return Boolean.TRUE.equals(
+                jdbc.sql("select exists (select 1 from bot where bot_id = :bot and tenant_id <> :tenant)")
+                        .param("bot", botId)
+                        .param("tenant", tenantId)
+                        .query(Boolean.class)
+                        .single());
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (BR1.3, BR1.5): how many bots of the person pass the filters of the page (state and
+     * market); with both empty, every bot of the person. Counts of bots, never of money.
+     */
+    public long count(TenantScope scope, Optional<BotState> state, Optional<String> market) {
+        return jdbc.sql("""
+                        select count(*) from bot
+                        where tenant_id = :tenant and owner_user_id = :owner
+                          and (cast(:state as varchar) is null or state = cast(:state as varchar))
+                          and (cast(:market as varchar) is null or market = cast(:market as varchar))""")
+                .param("tenant", scope.tenantId())
+                .param("owner", scope.ownerUserId())
+                .param("state", state.map(BotState::name).orElse(null))
+                .param("market", market.orElse(null))
+                .query(Long.class)
+                .single();
+    }
+
     /** One row of {@link #directory}: the minimal projection of a bot for the P&L (ADR-007). */
     public record DirectoryRow(
             UUID botId, String name, String market, String templateId, BotState state, Instant createdAt) {}
@@ -187,10 +220,22 @@ public class JdbcBotRepository {
 
     /** BR6.1: the bots of a person, optionally of one state, by cursor (last update descending, then id). */
     public BotPage list(TenantScope scope, Optional<BotState> state, Optional<String> cursor, int limit) {
+        return list(scope, state, Optional.empty(), cursor, limit);
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (BR1.2, BR6.3, NFR1.2): the same page with the market as one more filter; the order of
+     * the page (and its cursor) does not change with the filter, so it never mixes the modes by value.
+     *
+     * @param market {@code PAPER} or {@code REAL}; empty for both
+     */
+    public BotPage list(
+            TenantScope scope, Optional<BotState> state, Optional<String> market, Optional<String> cursor, int limit) {
         Optional<Cursor> after = cursor.map(Cursor::decode);
         StringBuilder sql =
                 new StringBuilder(SELECT_BOT).append(" where b.tenant_id = :tenant and b.owner_user_id = :owner");
         state.ifPresent(s -> sql.append(" and b.state = :state"));
+        market.ifPresent(m -> sql.append(" and b.market = :market"));
         after.ifPresent(c -> sql.append(" and (b.updated_at, b.bot_id) < (:afterUpdated, :afterBot)"));
         sql.append(" order by b.updated_at desc, b.bot_id desc limit :limit");
         var statement = jdbc.sql(sql.toString())
@@ -199,6 +244,9 @@ public class JdbcBotRepository {
                 .param("limit", limit + 1);
         if (state.isPresent()) {
             statement = statement.param("state", state.get().name());
+        }
+        if (market.isPresent()) {
+            statement = statement.param("market", market.get());
         }
         if (after.isPresent()) {
             statement = statement

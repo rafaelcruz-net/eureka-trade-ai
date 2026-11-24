@@ -131,6 +131,10 @@ routes:
   - { method: GET, path: /api/v1/bots/real-eligibility, scope: CLIENT, negativeTest: com.memetrade.bots.web.RealEligibilityRouteIT#theEligibilityIsAlwaysThatOfThePersonOfTheToken }
   - { method: GET, path: /api/v1/real/account-limits, scope: CLIENT, negativeTest: com.memetrade.riskcontrol.web.RealAccountLimitsRouteIT#aTenantInTheQueryIsIgnoredAndTheLimitsAreAlwaysThoseOfTheToken }
   - { method: GET, path: /api/v1/pnl/by-mode, scope: CLIENT, negativeTest: com.memetrade.pnl.web.ModePnlFailureIT#anotherPersonsBotsNeverAppear }
+  # 261121-paper-real-unico U3 (BR8.1, BR8.2, BR5.3): the lines of a REAL bot (C5) and the comparison (C6); a bot of
+  # another tenant is 404 without any data, before any 422.
+  - { method: GET, path: '/api/v1/bots/{botId}/pnl/lines', scope: CLIENT, negativeTest: com.memetrade.pnl.BotPnlLinesTenantIT#theLinesOfAnotherTenantAreNeverFoundNorRead }
+  - { method: GET, path: /api/v1/pnl/compare, scope: CLIENT, negativeTest: com.memetrade.pnl.PnlCompareTenantIT#aBotOfAnotherTenantWithAnotherStrategyIs404NeverA422 }
   # 261113-trading-real-bot U7 (R5 of the addendum): the conditional exits and the fiscal export of the caller; another
   # person's conditional is 404 on every route and the export reads only the REAL ledger of the person of the token.
   - { method: POST, path: /api/v1/real/conditional-orders, scope: CLIENT, negativeTest: com.memetrade.realexits.web.ConditionalCreationIT#anotherPersonNeverReachesTheConditional }

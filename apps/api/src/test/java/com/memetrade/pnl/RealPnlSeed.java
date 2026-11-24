@@ -70,6 +70,52 @@ public final class RealPnlSeed {
         return order;
     }
 
+    /**
+     * 261121-paper-real-unico U3: a confirmed sale of a REAL conditional (reference {@code conditional:<id>}, no order),
+     * which the P&L prorates among the holders like a liquidation, with origin CONDITIONAL; returns the conditional id.
+     */
+    public UUID conditional(String mint, long units, long received, long fee) {
+        UUID conditional = UUID.randomUUID();
+        String sig = SyntheticIds.signature();
+        conditionalRow("SWAP_FILL_OUT", received, mint, units, sig, conditional);
+        if (fee > 0) {
+            conditionalRow("NETWORK_FEE", -fee, null, null, sig, conditional);
+        }
+        slot(sig);
+        advance();
+        return conditional;
+    }
+
+    /** 261121-paper-real-unico U3: the instant of the next operation (the boundaries of a RANGE). */
+    public RealPnlSeed at(Instant instant) {
+        this.at = instant;
+        return this;
+    }
+
+    /** 261121-paper-real-unico U3: the slot of the next operation (a late confirmation with an older slot). */
+    public RealPnlSeed slotAt(long next) {
+        this.slot = next;
+        return this;
+    }
+
+    private void conditionalRow(String kind, long lamports, String mint, Long units, String sig, UUID conditional) {
+        jdbc.sql("""
+                        insert into real_ledger_entry (entry_id, tenant_id, bot_wallet_id, entry_kind, lamports, mint,
+                          token_base_units, tx_signature, reference, idempotency_key, created_at)
+                        values (gen_random_uuid(), :t, :w, :kind, :lamports, :mint, :units, :sig, :ref, :key, :at)""")
+                .param("t", tenantId)
+                .param("w", botWalletId)
+                .param("kind", kind)
+                .param("lamports", lamports)
+                .param("mint", mint)
+                .param("units", units)
+                .param("sig", sig)
+                .param("ref", "conditional:" + conditional)
+                .param("key", "conditional:" + conditional + ":" + kind)
+                .param("at", Timestamp.from(at))
+                .update();
+    }
+
     /** A settled order of {@code botId} with no ledger row (the attribution of a bot that is not the person's). */
     public UUID orderOnly(UUID botId, String mint) {
         UUID order = order(botId, null, "BUY", mint, 100, 1, "CONFIRMED", 0, "BOT_WALLET");

@@ -52,7 +52,7 @@ Nenhum evento novo entra, então o AsyncAPI não muda [Q2].
 São 17 contratos: 7 com o consumidor externo `apps/web` (C1 a C7), 9 entre módulos ou Units no backend (C8 a C16) e 1 entre componentes web (C17). Todos seguem os donos da Q3 e o mecanismo da Q2.
 
 Regras que valem em todos os contratos:
-- O tenant e a pessoa vêm sempre do token, nunca do corpo nem da consulta. Um bot de outra pessoa responde 404 `NOT_FOUND` e nunca devolve dado (NFR3, AC3.10.3, AC8.1.4).
+- O tenant e a pessoa vêm sempre do token, nunca do corpo nem da consulta. Um bot de outra pessoa responde 404 `NOT_FOUND` e nunca devolve dado (NFR3, AC3.10.3, AC8.1.4). Nota da U3 (alinhamento A2, decisão F-2 do NFR Design): a única consulta fora do tenant do token é `BotDirectory.ownedByAnotherTenant` (C8), só booleana e só no caminho dos 404 de C5 e C6, para a auditoria da recusa; ela nunca muda a resposta.
 - Nenhuma resposta, interface ou tipo carrega um total que some PAPER e REAL (FR4.1, ADR-003, `project.md`).
 - As rotas novas não estão na lista de exceções do novo aceite dos termos. Com uma versão nova dos termos pendente, elas respondem `403 TERMS_REACCEPTANCE_REQUIRED`, como as demais (`team.md`, Testing Posture).
 - **Entrada inválida segue a convenção do código (revisão R-04).** A convenção é a de `shared.error.ErrorCode` e do `BotRoutesIT`. Requisição malformada (parâmetro de consulta inválido, período incoerente, campo desconhecido, cabeçalho ausente) responde **400** `VALIDATION_FAILED` (`ErrorCode.VALIDATION_FAILED`). É o que `GET /api/v1/pnl` já faz para `from >= to` e período acima de 366 dias. Uma requisição bem formada cujo valor quebra uma regra de negócio, num campo do corpo ou num par de ids, responde **422** `VALIDATION_FAILED` (`UNPROCESSABLE_FIELDS` ou `BOT_VALIDATION_FAILED`). Por isso C4, C5 e C6 usam 400 para o período, o cursor e o `limit`, e C1 (campo do corpo) e C6 (`TEMPLATE_MISMATCH`) usam 422.
@@ -407,6 +407,7 @@ A forma desta resposta é a definitiva desde a U1 [Q4]:
 - **U1:** entrega a rota, o período `ALL`, o bloco PAPER completo e o bloco REAL com as linhas por bot. Até a U2, `prorated` vem vazio em cada bot e `unowned` vem `null`.
 - **U2:** preenche `prorated` e `unowned` e passa o total REAL a ser o do RealBotPnl. É dona do formato das linhas rateadas [Q3].
 - **U3:** acrescenta `RANGE` ao parâmetro `period` e os parâmetros `from` e `to` [Q3]. São mudanças aditivas na requisição. A resposta já traz `PnlPeriod` com `ALL | RANGE` desde a U1.
+- **U3, alinhamento A2 (BR3.1; PQ-6 fechada pela Q1 do Functional Design da U3):** acrescenta o parâmetro opcional `market` (`PAPER` ou `REAL`; outro valor dá 400 `VALIDATION_FAILED`). Com `market`, a resposta traz só o bloco pedido e a chave do outro fica **ausente** (nunca `null`); por isso `paper` e `real` saíram de `required` no esquema. Sem `market`, os dois blocos vêm como antes. O "Tentar de novo" de um bloco relê C4 com o `market` desse bloco. O `apps/admin` não consome C4. Implementado no `PnlController.byMode` e no `openapi-guest.yaml` gerado.
 
 ```yaml
 # OpenAPI 3.1 — rota nova
@@ -440,13 +441,20 @@ paths:
           schema:
             type: string
             format: date-time
+        - in: query
+          name: market             # U3 (alinhamento A2, BR3.1)
+          required: false
+          description: "Só o bloco deste modo; a chave do outro fica ausente"
+          schema:
+            type: string
+            enum: [PAPER, REAL]
       responses:
         "200":
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PnlByMode"
-          description: "Os dois blocos; um modo que falhou vem com status UNAVAILABLE sem derrubar o outro [Q5]"
+          description: "Os dois blocos (ou só o pedido com market); um modo que falhou vem com status UNAVAILABLE sem derrubar o outro [Q5]"
         "400":
           content:
             application/problem+json:
@@ -458,7 +466,7 @@ components:
     PnlByMode:
       type: object
       additionalProperties: false
-      description: "Só o período e os dois blocos. Não existe campo de total fora dos blocos (FR4.1, NFR3)"
+      description: "Só o período e os blocos. Sem market, os dois blocos; com market, só o bloco pedido, e a chave do outro fica ausente (nunca null). Não existe campo de total fora dos blocos (FR4.1, NFR3)"
       properties:
         period:
           $ref: "#/components/schemas/PnlPeriod"
@@ -466,7 +474,7 @@ components:
           $ref: "#/components/schemas/PaperModeBlockResult"
         real:
           $ref: "#/components/schemas/RealModeBlockResult"
-      required: [period, paper, real]
+      required: [period]   # U3 (A2): paper e real fora de required, por causa de market
     PaperModeBlockResult:
       discriminator:
         propertyName: status
@@ -735,6 +743,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: "NOT_FOUND: bot de outra pessoa, inexistente ou PAPER"
+        "503":                     # U3 (alinhamento A7, citado no A2)
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: "SERVICE_UNAVAILABLE com correlationId: a passada REAL falhou (prazo, fila cheia, TOO_MANY_ORDERS ou divergência); a tela não repete sozinha"
 components:
   schemas:
     RealBotPnlLinePage:
@@ -960,6 +974,10 @@ methods:
     tenant: "filtra por tenant e pessoa; um tenant de outra pessoa devolve lista vazia"
   - signature: "Optional<BotEntry> botOf(UUID tenantId, UUID userId, UUID botId)"
     returns: "vazio quando o bot não é da pessoa ou não existe; o chamador responde 404"
+  - signature: "boolean ownedByAnotherTenant(UUID tenantId, UUID botId)"   # U3 (alinhamento A2, decisão F-2)
+    returns: "true só quando o bot existe num tenant diferente do informado; nunca devolve dado do bot"
+    tenant: "A ÚNICA consulta fora do tenant do token, só booleana, pela chave primária (select exists ... tenant_id <> :tenant), na transação só de leitura do pedido"
+    caller: "só o caminho dos 404 de C5 e C6 (PnlController.refuseNotFound), na thread do pedido, nos dois 404 (uuid inexistente e outro tenant), para decidir a auditoria TENANT_MISMATCH; a resposta é a mesma; regra ArchUnit ONLY_THE_404_PATH_ASKS_OTHER_TENANTS"
 types:
   PnlMarket: { kind: enum, values: [PAPER, REAL] }
   BotPnlStatus: { kind: enum, values: [ACTIVE, PAUSED, REMOVED] }
@@ -1026,8 +1044,9 @@ methods:
     throws: "RealPnlUnavailable quando uma leitura falhou (o bloco REAL vira UNAVAILABLE)"
   - signature: "Optional<RealBotPnlLine> botPnl(UUID tenantId, UUID userId, UUID botId, PnlWindow window)"
     returns: "vazio quando o bot não é REAL da pessoa (404)"
-  - signature: "RealPnlLinePage botLines(UUID tenantId, UUID userId, UUID botId, Optional<String> cursor, int limit)"
-    returns: "página das linhas (C5); vazio de bot vira NotFound"
+  - signature: "Optional<RealPnlLinePage> botLines(UUID tenantId, UUID userId, UUID botId, Optional<String> cursor, int limit)"
+    returns: "página das linhas (C5); vazio quando o bot não é REAL da pessoa (404); cursor cuja âncora sumiu lança RealPnlLineCursorRejected (400 no campo cursor)"
+    status: "implementado na U3 (alinhamento A2): a mesma passada de C4 com um RealPnlEngine.LineCollector, sem conta nova; o retorno Optional é o desvio aditivo registrado no code-summary da U3"
 types:
   PnlWindow: { kind: sealed, cases: { All: "desde o início", Range: "Instant from (incluído), Instant to (excluído), no máximo 366 dias" } }
   LamportsValue: { kind: sealed, cases: { Known: "long lamports", Unknown: "UnknownReason reason" } }
@@ -1366,9 +1385,7 @@ Ficam abertas só as perguntas abaixo, cada uma com o estágio dono.
 
 | Contract | Question | Blocks |
 |---|---|---|
-| C4 (PQ-6) | O "Tentar de novo" de um bloco relê a rota inteira, porque o `by-mode` não tem filtro por modo. Isso basta, ou entra um parâmetro aditivo `market` para reler só um bloco? Recomendado: reler a rota inteira e mostrar só o bloco repetido; não há total a recompor. | U3 (Functional Design da U3) |
 | C8 (PQ-7) | Como os estados do bot (`DRAFT`, `VALIDATED`, `ACTIVE`, `PAUSED`, `CLOSING_PENDING`, `STOPPED`) viram `ACTIVE`, `PAUSED` ou `REMOVED` no P&L, e se os rascunhos aparecem nas linhas? | U1 (Functional Design da U1) |
-| C6 (PQ-8) | A recusa de bots com `templateId` diferente (422 `TEMPLATE_MISMATCH`) depende da OQ4 ("mesma estratégia" é o mesmo `templateId`). O Functional Design da U3 confirma? | U3 (Functional Design da U3) |
 | C15 (PQ-9) | O número do orçamento de tempo do RealBotHoldings dentro da transação do ciclo (trava de 2 s, limite de 5 s). | U4 (NFR Design da U4) |
 | C12, C14 (PQ-10) | O índice final da leitura em fluxo com a junção em `real_entry_slot` e o resultado do cenário de carga do NFR1 (p95 de até 1 s, 10 bots, 2 anos). | U2 (NFR Design da U2) |
 
@@ -1382,6 +1399,13 @@ Ficam abertas só as perguntas abaixo, cada uma com o estágio dono.
 | PQ-4 | C14 | Nenhum preenchimento das linhas antigas: elas ficam `SLOT_MISSING`, com o motivo registrado, e usam o fallback do ADR-011. | O Functional Design da U2 alinha o ADR-011. |
 | PQ-5 | C1, C3 | 409 `REAL_NOT_ELIGIBLE` para todo motivo de elegibilidade, inclusive a carteira inativa (hoje 422). | O Functional Design da U1 alinha o ADR-005. |
 
+### Perguntas fechadas no Functional Design da U3 (2026-11-23, alinhamento A2)
+
+| Pergunta | Contrato | Decisão | Onde |
+|---|---|---|---|
+| PQ-6 | C4 | Entra o parâmetro aditivo `market` (Q1 do Functional Design da U3): com ele, só o bloco pedido, e a chave do outro fica ausente; o "Tentar de novo" relê só aquele bloco (BR3.1, BR3.2). | C4 acima; `PnlController.byMode`. |
+| PQ-8 | C6 | "Mesma estratégia" é o mesmo `templateId` (Q4 do Functional Design da U3, OQ4); bots da pessoa de `templateId` diferente dão 422 `TEMPLATE_MISMATCH` sem valor de P&L, sempre depois da posse dos dois (404 antes de 422) (BR5.1 a BR5.3). | C6; `PnlController.compare`. |
+
 ## Assumptions & Open Questions
 
 - [assumption] O `period` aceita só `ALL` e `RANGE`. "Últimos 7 dias" e "Últimos 30 dias" são calculados no navegador, no fuso da pessoa, e enviados como `RANGE` em UTC, porque o servidor não conhece o fuso (FR7.2, interaction-spec "PeriodSelector").
@@ -1393,4 +1417,4 @@ Ficam abertas só as perguntas abaixo, cada uma com o estágio dono.
 - [assumption] `GET /api/v1/real/pnl` mantém a forma de hoje (`RealPnl`); só a fonte do número muda na U2 (ADR-001).
 - [assumption] Os nomes `getRealEligibility`, `getRealAccountLimits`, `getPnlByMode`, `listBotPnlLines`, `comparePaperAndRealBots`, `streamInNetworkOrder`, `streamSettledOrders`, `recordSlot`, `openSells`, `NetworkOrderKey`, `real_entry_slot` e `0023-real-entry-slot.sql` são fixados aqui. O Functional Design pode ajustar detalhes internos, sem mudar a forma pública.
 - O ADR-011 e o ADR-005 do domain design ficam desalinhados deste contrato até o Functional Design (U2 e U1), que os alinha às decisões do fundador de 2026-11-21. O `decisions.md` não foi editado nesta etapa.
-- As perguntas abertas são PQ-6 a PQ-10, na tabela "Perguntas em aberto dos contratos". PQ-1 a PQ-5 foram fechadas pelo fundador em 2026-11-21.
+- As perguntas abertas são PQ-7, PQ-9 e PQ-10, na tabela "Perguntas em aberto dos contratos". PQ-1 a PQ-5 foram fechadas pelo fundador em 2026-11-21; PQ-6 e PQ-8, no Functional Design da U3 (alinhamento A2, 2026-11-23).

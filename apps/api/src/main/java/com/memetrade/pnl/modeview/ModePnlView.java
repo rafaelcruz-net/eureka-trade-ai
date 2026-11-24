@@ -1,6 +1,7 @@
 package com.memetrade.pnl.modeview;
 
 import com.memetrade.pnl.api.PnlMarket;
+import com.memetrade.pnl.api.PnlWindow;
 import com.memetrade.pnl.api.RealPnlUnavailable;
 import com.memetrade.pnl.infra.PnlByModeProperties;
 import com.memetrade.shared.config.ProcessRole;
@@ -44,20 +45,71 @@ public class ModePnlView {
         this.blockTimeout = properties.blockTimeout();
     }
 
-    /** The two blocks of the window ALL, each computed and failing on its own. */
+    /** The two blocks of the window ALL, each computed and failing on its own; C4 counts its own UNAVAILABLE. */
     public <P, R> ModePnlStatement<P, R> statement(Callable<P> paper, Callable<R> real) {
+        return statement(PnlWindow.all(), paper, real, metrics::unavailable);
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (C4 with RANGE, C6; NFR1.1, NFR1.4): the two blocks (or the two sides of C6) of a
+     * window, sent to the pool at the same time, each with the same deadline; the {@code sink} counts a block or side
+     * that became UNAVAILABLE in the series of its route (C4 {@code PnlModeMetrics::unavailable}, C6
+     * {@code PnlCompareMetrics::sideUnavailable}). Never a value of either mode.
+     */
+    public <P, R> ModePnlStatement<P, R> statement(
+            PnlWindow window, Callable<P> paper, Callable<R> real, UnavailableSink sink) {
         String correlationId = CorrelationId.current();
         long deadline = System.nanoTime() + blockTimeout.toNanos();
         CompletableFuture<P> paperBlock = blocks.submit(PnlMarket.PAPER, deadline, paper);
         CompletableFuture<R> realBlock = blocks.submit(PnlMarket.REAL, deadline, real);
         return new ModePnlStatement<>(
-                ModePnlStatement.ALL,
-                result(paperBlock, PnlMarket.PAPER, "USD", deadline, correlationId),
-                result(realBlock, PnlMarket.REAL, "SOL", deadline, correlationId));
+                window,
+                result(paperBlock, PnlMarket.PAPER, deadline, correlationId, sink),
+                result(realBlock, PnlMarket.REAL, deadline, correlationId, sink));
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (C4 with {@code market}, BR3.1, PQ-6): ONE block of a window, in its own task of the
+     * pool and under the same deadline; the other block is never read.
+     */
+    public <T> BlockResult<T> single(PnlMarket market, Callable<T> block, UnavailableSink sink) {
+        String correlationId = CorrelationId.current();
+        long deadline = System.nanoTime() + blockTimeout.toNanos();
+        return result(blocks.submit(market, deadline, block), market, deadline, correlationId, sink);
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (C5; NFR1.3, NFR4.13): one task of the pool under the deadline of a block whose failure
+     * the ROUTE answers (C5 answers 503, or 400 for a cursor refused inside the pass), so the failure comes back with
+     * its cause and its closed label instead of a block UNAVAILABLE. Nothing is counted here.
+     */
+    public <T> Attempt<T> attempt(PnlMarket market, Callable<T> work) {
+        long deadline = System.nanoTime() + blockTimeout.toNanos();
+        CompletableFuture<T> task = blocks.submit(market, deadline, work);
+        try {
+            long left = Math.max(0, deadline - System.nanoTime());
+            return new Attempt.Done<>(task.get(left, TimeUnit.NANOSECONDS));
+        } catch (TimeoutException late) {
+            task.cancel(false);
+            return new Attempt.Failed<>(late, PnlModeMetrics.Cause.TIMEOUT, "TIMEOUT");
+        } catch (ExecutionException failed) {
+            return new Attempt.Failed<>(failed.getCause(), causeOf(failed.getCause()), labelOf(failed.getCause()));
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return new Attempt.Failed<>(interrupted, PnlModeMetrics.Cause.ERROR, "INTERRUPTED");
+        }
+    }
+
+    /** The outcome of {@link #attempt}: the value, or the failure with its closed cause and label (never a message). */
+    public sealed interface Attempt<T> permits Attempt.Done, Attempt.Failed {
+
+        record Done<T>(T value) implements Attempt<T> {}
+
+        record Failed<T>(Throwable failure, PnlModeMetrics.Cause cause, String label) implements Attempt<T> {}
     }
 
     private <T> BlockResult<T> result(
-            CompletableFuture<T> block, PnlMarket market, String currency, long deadline, String correlationId) {
+            CompletableFuture<T> block, PnlMarket market, long deadline, String correlationId, UnavailableSink sink) {
         String label;
         PnlModeMetrics.Cause cause;
         try {
@@ -76,11 +128,19 @@ public class ModePnlView {
             cause = PnlModeMetrics.Cause.ERROR;
         }
         log.warn("P&L block unavailable: market={}, cause={}", market, label);
-        metrics.unavailable(market, cause);
+        sink.unavailable(market, cause);
         String code = cause == PnlModeMetrics.Cause.RECONCILIATION_MISMATCH
                 ? RealPnlUnavailable.RECONCILIATION_MISMATCH
                 : SERVICE_UNAVAILABLE;
-        return new BlockResult.Unavailable<>(market, currency, code, correlationId);
+        return new BlockResult.Unavailable<>(market, currencyOf(market), code, correlationId);
+    }
+
+    /** USD with PAPER, SOL with REAL: the currency of an UNAVAILABLE block is the one of its own mode. */
+    static String currencyOf(PnlMarket market) {
+        return switch (market) {
+            case PAPER -> "USD";
+            case REAL -> "SOL";
+        };
     }
 
     /** A closed value or the simple name of the class of the failure; never its message (it may carry data). */

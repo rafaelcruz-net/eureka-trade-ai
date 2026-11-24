@@ -107,24 +107,44 @@ public class BotController {
     @GetMapping("/api/v1/bots")
     public BotDtos.BotPageDto list(
             @Parameter(schema = @Schema(implementation = BotState.class)) @RequestParam(required = false) String state,
+            @Parameter(
+                            description = "261121-paper-real-unico U3 (BR1.2): só os bots deste modo; ausente, os dois",
+                            schema =
+                                    @Schema(
+                                            type = "string",
+                                            allowableValues = {"PAPER", "REAL"}))
+                    @RequestParam(required = false)
+                    String market,
             @Parameter(schema = @Schema(type = "string")) @RequestParam(required = false) String cursor,
             @Parameter(schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "50"))
                     @RequestParam(required = false)
                     String limit,
             @Parameter(hidden = true) @RequestParam MultiValueMap<String, String> parameters) {
         Principal person = auth.current();
-        QueryParameters query = QueryParameters.of(parameters, Set.of("state", "cursor", "limit"));
+        QueryParameters query = QueryParameters.of(parameters, Set.of("state", "market", "cursor", "limit"));
         int size = query.integer("limit", DEFAULT_LIMIT, 1, MAX_LIMIT);
         Optional<BotState> filter = query.text("state").flatMap(text -> parseState(text, query));
+        Optional<String> marketFilter = query.text("market").flatMap(text -> parseMarket(text, query));
         query.validate();
-        BotQueries.BotList page = queries.list(person, filter, query.text("cursor"), size);
+        BotQueries.BotList page = queries.list(person, filter, marketFilter, query.text("cursor"), size);
         return new BotDtos.BotPageDto(
                 page.page().items().stream()
                         .map(bot -> BotSummaryView.of(bot, clock.instant()))
                         .toList(),
                 page.page().next().orElse(null),
                 page.activeCount(),
-                com.memetrade.bots.domain.BotStateMachine.ACTIVE_LIMIT);
+                com.memetrade.bots.domain.BotStateMachine.ACTIVE_LIMIT,
+                page.matchingCount(),
+                page.totalCount());
+    }
+
+    /** 261121-paper-real-unico U3 (BR1.2): only PAPER or REAL; anything else is a violation of {@code market}. */
+    private static Optional<String> parseMarket(String text, QueryParameters query) {
+        if ("PAPER".equals(text) || "REAL".equals(text)) {
+            return Optional.of(text);
+        }
+        query.violation("market", "Must be PAPER or REAL.");
+        return Optional.empty();
     }
 
     @Operation(

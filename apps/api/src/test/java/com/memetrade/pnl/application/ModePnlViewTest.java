@@ -81,7 +81,7 @@ class ModePnlViewTest {
 
         ModePnlStatement<String, String> statement = view.statement(() -> "PAPER-BLOCK", () -> "REAL-BLOCK");
 
-        assertThat(statement.period()).isEqualTo("ALL");
+        assertThat(statement.period()).isEqualTo(com.memetrade.pnl.api.PnlWindow.all());
         assertThat(statement.paper()).isEqualTo(new BlockResult.Available<>("PAPER-BLOCK"));
         assertThat(statement.real()).isEqualTo(new BlockResult.Available<>("REAL-BLOCK"));
         assertThat(Arrays.stream(ModePnlStatement.class.getRecordComponents()).map(RecordComponent::getName))
@@ -251,6 +251,67 @@ class ModePnlViewTest {
     }
 
     // ----- helpers -----
+
+    /** 261121-paper-real-unico U3 (BR3.1): {@code single} sends ONE task, of its market, and the other is never read. */
+    @Test
+    void singleSendsOneTaskOfItsMarketOnly() {
+        java.util.List<PnlMarket> opened = new java.util.concurrent.CopyOnWriteArrayList<>();
+        BlockReads recording = new BlockReads() {
+            @Override
+            public <T> T inTransaction(PnlMarket market, Callable<T> body) throws Exception {
+                opened.add(market);
+                return body.call();
+            }
+
+            @Override
+            public void statementTimeout(Duration left) {
+                // no database in this test
+            }
+        };
+        ModePnlView view = view(PnlByModeProperties.defaults(), recording);
+
+        BlockResult<String> real = view.single(PnlMarket.REAL, () -> "REAL-BLOCK", metrics::unavailable);
+
+        assertThat(real).isEqualTo(new BlockResult.Available<>("REAL-BLOCK"));
+        assertThat(opened).containsExactly(PnlMarket.REAL);
+    }
+
+    /** 261121-paper-real-unico U3 (NFR3.11): the sink of the route gets its count, the series of C4 stays. */
+    @Test
+    void theSinkOfTheRouteCountsTheUnavailableSideAndNotTheSeriesOfC4() {
+        ModePnlView view = view(PnlByModeProperties.defaults(), INSTANT);
+        java.util.List<String> sunk = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        ModePnlStatement<String, String> statement = view.statement(
+                com.memetrade.pnl.api.PnlWindow.all(),
+                () -> "PAPER-SIDE",
+                () -> {
+                    throw new IllegalStateException("side failed");
+                },
+                (market, cause) -> sunk.add(market + ":" + cause));
+
+        assertThat(statement.real()).isInstanceOf(BlockResult.Unavailable.class);
+        assertThat(((BlockResult.Unavailable<String>) statement.real()).currency())
+                .isEqualTo("SOL");
+        assertThat(sunk).containsExactly("REAL:ERROR");
+        assertThat(unavailable("REAL")).isZero();
+    }
+
+    /** 261121-paper-real-unico U3 (C5): an attempt gives back the failure and its closed label, never a block. */
+    @Test
+    void anAttemptGivesBackTheFailureWithItsLabel() {
+        ModePnlView view = view(PnlByModeProperties.defaults(), INSTANT);
+
+        ModePnlView.Attempt<String> done = view.attempt(PnlMarket.REAL, () -> "LINES");
+        ModePnlView.Attempt<String> failed = view.attempt(PnlMarket.REAL, () -> {
+            throw new IllegalArgumentException("secret detail never logged");
+        });
+
+        assertThat(done).isEqualTo(new ModePnlView.Attempt.Done<>("LINES"));
+        assertThat(failed).isInstanceOf(ModePnlView.Attempt.Failed.class);
+        assertThat(((ModePnlView.Attempt.Failed<String>) failed).label()).isEqualTo("IllegalArgumentException");
+        assertThat(unavailable("REAL")).isZero();
+    }
 
     private ModePnlView view(PnlByModeProperties properties, BlockReads transactions) {
         executor = new ModeBlockExecutor(properties.poolSize(), properties.queueCapacity(), transactions);

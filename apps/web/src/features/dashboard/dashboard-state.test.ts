@@ -9,11 +9,15 @@ import {
   ALL_STATES,
   dashboardReducer,
   initialDashboardState,
+  INITIAL_MODE_CARDS,
+  modeCardsReducer,
   sourceNotices,
   type BotLists,
   type DashboardAction,
   type DashboardState,
+  type ModeCardsAction,
 } from '@/features/dashboard/dashboard-reducer';
+import { PAPER_BLOCK, REAL_BLOCK } from '@/features/pnl/fixtures';
 import { msUntilNextUtcMidnight, utcDayPeriod } from '@/features/dashboard/period';
 import {
   BOT_A,
@@ -297,35 +301,169 @@ describe('dashboard reducer', () => {
   });
 
   it('a failed new read keeps the values already shown', () => {
-    const report = pnlReport();
+    // 261121-paper-real-unico U3 (BR7.1): the P&L of the UTC day left the dashboard; the cards by mode keep their
+    // values in their own slice (see "cards by mode" below).
     const state = reduce([
-      { type: 'PNL_LOADED', report, at: AT },
-      { type: 'PNL_FAILED' },
       { type: 'RECONCILIATION_LOADED', result: reconciliation(), at: AT },
       { type: 'RECONCILIATION_FAILED' },
       { type: 'SOURCES_LOADED', items: [sourceStatus()], at: AT },
       { type: 'SOURCES_FAILED' },
     ]);
     const neverLoaded = reduce([
-      { type: 'PNL_FAILED' },
       { type: 'RECONCILIATION_FAILED' },
       { type: 'SOURCES_FAILED' },
       { type: 'BOTS_FAILED' },
     ]);
 
-    expect(state.pnl).toMatchObject({ status: 'READY', report });
     expect(state.reconciliation.status).toBe('READY');
     expect(state.sources.status).toBe('READY');
-    expect(neverLoaded.pnl.status).toBe('ERROR');
     expect(neverLoaded.reconciliation.status).toBe('ERROR');
     expect(neverLoaded.sources.status).toBe('ERROR');
     expect(neverLoaded.bots.status).toBe('ERROR');
+    expect(state).not.toHaveProperty('pnl');
+  });
+});
+
+/** 261121-paper-real-unico U3, Step 23 (BR7.2, BR7.5; NFR1.14): the slice of the two cards by mode. */
+describe('cards by mode', () => {
+  const PAPER_READY = { kind: 'ready' as const, block: PAPER_BLOCK };
+  const REAL_READY = { kind: 'ready' as const, block: REAL_BLOCK };
+
+  function cards(actions: ModeCardsAction[]) {
+    return actions.reduce(modeCardsReducer, INITIAL_MODE_CARDS);
+  }
+
+  it('the first load fills both cards and is never announced', () => {
+    const state = cards([
+      { type: 'MODE_CARDS_REQUESTED', requestId: 1 },
+      {
+        type: 'MODE_CARD_LOADED',
+        market: 'PAPER',
+        requestId: 1,
+        load: PAPER_READY,
+        at: 0,
+        initial: true,
+      },
+      {
+        type: 'MODE_CARD_LOADED',
+        market: 'REAL',
+        requestId: 1,
+        load: REAL_READY,
+        at: 0,
+        initial: true,
+      },
+    ]);
+
+    expect(state.PAPER.load).toEqual(PAPER_READY);
+    expect(state.REAL.load).toEqual(REAL_READY);
+    expect(state.PAPER.announce).toBe(false);
+    expect(state.PAPER.lastAnnouncedAt).toBeNull();
   });
 
-  it('a P&L without operations is EMPTY', () => {
+  it('a reading by event is announced at most once every 30 s, and never changes the other card', () => {
+    const state = cards([
+      { type: 'MODE_CARDS_REQUESTED', requestId: 1 },
+      {
+        type: 'MODE_CARD_LOADED',
+        market: 'REAL',
+        requestId: 1,
+        load: REAL_READY,
+        at: 0,
+        initial: true,
+      },
+      { type: 'MODE_CARD_REQUESTED', market: 'PAPER', requestId: 2, showLoading: false },
+      {
+        type: 'MODE_CARD_LOADED',
+        market: 'PAPER',
+        requestId: 2,
+        load: PAPER_READY,
+        at: 1_000,
+        initial: false,
+      },
+    ]);
+    expect(state.PAPER.announce).toBe(true);
+    expect(state.PAPER.lastAnnouncedAt).toBe(1_000);
+    expect(state.REAL.announce).toBe(false);
+
+    const again = [
+      { type: 'MODE_CARD_REQUESTED', market: 'PAPER', requestId: 3, showLoading: false },
+      {
+        type: 'MODE_CARD_LOADED',
+        market: 'PAPER',
+        requestId: 3,
+        load: PAPER_READY,
+        at: 20_000,
+        initial: false,
+      },
+    ].reduce((current, action) => modeCardsReducer(current, action as ModeCardsAction), state);
+    expect(again.PAPER.announce).toBe(false);
+    expect(again.PAPER.lastAnnouncedAt).toBe(1_000);
+
+    const later = [
+      { type: 'MODE_CARD_REQUESTED', market: 'PAPER', requestId: 4, showLoading: false },
+      {
+        type: 'MODE_CARD_LOADED',
+        market: 'PAPER',
+        requestId: 4,
+        load: PAPER_READY,
+        at: 31_000,
+        initial: false,
+      },
+    ].reduce((current, action) => modeCardsReducer(current, action as ModeCardsAction), again);
+    expect(later.PAPER.announce).toBe(true);
+  });
+
+  it('an older answer of a card is ignored; a failed reading by event keeps the values shown', () => {
+    const loaded = cards([
+      { type: 'MODE_CARDS_REQUESTED', requestId: 1 },
+      {
+        type: 'MODE_CARD_LOADED',
+        market: 'PAPER',
+        requestId: 1,
+        load: PAPER_READY,
+        at: 0,
+        initial: true,
+      },
+      { type: 'MODE_CARD_REQUESTED', market: 'PAPER', requestId: 2, showLoading: false },
+      {
+        type: 'MODE_CARD_LOADED',
+        market: 'PAPER',
+        requestId: 1,
+        load: { kind: 'error', code: 'old' },
+        at: 5,
+        initial: false,
+      },
+      { type: 'MODE_CARD_FAILED', market: 'PAPER', requestId: 2, code: 'c', background: true },
+    ]);
+    expect(loaded.PAPER.load).toEqual(PAPER_READY);
+
+    const retried = modeCardsReducer(loaded, {
+      type: 'MODE_CARD_REQUESTED',
+      market: 'PAPER',
+      requestId: 3,
+      showLoading: true,
+    });
+    expect(retried.PAPER.load).toEqual({ kind: 'loading' });
     expect(
-      reduce([{ type: 'PNL_LOADED', report: pnlReport({ empty: true }), at: AT }]).pnl.status,
-    ).toBe('EMPTY');
+      modeCardsReducer(retried, {
+        type: 'MODE_CARD_FAILED',
+        market: 'PAPER',
+        requestId: 3,
+        code: 'c',
+      }).PAPER.load,
+    ).toEqual({ kind: 'error', code: 'c' });
+  });
+
+  it('keeps the reason of an empty REAL from C2', () => {
+    const state = cards([
+      {
+        type: 'REAL_ELIGIBILITY_LOADED',
+        realUnavailable: { kind: 'reason', reason: 'WALLET_INACTIVE' },
+      },
+    ]);
+
+    expect(state.REAL.realUnavailable).toEqual({ kind: 'reason', reason: 'WALLET_INACTIVE' });
+    expect(INITIAL_MODE_CARDS.REAL.realUnavailable).toEqual({ kind: 'unknown' });
   });
 });
 
@@ -478,22 +616,16 @@ describe('dashboard loader', () => {
     ]);
   });
 
-  it('ten pnl.updated in a row make at most two reads of the P&L and of the reconciliation', async () => {
+  it('ten pnl.updated in a row make at most two reads of the reconciliation', async () => {
     const answers: Array<() => void> = [];
     const { loader, requests } = loaderOver(
-      (url) =>
+      () =>
         new Promise((resolve) =>
-          answers.push(() =>
-            resolve({
-              status: 200,
-              body: url.pathname === '/api/v1/pnl' ? pnlReport() : reconciliation(),
-            }),
-          ),
+          answers.push(() => resolve({ status: 200, body: reconciliation() })),
         ),
     );
 
     for (let i = 0; i < 10; i++) {
-      void loader.refreshPnl();
       void loader.refreshReconciliation();
     }
     for (let i = 0; i < 5; i++) {
@@ -502,20 +634,21 @@ describe('dashboard loader', () => {
     }
     await settle(20);
 
-    expect(requests.filter((request) => request.url.includes('/api/v1/pnl'))).toHaveLength(2);
     expect(
       requests.filter((request) => request.url.includes('/api/v1/reconciliation')),
     ).toHaveLength(2);
   });
 
-  it('asks the P&L of the UTC day to now', async () => {
-    const { loader, requests } = loaderOver(() => ({ status: 200, body: pnlReport() }));
+  it('the loader no longer reads the P&L of the UTC day (U3: the cards by mode read C4)', async () => {
+    const { loader, requests } = loaderOver(() => ({ status: 200, body: reconciliation() }));
 
-    await loader.refreshPnl(true);
+    await loader.refreshReconciliation(true);
 
-    expect(requests[0]?.url).toBe(
-      'http://api.test/api/v1/pnl?from=2026-10-28T00%3A00%3A00.000Z&to=2026-10-28T12%3A00%3A00.000Z',
-    );
+    expect(loader).not.toHaveProperty('refreshPnl');
+    expect(requests.map((request) => request.url)).toEqual([
+      'http://api.test/api/v1/reconciliation',
+    ]);
+    expect(requests.some((request) => request.url.includes('/api/v1/pnl'))).toBe(false);
   });
 
   it('a 404 on the last order removes the bot, a 401 starts the session-expired flow', async () => {
@@ -534,11 +667,11 @@ describe('dashboard loader', () => {
 
     await loader.reloadBots(true);
     await settle(30);
-    await loader.refreshPnl(true);
+    await loader.refreshReconciliation(true);
 
     expect(actions).toContainEqual({ type: 'BOT_REMOVED', botId: BOT_A });
     expect(onUnauthenticated).toHaveBeenCalled();
-    expect(actions.some((action) => action.type === 'PNL_FAILED')).toBe(false);
+    expect(actions.some((action) => action.type === 'RECONCILIATION_FAILED')).toBe(false);
   });
 
   it('the full order named by trade.recorded is read and completes the line', async () => {
@@ -618,7 +751,6 @@ describe('dashboard loader', () => {
     });
 
     await loader.reloadBots(true);
-    await loader.refreshPnl(true);
     await loader.refreshReconciliation(true);
     await loader.tradeRecorded([tradeNotice()]);
     await settle(30);

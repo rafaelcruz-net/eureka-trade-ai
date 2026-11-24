@@ -20,4 +20,16 @@ public interface RealBotPnlQuery {
 
     /** Empty when the bot is not a REAL bot of the person (the caller answers 404). */
     Optional<RealBotPnlLine> botPnl(UUID tenantId, UUID userId, UUID botId, PnlWindow window);
+
+    /**
+     * 261121-paper-real-unico U3 (C5, BR4.2, BR4.3, BR4.6): one page of the lines that make the P&L of a REAL bot since
+     * the beginning, from the SAME pass as {@link #modePnl} (no calculation of its own), newest first in network order.
+     * The page starts after the line of the {@code cursor} (by its identity, never by a position).
+     *
+     * @param limit 1 to 100
+     * @return empty when the bot is not a REAL bot of the person (the caller answers 404)
+     * @throws RealPnlLineCursorRejected when the cursor is malformed, of another bot, or its anchor is not found
+     * @throws RealPnlUnavailable when the pass failed (the caller answers 503)
+     */
+    Optional<RealPnlLinePage> botLines(UUID tenantId, UUID userId, UUID botId, Optional<String> cursor, int limit);
 }

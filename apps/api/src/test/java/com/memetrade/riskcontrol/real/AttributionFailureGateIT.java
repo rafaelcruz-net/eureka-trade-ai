@@ -191,6 +191,11 @@ class AttributionFailureGateIT extends AbstractRealExecutionIT {
             public Optional<BotEntry> botOf(UUID tenantId, UUID userId, UUID botId) {
                 return Optional.empty();
             }
+
+            @Override
+            public boolean ownedByAnotherTenant(UUID tenantId, UUID botId) {
+                return false;
+            }
         };
 
         usableAfterwards(inARound(setup, reader(ledger, orders, empty), 0), RealCostUnknownReason.UNKNOWN_BOT);

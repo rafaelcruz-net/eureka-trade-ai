@@ -187,8 +187,9 @@ class ModePnlFailureIT extends AbstractPaperRealIT {
         }
     }
 
+    /** 261121-paper-real-unico U3: only the name changed; RANGE needs from and to, and from and to need RANGE. */
     @Test
-    void onlyThePeriodAllIsAcceptedInTheU1() throws Exception {
+    void aRangeNeedsFromAndToAndFromAndToNeedARange() throws Exception {
         Person person = signIn(false, false);
 
         assertThat(read(person, get(ROUTE + "?period=ALL")).getStatus()).isEqualTo(200);
@@ -214,7 +215,11 @@ class ModePnlFailureIT extends AbstractPaperRealIT {
         UUID ownerBot = paperBot(owner, "Do dono", "1.000000", "0.000000");
         Person stranger = signIn(false, false);
 
-        JsonNode answer = ok(stranger, ROUTE + "?tenantId=" + owner.tenantId());
+        // 261121-paper-real-unico U3 (NFR3.1, security-design.md "Parâmetros aceitos"): the closed list of parameters
+        // refuses a tenantId with 400; the person of the token is always the one read.
+        assertThat(read(stranger, get(ROUTE + "?tenantId=" + owner.tenantId())).getStatus())
+                .isEqualTo(400);
+        JsonNode answer = ok(stranger, ROUTE);
 
         assertThat(answer.get("paper").get("bots")).isEmpty();
         assertThat(answer.get("paper").get("empty").asBoolean()).isTrue();

@@ -16,14 +16,22 @@ import {
 import PnlPage from '@/app/pnl/page';
 
 const replace = jest.fn();
+let search = new URLSearchParams();
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace, push: replace }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => search,
 }));
 
 const text = messages.pnl;
 const NOW = new Date('2026-10-28T15:00:00Z');
+
+/**
+ * 261121-paper-real-unico U3 (conflict 2 of the plan, decision of the founder on BR2.1 and BR2.9): /pnl opens on
+ * "Desde o início" and reads the table by token only with a concrete period. The cases of the U1 about that table now
+ * open with the last 7 days in the address, which was the old default; none was deleted.
+ */
+const LAST_7 = 'periodo=7d';
 
 function renderPnl(api = fakeApi(), timeZone = 'America/Sao_Paulo') {
   tokenStore.set('access-token-value');
@@ -39,21 +47,25 @@ describe('S6 P&L screen /pnl', () => {
   beforeEach(() => {
     replace.mockReset();
     tokenStore.clear();
+    search = new URLSearchParams(LAST_7);
   });
 
-  it('the PAPER section always says MODO PAPER (simulado) and the period of the last 7 local days goes in UTC', async () => {
+  it('the PAPER table by token sits in the block Simulado and the period of the last 7 local days goes in UTC', async () => {
     const api = renderPnl();
 
-    // 261121-paper-real-unico U1 (BR9.2): the h1 is "Resultado"; the PAPER period report keeps its label below.
+    // 261121-paper-real-unico U1 (BR9.2): the h1 is "Resultado". U3 (BR2.9): the table by token is "Ver por token"
+    // inside the block Simulado, read with the applied pair and without the automatic repetition.
     expect(screen.getByTestId('pnl-title')).toHaveTextContent('Resultado');
-    expect(screen.getByTestId('pnl-paper-section')).toHaveTextContent(text.paperLabel);
+    expect(screen.getByTestId('pnl-paper-section')).toHaveTextContent('Ver por token');
     await waitFor(() =>
-      expect(api.getPnl).toHaveBeenCalledWith({
-        from: '2026-10-22T03:00:00Z',
-        to: '2026-10-29T03:00:00Z',
-      }),
+      expect(api.getPnl).toHaveBeenCalledWith(
+        { from: '2026-10-22T03:00:00Z', to: '2026-10-29T03:00:00Z' },
+        expect.objectContaining({ retry: false }),
+      ),
     );
-    expect(screen.getByText(text.periodHelp('America/Sao_Paulo'))).toBeInTheDocument();
+    expect(screen.getByTestId('pnl-period-showing')).toHaveTextContent(
+      'Mostrando: 22/10/2026 a 28/10/2026',
+    );
   });
 
   it('shows loading, then the empty state with its sentence and no number', async () => {
@@ -128,17 +140,17 @@ describe('S6 P&L screen /pnl', () => {
     const api = renderPnl(fakeApi(), 'Asia/Tokyo');
     await screen.findByTestId('pnl-empty');
 
-    await userEvent.clear(screen.getByTestId('pnl-from'));
+    // U3 (BR2.1): the interval is the fifth option of the PeriodSelector, applied with "Aplicar".
+    await userEvent.click(screen.getByTestId('pnl-period-RANGE'));
     await userEvent.type(screen.getByTestId('pnl-from'), '2026-10-01');
-    await userEvent.clear(screen.getByTestId('pnl-to'));
     await userEvent.type(screen.getByTestId('pnl-to'), '2026-10-01');
     await userEvent.click(screen.getByTestId('pnl-apply'));
 
     await waitFor(() =>
-      expect(api.getPnl).toHaveBeenLastCalledWith({
-        from: '2026-09-30T15:00:00Z',
-        to: '2026-10-01T15:00:00Z',
-      }),
+      expect(api.getPnl).toHaveBeenLastCalledWith(
+        { from: '2026-09-30T15:00:00Z', to: '2026-10-01T15:00:00Z' },
+        expect.anything(),
+      ),
     );
   });
 
@@ -147,11 +159,15 @@ describe('S6 P&L screen /pnl', () => {
     await screen.findByTestId('pnl-empty');
     const calls = api.getPnl.mock.calls.length;
 
-    await userEvent.clear(screen.getByTestId('pnl-from'));
+    await userEvent.click(screen.getByTestId('pnl-period-RANGE'));
     await userEvent.type(screen.getByTestId('pnl-from'), '2026-10-30');
+    await userEvent.type(screen.getByTestId('pnl-to'), '2026-10-28');
     await userEvent.click(screen.getByTestId('pnl-apply'));
 
-    expect(await screen.findByTestId('pnl-invalid')).toHaveTextContent(text.invalidPeriod);
+    // U3 (BR2.3): the message sits on its field "Até" and nothing is sent.
+    expect(await screen.findByTestId('pnl-to-error')).toHaveTextContent(
+      'A data final vem antes da inicial. Corrija o campo "Até".',
+    );
     expect(api.getPnl).toHaveBeenCalledTimes(calls);
   });
 
@@ -216,6 +232,8 @@ describe('S6 P&L screen /pnl', () => {
   });
 
   it('basic accessibility: labelled date fields, a focusable title and keyboard operable buttons', async () => {
+    // U3: the date fields belong to the option "Intervalo".
+    search = new URLSearchParams('periodo=intervalo&de=2026-10-22&ate=2026-10-28');
     renderPnl(fakeApi({ getPnl: jest.fn(async () => REPORT) }));
     await screen.findByTestId('pnl-report');
 
@@ -238,7 +256,7 @@ describe('S6 P&L screen /pnl', () => {
     );
 
     expect(await screen.findByTestId('pnl-title')).toHaveTextContent('Resultado');
-    expect(screen.getByTestId('pnl-paper-section')).toHaveTextContent(text.paperLabel);
+    expect(screen.getByTestId('pnl-paper-section')).toHaveTextContent('Ver por token');
   });
 
   // 261121-paper-real-unico U1 (BR5.1, BR5.3, BR6.1, BR9.2; AC4.1.x, AC4.2.1): the two blocks by mode, never added.

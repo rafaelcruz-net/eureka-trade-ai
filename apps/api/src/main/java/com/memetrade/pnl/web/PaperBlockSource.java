@@ -1,6 +1,7 @@
 package com.memetrade.pnl.web;
 
 import com.memetrade.identity.api.Principal;
+import com.memetrade.pnl.api.BotEntry;
 import com.memetrade.pnl.api.PnlWindow;
 import com.memetrade.pnl.application.PaperBotPnlLine;
 import com.memetrade.pnl.application.PaperModeBlock;
@@ -25,7 +26,12 @@ public class PaperBlockSource {
     }
 
     public ModePnlDtos.PaperModeBlockDto block(Principal person) {
-        PaperModeBlock block = reader.block(person, PnlWindow.all());
+        return block(person, PnlWindow.all());
+    }
+
+    /** 261121-paper-real-unico U3 (BR2.4): the PAPER block of the window ALL or RANGE. */
+    public ModePnlDtos.PaperModeBlockDto block(Principal person, PnlWindow window) {
+        PaperModeBlock block = reader.block(person, window);
         return new ModePnlDtos.PaperModeBlockDto(
                 "AVAILABLE",
                 "PAPER",
@@ -38,6 +44,21 @@ public class PaperBlockSource {
                 block.unrealizedAsOf(),
                 block.fees().toPlainString(),
                 block.bots().stream().map(PaperBlockSource::line).toList());
+    }
+
+    /**
+     * 261121-paper-real-unico U3 (C6, BR5.4, NFR2.3): the PAPER side of the comparison: the line of the bot by the same
+     * calculation as its line in the PAPER block of C4, its creation, its strategy and the fixed disclaimer.
+     */
+    public ModePnlDtos.PaperComparisonSideDto side(Principal person, BotEntry bot, PnlWindow window) {
+        return new ModePnlDtos.PaperComparisonSideDto(
+                "AVAILABLE",
+                "PAPER",
+                "USD",
+                PaperModeBlock.DISCLAIMER,
+                bot.createdAt(),
+                bot.templateId(),
+                line(reader.lineOf(person, bot, window)));
     }
 
     private static ModePnlDtos.PaperBotPnlLineDto line(PaperBotPnlLine line) {

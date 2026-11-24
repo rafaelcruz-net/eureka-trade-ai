@@ -1,12 +1,17 @@
-import type { PaperTrade, PnlReport, ReconciliationResult } from '@/lib/api/guest-api';
+import type {
+  PaperModeBlock,
+  PaperTrade,
+  RealModeBlock,
+  ReconciliationResult,
+} from '@/lib/api/guest-api';
 import type {
   BotStateEnvelope,
   BotSummary,
   SourceStatus,
   TradeNotice,
 } from '@/features/dashboard/envelopes';
-import type { DayPeriod } from '@/features/dashboard/period';
 import type { ChannelState } from '@/features/dashboard/stream-client';
+import type { BlockLoad, RealEmptyReason } from '@/features/pnl/PnlModeBlock';
 
 /**
  * The single state of the dashboard S2 (frontend-components.md "DashboardScreen e DashboardProvider"): REST answers
@@ -17,7 +22,9 @@ import type { ChannelState } from '@/features/dashboard/stream-client';
  *   never the counts; a `bot.state` that arrives while the card is loading waits and is applied after the answer.
  * - `lastTrade`: the order with the greatest `createdAt` among every bot, from `trades?limit=1` or `trade.recorded`,
  *   never replaced by an older one (BR2.3).
- * - `pnl` / `reconciliation`: a failed new read keeps the values already shown (BR1.2).
+ * - `reconciliation`: a failed new read keeps the values already shown (BR1.2). 261121-paper-real-unico U3 (BR7.1):
+ *   the P&L of the UTC day (PnlCard) left the dashboard; the two cards by mode have their own slice, `modeCards`,
+ *   below.
  * - `sources`: the state of each market source and the clock tick used to age them (BR4.1).
  * - `channel`: what the live channel client reports, plus the time of the last success (BR4.2, BR5.2).
  * - `pendingPauses`: the Idempotency-Key of each "Pausar" in flight or failed, reused by "Tentar de novo" (BR2.2).
@@ -68,12 +75,6 @@ export interface LastTradeSlice {
   trade: LastTrade | null;
 }
 
-export interface PnlSlice {
-  status: CardStatus;
-  report: PnlReport | null;
-  period: DayPeriod | null;
-}
-
 export interface ReconciliationSlice {
   status: LineStatus;
   result: ReconciliationResult | null;
@@ -105,7 +106,6 @@ export interface PendingPause {
 export interface DashboardState {
   bots: BotsSlice;
   lastTrade: LastTradeSlice;
-  pnl: PnlSlice;
   reconciliation: ReconciliationSlice;
   sources: SourcesSlice;
   channel: ChannelSlice;
@@ -124,9 +124,6 @@ export type DashboardAction =
   | { type: 'LAST_TRADES_LOADED'; trades: BotTrade[]; failed: boolean; at: string }
   | { type: 'TRADE_RECORDED_EVENT'; items: TradeNotice[] }
   | { type: 'TRADE_DETAIL'; botId: string; trade: PaperTrade; at: string }
-  | { type: 'PNL_REQUESTED'; period: DayPeriod; showLoading: boolean }
-  | { type: 'PNL_LOADED'; report: PnlReport; at: string }
-  | { type: 'PNL_FAILED' }
   | { type: 'RECONCILIATION_REQUESTED'; showLoading: boolean }
   | { type: 'RECONCILIATION_LOADED'; result: ReconciliationResult; at: string }
   | { type: 'RECONCILIATION_FAILED' }
@@ -156,7 +153,6 @@ export function initialDashboardState(now: Date): DashboardState {
       loaded: false,
     },
     lastTrade: { status: 'LOADING', trade: null },
-    pnl: { status: 'LOADING', report: null, period: null },
     reconciliation: { status: 'LOADING', result: null },
     sources: { status: 'LOADING', items: [], now: now.toISOString() },
     channel: { state: 'CLOSED', outdated: false, lastEventAt: null, lastSuccessAt: null },
@@ -326,33 +322,6 @@ export function dashboardReducer(state: DashboardState, action: DashboardAction)
         },
         channel: withSuccess(state, action.at),
       };
-    case 'PNL_REQUESTED':
-      return {
-        ...state,
-        pnl: {
-          ...state.pnl,
-          period: action.period,
-          status: action.showLoading ? 'LOADING' : state.pnl.status,
-        },
-      };
-    case 'PNL_LOADED':
-      return {
-        ...state,
-        pnl: {
-          ...state.pnl,
-          status: action.report.empty ? 'EMPTY' : 'READY',
-          report: action.report,
-        },
-        channel: withSuccess(state, action.at),
-      };
-    case 'PNL_FAILED':
-      return {
-        ...state,
-        pnl: {
-          ...state.pnl,
-          status: state.pnl.report ? (state.pnl.report.empty ? 'EMPTY' : 'READY') : 'ERROR',
-        },
-      };
     case 'RECONCILIATION_REQUESTED':
       return action.showLoading
         ? { ...state, reconciliation: { ...state.reconciliation, status: 'LOADING' } }
@@ -459,4 +428,120 @@ export function sourceNotices(items: SourceStatus[], now: string): SourceNotice[
     }
   }
   return notices;
+}
+
+// ---------------- 261121-paper-real-unico U3: the two cards by mode (BR7.1 to BR7.5) ----------------
+
+/** BR7.5: a new total is announced at most once every 30 s per card, never on the first load. */
+export const MODE_CARD_ANNOUNCE_MS = 30_000;
+
+export interface ModeCard<B> {
+  load: BlockLoad<B>;
+  /** The slot `card:<market>`: an answer that is not the one of the last request is ignored. */
+  requestId: number;
+  /** When the total was last announced (epoch ms), or null when never. */
+  lastAnnouncedAt: number | null;
+  /** Whether the total in screen may be announced (its region is polite) or not (off). */
+  announce: boolean;
+}
+
+export interface ModeCardsState {
+  PAPER: ModeCard<PaperModeBlock>;
+  REAL: ModeCard<RealModeBlock> & { realUnavailable: RealEmptyReason };
+}
+
+export type ModeCardsAction =
+  | { type: 'MODE_CARDS_REQUESTED'; requestId: number }
+  | {
+      type: 'MODE_CARD_REQUESTED';
+      market: 'PAPER' | 'REAL';
+      requestId: number;
+      showLoading: boolean;
+    }
+  | {
+      type: 'MODE_CARD_LOADED';
+      market: 'PAPER' | 'REAL';
+      requestId: number;
+      load: BlockLoad<PaperModeBlock> | BlockLoad<RealModeBlock>;
+      /** epoch ms of the answer; `initial` answers are never announced. */
+      at: number;
+      initial: boolean;
+    }
+  | {
+      type: 'MODE_CARD_FAILED';
+      market: 'PAPER' | 'REAL';
+      requestId: number;
+      code: string;
+      /** A reading by event that failed keeps the values already shown (BR1.2 of the dashboard). */
+      background?: boolean;
+    }
+  | { type: 'REAL_ELIGIBILITY_LOADED'; realUnavailable: RealEmptyReason };
+
+export const INITIAL_MODE_CARDS: ModeCardsState = {
+  PAPER: { load: { kind: 'loading' }, requestId: 0, lastAnnouncedAt: null, announce: false },
+  REAL: {
+    load: { kind: 'loading' },
+    requestId: 0,
+    lastAnnouncedAt: null,
+    announce: false,
+    realUnavailable: { kind: 'unknown' },
+  },
+};
+
+function withCard(
+  state: ModeCardsState,
+  market: 'PAPER' | 'REAL',
+  change: Partial<ModeCard<PaperModeBlock>> | Partial<ModeCard<RealModeBlock>>,
+): ModeCardsState {
+  return market === 'PAPER'
+    ? { ...state, PAPER: { ...state.PAPER, ...(change as Partial<ModeCard<PaperModeBlock>>) } }
+    : { ...state, REAL: { ...state.REAL, ...(change as Partial<ModeCard<RealModeBlock>>) } };
+}
+
+/** The pure reducer of the two cards; the component does the calls (C4 and C2) and the windows of 30 s. */
+export function modeCardsReducer(state: ModeCardsState, action: ModeCardsAction): ModeCardsState {
+  switch (action.type) {
+    case 'MODE_CARDS_REQUESTED':
+      return {
+        PAPER: { ...state.PAPER, load: { kind: 'loading' }, requestId: action.requestId },
+        REAL: { ...state.REAL, load: { kind: 'loading' }, requestId: action.requestId },
+      };
+    case 'MODE_CARD_REQUESTED':
+      return withCard(state, action.market, {
+        requestId: action.requestId,
+        ...(action.showLoading ? { load: { kind: 'loading' as const } } : {}),
+      });
+    case 'MODE_CARD_LOADED': {
+      const card = state[action.market];
+      if (card.requestId !== action.requestId) {
+        return state;
+      }
+      const announce =
+        !action.initial &&
+        (card.lastAnnouncedAt === null ||
+          action.at - card.lastAnnouncedAt >= MODE_CARD_ANNOUNCE_MS);
+      return withCard(state, action.market, {
+        load: action.load,
+        announce,
+        lastAnnouncedAt: announce ? action.at : card.lastAnnouncedAt,
+      } as Partial<ModeCard<PaperModeBlock>>);
+    }
+    case 'MODE_CARD_FAILED': {
+      const card = state[action.market];
+      if (
+        card.requestId !== action.requestId ||
+        (action.background && card.load.kind === 'ready')
+      ) {
+        return state;
+      }
+      return withCard(state, action.market, {
+        load: { kind: 'error', code: action.code },
+        announce: false,
+      });
+    }
+    case 'REAL_ELIGIBILITY_LOADED':
+      return { ...state, REAL: { ...state.REAL, realUnavailable: action.realUnavailable } };
+    default:
+      return state;
+  }
 }

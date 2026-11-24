@@ -360,6 +360,8 @@
 - **TypeScript**: modo `strict` ligado.
 - **Fim de linha e codificação**: `.editorconfig` e `.gitattributes` fixando LF e
   UTF-8 (com exceção CRLF para `*.cmd`/`*.bat`).
+- Exceção única à regra de que toda consulta de dados de cliente filtra pelo tenant: `BotDirectory.ownedByAnotherTenant` consulta fora do tenant para auditar a tentativa de acesso a bot de outra conta; devolve só sim/não, nunca dados do bot, e é restrita por ArchUnit ao caminho do 404 (decisão do responsável, intent 261121-paper-real-unico). (learned 2026-11-24) <!-- cid:261121-paper-real-unico:functional-design:4b1fbf9e0fec15e62daa6053cd036697dd990e782f717c1d40152ee3bbbbfe2c -->
+
 ## Forbidden
 
 <!-- Team-specific forbidden patterns -->
