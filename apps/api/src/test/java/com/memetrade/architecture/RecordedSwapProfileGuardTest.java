@@ -3,8 +3,10 @@ package com.memetrade.architecture;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.memetrade.bots.api.OwnQuantitySell;
 import com.memetrade.bots.infra.JdbcBotRepository;
 import com.memetrade.bots.infra.JdbcCycleRepository;
+import com.memetrade.bots.infra.OwnQuantityMetrics;
 import com.memetrade.bots.worker.CycleRunner;
 import com.memetrade.bots.worker.OwnHoldingsStep;
 import com.memetrade.bots.worker.RealCycle;
@@ -125,6 +127,8 @@ class RecordedSwapProfileGuardTest {
                 // The mock of the runner still receives its method injection of the REAL path.
                 .withBean(RealCycle.class, () -> mock(RealCycle.class))
                 .withBean(OwnHoldingsStep.class, () -> mock(OwnHoldingsStep.class))
+                .withBean(OwnQuantitySell.class, () -> () -> false)
+                .withBean(OwnQuantityMetrics.class, () -> mock(OwnQuantityMetrics.class))
                 .withBean(Clock.class, Clock::systemUTC)
                 .withUserConfiguration(
                         RecordedSwapFixtureConfig.class, RecordedSwapStrategy.class, RecordedSwapFirstCycle.class);
