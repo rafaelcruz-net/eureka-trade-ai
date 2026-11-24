@@ -1130,6 +1130,8 @@ export interface components {
        */
       matchingCount: number;
       nextCursor: string | null;
+      /** @description 261121-paper-real-unico U4 (C7, BR5.3): a flag de quantidade própria do REAL na API; com true, cada bot real vende só a quantidade que ele mesmo comprou. Sempre enviado pelo servidor, false por padrão; não depende do filtro, do modo nem da pessoa */
+      realOwnQuantitySell?: boolean;
       /**
        * Format: int64
        * @description 261121-paper-real-unico U3 (BR1.3): todos os bots da pessoa, sem filtro

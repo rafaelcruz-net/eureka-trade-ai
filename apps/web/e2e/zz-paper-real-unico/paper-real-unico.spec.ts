@@ -551,4 +551,46 @@ test.describe.serial('PAPER and REAL bots in one view, one buy in each mode, nev
     await expect(page.getByTestId('pnl-report')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('pnl-by-token-note')).toHaveCount(0);
   });
+
+  // ---------------- 261121-paper-real-unico U4, Etapa 21: the notice of the own quantity (FR6.2) ----------------
+
+  const OWN_QUANTITY_NOTICE =
+    'Cada bot real vende só a quantidade que ele mesmo comprou. Posições herdadas ou de outros bots continuam na carteira e podem ser vendidas em Vender tudo e sacar.';
+
+  test('U4 1. with the flag off (verify.sh) /bots shows no notice of the own quantity', async () => {
+    await wide();
+    await page.goto('/bots');
+    await expect(page.getByTestId('bots-list')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('bots-own-quantity-notice')).toHaveCount(0);
+  });
+
+  test('U4 2. at 360 px with the flag on, the notice shows in Todos and Real by its exact name, never in Simulado', async () => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    // The flag stays off in verify.sh: the real answer of the api gets realOwnQuantitySell true here, nothing else.
+    await page.route(
+      (url) => url.pathname === '/api/v1/bots',
+      async (route) => {
+        const response = await route.fetch();
+        await route.fulfill({
+          response,
+          json: { ...(await response.json()), realOwnQuantitySell: true },
+        });
+      },
+    );
+    try {
+      for (const path of ['/bots', '/bots?mode=REAL']) {
+        await page.goto(path);
+        const notice = page.getByRole('status', { name: OWN_QUANTITY_NOTICE });
+        await expect(notice, path).toBeVisible({ timeout: 30_000 });
+        await expect(notice).toHaveText(OWN_QUANTITY_NOTICE);
+        expect(await sideScroll(), `${path} with the notice at 360 px`).toBeLessThanOrEqual(0);
+      }
+      await page.goto('/bots?mode=PAPER');
+      await expect(page.getByTestId('bots-list')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('bots-own-quantity-notice')).toHaveCount(0);
+    } finally {
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await wide();
+    }
+  });
 });

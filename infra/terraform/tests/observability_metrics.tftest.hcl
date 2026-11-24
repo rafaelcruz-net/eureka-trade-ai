@@ -161,6 +161,34 @@ run "every_alarm_reads_a_published_metric" {
     condition     = contains(module.observability.alarm_names, "eureka-real-real-ops-pnl-reconciliation-mismatch") && contains(module.observability.app_metric_names, "pnl_real_reconciliation_mismatches_total")
     error_message = "the alarm of a REAL P&L mismatch or its metric is missing"
   }
+  # 261121-paper-real-unico U4 (NFR2.12, NFR2.18; decisions F2 and F3): the two alarms of the own holdings exist; the
+  # three metrics they read are allowed with their dimension sets; the counter of the cut stays in Prometheus only; the
+  # ratio guards its denominator and fills its numerators, with the exact text of the design (review R-01, A18).
+  assert {
+    condition     = contains(module.observability.alarm_names, "eureka-real-real-ops-own-holdings-unavailable") && contains(module.observability.alarm_names, "eureka-real-real-ops-own-holdings-stuck-bots")
+    error_message = "an alarm of the own holdings is missing"
+  }
+  assert {
+    condition = (
+      contains(module.observability.app_metric_names, "real_own_holdings_reads_total")
+      && contains(module.observability.app_metric_names, "real_own_holdings_unavailable_total")
+      && contains(module.observability.app_metric_names, "real_own_holdings_stuck_bots")
+      && !contains(module.observability.app_metric_names, "real_cycle_sell_capped_total")
+    )
+    error_message = "the allow-list of the own holdings differs from the design (3 metrics in, the counter of the cut out)"
+  }
+  assert {
+    condition = (
+      module.observability.app_metric_dimension_sets["real_own_holdings_unavailable_total"] == ["reason"]
+      && module.observability.app_metric_dimension_sets["real_own_holdings_reads_total"] == [""]
+      && module.observability.app_metric_dimension_sets["real_own_holdings_stuck_bots"] == [""]
+    )
+    error_message = "the dimension sets of the metrics of the own holdings differ from the design"
+  }
+  assert {
+    condition     = module.observability.alarm_expressions["eureka-real-real-ops-own-holdings-unavailable"] == ["IF(FILL(m3, 0) > 0, (FILL(m1, 0) + FILL(m2, 0)) / m3, 0)"]
+    error_message = "the expression of the ratio of the own holdings is not IF(FILL(m3, 0) > 0, (FILL(m1, 0) + FILL(m2, 0)) / m3, 0)"
+  }
   # Q2: one heartbeat per process.
   assert {
     condition     = toset([for name in module.observability.alarm_names : name if startswith(name, "eureka-real-metrics-absent-")]) == toset(["eureka-real-metrics-absent-api", "eureka-real-metrics-absent-worker", "eureka-real-metrics-absent-txsigner"])
@@ -213,4 +241,47 @@ run "p95_alarms_when_the_code_publishes_them" {
     )])
     error_message = "a p95 alarm reads a metric outside the allow-list"
   }
+}
+
+# 261121-paper-real-unico U4 (decision F4 of the founder; BR5.1, BR5.2, NFR2.8, NFR8.4): the flag of the own quantity,
+# off by default in the api and in the worker, one variable each, never in the environment of the metrics sidecar.
+run "own_quantity_flag_default" {
+  command = apply
+
+  assert {
+    condition = (
+      module.services.api_worker_container_environment["api"]["MEMETRADE_REAL_OWN_QUANTITY_SELL"] == "false"
+      && module.services.api_worker_container_environment["worker"]["MEMETRADE_REAL_OWN_QUANTITY_SELL"] == "false"
+      && !contains(keys(module.services.api_worker_container_environment["metrics-agent"]), "MEMETRADE_REAL_OWN_QUANTITY_SELL")
+    )
+    error_message = "the flag of the own quantity must be \"false\" in the api and in the worker by default, and absent from the sidecar"
+  }
+}
+
+run "own_quantity_flag_api_only" {
+  command = apply
+
+  variables {
+    real_own_quantity_sell_api    = true
+    real_own_quantity_sell_worker = false
+  }
+
+  assert {
+    condition = (
+      module.services.api_worker_container_environment["api"]["MEMETRADE_REAL_OWN_QUANTITY_SELL"] == "true"
+      && module.services.api_worker_container_environment["worker"]["MEMETRADE_REAL_OWN_QUANTITY_SELL"] == "false"
+    )
+    error_message = "the api turns first, alone: api \"true\" and worker \"false\""
+  }
+}
+
+run "own_quantity_flag_worker_without_api" {
+  command = plan
+
+  variables {
+    real_own_quantity_sell_api    = false
+    real_own_quantity_sell_worker = true
+  }
+
+  expect_failures = [var.real_own_quantity_sell_worker]
 }

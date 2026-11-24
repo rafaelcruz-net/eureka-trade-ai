@@ -208,3 +208,76 @@ resource "aws_cloudwatch_metric_alarm" "real_ops_pnl_reconciliation_mismatch" {
   treat_missing_data  = "notBreaching"
   alarm_actions       = [var.alarm_topic_arn]
 }
+
+# 261121-paper-real-unico U4 (decision F2 of the founder, NFR2.12; review R-01): twin of RealOpsOwnHoldingsUnavailable.
+# In metric math an input without a point in a period leaves the expression without a point, so the numerators are
+# filled with 0 and the denominator is guarded: without reads (flag off, no REAL bot) the value is 0 and never alarms;
+# a worker that stopped is the alarm metrics_absent. Two periods of 600 s (cloud_periods 2 of the rule); each period
+# holds about 5 reads of the agent (120 s), at least one, and missing data is not breaching (project.md, 2026-11-20).
+resource "aws_cloudwatch_metric_alarm" "real_ops_own_holdings_unavailable" {
+  alarm_name          = "${var.name}-real-ops-own-holdings-unavailable"
+  alarm_description   = "U4 NFR2.12: more than 5% of the own-holdings reads of the REAL bots unavailable (BUDGET_EXCEEDED or READ_FAILED) in two windows of 600 s. Runbook: real-operations.md, section 10."
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 0.05
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_topic_arn]
+
+  metric_query {
+    id          = "e1"
+    expression  = "IF(FILL(m3, 0) > 0, (FILL(m1, 0) + FILL(m2, 0)) / m3, 0)"
+    label       = "own holdings unavailable ratio"
+    return_data = true
+  }
+
+  metric_query {
+    id = "m1"
+    metric {
+      namespace   = local.real_ops_namespace
+      metric_name = "real_own_holdings_unavailable_total"
+      dimensions  = { reason = "BUDGET_EXCEEDED" }
+      stat        = "Sum"
+      period      = 600
+    }
+  }
+
+  metric_query {
+    id = "m2"
+    metric {
+      namespace   = local.real_ops_namespace
+      metric_name = "real_own_holdings_unavailable_total"
+      dimensions  = { reason = "READ_FAILED" }
+      stat        = "Sum"
+      period      = 600
+    }
+  }
+
+  metric_query {
+    id = "m3"
+    metric {
+      namespace   = local.real_ops_namespace
+      metric_name = "real_own_holdings_reads_total"
+      stat        = "Sum"
+      period      = 600
+    }
+  }
+}
+
+# 261121-paper-real-unico U4 (decision F3 of the founder, NFR2.18): twin of RealOpsOwnHoldingsStuckBots. Minimum per
+# period: a period passes the threshold only when every read of the agent in it is above 0; two periods of 300 s in a
+# row are the 600 s of the rule (cloud_periods 1). No dimension: the gauge carries no label.
+resource "aws_cloudwatch_metric_alarm" "real_ops_own_holdings_stuck_bots" {
+  alarm_name          = "${var.name}-real-ops-own-holdings-stuck-bots"
+  alarm_description   = "U4 NFR2.18 (F3): a REAL bot has 3 or more own-holdings reads unavailable in a row for 10 minutes. Runbook: real-operations.md, section 10."
+  namespace           = local.real_ops_namespace
+  metric_name         = "real_own_holdings_stuck_bots"
+  statistic           = "Minimum"
+  period              = 300
+  evaluation_periods  = 2
+  datapoints_to_alarm = 2
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [var.alarm_topic_arn]
+}

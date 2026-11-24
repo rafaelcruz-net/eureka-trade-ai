@@ -49,3 +49,7 @@ databaseChangeLog:
       file: db/changelog/changes/0024-real-risk-day-deferred.sql
   - include:
       file: db/changelog/changes/0025-real-position-epoch.sql
+  - include:
+      file: db/changelog/changes/0026-bot-cycle-own-quantity-outcomes.sql
+  - include:
+      file: db/changelog/changes/0027-real-decision-request-bot-pending-sell-idx.sql

@@ -62,6 +62,12 @@ public class RealExecutionService implements RealExecutionPort {
         return store.hasOrderInProgress(tenantId, botId);
     }
 
+    /** 261121-paper-real-unico U4 (C16 extended): read only, in the transaction of the caller; no lock. */
+    @Override
+    public List<com.memetrade.realexecution.api.OpenSell> openSells(UUID tenantId, UUID botId) {
+        return store.openSells(tenantId, botId);
+    }
+
     @Override
     public boolean liquidationActive(UUID tenantId, UUID userId) {
         return store.liquidationActive(tenantId, userId);
@@ -151,6 +157,16 @@ public class RealExecutionService implements RealExecutionPort {
                         && (row.state() == com.memetrade.realexecution.api.RealOrderState.CONFIRMED
                                 || row.state() == com.memetrade.realexecution.api.RealOrderState.FAILED))
                 .map(RealExecutionService::view);
+    }
+
+    @Override
+    public List<RealOrderView> settledOrdersById(UUID tenantId, UUID userId, java.util.Collection<UUID> realOrderIds) {
+        if (realOrderIds.isEmpty()) {
+            return List.of();
+        }
+        return store.settledByIds(tenantId, userId, realOrderIds).stream()
+                .map(RealExecutionService::view)
+                .toList();
     }
 
     @Override

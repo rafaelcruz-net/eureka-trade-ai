@@ -2,6 +2,9 @@ package com.memetrade.bots.worker;
 
 import com.memetrade.bots.application.RealDecisionStep;
 import com.memetrade.bots.domain.Bot;
+import com.memetrade.bots.domain.OwnDecisionInputs;
+import com.memetrade.bots.domain.OwnHoldings;
+import com.memetrade.bots.domain.OwnSellCap;
 import com.memetrade.bots.domain.RealSizing;
 import com.memetrade.botwallet.api.RealStateQuery;
 import com.memetrade.botwallet.api.RealStateView;
@@ -112,8 +115,103 @@ public class RealCycle {
         return RealSizing.dollarsOfLamports(known.lamports(), solUsd);
     }
 
-    /** The balance in dollars and the open positions of the bot wallet of the owner. */
-    record Inputs(BigDecimal balanceUsd, List<PositionInput> positions, List<RealPosition> raw, BigDecimal solUsd) {}
+    /**
+     * The balance in dollars and the open positions of the bot wallet of the owner.
+     *
+     * @param own 261121-paper-real-unico U4: with the flag on, the own inputs of the bot (the exits on its own available
+     *     quantity, the mints held but not sellable, the notes); empty with the flag off (today)
+     */
+    record Inputs(
+            BigDecimal balanceUsd,
+            List<PositionInput> positions,
+            List<RealPosition> raw,
+            BigDecimal solUsd,
+            Optional<OwnDecisionInputs> own) {
+
+        Inputs(BigDecimal balanceUsd, List<PositionInput> positions, List<RealPosition> raw, BigDecimal solUsd) {
+            this(balanceUsd, positions, raw, solUsd, Optional.empty());
+        }
+    }
+
+    /**
+     * 261121-paper-real-unico U4 (F2; BR1.6, BR2.3, BR2.6, BR4.2, NFR1.2): the REAL inputs with the flag on. The balance,
+     * the cap of a buy and the market are today's; the exits are the OWN available positions of the bot at its own
+     * average cost converted to dollars at the SOL of this cycle; the mints of the wallet without an own available
+     * quantity (every mint when the read is not available) are held, not sellable. The cost of the wallet with
+     * attribution (path CYCLE) is NOT read: the cost comes from the own holdings.
+     */
+    Optional<Inputs> ownInputs(Bot bot, Map<TokenId, Instant> holdings, Instant now, OwnHoldings own) {
+        Optional<RealStateView> state =
+                states.readRealState(bot.scope().tenantId(), bot.scope().ownerUserId());
+        Optional<BigDecimal> sol = known(market.referencePrice(new TokenId("solana", WRAPPED_SOL)));
+        if (state.isEmpty() || sol.isEmpty()) {
+            return Optional.empty();
+        }
+        RealLedgerView view = ledger.view(bot.scope().tenantId(), state.get().botWalletId(), Optional.empty());
+        long operable = view.balance()
+                .operableLamports(state.get().capLamports(), state.get().feeReserveLamports());
+        OwnDecisionInputs inputs = OwnDecisionInputs.of(
+                view.positions().stream().map(RealPosition::mint).toList(), own);
+        List<PositionInput> positions = new ArrayList<>();
+        for (OwnDecisionInputs.OwnExit exit : inputs.ownPositions()) {
+            TokenId token = new TokenId("solana", exit.mint());
+            Optional<Integer> decimals = decimalsOf(token.mint());
+            if (decimals.isEmpty()) {
+                continue;
+            }
+            positions.add(new PositionInput(
+                    token,
+                    RealSizing.tokens(exit.tokenBaseUnits(), decimals.get()),
+                    Optional.of(RealSizing.dollarsOfLamports(exit.costLamports(), sol.get())),
+                    holdings.getOrDefault(token, now)));
+        }
+        return Optional.of(new Inputs(
+                RealSizing.dollarsOfLamports(operable, sol.get()),
+                positions,
+                view.positions(),
+                sol.get(),
+                Optional.of(inputs)));
+    }
+
+    /** The decimals of {@code mint} from the market of the cycle; empty when unknown (never zero). */
+    Optional<Integer> decimalsOf(String mint) {
+        return known(market.decimals(new TokenId("solana", mint))).map(BigDecimal::intValueExact);
+    }
+
+    /**
+     * 261121-paper-real-unico U4 (F3; BR1.4, BR1.5, BR3.3): the REAL order of a decision with the flag on. A BUY is
+     * today's. A SELL follows the verdict of the cut, computed before the decision was recorded: {@code Sell} goes to
+     * the decision step of today with the cut base units (never the position of the wallet); no own quantity and an
+     * unavailable own quantity end the cycle without calling the step, so nothing reaches the queue.
+     */
+    String order(
+            Bot bot,
+            UUID decisionId,
+            DecisionOutcome outcome,
+            List<TokenInputs> tokens,
+            Inputs inputs,
+            OwnSellCap.Verdict verdict) {
+        if (outcome.action() != DecisionAction.SELL) {
+            return order(bot, decisionId, outcome, tokens, inputs);
+        }
+        return switch (verdict) {
+            case OwnSellCap.Verdict.Sell sell ->
+                "REAL_"
+                        + step.submit(RealDecisionStep.Candidate.sell(
+                                        bot.scope().tenantId(),
+                                        bot.scope().ownerUserId(),
+                                        bot.botId(),
+                                        decisionId,
+                                        outcome.token().orElseThrow().mint(),
+                                        sell.sellBaseUnits(),
+                                        outcome.summary()))
+                                .result();
+            case OwnSellCap.Verdict.NoOwnQuantity none -> "REAL_NO_OWN_QUANTITY";
+            case OwnSellCap.Verdict.Unavailable unavailable -> "REAL_OWN_QUANTITY_UNAVAILABLE";
+            case OwnSellCap.Verdict.NotApplicable notApplicable ->
+                throw new IllegalStateException("A SELL always has a verdict of the cut");
+        };
+    }
 
     Optional<Inputs> inputs(Bot bot, Map<TokenId, Instant> holdings, Instant now) {
         Optional<RealStateView> state =

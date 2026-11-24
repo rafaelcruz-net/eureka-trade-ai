@@ -73,3 +73,14 @@ output "secret_arns" {
 output "txsigner_service_token_secret_arn" {
   value = aws_secretsmanager_secret.this["txsigner-service-token"].arn
 }
+
+# 261121-paper-real-unico U4 (F4, NFR8.4): the plain environment of each container of the api+worker task (container =>
+# name => value), so the offline test reads the flag of the own quantity where the containers read it. Only
+# `environment`, never `secrets`.
+output "api_worker_container_environment" {
+  description = "The environment (no secret) of each container of the api+worker task definition (offline tests)"
+  value = {
+    for c in jsondecode(aws_ecs_task_definition.api_worker.container_definitions) :
+    c.name => { for e in try(c.environment, []) : e.name => e.value }
+  }
+}

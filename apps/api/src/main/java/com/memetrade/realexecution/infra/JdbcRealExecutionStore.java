@@ -316,6 +316,36 @@ public class JdbcRealExecutionStore {
                 .update();
     }
 
+    /**
+     * 261121-paper-real-unico U4 (C16 extended by D1; performance-design.md "Consulta de C16"): the open sales of one
+     * bot. The states, the side and PENDING are LITERALS, never parameters: only so the planner proves that the
+     * condition implies the predicate of the partial indexes {@code uq_real_order_bot_in_progress} and
+     * {@code real_decision_request_bot_pending_sell_idx}, also in the generic plan of a prepared statement
+     * ({@code RealOpenSellsPlanIT}). The tenant filters both parts (NFR3.1); a deferred decision ({@code not_before} in
+     * the future) counts (BR1.3). No lock.
+     */
+    static final String OPEN_SELLS_SQL = """
+            select 'ORDER' as source, real_order_id as source_id, mint, input_base_units as units
+              from real_order
+             where bot_id = :bot and tenant_id = :tenant and side = 'SELL'
+               and state in ('PROPOSED', 'QUOTED', 'SIGNED', 'SENT', 'AMBIGUOUS')
+            union all
+            select 'DECISION_REQUEST' as source, decision_request_id as source_id, mint, token_base_units as units
+              from real_decision_request
+             where bot_id = :bot and tenant_id = :tenant and side = 'SELL' and state = 'PENDING'""";
+
+    public List<com.memetrade.realexecution.api.OpenSell> openSells(UUID tenantId, UUID botId) {
+        return jdbc.sql(OPEN_SELLS_SQL)
+                .param("bot", botId)
+                .param("tenant", tenantId)
+                .query((rs, row) -> new com.memetrade.realexecution.api.OpenSell(
+                        com.memetrade.realexecution.api.OpenSellSource.valueOf(rs.getString("source")),
+                        rs.getObject("source_id", UUID.class),
+                        rs.getString("mint"),
+                        rs.getLong("units")))
+                .list();
+    }
+
     public boolean hasOrderInProgress(UUID tenantId, UUID botId) {
         return jdbc.sql("""
                         select exists (select 1 from real_order where tenant_id = :tenant and bot_id = :bot
@@ -545,6 +575,22 @@ public class JdbcRealExecutionStore {
                 .param("tenant", tenantId)
                 .param("user", userId)
                 .param("max", max)
+                .query(JdbcRealExecutionStore::order)
+                .list();
+    }
+
+    /**
+     * 261121-paper-real-unico U4 (C15 step S4, review R-01): the settled orders of THIS person among {@code ids}, in ONE
+     * statement by {@code real_order_pkey}; the same filter as {@link #findForOwner} plus the settled states. No
+     * {@code ORDER BY}: the caller indexes them by id.
+     */
+    public List<OrderRow> settledByIds(UUID tenantId, UUID userId, Collection<UUID> ids) {
+        return jdbc.sql("select " + ORDER_COLUMNS + " from real_order where real_order_id = any(cast(:ids as uuid[]))"
+                        + " and tenant_id = :tenant and user_id = :user"
+                        + " and tx_signature is not null and state in ('CONFIRMED', 'FAILED')")
+                .param("ids", ids.stream().map(UUID::toString).toArray(String[]::new))
+                .param("tenant", tenantId)
+                .param("user", userId)
                 .query(JdbcRealExecutionStore::order)
                 .list();
     }

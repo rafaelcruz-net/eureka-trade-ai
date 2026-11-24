@@ -69,8 +69,14 @@ locals {
         "txsigner_kms_sign_seconds_max",
         # 261121-paper-real-unico U2 (NFR2.14, D-INF1): the sum of the 8 series of check of a REAL P&L mismatch.
         "pnl_real_reconciliation_mismatches_total",
+        # 261121-paper-real-unico U4 (NFR2.16, NFR2.18): the reads of the own holdings (denominator of the ratio) and
+        # the gauge of the stuck bots (F3). real_cycle_sell_capped_total stays out: Prometheus only (NFR2.11).
+        "real_own_holdings_reads_total",
+        "real_own_holdings_stuck_bots",
       ]
     },
+    # 261121-paper-real-unico U4 (NFR2.12): the unavailable reads by reason (BUDGET_EXCEEDED, READ_FAILED, BOT_NOT_OWNED).
+    { dimensions = [["reason"]], metrics = ["real_own_holdings_unavailable_total"] },
     { dimensions = [["source"]], metrics = ["marketdata_provider_conservative_mode", "marketdata_provider_budget_ratio", "marketdata_provider_calls_total"] },
     { dimensions = [["source", "state"]], metrics = ["marketdata_source_state"] },
     { dimensions = [["source", "outcome"]], metrics = ["marketdata_provider_calls_total"] },
@@ -154,6 +160,7 @@ locals {
     "real_ops_divergence_open", "real_ops_restore_pause", "real_ops_kill_switch_on", "real_ops_reconciliation_deferred",
     "real_ops_txsigner_command_pending", "real_ops_release_blocked", "real_ops_job_stalled",
     "real_ops_job_stalled_restore_check", "real_ops_pnl_reconciliation_mismatch",
+    "real_ops_own_holdings_unavailable", "real_ops_own_holdings_stuck_bots",
     "real_exits_cancelling_stalled", "real_exits_conditional_unread", "real_exits_trigger_policy_refused",
     "real_exits_job_stalled",
     "metrics_absent", "slo_api_availability_burn", "slo_txsigner_availability_burn", "slo_freshness_burn",
@@ -181,6 +188,8 @@ locals {
       aws_cloudwatch_metric_alarm.real_ops_txsigner_command_pending, aws_cloudwatch_metric_alarm.real_ops_release_blocked,
       aws_cloudwatch_metric_alarm.real_ops_job_stalled_restore_check,
       aws_cloudwatch_metric_alarm.real_ops_pnl_reconciliation_mismatch,
+      aws_cloudwatch_metric_alarm.real_ops_own_holdings_unavailable,
+      aws_cloudwatch_metric_alarm.real_ops_own_holdings_stuck_bots,
       aws_cloudwatch_metric_alarm.real_exits_cancelling_stalled,
       aws_cloudwatch_metric_alarm.real_exits_conditional_unread,
       aws_cloudwatch_metric_alarm.real_exits_trigger_policy_refused,
@@ -263,4 +272,15 @@ output "other_metric_sources" {
 
 output "alarm_names" {
   value = sort([for alarm in local.metric_alarms : alarm.alarm_name])
+}
+
+# 261121-paper-real-unico U4 (review R-01, A18): the expressions of the metric math alarms, by alarm name, so the
+# offline test checks the exact text of the ratio of the own holdings.
+output "alarm_expressions" {
+  description = "alarm_name => the expressions of its metric_query (metric math alarms only)"
+  value = {
+    for alarm in local.metric_alarms : alarm.alarm_name => [
+      for query in alarm.metric_query : query.expression if query.expression != null && query.expression != ""
+    ] if length(alarm.metric_query) > 0
+  }
 }

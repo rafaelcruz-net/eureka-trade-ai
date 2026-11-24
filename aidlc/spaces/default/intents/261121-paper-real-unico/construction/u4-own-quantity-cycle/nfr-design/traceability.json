@@ -1,0 +1,448 @@
+{
+  "stage": "nfr-design",
+  "unit": "u4-own-quantity-cycle",
+  "upstream_ids": [
+    "NFR1.1",
+    "NFR1.2",
+    "NFR1.3",
+    "NFR1.4",
+    "NFR1.5",
+    "NFR1.6",
+    "NFR1.7",
+    "NFR1.8",
+    "NFR1.9",
+    "NFR1.10",
+    "NFR1.11",
+    "NFR1.12",
+    "NFR1.13",
+    "NFR2.1",
+    "NFR2.2",
+    "NFR2.3",
+    "NFR2.4",
+    "NFR2.5",
+    "NFR2.6",
+    "NFR2.7",
+    "NFR2.8",
+    "NFR2.9",
+    "NFR2.10",
+    "NFR2.11",
+    "NFR2.12",
+    "NFR2.13",
+    "NFR2.14",
+    "NFR2.15",
+    "NFR2.16",
+    "NFR2.17",
+    "NFR2.18",
+    "NFR3.1",
+    "NFR3.2",
+    "NFR3.3",
+    "NFR3.4",
+    "NFR3.5",
+    "NFR3.6",
+    "NFR3.7",
+    "NFR3.8",
+    "NFR3.9",
+    "NFR3.10",
+    "NFR4.1",
+    "NFR4.2",
+    "NFR4.3",
+    "NFR5.1",
+    "NFR5.2",
+    "NFR6.1",
+    "NFR6.2",
+    "NFR7.1",
+    "NFR7.2",
+    "NFR7.3",
+    "NFR7.4",
+    "NFR7.5",
+    "NFR7.6",
+    "NFR7.7",
+    "NFR7.8",
+    "NFR8.1",
+    "NFR8.2",
+    "NFR8.3",
+    "NFR8.4",
+    "NFR8.5",
+    "NFR8.6",
+    "NFR8.7",
+    "NFR8.8",
+    "NFR8.9",
+    "NFR8.10",
+    "NFR8.11",
+    "NFR8.12",
+    "NFR8.13",
+    "NFR8.14",
+    "NFR8.15",
+    "NFR8.16",
+    "NFR8.17"
+  ],
+  "coverage": [
+    {
+      "id": "NFR1.1",
+      "status": "OK",
+      "target": "performance-design.md: RealBotHoldingsReader em REPEATABLE READ só de leitura fora do ciclo, ReadDeadline de 250 ms criado antes da conexão, S0 a S6 com consultas e índices nomeados; meta p99,9 medida pelo RealBotHoldingsMeasurementIT"
+    },
+    {
+      "id": "NFR1.2",
+      "status": "OK",
+      "target": "performance-design.md: com a flag ligada o AttributedCostReader (CYCLE) não é chamado; ciclo medido com a flag ligada e desligada, p95 só registrado"
+    },
+    {
+      "id": "NFR1.3",
+      "status": "OK",
+      "target": "performance-design.md e security-design.md: fase prévia, M0 e RealBotHoldings só no ramo REAL com a flag ligada; T7, T13, T14 contam 0 chamadas"
+    },
+    {
+      "id": "NFR1.4",
+      "status": "OK",
+      "target": "performance-design.md: TransactionTemplate REQUIRES_NEW, REPEATABLE READ, readOnly, recusa transação ativa; sem FOR UPDATE nem LockOrder/WalletLock/withPersonLock (ArchUnit R3, OwnHoldingsSqlNoLockTest); RealBotHoldingsIsolationIT"
+    },
+    {
+      "id": "NFR1.5",
+      "status": "OK",
+      "target": "performance-design.md: RealBotHoldingsMeasurementIT com a semente A de NFR1.5 e a semente B (nenhuma zeragem em 2 anos), 10.000 medidas por semente, p99,9 na 9.990ª, relatório em docs/perf, sem portão de tempo na CI; decisão de tempo no Build and Test (R-07)"
+    },
+    {
+      "id": "NFR1.6",
+      "status": "OK",
+      "target": "performance-design.md: scripts/load-test.sh, scripts/load/*.mjs e o workflow load-test não mudam"
+    },
+    {
+      "id": "NFR1.7",
+      "status": "OK",
+      "target": "performance-design.md e reliability-design.md: ReadDeadline por linha e por busca, statement_timeout com o que resta antes de cada comando, conferência final com a espera da conexão; T5 com relógio falso e pg_sleep"
+    },
+    {
+      "id": "NFR1.8",
+      "status": "OK",
+      "target": "scalability-design.md: 63 bots, 0,21 leitura/s, no máximo 0,05 conexão ocupada em média"
+    },
+    {
+      "id": "NFR1.9",
+      "status": "OK",
+      "target": "scalability-design.md: 1 conexão por ciclo de cada vez (prévias em autocommit, leitura, ciclo), 4 cycle-threads, pool de 36 sem mudança; memória igual à do caminho CYCLE substituído"
+    },
+    {
+      "id": "NFR1.10",
+      "status": "OK",
+      "target": "performance-design.md: DispatchedBot com market; P0 a P3 (bot_pkey com M0, bot_cycle_slot_uq, system_pause_state) antes de M0 e do RealBotHoldings; T5 com contador e ordem das leituras"
+    },
+    {
+      "id": "NFR1.11",
+      "status": "OK",
+      "target": "performance-design.md: S1 fixa o instantâneo; view por época (real_position_epoch_wallet_idx, real_ledger_entry_wallet_created_idx), fluxo de C13 acima de 32 ordens com RealBotHoldingsOrderPathParityIT (32 e 33 ordens, sementes A e B), openSells por uq_real_order_bot_in_progress e real_decision_request_bot_pending_sell_idx; RealOpenSellsPlanIT sem Seq Scan"
+    },
+    {
+      "id": "NFR1.12",
+      "status": "OK",
+      "target": "performance-design.md e scalability-design.md: 0 tabelas e colunas novas; 1 índice parcial novo na 0027 (CONCURRENTLY, runInTransaction:false); 2 valores novos de bot_cycle.outcome"
+    },
+    {
+      "id": "NFR1.13",
+      "status": "OK",
+      "target": "observability-design.md: SLI da razão do alarme e do p99,9 da medida; sem SLO nem histograma novos"
+    },
+    {
+      "id": "NFR2.1",
+      "status": "OK",
+      "target": "reliability-design.md: nenhum SLO novo; falha persistente pelo alarme por razão"
+    },
+    {
+      "id": "NFR2.2",
+      "status": "OK",
+      "target": "security-design.md: ArchUnit R2 e OwnQuantityExitsIT (saque, Vender tudo e sacar, liquidação aceitos com o RealBotHoldings falhando)"
+    },
+    {
+      "id": "NFR2.3",
+      "status": "OK",
+      "target": "reliability-design.md: mapeamento de exceções para BUDGET_EXCEEDED, READ_FAILED, BOT_NOT_OWNED dentro da transação só de leitura desfeita; sem repetição nem disjuntor; T5"
+    },
+    {
+      "id": "NFR2.4",
+      "status": "OK",
+      "target": "reliability-design.md e security-design.md: OwnSellCap recusa Unavailable, NotRead, M1 != M0 e venda 0 antes de step.submit; 0 recordDecision"
+    },
+    {
+      "id": "NFR2.5",
+      "status": "OK",
+      "target": "reliability-design.md: registro de abertura de mints em heldNotSellable não é fechado (T3); ordem com efeito não lido continua SENT e em aberto (T8)"
+    },
+    {
+      "id": "NFR2.6",
+      "status": "OK",
+      "target": "reliability-design.md: long com operações exatas, custo por BigInteger em piso, pedido por movePointRight com RoundingMode.DOWN; ArchUnit R4; E5"
+    },
+    {
+      "id": "NFR2.7",
+      "status": "OK",
+      "target": "reliability-design.md: 0026 em dois changesets (DROP + ADD NOT VALID num ALTER, depois VALIDATE), lock_timeout 5 s, rollback, falha 55P03 e repetição; Migration0026IT e Migration0026LockTimeoutIT"
+    },
+    {
+      "id": "NFR2.8",
+      "status": "OK",
+      "target": "reliability-design.md: ligar API e depois worker em implantações só da flag, consultas numa sessão REPEATABLE READ READ ONLY antes e depois, decisões de tarefa antiga por jsonb_exists(d.context, 'ownQuantity'), desligar na ordem inversa"
+    },
+    {
+      "id": "NFR2.9",
+      "status": "OK",
+      "target": "reliability-design.md: T12 paridade com RealBotPnl, com RealBotHoldingsOrderPathParityIT para os dois caminhos de S4; T1, T18, T19 conferência exata com o ledger; EpochAttribution extraído sem cópia (logical-components.md)"
+    },
+    {
+      "id": "NFR2.10",
+      "status": "OK",
+      "target": "observability-design.md: real_own_holdings_unavailable_total{reason} em OwnQuantityMetrics, 3 séries com zero, sobe na mesma chamada que o denominador"
+    },
+    {
+      "id": "NFR2.11",
+      "status": "OK",
+      "target": "observability-design.md: real_cycle_sell_capped_total{outcome} CAPPED, NO_OWN_QUANTITY, STALE_SNAPSHOT, só no Prometheus"
+    },
+    {
+      "id": "NFR2.12",
+      "status": "OK",
+      "target": "observability-design.md: regra RealOpsOwnHoldingsUnavailable (razão [10m] > 0.05, for 15m, cloud_periods 2), alarme de expressão IF(FILL(m3, 0) > 0, (FILL(m1, 0) + FILL(m2, 0)) / m3, 0) com period 600 e 2 de 2, app-metrics.tf, RealOpsAlarmParityTest hasSize(16) com cloud_periods, teste offline do texto da expressão"
+    },
+    {
+      "id": "NFR2.13",
+      "status": "OK",
+      "target": "observability-design.md: além da razão, só o alarme do bot preso da decisão do fundador F3; sell_capped só no Prometheus; nenhum painel (A17)"
+    },
+    {
+      "id": "NFR2.14",
+      "status": "OK",
+      "target": "reliability-design.md: seções 10 a 13 em docs/runbooks/real-operations.md com escalonamento; a seção 10 cobre a razão e o bot preso (F3)"
+    },
+    {
+      "id": "NFR2.15",
+      "status": "OK",
+      "target": "reliability-design.md (Exatidão): long, BigInteger e BigDecimal mantidos; linha de referência de tech-stack-decisions.md"
+    },
+    {
+      "id": "NFR2.16",
+      "status": "OK",
+      "target": "observability-design.md: real_own_holdings_reads_total sem etiqueta, sobe antes de cada chamada do RealBotHoldings; NotRead não conta"
+    },
+    {
+      "id": "NFR2.17",
+      "status": "OK",
+      "target": "observability-design.md: razão de STALE_SNAPSHOT 0 no RealBotHoldingsMeasurementIT; revisão semanal com a consulta de 24 h e o critério de 1% ou 3 seguidos"
+    },
+    {
+      "id": "NFR2.18",
+      "status": "OK",
+      "target": "observability-design.md (decisão do fundador F3): gauge real_own_holdings_stuck_bots (OwnHoldingsStreaks em memória, zera com leitura boa, despejo em 20 min, teto 10.000), alarme RealOpsOwnHoldingsStuckBots e gêmeo Minimum 300 s 2 de 2 notBreaching; linha entrou em nfr-requirements na Code Generation (A17)"
+    },
+    {
+      "id": "NFR3.1",
+      "status": "OK",
+      "target": "security-design.md: tenant e pessoa da linha do bot e de auth.as; toda consulta filtra tenant (tabela S1 a S5); OwnHoldingsSqlTenantTest e RealBotHoldingsTenantIT"
+    },
+    {
+      "id": "NFR3.2",
+      "status": "OK",
+      "target": "security-design.md: bot fora de botsOf(tenant, user, REAL) no instantâneo devolve BOT_NOT_OWNED sem dado; T6"
+    },
+    {
+      "id": "NFR3.3",
+      "status": "OK",
+      "target": "security-design.md: a venda cortada segue por RealDecisionStep e recordDecision de hoje; nenhuma classe nova chama TxSigner, RPC ou KMS; T11"
+    },
+    {
+      "id": "NFR3.4",
+      "status": "OK",
+      "target": "security-design.md: três barreiras (heldNotSellable fora de request.tokens(), marca change_seq M0/M1, OwnSellCap antes da fila); T1, T2, T4, T9, T10, OwnSellCapTest"
+    },
+    {
+      "id": "NFR3.5",
+      "status": "OK",
+      "target": "security-design.md: ArchUnit R2 e OwnQuantityExitsIT"
+    },
+    {
+      "id": "NFR3.6",
+      "status": "OK",
+      "target": "security-design.md: OwnQuantitySellProperties (@ConfigurationProperties, padrão false), MEMETRADE_REAL_OWN_QUANTITY_SELL em api_environment e worker_environment, sem rota nem tabela; OwnQuantitySellDefaultIT"
+    },
+    {
+      "id": "NFR3.7",
+      "status": "OK",
+      "target": "security-design.md e observability-design.md: etiquetas só enum, gauge de bots presos sem etiqueta; logs com uuid e correlationId; OwnQuantityLogRedactionTest"
+    },
+    {
+      "id": "NFR3.8",
+      "status": "OK",
+      "target": "security-design.md: 0026 só troca a regra de bot_cycle, 0027 só cria índice; 0 GRANT/REVOKE/DML; Migration0026IT conta linhas"
+    },
+    {
+      "id": "NFR3.9",
+      "status": "OK",
+      "target": "observability-design.md: tabela de eventos com nível e campos (WARN, INFO, ERROR), correlationId do MDC, 0 catch vazios"
+    },
+    {
+      "id": "NFR3.10",
+      "status": "OK",
+      "target": "observability-design.md: sem tracing novo; cycleId no MDC liga log, bot_cycle e decisão"
+    },
+    {
+      "id": "NFR4.1",
+      "status": "OK",
+      "target": "security-design.md: ramo PAPER não lê a flag nem o RealBotHoldings; DecisionJson sem ownQuantity no PAPER; context.ownQuantity interno, sem rota nem contrato (observability-design.md, R-06); decision.domain sem mudança; T14"
+    },
+    {
+      "id": "NFR4.2",
+      "status": "OK",
+      "target": "security-design.md: tipos novos em pnl.api e realexecution.api, ArchUnit R5; NeverSumModesArchitectureTest continua"
+    },
+    {
+      "id": "NFR4.3",
+      "status": "OK",
+      "target": "reliability-design.md (Aviso na tela): aviso só com a flag ligada e filtro Todos ou Real; T15, T16"
+    },
+    {
+      "id": "NFR5.1",
+      "status": "OK",
+      "target": "reliability-design.md (Aviso na tela): <p role=\"status\"> com o texto exato como nome acessível, sem depender de cor; T17"
+    },
+    {
+      "id": "NFR5.2",
+      "status": "OK",
+      "target": "reliability-design.md (Aviso na tela): mesmos tokens de cor do aviso do simulado, razão >= 4,5:1 registrada no Build and Test"
+    },
+    {
+      "id": "NFR6.1",
+      "status": "OK",
+      "target": "reliability-design.md (Aviso na tela): parágrafo que quebra linha, spec de 360 px com scrollWidth <= clientWidth"
+    },
+    {
+      "id": "NFR6.2",
+      "status": "OK",
+      "target": "reliability-design.md (Aviso na tela) e logical-components.md: BotPage.realOwnQuantitySell sempre presente; campo ausente ou false mostra a lista de hoje; T16"
+    },
+    {
+      "id": "NFR7.1",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação) e logical-components.md (Ordem de construção): T1 a T20 antes do código, inclusive T15 a T17"
+    },
+    {
+      "id": "NFR7.2",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): Test Strategy Standard e a lista de testes novos deste desenho"
+    },
+    {
+      "id": "NFR7.3",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): JaCoCo da API e Jest do apps/web >= 80% sem exclusão nova"
+    },
+    {
+      "id": "NFR7.4",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): testes de risco do team.md tocados continuam verdes"
+    },
+    {
+      "id": "NFR7.5",
+      "status": "OK",
+      "target": "reliability-design.md (Verificação): scripts/verify.sh verde com a flag desligada"
+    },
+    {
+      "id": "NFR7.6",
+      "status": "OK",
+      "target": "observability-design.md: RealOpsOwnHoldingsAlertRuleIT com Testcontainers, digest lido do passo Alert rules (promtool) do ci.yml, CiPromtoolDigestTest, AlertRuleTestAnnotationsTest, arquivo tests/real-ops-own-holdings-unavailable.test.yml com 10 casos, instantes exatos e exp_annotations"
+    },
+    {
+      "id": "NFR7.7",
+      "status": "OK",
+      "target": "observability-design.md e reliability-design.md: JUnit 5, Testcontainers (PostgreSQL 17 e prom/prometheus pelo digest do ci.yml), ArchUnit, JaCoCo; linha de referência de tech-stack-decisions.md"
+    },
+    {
+      "id": "NFR7.8",
+      "status": "OK",
+      "target": "reliability-design.md (Aviso na tela): Jest com Testing Library e tipos gerados do contrato (C7); linha de referência de tech-stack-decisions.md"
+    },
+    {
+      "id": "NFR8.1",
+      "status": "OK",
+      "target": "scalability-design.md: 0 serviços AWS novos; leitura no contêiner worker"
+    },
+    {
+      "id": "NFR8.2",
+      "status": "OK",
+      "target": "scalability-design.md e observability-design.md: 5 métricas, 1 alarme de expressão e 1 alarme padrão, cerca de US$ 1,90 por conta e mês (US$ 0,40 a mais pela F3)"
+    },
+    {
+      "id": "NFR8.3",
+      "status": "OK",
+      "target": "scalability-design.md e reliability-design.md: flag ligada primeiro na devnet e depois na mainnet com o mesmo SHA; devnet fechada"
+    },
+    {
+      "id": "NFR8.4",
+      "status": "OK",
+      "target": "security-design.md (Flag): MEMETRADE_REAL_OWN_QUANTITY_SELL = \"false\" em api_environment e worker_environment, nunca em app_environment; teste offline do Terraform"
+    },
+    {
+      "id": "NFR8.5",
+      "status": "OK",
+      "target": "logical-components.md: RealBotHoldingsReader em pnl.application atrás de pnl.api.RealBotHoldings, openSells em realexecution, corte em bots.worker e bots.domain; linha de referência"
+    },
+    {
+      "id": "NFR8.6",
+      "status": "OK",
+      "target": "reliability-design.md: 0026 em dois changesets incluída em db.changelog-master.yaml; mais a 0027 do índice; linha de referência"
+    },
+    {
+      "id": "NFR8.7",
+      "status": "OK",
+      "target": "security-design.md (Flag): propriedade memetrade.real.own-quantity-sell ligada a ${MEMETRADE_REAL_OWN_QUANTITY_SELL:false}; linha de referência"
+    },
+    {
+      "id": "NFR8.8",
+      "status": "OK",
+      "target": "observability-design.md: Micrometer com 3 contadores e 2 nomes na lista do CloudWatch; linha de referência"
+    },
+    {
+      "id": "NFR8.9",
+      "status": "OK",
+      "target": "observability-design.md: 1 regra em real-ops-alerts.yml e 1 alarme de expressão em real-ops.tf, paridade e promtool; linha de referência"
+    },
+    {
+      "id": "NFR8.10",
+      "status": "N/A",
+      "target": "alternativa rejeitada (ler dentro da transação do ciclo); o desenho lê fora dela (performance-design.md)"
+    },
+    {
+      "id": "NFR8.11",
+      "status": "N/A",
+      "target": "alternativa rejeitada (RealExecution calcula a quantidade do bot); o consumidor não muda (logical-components.md)"
+    },
+    {
+      "id": "NFR8.12",
+      "status": "N/A",
+      "target": "alternativa rejeitada (guardar a quantidade própria em tabela ou cache); nada é guardado entre ciclos (scalability-design.md)"
+    },
+    {
+      "id": "NFR8.13",
+      "status": "N/A",
+      "target": "alternativa rejeitada (flag no banco ou rota); a flag é só variável versionada (security-design.md)"
+    },
+    {
+      "id": "NFR8.14",
+      "status": "N/A",
+      "target": "alternativa rejeitada (histograma no CloudWatch); o prazo aparece como BUDGET_EXCEEDED (observability-design.md)"
+    },
+    {
+      "id": "NFR8.15",
+      "status": "N/A",
+      "target": "alternativa rejeitada (soma bruta em janelas disjuntas); substituída pela razão da F2 (observability-design.md)"
+    },
+    {
+      "id": "NFR8.16",
+      "status": "N/A",
+      "target": "alternativa rejeitada (subconsulta [15m:5m]); a regra usa for: 15m (observability-design.md)"
+    },
+    {
+      "id": "NFR8.17",
+      "status": "N/A",
+      "target": "alternativa rejeitada (alarme por bot com etiqueta); o sinal por bot da F3 é um gauge sem etiqueta (observability-design.md)"
+    }
+  ],
+  "revision": "review-01 (R-01 a R-07) e decisão do fundador F3 (2026-11-24)",
+  "reverse": []
+}

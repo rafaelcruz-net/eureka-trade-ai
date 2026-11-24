@@ -381,3 +381,82 @@ describe('BotList with the filter by mode', () => {
     expect(screen.getByRole('main')).not.toHaveTextContent(/total/i);
   });
 });
+
+const OWN_QUANTITY_NOTICE =
+  'Cada bot real vende só a quantidade que ele mesmo comprou. Posições herdadas ou de outros bots continuam na carteira e podem ser vendidas em Vender tudo e sacar.';
+
+/** The answer of listBots with the flag of the U4 as the api reports it (C7); `undefined` is an api before the U4. */
+function pageWithFlag(flag: boolean | undefined, items?: BotPage['items']): BotPage {
+  const base = {
+    ...page(),
+    ...(items === undefined ? {} : { items, matchingCount: items.length }),
+  };
+  return flag === undefined ? base : { ...base, realOwnQuantitySell: flag };
+}
+
+function renderWithFlag(flag: boolean | undefined, items?: BotPage['items']) {
+  return renderList({
+    listBots: jest.fn(async () => pageWithFlag(flag, items)) as unknown as GuestApi['listBots'],
+  });
+}
+
+/**
+ * 261121-paper-real-unico U4, Etapa 20, T15 to T17 (written before the code of the screen; FR6.2, BR6.1 to BR6.3, D5,
+ * AC6.2.1 to AC6.2.3): the notice of the own quantity shows when the api reports the flag on and the filter is "Todos"
+ * or "Real", whatever the current page holds; never with the flag off or absent, nor with the filter "Simulado".
+ */
+describe('BotList with the notice of the own quantity', () => {
+  it('T15: shows the exact notice with the flag on in "Todos"', async () => {
+    renderWithFlag(true);
+
+    const notice = await screen.findByRole('status', { name: OWN_QUANTITY_NOTICE });
+    expect(notice).toHaveTextContent(OWN_QUANTITY_NOTICE);
+    expect(notice).toHaveAttribute('data-testid', 'bots-own-quantity-notice');
+  });
+
+  it('T15: shows it in "Real" and when the current page has only simulated bots or none (D5)', async () => {
+    search = new URLSearchParams('mode=REAL');
+    renderWithFlag(true, []);
+    expect(await screen.findByRole('status', { name: OWN_QUANTITY_NOTICE })).toBeInTheDocument();
+  });
+
+  it('T15: the page decides nothing: a page of simulated bots in "Todos" still shows it', async () => {
+    renderWithFlag(
+      true,
+      page().items.filter((bot) => bot.market === 'PAPER'),
+    );
+    expect(await screen.findByRole('status', { name: OWN_QUANTITY_NOTICE })).toBeInTheDocument();
+  });
+
+  it('T16: never shows with the flag off, with the field absent (api before the U4) or in "Simulado"', async () => {
+    renderWithFlag(false);
+    await screen.findByTestId(`bots-row-${REAL_BOT_ID}`);
+    expect(screen.queryByTestId('bots-own-quantity-notice')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('T16: the field absent is the list of today, without an error', async () => {
+    renderWithFlag(undefined);
+    await screen.findByTestId(`bots-row-${REAL_BOT_ID}`);
+    expect(screen.queryByTestId('bots-own-quantity-notice')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('T16: the filter "Simulado" hides it even with the flag on', async () => {
+    search = new URLSearchParams('mode=PAPER');
+    renderWithFlag(true);
+    await screen.findByTestId('bots-list');
+    expect(screen.queryByTestId('bots-own-quantity-notice')).toBeNull();
+  });
+
+  it('T17: its accessible name is the exact text, plain text with no money word, outside the simulated notice', async () => {
+    renderWithFlag(true);
+
+    const notice = await screen.findByRole('status', { name: OWN_QUANTITY_NOTICE });
+    expect(notice.textContent).toBe(OWN_QUANTITY_NOTICE);
+    expect(notice.querySelector('svg, img')).toBeNull();
+    expect(notice.textContent?.toLowerCase()).not.toMatch(/lucro|garant/);
+    expect(notice.closest('[data-testid="bots-disclaimer"]')).toBeNull();
+    expect(notice.closest('[data-testid="bots-list"]')).toBeNull();
+  });
+});

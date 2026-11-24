@@ -303,6 +303,77 @@ public class JdbcBotRepository {
                 .list();
     }
 
+    // ----- 261121-paper-real-unico U4: the dispatch with the market and the checks before the read (BR2.5) -----
+
+    /** {@link #activeBots} with the market of each bot; the scope still comes from each row (BR2.10). */
+    static final String ACTIVE_DISPATCH_SQL =
+            "select bot_id, tenant_id, owner_user_id, market from bot where state = 'ACTIVE' order by bot_id";
+
+    /** P1: the state, the pause reasons and the market of the bot, and its mark M0 (BR3.1); by the primary key. */
+    static final String PRECHECK_SQL = "select state, pause_reasons, market, change_seq from bot"
+            + " where bot_id = :bot and tenant_id = :tenant and owner_user_id = :owner";
+
+    /** P2: the slot of the bot is already claimed ({@code bot_cycle_slot_uq}). */
+    static final String SLOT_CLAIMED_SQL =
+            "select exists (select 1 from bot_cycle where bot_id = :bot and slot_start = :slot)";
+
+    /** One ACTIVE bot of the dispatch and its market. */
+    public record ActiveBot(BotRef ref, com.memetrade.bots.domain.BotMarket market) {}
+
+    /** The row of P1: what decides whether the cycle of a REAL bot will run, and the mark M0 of the bot. */
+    public record PrecheckRow(
+            BotState state,
+            java.util.Set<PauseReason> reasons,
+            com.memetrade.bots.domain.BotMarket market,
+            long changeSeq) {
+
+        public PrecheckRow {
+            reasons = java.util.Set.copyOf(reasons);
+        }
+    }
+
+    /** U4 (BR2.5, alignment A15): the ACTIVE bots of the slot with their market, read without a lock. */
+    public List<ActiveBot> activeDispatch() {
+        return jdbc.sql(ACTIVE_DISPATCH_SQL)
+                .query((rs, row) -> new ActiveBot(
+                        mapRef(rs, row), com.memetrade.bots.domain.BotMarket.valueOf(rs.getString("market"))))
+                .list();
+    }
+
+    /** U4 P1 (F1 steps 0 and 1, alignment A9): autocommit, no lock; empty for a bot of anybody else. */
+    public Optional<PrecheckRow> precheckRow(BotRef bot) {
+        return jdbc.sql(PRECHECK_SQL)
+                .param("bot", bot.botId())
+                .param("tenant", bot.scope().tenantId())
+                .param("owner", bot.scope().ownerUserId())
+                .query((rs, row) -> new PrecheckRow(
+                        BotState.valueOf(rs.getString("state")),
+                        pauseReasons(rs.getString("pause_reasons")),
+                        com.memetrade.bots.domain.BotMarket.valueOf(rs.getString("market")),
+                        rs.getLong("change_seq")))
+                .optional();
+    }
+
+    /** U4 P2: whether the slot of the bot was already claimed by a cycle. */
+    public boolean slotClaimed(UUID botId, Instant slotStart) {
+        return jdbc.sql(SLOT_CLAIMED_SQL)
+                .param("bot", botId)
+                .param("slot", Timestamp.from(slotStart))
+                .query(Boolean.class)
+                .single();
+    }
+
+    private static EnumSet<PauseReason> pauseReasons(String reasons) {
+        EnumSet<PauseReason> parsed = EnumSet.noneOf(PauseReason.class);
+        if (reasons != null && !reasons.isBlank()) {
+            Arrays.stream(reasons.split(","))
+                    .map(String::trim)
+                    .map(PauseReason::valueOf)
+                    .forEach(parsed::add);
+        }
+        return parsed;
+    }
+
     /** BR2.6: the bots paused with {@code reason} (midnight: DAILY_LOSS). */
     public List<BotRef> botsWith(PauseReason reason) {
         return jdbc.sql("select bot_id, tenant_id, owner_user_id from bot where state = 'PAUSED'"

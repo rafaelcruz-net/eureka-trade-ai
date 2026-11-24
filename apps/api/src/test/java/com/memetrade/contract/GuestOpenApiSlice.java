@@ -201,6 +201,10 @@ public abstract class GuestOpenApiSlice {
     @MockitoBean
     com.memetrade.bots.application.RealEligibilityReader realEligibilityReader;
 
+    /** 261121-paper-real-unico U4 (C7): the flag of the own quantity, read by the page of the bots. */
+    @MockitoBean
+    com.memetrade.bots.api.OwnQuantitySell ownQuantitySell;
+
     @MockitoBean
     com.memetrade.riskcontrol.api.RealAccountLimits realAccountLimits;
 

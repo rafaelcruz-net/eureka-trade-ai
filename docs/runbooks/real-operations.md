@@ -108,3 +108,104 @@ Intent `261121-paper-real-unico`, Unit U2. Fonte: `infrastructure-design/cicd-pi
 3. Rode a tarefa `db-migrate` de novo. O changeset não foi marcado como aplicado; o `DROP INDEX CONCURRENTLY IF EXISTS` apaga o resto e o índice é criado de novo.
 4. Se a falha se repetir, leia a causa no grupo de log do `db-migrate` (por exemplo, trava, disco ou conexão) antes de tentar outra vez. Nunca crie o índice à mão fora do Liquibase.
 5. Se a trava do changelog ficar presa depois de o processo morrer (`select locked, lockgranted, lockedby from databasechangeloglock;` mostra `locked = true` e nenhuma tarefa `db-migrate` está rodando no ECS), libere só ela, com o login dono: `update databasechangeloglock set locked = false, lockgranted = null, lockedby = null where id = 1;`. Depois repita o passo 3. O comando é o mesmo que o `releaseLocks` do Liquibase executa; a imagem não traz a linha de comando do Liquibase.
+
+## 10. Posição própria indisponível
+
+Intent `261121-paper-real-unico`, Unit U4 (`u4-own-quantity-cycle`), NFR2.12, NFR2.14 e NFR2.18. Fontes: `nfr-design/observability-design.md` e `nfr-design/reliability-design.md`.
+
+**O que significa.** Com a flag `memetrade.real.own-quantity-sell` ligada, o ciclo de cada bot REAL lê a posição própria do bot (o RealBotHoldings) antes da transação do ciclo, com prazo de 250 ms. Quando a leitura falha, o bot **não vende pelo ciclo** naquele slot (falha fechada) e tenta de novo no slot seguinte (5 min). Compras de outros tokens seguem como sempre. O dinheiro continua saindo pelas condicionais, por "Vender tudo e sacar" e pelo saque, que nunca leem a posição própria.
+
+**Alertas.**
+
+- `RealOpsOwnHoldingsUnavailable` (Prometheus) e `real_ops_own_holdings_unavailable` (CloudWatch), `high`: mais de 5% das leituras de 10 minutos indisponíveis por `BUDGET_EXCEEDED` ou `READ_FAILED`, por 15 minutos (no CloudWatch, dois períodos de 600 s com `IF(FILL(m3, 0) > 0, (FILL(m1, 0) + FILL(m2, 0)) / m3, 0)`). É a falha sistêmica.
+- `RealOpsOwnHoldingsStuckBots` (Prometheus) e `real_ops_own_holdings_stuck_bots` (CloudWatch, `Minimum`, 2 períodos de 300 s), `high`: pelo menos um bot com 3 ou mais leituras indisponíveis seguidas, por 10 minutos. É o bot preso, que a razão não vê (1 bot em 63 é 1,6% das leituras; a carteira inteira, 3 bots, é 4,8%).
+
+1. Ache o bot e o motivo no CloudWatch Logs Insights: `event=REAL_OWN_HOLDINGS_UNAVAILABLE`, com os campos `botId`, `reason`, `elapsedMs` e `streak`. Para o bot preso, procure os `WARN` com `streak` 3 ou mais; três bots da mesma pessoa com `streak` alto indicam a carteira inteira com defeito. O `correlationId` é o `cycleId` do ciclo, o mesmo de `bot_cycle` e da decisão gravada.
+2. Uma linha com `precheck=NOT_READ` é a corrida entre a conferência prévia e a trava: o bot rodou sem a leitura e não vendeu. Ela não conta nos contadores; só é problema se aparecer em série para o mesmo bot.
+3. `BUDGET_EXCEEDED` sistêmico (muitos bots ao mesmo tempo): confira `hikaricp_connections_pending{pool="memetrade-worker-pool"}` (fila de conexões do worker), a carga do RDS (CPU, I/O e conexões) e `ledger_real_epoch_fallbacks_total` (leituras do ledger que caíram para o histórico inteiro). O prazo inclui a espera da conexão.
+4. `READ_FAILED` persistente: abra um defeito com o `correlationId` do ciclo e o `botId`.
+5. Qualquer `BOT_NOT_OWNED` (log `ERROR`) é defeito: o despachante só entrega bots ativos do dono. Abra o defeito na hora; não é ataque vindo de fora.
+6. Depois de uma reinicialização do worker, o gauge `real_own_holdings_stuck_bots` volta a 0 e um bot preso volta a aparecer em cerca de 25 minutos (mais 3 leituras indisponíveis e os 10 minutos do alarme). Nesse intervalo, valem a razão e o log por bot.
+7. Se a causa não for resolvida e muitos bots seguirem sem vender pelo ciclo, desligue a flag **só do worker** (seção 11, passo "Desligar"). O ciclo seguinte volta ao comportamento de antes da U4, sem migração. O saque continua disponível durante todo o processo.
+
+**Escalonamento.** O fundador é o único on-call (`team.md`, Deployment). Defeito vira issue no repositório com o `correlationId` do ciclo. **Seções relacionadas:** 11 e 13.
+
+## 11. Virada da flag de quantidade própria
+
+Intent `261121-paper-real-unico`, Unit U4, BR5.2, BR5.4, BR5.5 e NFR2.8 (decisão do fundador F4). Fonte: `nfr-design/reliability-design.md`, "Flag: ligar, conferir e desligar".
+
+**Pré-condições (todas).** A Performance Validation do intent `261113-trading-real-bot` aprovada; a medida do NFR1.5 dentro da meta (mediana do p99,9 de 3 execuções do `RealBotHoldingsMeasurementIT` até 250 ms, em `docs/perf/`) ou a decisão do fundador sobre ela; a aprovação do fundador; o código da U4 já em serviço com a flag desligada; e, na mainnet, a prova de que o alarme da razão funcionou na devnet. O fundador acompanha a janela de observação e os 30 minutos seguintes (`team.md`).
+
+**Onde a flag muda (F4).** As variáveis `real_own_quantity_sell_api` e `real_own_quantity_sell_worker` do `tfvars` de cada conta, fora do repositório (o padrão `false` fica versionado em `infra/terraform/main.tf`). A validação do Terraform recusa o worker ligado com a API desligada. Cada passo é uma implantação **só da flag**, nunca junto com código: primeiro na devnet, depois na mainnet com o mesmo SHA. Enquanto o `deploy.yml` não existir, o caminho é o do fundador: `terraform plan` e `terraform apply` com MFA da máquina dele, conferindo no `plan` que só a variável `MEMETRADE_REAL_OWN_QUANTITY_SELL` do contêiner certo muda; o registro é o `plan`, o `apply`, o CloudTrail e a nota da implantação.
+
+**Ligar.**
+
+1. Implantação 1: só `real_own_quantity_sell_api = true`. O aviso aparece em `/bots`; o ciclo ainda é o de antes.
+2. Conferência antes da implantação 2, numa sessão só de leitura com um instantâneo único para as consultas:
+
+   ```sql
+   BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+   SELECT now() AS t1;   -- anotar
+   SELECT count(*) FROM real_decision_request WHERE side = 'SELL' AND state = 'PENDING';
+   SELECT count(*) FROM real_order WHERE side = 'SELL' AND bot_id IS NOT NULL
+      AND state IN ('PROPOSED', 'QUOTED', 'SIGNED', 'SENT', 'AMBIGUOUS');
+   COMMIT;
+   ```
+
+   As duas contagens precisam dar 0 (as decisões adiadas contam). Se não, espere e confira de novo; uma ordem `AMBIGUOUS` segue o runbook do intent `261113-trading-real-bot` até se resolver.
+3. Implantação 2: `real_own_quantity_sell_worker = true` (a API continua `true`).
+4. Depois que a última tarefa antiga do worker sai da troca rolling, repita as duas contagens e liste as decisões SELL gravadas por tarefa antiga entre `t1` e agora (a nota `ownQuantity` só é gravada pela imagem com a flag ligada):
+
+   ```sql
+   BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
+   -- as duas contagens do passo 2, de novo, e:
+   SELECT r.decision_request_id, r.bot_id, r.created_at
+     FROM real_decision_request r JOIN decision d ON d.decision_id = r.decision_id
+    WHERE r.side = 'SELL' AND r.created_at >= :t1
+      AND NOT jsonb_exists(d.context, 'ownQuantity');
+   COMMIT;
+   ```
+
+   Use `jsonb_exists` e não o operador `?`, que um cliente JDBC trata como marcador de parâmetro. Cada linha vai para a nota da implantação: essa venda sai como antes da U4, e o excesso vai para o rateio "vendido por outro bot"; a conferência com o ledger fecha (T19).
+5. Na primeira hora, confira `real_own_holdings_reads_total` subindo e a razão da seção 13.
+
+**Desligar** (ordem inversa, implantações só da flag): primeiro `real_own_quantity_sell_worker = false`, depois `real_own_quantity_sell_api = false`. O ciclo seguinte volta ao comportamento de antes, sem migração; as notas e os resultados já gravados ficam como histórico. O saque continua disponível durante todo o processo.
+
+**Rollback de imagem.** As imagens anteriores funcionam com a `0026` (regra mais larga) e a `0027` (índice não usado); nenhuma migração é revertida em produção. Uma imagem anterior à U4 ignora a variável. Antes de voltar para a imagem da U4 depois de um rollback, deixe `real_own_quantity_sell_worker = false` no `tfvars` e refaça a virada desde o passo 1.
+
+**Escalonamento.** O fundador é o único on-call. **Seções relacionadas:** 7 e 10.
+
+## 12. Migração 0026 ou 0027 barrada
+
+Intent `261121-paper-real-unico`, Unit U4, NFR2.7. Fonte: `nfr-design/reliability-design.md`, "Migração 0026" e "Migração 0027".
+
+**0026 (regra de `bot_cycle.outcome`).** Os dois changesets usam `SET LOCAL lock_timeout = '5s'`.
+
+1. O `db-migrate` termina com código diferente de zero e o log mostra `55P03` (`canceling statement due to lock timeout`). A transação do changeset foi desfeita: a regra antiga continua inteira, e o Liquibase não gravou a linha em `DATABASECHANGELOG`. A atualização rolling não começou; as imagens antigas continuam servindo.
+2. Ache a transação que segurava `bot_cycle`: `select pid, state, xact_start, query from pg_stat_activity where datname = current_database() and xact_start < now() - interval '5 seconds' order by xact_start;`. **Nunca mate à força a transação do ciclo nem a do consumidor da fila**; espere que ela termine (elas duram segundos).
+3. Dispare de novo a mesma implantação com o mesmo SHA. Se o changeset 1 já entrou e só o 2 (`VALIDATE`) falhou, a regra fica `NOT VALID` mas já vale para toda linha nova; a repetição roda só o changeset 2.
+
+**0027 (índice `real_decision_request_bot_pending_sell_idx`).** Igual à seção 9: um `CREATE INDEX CONCURRENTLY` interrompido deixa o índice `INVALID` e nenhuma linha do changeset.
+
+1. Confira com o login dono: `select to_regclass('real_decision_request_bot_pending_sell_idx') is not null as exists, (select indisvalid from pg_index where indexrelid = to_regclass('real_decision_request_bot_pending_sell_idx')) as valid;`.
+2. Rode a tarefa `db-migrate` de novo: o `DROP INDEX CONCURRENTLY IF EXISTS` apaga o resto e o índice é criado de novo. O `CONCURRENTLY` espera as transações abertas terminarem (as do ciclo e da fila duram segundos).
+3. Trava do changelog presa: o passo 5 da seção 9.
+
+**Escalonamento.** O fundador é o único on-call. **Seção relacionada:** 9.
+
+## 13. Revisão de `STALE_SNAPSHOT`
+
+Intent `261121-paper-real-unico`, Unit U4, NFR2.17. Fonte: `nfr-design/observability-design.md`, "`STALE_SNAPSHOT` sem alarme".
+
+**O que significa.** A marca do bot mudou entre a leitura da posição própria e a trava do ciclo (outra decisão do bot foi gravada no meio, ou o bot foi editado). O ciclo não vende naquele slot e termina `REAL_OWN_QUANTITY_UNAVAILABLE` com `STALE_SNAPSHOT`; isso evita vender duas vezes a mesma quantidade. Não tem alarme.
+
+1. Toda semana, e depois de cada implantação que liga a flag, rode no Prometheus:
+
+   ```text
+   sum(increase(real_cycle_sell_capped_total{outcome="STALE_SNAPSHOT"}[24h]))
+     / sum(increase(real_own_holdings_reads_total[24h]))
+   ```
+
+2. Acima de 1%, ou com 3 `STALE_SNAPSHOT` seguidos do mesmo bot (`event=REAL_OWN_SELL_STALE`, campos `botId`, `markBefore` e `markUnderLock`), abra um defeito por bot com o `correlationId` dos ciclos.
+
+**Escalonamento.** O fundador é o único on-call. **Seção relacionada:** 10.

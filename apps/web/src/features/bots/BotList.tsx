@@ -64,6 +64,9 @@ function addressOf(mode: BotModeFilterValue): string {
  * listBots and C4 with the same `market` (none in "Todos"), each in its own slot with its AbortController, so only the
  * answer of the last request reaches the screen. The screen never sorts nor counts: the order and "Mostrando N de M
  * bots." come from the API. The disclaimer of the simulated mode never shows with the filter Real.
+ *
+ * 261121-paper-real-unico U4 (FR6.2): with `realOwnQuantitySell` true and the filter "Todos" or "Real", a status notice
+ * says, in plain text, that each real bot sells only what it bought itself.
  */
 export function BotList({ timeZone }: { timeZone?: string } = {}) {
   const zone = timeZone ?? browserTimeZone();
@@ -191,6 +194,9 @@ export function BotList({ timeZone }: { timeZone?: string } = {}) {
     load.kind === 'ready' &&
     load.page.items.some((bot) => bot.market === 'PAPER');
   const page = load.kind === 'ready' ? load.page : null;
+  // 261121-paper-real-unico U4 (BR6.1 to BR6.3, D5): the notice of the own quantity follows the flag the api reports
+  // (C7) and the filter only, never the current page; absent (an api before the U4) or false, the list is today's.
+  const ownQuantityVisible = page?.realOwnQuantitySell === true && mode !== 'PAPER';
   const hasBots = totalCount !== null && totalCount > 0;
   return (
     <BotsShell title={listText.title} testId="bots" tag={null}>
@@ -253,6 +259,16 @@ export function BotList({ timeZone }: { timeZone?: string } = {}) {
           {simulatedVisible && (
             <p role="note" className="notice" data-testid="bots-disclaimer">
               {listText.disclaimer}
+            </p>
+          )}
+          {ownQuantityVisible && (
+            <p
+              role="status"
+              aria-label={listText.ownQuantityNotice}
+              className="notice"
+              data-testid="bots-own-quantity-notice"
+            >
+              {listText.ownQuantityNotice}
             </p>
           )}
           {pnl.kind === 'failed' && page.items.length > 0 && (

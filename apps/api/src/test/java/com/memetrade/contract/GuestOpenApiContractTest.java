@@ -391,6 +391,12 @@ class GuestOpenApiContractTest extends GuestOpenApiSlice {
         assertThat(keys(schema("BotPage").get("properties")))
                 .contains("matchingCount", "totalCount")
                 .doesNotContain("total", "totalLamports", "realized", "pnl");
+        // 261121-paper-real-unico U4 (C7, BR5.3, NFR6.2): the flag of the own quantity, a boolean always sent by the
+        // server but out of `required`, so the type of the web accepts an api before the U4; no money in BotPage.
+        assertThat(map(map(schema("BotPage").get("properties")).get("realOwnQuantitySell"))
+                        .get("type"))
+                .isEqualTo("boolean");
+        assertThat(String.valueOf(schema("BotPage").get("required"))).doesNotContain("realOwnQuantitySell");
         Map<String, Object> lines = operation("/api/v1/bots/{botId}/pnl/lines", "get");
         assertThat(lines.get("operationId")).isEqualTo("listBotPnlLines");
         assertThat(keys(lines.get("responses"))).contains("200", "400", "404", "503");

@@ -2,16 +2,25 @@ package com.memetrade.bots.worker;
 
 import com.memetrade.audit.api.AuditActions;
 import com.memetrade.bots.api.BotState;
+import com.memetrade.bots.api.OwnQuantitySell;
 import com.memetrade.bots.api.PauseReason;
 import com.memetrade.bots.domain.Bot;
 import com.memetrade.bots.domain.BotLimits;
+import com.memetrade.bots.domain.BotMarket;
 import com.memetrade.bots.domain.BotRef;
 import com.memetrade.bots.domain.BotStateMachine;
+import com.memetrade.bots.domain.OwnDecisionInputs;
+import com.memetrade.bots.domain.OwnHoldings;
+import com.memetrade.bots.domain.OwnPosition;
+import com.memetrade.bots.domain.OwnQuantityReason;
+import com.memetrade.bots.domain.OwnSellCap;
+import com.memetrade.bots.domain.SellCapOutcome;
 import com.memetrade.bots.infra.BotAudit;
 import com.memetrade.bots.infra.CycleAuthContext;
 import com.memetrade.bots.infra.JdbcBotRepository;
 import com.memetrade.bots.infra.JdbcCycleRepository;
 import com.memetrade.bots.infra.LockOrder;
+import com.memetrade.bots.infra.OwnQuantityMetrics;
 import com.memetrade.decision.domain.DecisionAction;
 import com.memetrade.decision.domain.DecisionEngine;
 import com.memetrade.decision.domain.DecisionOutcome;
@@ -21,12 +30,14 @@ import com.memetrade.decision.domain.TokenInputs;
 import com.memetrade.decision.domain.TokenSelectionResolver;
 import com.memetrade.decision.infra.DecisionJson;
 import com.memetrade.decision.infra.JdbcDecisionRepository;
+import com.memetrade.decision.infra.OwnQuantityContext;
 import com.memetrade.ledger.api.LedgerReadModel;
 import com.memetrade.ledger.api.LedgerReadModel.PositionView;
 import com.memetrade.ledger.api.PaperEnums;
 import com.memetrade.ledger.api.PaperExecution;
 import com.memetrade.ledger.api.PaperExecution.ExecutionResult;
 import com.memetrade.marketdata.api.TokenId;
+import com.memetrade.pnl.api.HoldingsResult;
 import com.memetrade.riskcontrol.api.CandidateOrder;
 import com.memetrade.riskcontrol.api.GateResult;
 import com.memetrade.riskcontrol.api.OrderGate;
@@ -107,6 +118,23 @@ public class CycleRunner {
         this.realCycle = realCycle;
     }
 
+    /**
+     * 261121-paper-real-unico U4 (F1 to F3): the step before the transaction (the checks P0 to P3, the mark M0 and the
+     * read of the own holdings), the flag of the own quantity and its meters. Without them (a context without the
+     * worker beans) the cycle is today's.
+     */
+    private OwnHoldingsStep ownHoldings;
+
+    private OwnQuantitySell ownQuantity;
+    private OwnQuantityMetrics ownMetrics;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void useOwnQuantity(OwnHoldingsStep step, OwnQuantitySell flag, OwnQuantityMetrics metrics) {
+        this.ownHoldings = step;
+        this.ownQuantity = flag;
+        this.ownMetrics = metrics;
+    }
+
     /** 261113-trading-real-bot U4: the test strategy of the recorded swap; exists only in the test profile. */
     private RecordedSwapStrategy recordedSwap;
 
@@ -153,16 +181,36 @@ public class CycleRunner {
         this.timings = timings.orElse(CycleTimings.NONE);
     }
 
-    /** Runs the cycle of {@code bot} for the slot starting at {@code slotStart}; never throws for a cycle failure. */
+    /**
+     * Runs the cycle of {@code bot} for the slot starting at {@code slotStart}; never throws for a cycle failure. The
+     * market is not known here (the callers of before the U4): the check P1 reads it from the row of the bot.
+     */
     public CycleResult run(BotRef bot, Instant slotStart) {
+        return run(bot, Optional.empty(), slotStart);
+    }
+
+    /**
+     * 261121-paper-real-unico U4 (BR2.5, alignment A15): the cycle of a bot handed by the slot dispatcher with its
+     * market; a PAPER bot never reads the flag of the U4 nor the own holdings.
+     */
+    public CycleResult runDispatched(DispatchedBot bot, Instant slotStart) {
+        return run(bot.ref(), Optional.of(bot.market()), slotStart);
+    }
+
+    private CycleResult run(BotRef bot, Optional<BotMarket> market, Instant slotStart) {
         UUID cycleId = UUID.randomUUID();
         Stage stage = new Stage();
         String previous = MDC.get(CorrelationId.MDC_KEY);
         MDC.put(CorrelationId.MDC_KEY, cycleId.toString());
         long started = System.nanoTime();
         try {
-            CycleResult result =
-                    auth.as(bot.owner(), () -> transactions.execute(status -> cycle(bot, slotStart, cycleId, stage)));
+            // U4 (F1, NFR1.4): BEFORE the transaction of the cycle, as the owner; the read opens and closes its own.
+            HoldingsSnapshot snapshot = ownHoldings == null
+                            || market.filter(m -> m != BotMarket.REAL).isPresent()
+                    ? new HoldingsSnapshot.Skipped("P0_MARKET")
+                    : auth.as(bot.owner(), () -> ownHoldings.read(bot, market, slotStart));
+            CycleResult result = auth.as(
+                    bot.owner(), () -> transactions.execute(status -> cycle(bot, slotStart, cycleId, stage, snapshot)));
             timings.cycle(Duration.ofNanos(System.nanoTime() - started), result);
             log.info(
                     "Bot cycle: cycleId={}, botId={}, slotStart={}, result={}, action={}, outcome={}",
@@ -192,7 +240,7 @@ public class CycleRunner {
         }
     }
 
-    private CycleResult cycle(BotRef ref, Instant slotStart, UUID cycleId, Stage stage) {
+    private CycleResult cycle(BotRef ref, Instant slotStart, UUID cycleId, Stage stage, HoldingsSnapshot snapshot) {
         stage.at(CycleCause.DATABASE);
         locks.applyCycleTimeouts();
         Instant now = clock.instant();
@@ -225,9 +273,22 @@ public class CycleRunner {
         int version;
         Optional<BotLimits> paperLimits;
         BigDecimal maxOrderSize;
+        // 261121-paper-real-unico U4 (F2, F3): only a REAL bot reads the flag; M1 is the mark of the row locked above.
+        OwnHoldings own = null;
+        long m0 = bot.changeSeq();
         if (bot.real()) {
             stage.at(CycleCause.EXECUTION);
-            real = realCycle.inputs(bot, bots.holdings(bot.botId()), now);
+            if (ownQuantity != null && ownQuantity.enabled()) {
+                own = ownHoldingsOf(bot, snapshot);
+                if (snapshot instanceof HoldingsSnapshot.Read read) {
+                    m0 = read.m0();
+                }
+                real = realCycle.ownInputs(bot, bots.holdings(bot.botId()), now, own);
+                real.flatMap(RealCycle.Inputs::own).ifPresent(inputs -> inputs.noOwnQuantityMints()
+                        .forEach(mint -> ownMetrics.capped(SellCapOutcome.NO_OWN_QUANTITY)));
+            } else {
+                real = realCycle.inputs(bot, bots.holdings(bot.botId()), now);
+            }
             if (real.isEmpty()) {
                 return skip(cycleId, "REAL_UNAVAILABLE", now);
             }
@@ -260,8 +321,17 @@ public class CycleRunner {
                 outcome = recorded.get().outcome();
             }
         }
+        // U4 (F3, A8): the cut comes after the engine and before the decision is recorded; nothing is queued before.
+        Optional<OwnSellCap.Verdict> verdict = Optional.empty();
+        if (own != null) {
+            verdict = Optional.of(cut(bot, outcome, own, m0));
+        }
         stage.at(CycleCause.DATABASE);
         UUID decisionId = UUID.randomUUID();
+        DecisionJson.Recorded recordedJson = own == null
+                ? json.write(request, outcome)
+                : json.write(
+                        request, outcome, context(own, real.flatMap(RealCycle.Inputs::own), verdict.orElseThrow()));
         decisions.insert(new JdbcDecisionRepository.NewDecision(
                 decisionId,
                 cycleId,
@@ -272,7 +342,7 @@ public class CycleRunner {
                 request.strategyVersion(),
                 version,
                 outcome,
-                json.write(request, outcome),
+                recordedJson,
                 now,
                 decisionMode(bot.real())));
         timings.decision(Duration.ofNanos(System.nanoTime() - decideStarted));
@@ -282,10 +352,14 @@ public class CycleRunner {
         } else if (real.isPresent()) {
             stage.at(CycleCause.RISK_GATE);
             Optional<Long> exact = recorded.flatMap(RecordedSwapStrategy.Decision::buyLamports);
-            result = exact.isPresent()
-                    ? realCycle.buyExactly(
-                            bot, decisionId, outcome.token().orElseThrow().mint(), exact.get(), outcome.summary())
-                    : realCycle.order(bot, decisionId, outcome, request.tokens(), real.get());
+            if (exact.isPresent()) {
+                result = realCycle.buyExactly(
+                        bot, decisionId, outcome.token().orElseThrow().mint(), exact.get(), outcome.summary());
+            } else if (verdict.isPresent()) {
+                result = realCycle.order(bot, decisionId, outcome, request.tokens(), real.get(), verdict.get());
+            } else {
+                result = realCycle.order(bot, decisionId, outcome, request.tokens(), real.get());
+            }
             if ("REAL_RECORDED".equals(result) && outcome.action() == DecisionAction.BUY) {
                 bots.openHolding(bot.botId(), outcome.token().orElseThrow(), now);
             }
@@ -344,16 +418,22 @@ public class CycleRunner {
                         holdings.getOrDefault(token, position.updatedAt())));
             }
         }
+        // U4 (BR1.6, BR1.8): with the flag on, a mint held but not sellable by the bot keeps its opening record and
+        // leaves the tokens of the request before the market is read; with the flag off the set is empty (today).
+        Optional<OwnDecisionInputs> own = real.flatMap(RealCycle.Inputs::own);
+        java.util.Set<String> held = own.map(OwnDecisionInputs::heldNotSellable).orElse(java.util.Set.of());
         holdings.keySet().stream()
                 .filter(token -> positions.stream().noneMatch(p -> p.token().equals(token)))
+                .filter(token -> !held.contains(token.mint()))
                 .forEach(token -> bots.closeHolding(bot.botId(), token));
         stage.at(CycleCause.MARKET_DATA);
-        List<TokenId> tokens = TokenSelectionResolver.resolve(
+        List<TokenId> resolved = TokenSelectionResolver.resolve(
                 bot.selection().tokens(),
                 bot.selection().rules(),
                 market.listed(bot.selection().rules(), now),
                 positions.stream().map(PositionInput::token).toList(),
                 now);
+        List<TokenId> tokens = own.map(inputs -> inputs.requestTokens(resolved)).orElse(resolved);
         BigDecimal window = bot.parameters().get("windowMinutes");
         List<TokenInputs> inputs =
                 tokens.stream().map(token -> market.read(token, window)).toList();
@@ -368,6 +448,122 @@ public class CycleRunner {
                 positions,
                 slotStart,
                 now);
+    }
+
+    /**
+     * U4 (F1 step 4, BR2.3, BR2.5): what the cycle knows of the own holdings. A read gives its positions or its reason;
+     * a REAL bot that runs under the lock without a read before it (the checks before the lock said it would not run)
+     * is NOT_READ: no sale, READ_FAILED, and no metric of a read that never happened (alignment A12).
+     */
+    private OwnHoldings ownHoldingsOf(Bot bot, HoldingsSnapshot snapshot) {
+        if (snapshot instanceof HoldingsSnapshot.Read read) {
+            return switch (read.result()) {
+                case HoldingsResult.Available available ->
+                    new OwnHoldings.Known(available.holdings().stream()
+                            .map(holding -> new OwnPosition(
+                                    holding.mint(),
+                                    holding.ownTokenBaseUnits(),
+                                    holding.ownCostLamports(),
+                                    holding.availableTokenBaseUnits()))
+                            .toList());
+                case HoldingsResult.Unavailable unavailable ->
+                    new OwnHoldings.Unavailable(
+                            OwnQuantityReason.valueOf(unavailable.reason().name()));
+            };
+        }
+        log.warn(
+                "event=REAL_OWN_HOLDINGS_UNAVAILABLE botId={} reason={} precheck=NOT_READ",
+                bot.botId(),
+                OwnQuantityReason.READ_FAILED);
+        return new OwnHoldings.NotRead();
+    }
+
+    /** U4 (F3, BR1.4, BR1.5, BR3.1): the verdict of the cut of a SELL, its metric and its log line. */
+    OwnSellCap.Verdict cut(Bot bot, DecisionOutcome outcome, OwnHoldings own, long m0) {
+        if (outcome.action() != DecisionAction.SELL) {
+            return new OwnSellCap.Verdict.NotApplicable();
+        }
+        String mint = outcome.token().orElseThrow().mint();
+        Optional<Integer> decimals = realCycle.decimalsOf(mint);
+        OwnSellCap.Verdict verdict = decimals.isEmpty()
+                ? new OwnSellCap.Verdict.Unavailable(OwnQuantityReason.READ_FAILED)
+                : OwnSellCap.verdict(outcome, own, m0, bot.changeSeq(), decimals.get());
+        switch (verdict) {
+            case OwnSellCap.Verdict.Unavailable unavailable
+            when unavailable.reason() == OwnQuantityReason.STALE_SNAPSHOT -> {
+                ownMetrics.capped(SellCapOutcome.STALE_SNAPSHOT);
+                log.info(
+                        "event=REAL_OWN_SELL_STALE botId={} markBefore={} markUnderLock={}",
+                        bot.botId(),
+                        m0,
+                        bot.changeSeq());
+            }
+            case OwnSellCap.Verdict.NoOwnQuantity none -> {
+                ownMetrics.capped(SellCapOutcome.NO_OWN_QUANTITY);
+                log.info(
+                        "event=REAL_OWN_SELL_NO_QUANTITY botId={} mint={} requestedBaseUnits={}",
+                        bot.botId(),
+                        mint,
+                        none.requestedBaseUnits());
+            }
+            case OwnSellCap.Verdict.Sell sell
+            when sell.capped() -> {
+                ownMetrics.capped(SellCapOutcome.CAPPED);
+                log.info(
+                        "event=REAL_OWN_SELL_CAPPED botId={} mint={} requestedBaseUnits={} sellBaseUnits={}",
+                        bot.botId(),
+                        mint,
+                        sell.requestedBaseUnits(),
+                        sell.sellBaseUnits());
+            }
+            default -> {
+                // An uncut sale, or an unavailable read already counted and logged by the step before the transaction.
+            }
+        }
+        return verdict;
+    }
+
+    /** U4 (alignment A10): the note {@code context.ownQuantity} of a REAL decision with the flag on. */
+    private static OwnQuantityContext context(
+            OwnHoldings own, Optional<OwnDecisionInputs> inputs, OwnSellCap.Verdict verdict) {
+        String read;
+        Optional<String> reason;
+        switch (own) {
+            case OwnHoldings.Known known -> {
+                read = "AVAILABLE";
+                reason = Optional.empty();
+            }
+            case OwnHoldings.Unavailable unavailable -> {
+                read = "UNAVAILABLE";
+                reason = Optional.of(unavailable.reason().name());
+            }
+            case OwnHoldings.NotRead notRead -> {
+                read = "NOT_READ";
+                reason = Optional.of(OwnQuantityReason.READ_FAILED.name());
+            }
+        }
+        Map<String, String> mints = new java.util.LinkedHashMap<>();
+        inputs.ifPresent(present -> present.notes().forEach((mint, note) -> mints.put(mint, note.name())));
+        OwnQuantityContext.Cap cap =
+                switch (verdict) {
+                    case OwnSellCap.Verdict.NotApplicable none -> OwnQuantityContext.Cap.NONE;
+                    case OwnSellCap.Verdict.Sell sell ->
+                        new OwnQuantityContext.Cap(
+                                sell.capped() ? "CAPPED" : "NONE",
+                                Optional.of(sell.requestedBaseUnits()),
+                                Optional.of(sell.sellBaseUnits()));
+                    case OwnSellCap.Verdict.NoOwnQuantity none ->
+                        new OwnQuantityContext.Cap(
+                                "NO_OWN_QUANTITY", Optional.of(none.requestedBaseUnits()), Optional.of(0L));
+                    case OwnSellCap.Verdict.Unavailable unavailable ->
+                        new OwnQuantityContext.Cap(
+                                unavailable.reason() == OwnQuantityReason.STALE_SNAPSHOT
+                                        ? "STALE_SNAPSHOT"
+                                        : "UNAVAILABLE",
+                                Optional.empty(),
+                                Optional.empty());
+                };
+        return new OwnQuantityContext(read, reason, mints, cap);
     }
 
     /** BR3.4: the barrier of U6 and, approved, the execution of U7; the outcome of the cycle. */

@@ -88,6 +88,9 @@ export const botListModeMessages = {
   emptyReal: 'Você não tem bots reais.',
   emptyState: 'Nenhum bot neste estado.',
   showAll: 'Ver todos os bots',
+  // 261121-paper-real-unico U4 (FR6.2, BR6.1; Q4): the fixed notice of the own quantity, word for word.
+  ownQuantityNotice:
+    'Cada bot real vende só a quantidade que ele mesmo comprou. Posições herdadas ou de outros bots continuam na carteira e podem ser vendidas em Vender tudo e sacar.',
 };
 
 /** 261121-paper-real-unico U3 (BR4.5, BR4.6, BR8.2, BR9.3): the head and the P&L of the bot screen. */

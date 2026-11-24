@@ -280,7 +280,17 @@ final class BotDtos {
                     requiredMode = Schema.RequiredMode.REQUIRED,
                     minimum = "0",
                     description = "261121-paper-real-unico U3 (BR1.3): todos os bots da pessoa, sem filtro")
-            long totalCount) {}
+            long totalCount,
+
+            // 261121-paper-real-unico U4 (C7, BR5.3, conflito 2 do plano): always sent by the server, out of
+            // `required` so the type generated for the web accepts the answer of an api before the U4 (NFR6.2).
+            @JsonInclude(JsonInclude.Include.ALWAYS)
+            @Schema(
+                    requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+                    description = "261121-paper-real-unico U4 (C7, BR5.3): a flag de quantidade própria do REAL na"
+                            + " API; com true, cada bot real vende só a quantidade que ele mesmo comprou. Sempre"
+                            + " enviado pelo servidor, false por padrão; não depende do filtro, do modo nem da pessoa")
+            boolean realOwnQuantitySell) {}
 
     /** U5 addition to C4: one bot with its draft and limits, for the wizard (AC4.4.1) and the bot screen (BR6.2). */
     @Schema(name = "BotDetail")

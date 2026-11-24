@@ -148,6 +148,27 @@ variable "founder_user_id" {
   default     = ""
 }
 
+# 261121-paper-real-unico U4 (decision F4 of the founder; BR5.2, NFR2.8, NFR8.4): the flag of the own quantity of the REAL
+# cycle, one variable per container, so the api and the worker turn in separate deployments of the flag alone: the api
+# first and the worker after; off in the reverse order. The default false is versioned; the value turned on of each
+# account lives in its tfvars, outside the repository, like founder_user_id.
+variable "real_own_quantity_sell_api" {
+  description = "MEMETRADE_REAL_OWN_QUANTITY_SELL of the api container (U4); turned on per environment in its tfvars, after the 261113 Performance Validation"
+  type        = bool
+  default     = false
+}
+
+variable "real_own_quantity_sell_worker" {
+  description = "MEMETRADE_REAL_OWN_QUANTITY_SELL of the worker container (U4); only with the api on (turn the api on first, the worker off first)"
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.real_own_quantity_sell_worker || var.real_own_quantity_sell_api
+    error_message = "real_own_quantity_sell_worker needs real_own_quantity_sell_api: turn the api on first and the worker off first (U4 NFR2.8)."
+  }
+}
+
 variable "legal_storage_location" {
   description = "MEMETRADE_LEGAL_STORAGE_LOCATION of the privacy policy (deployment field)"
   type        = string
@@ -442,11 +463,16 @@ module "services" {
     MEMETRADE_PNL_BYMODE_BLOCKTIMEOUT     = "800ms"
     MEMETRADE_BOTS_REALELIGIBILITYTIMEOUT = "500ms"
     MEMETRADE_PNL_BYMODE_REALMAXORDERS    = "50000"
+    # 261121-paper-real-unico U4 (F4): the notice of /bots (C7); never in app_environment, which would turn both
+    # containers at once.
+    MEMETRADE_REAL_OWN_QUANTITY_SELL = tostring(var.real_own_quantity_sell_api)
   }
 
   worker_environment = {
     DB_POOL_MAX_SIZE    = "36"
     SCHEDULER_POOL_SIZE = "28"
+    # 261121-paper-real-unico U4 (F4): the REAL cycle sells only the own quantity of each bot.
+    MEMETRADE_REAL_OWN_QUANTITY_SELL = tostring(var.real_own_quantity_sell_worker)
   }
 }
 

@@ -129,6 +129,12 @@ class AnonymizationMigrationIT extends AbstractPostgresIT {
     void theRollbackCountCoversEveryChangesetFromTheAnonymizationMigrationOn() throws Exception {
         // 0015 (6), 0016 (13), 0017 (1), 0018 (8), 0019 (10) and 0020 (1) when this test was written; it only grows.
         assertThat(changesetsFrom("0015-anonymization.sql")).isGreaterThanOrEqualTo(6 + 13 + 1 + 8 + 10 + 1);
+        // 261121-paper-real-unico U4: the rollback above undoes and the migration applies again the 0026 (two
+        // changesets,
+        // each with its rollback) and the 0027 (one), the last migrations of the master.
+        assertThat(changesetsFrom("0026-bot-cycle-own-quantity-outcomes.sql")).isEqualTo(3);
+        assertThat(changesetsFrom("0027-real-decision-request-bot-pending-sell-idx.sql"))
+                .isEqualTo(1);
     }
 
     @Test

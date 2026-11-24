@@ -58,6 +58,26 @@ public final class DecisionJson {
         return new Recorded(text(parameters), text(inputs), text(context), text(factors(outcome.factors())));
     }
 
+    /**
+     * 261121-paper-real-unico U4 (alignment A10): the recorded form of a REAL decision with the flag of the own quantity
+     * on: exactly {@link #write(DecisionRequest, DecisionOutcome)} plus the object {@code context.ownQuantity}. The PAPER
+     * and the flag off keep writing the form of today, without the key; {@link #read} ignores it.
+     */
+    public Recorded write(DecisionRequest request, DecisionOutcome outcome, OwnQuantityContext own) {
+        Recorded plain = write(request, outcome);
+        ObjectNode context = (ObjectNode) tree(plain.context());
+        ObjectNode note = context.putObject("ownQuantity");
+        note.put("read", own.read());
+        own.reason().ifPresent(reason -> note.put("reason", reason));
+        ObjectNode mints = note.putObject("mints");
+        own.mints().forEach(mints::put);
+        ObjectNode cap = note.putObject("cap");
+        cap.put("outcome", own.cap().outcome());
+        own.cap().requestedBaseUnits().ifPresent(units -> cap.put("requestedBaseUnits", Long.toString(units)));
+        own.cap().sellBaseUnits().ifPresent(units -> cap.put("sellBaseUnits", Long.toString(units)));
+        return new Recorded(plain.parameters(), plain.inputs(), text(context), plain.factors());
+    }
+
     /** The factors of a decision as recorded and as the C4 {@code Decision.factors} carries them. */
     public static ArrayNode factors(List<Factor> factors) {
         ArrayNode array = MAPPER.createArrayNode();

@@ -152,3 +152,34 @@ groups:
             "8. Divergência do P&L REAL".
           threshold: "0"
           window_seconds: "240"
+      - alert: RealOpsOwnHoldingsUnavailable
+        # 261121-paper-real-unico U4 (decision F2 of the founder, NFR2.12): the systemic failure of the read of the own
+        # holdings of the REAL bots: more than 5% of the reads of 10 minutes unavailable for a budget or a failure,
+        # sustained 15 minutes. BOT_NOT_OWNED (a defect, logged ERROR) and STALE_SNAPSHOT (a counter of the cut) are out
+        # of the numerator. With the flag off there is no read: 0/0 is NaN and never fires. The CloudWatch twin keeps
+        # the alarm for 2 periods of 600 s (annotation cloud_periods).
+        expr: >
+          sum(increase(real_own_holdings_unavailable_total{reason=~"BUDGET_EXCEEDED|READ_FAILED"}[10m]))
+          / sum(increase(real_own_holdings_reads_total[10m])) > 0.05
+        for: 15m
+        labels: { severity: high }
+        annotations:
+          summary: >-
+            The own holdings of the REAL bots are unavailable; see docs/runbooks/real-operations.md, section 10.
+          threshold: "0.05"
+          window_seconds: "600"
+          for_seconds: "900"
+          cloud_periods: "2"
+      - alert: RealOpsOwnHoldingsStuckBots
+        # 261121-paper-real-unico U4 (decision F3 of the founder, NFR2.18): a REAL bot (or a whole wallet of 3 bots)
+        # with 3 or more own-holdings reads unavailable in a row stays below the 5% of the ratio; its gauge above 0 for
+        # every sample of 10 minutes fires this one. The persistence is in the window, without a `for`.
+        expr: max(min_over_time(real_own_holdings_stuck_bots[10m])) > 0
+        labels: { severity: high }
+        annotations:
+          summary: >-
+            A REAL bot has 3 or more own-holdings reads unavailable in a row; see docs/runbooks/real-operations.md,
+            section 10.
+          threshold: "0"
+          window_seconds: "600"
+          cloud_periods: "1"

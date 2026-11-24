@@ -1,0 +1,265 @@
+# 261121-paper-real-unico U4, T20 (NFR7.6, NFR2.12, NFR2.18; decisions F1, F2 and F3 of the founder;
+# observability-design.md "T20"): the ten cases of the two alerts of the own holdings of the REAL bots, run by
+# `promtool test rules` inside RealOpsOwnHoldingsAlertRuleIT with the image pinned by digest in the ci.yml. Samples every
+# 15 s, rules evaluated every minute. Every case that expects an alert carries its labels and ALL the annotations of the
+# rule, the summary as YAML folds it (`>-` joins the lines with one space); AlertRuleTestAnnotationsTest checks them
+# against the rule file before promtool does.
+rule_files:
+  - ../real-ops-alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # 1. Persistent failure (the ratio): every read fails; increments at 1, 6, 11, 16, 21 and 26 min.
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_reads_total'
+        values: '0+0x3 3+0x19 6+0x19 9+0x19 12+0x19 15+0x19 18+0x19'
+      - series: 'real_own_holdings_unavailable_total{reason="READ_FAILED"}'
+        values: '0+0x3 3+0x19 6+0x19 9+0x19 12+0x19 15+0x19 18+0x19'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              summary: "The own holdings of the REAL bots are unavailable; see docs/runbooks/real-operations.md, section 10."
+              threshold: "0.05"
+              window_seconds: "600"
+              for_seconds: "900"
+              cloud_periods: "2"
+      - eval_time: 25m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              summary: "The own holdings of the REAL bots are unavailable; see docs/runbooks/real-operations.md, section 10."
+              threshold: "0.05"
+              window_seconds: "600"
+              for_seconds: "900"
+              cloud_periods: "2"
+
+  # 2. An isolated failure at 1 min: the ratio holds from 1 to 10 min only, never 15 min.
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_reads_total'
+        values: '0+0x3 1+0x19 2+0x19 3+0x19 4+0x19 5+0x19 6+0x19'
+      - series: 'real_own_holdings_unavailable_total{reason="READ_FAILED"}'
+        values: '0+0x3 1+0x119'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+
+  # 3. Jitter: increments at 1, 4, 11, 15, 21, 26 and 33 min (gaps of 3 to 7 min); every 10-min window has one.
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_reads_total'
+        values: '0+0x3 3+0x11 6+0x27 9+0x15 12+0x23 15+0x19 18+0x27 21+0x3'
+      - series: 'real_own_holdings_unavailable_total{reason="READ_FAILED"}'
+        values: '0+0x3 3+0x11 6+0x27 9+0x15 12+0x23 15+0x19 18+0x27 21+0x3'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              summary: "The own holdings of the REAL bots are unavailable; see docs/runbooks/real-operations.md, section 10."
+              threshold: "0.05"
+              window_seconds: "600"
+              for_seconds: "900"
+              cloud_periods: "2"
+      - eval_time: 25m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              summary: "The own holdings of the REAL bots are unavailable; see docs/runbooks/real-operations.md, section 10."
+              threshold: "0.05"
+              window_seconds: "600"
+              for_seconds: "900"
+              cloud_periods: "2"
+      - eval_time: 33m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              summary: "The own holdings of the REAL bots are unavailable; see docs/runbooks/real-operations.md, section 10."
+              threshold: "0.05"
+              window_seconds: "600"
+              for_seconds: "900"
+              cloud_periods: "2"
+
+  # 4. The boundary: the last failure between the samples of 20m45s and 21m00s, no reads after it. At 31m the window
+  #    starts exactly on the sample of the increment (kept by Prometheus 2.x, dropped by 3.x); the sample of 20m45s is
+  #    out in both, so the answer is the same.
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_reads_total'
+        values: '0+0x3 3+0x19 6+0x19 9+0x19 12+0x19 15+0x19 18+0x59'
+      - series: 'real_own_holdings_unavailable_total{reason="READ_FAILED"}'
+        values: '0+0x3 3+0x19 6+0x19 9+0x19 12+0x19 15+0x79'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              summary: "The own holdings of the REAL bots are unavailable; see docs/runbooks/real-operations.md, section 10."
+              threshold: "0.05"
+              window_seconds: "600"
+              for_seconds: "900"
+              cloud_periods: "2"
+      - eval_time: 30m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              summary: "The own holdings of the REAL bots are unavailable; see docs/runbooks/real-operations.md, section 10."
+              threshold: "0.05"
+              window_seconds: "600"
+              for_seconds: "900"
+              cloud_periods: "2"
+      - eval_time: 31m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+
+  # 5. The noise of the tail: 12.6 reads a minute for 3 hours, one BUDGET_EXCEEDED every ~1,000 reads.
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_reads_total'
+        values: '0+3.15x720'
+      - series: 'real_own_holdings_unavailable_total{reason="BUDGET_EXCEEDED"}'
+        values: '0+0x315 1+0x315 2+0x88'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 90m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 180m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+
+  # 6. A normal burst: 3 failures in 10 minutes, 2.4% of 126 reads.
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_reads_total'
+        values: '0+3.15x80'
+      - series: 'real_own_holdings_unavailable_total{reason="READ_FAILED"}'
+        values: '0+0x39 3+0x40'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+
+  # 7. Out of the numerator: BOT_NOT_OWNED (a defect, logged ERROR) and STALE_SNAPSHOT (a counter of the cut).
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_reads_total'
+        values: '0+3x120'
+      - series: 'real_own_holdings_unavailable_total{reason="BOT_NOT_OWNED"}'
+        values: '0+3x120'
+      - series: 'real_cycle_sell_capped_total{outcome="STALE_SNAPSHOT"}'
+        values: '0+3x120'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+
+  # 8. The flag off: no read at all; the ratio is NaN, never above the threshold.
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_reads_total'
+        values: '0+0x120'
+      - series: 'real_own_holdings_unavailable_total{reason="READ_FAILED"}'
+        values: '0+0x120'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+
+  # 9. One stuck bot among 63 (F3): 1.6% of the reads, below the ratio; the gauge is 1 from 15 min.
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_stuck_bots'
+        values: '0+0x59 1+0x80'
+      - series: 'real_own_holdings_reads_total'
+        values: '0+3.15x140'
+      - series: 'real_own_holdings_unavailable_total{reason="READ_FAILED"}'
+        values: '0+0.05x140'
+    alert_rule_test:
+      - eval_time: 24m
+        alertname: RealOpsOwnHoldingsStuckBots
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: RealOpsOwnHoldingsStuckBots
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              summary: "A REAL bot has 3 or more own-holdings reads unavailable in a row; see docs/runbooks/real-operations.md, section 10."
+              threshold: "0"
+              window_seconds: "600"
+              cloud_periods: "1"
+      - eval_time: 35m
+        alertname: RealOpsOwnHoldingsStuckBots
+        exp_alerts:
+          - exp_labels:
+              severity: high
+            exp_annotations:
+              summary: "A REAL bot has 3 or more own-holdings reads unavailable in a row; see docs/runbooks/real-operations.md, section 10."
+              threshold: "0"
+              window_seconds: "600"
+              cloud_periods: "1"
+      - eval_time: 25m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: RealOpsOwnHoldingsUnavailable
+        exp_alerts: []
+
+  # 10. A passing failure (F3): the gauge is 1 only from 15m00s to 19m45s.
+  - interval: 15s
+    input_series:
+      - series: 'real_own_holdings_stuck_bots'
+        values: '0+0x59 1+0x19 0+0x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: RealOpsOwnHoldingsStuckBots
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: RealOpsOwnHoldingsStuckBots
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: RealOpsOwnHoldingsStuckBots
+        exp_alerts: []

@@ -958,6 +958,8 @@ components:
           description: "true quando cada bot REAL vende só a quantidade que ele comprou (FR6.1); a tela mostra o aviso do FR6.2. Ausente ou false com a configuração padrão"
 ```
 
+Nota da U4 (Code Generation, conflito 2 do plano; BR5.3, NFR6.2): o servidor **sempre envia** o campo (false por padrão), mas ele fica **fora de `required`** no OpenAPI, para que o tipo gerado no web aceite a resposta de uma API anterior à U4, sem o campo. O valor é o da flag na API e não depende do filtro, do modo nem da pessoa.
+
 ## C8 — `pnl.api.BotDirectory`
 
 Fontes: [Q2], [Q3], ADR-007, FR3.7, FR3.11, FR8.1.
@@ -1270,11 +1272,11 @@ Fontes: [Q2], [Q3], [Q5], ADR-006, FR6.1, US6.1 (AC6.1.4); revisão R-02.
 # shared-schema — interface Java pública (pnl.api), implementada em pnl.application, separada do RealBotPnl
 contract: pnl.api.RealBotHoldings
 owner: u4-own-quantity-cycle
-consumers: [bots.worker RealCycle]
+consumers: [bots.worker CycleRunner, pelo OwnHoldingsStep, antes da transação do ciclo]
 methods:
   - signature: "HoldingsResult holdings(UUID tenantId, UUID userId, UUID botId, Duration budget)"
     behaviour: "quantidade e custo próprios do bot por mint, menos as vendas do bot em aberto; usa só o caminho de quantidade do RealCostMethod e do RealProration, sobre C12, C13 e C16, todos lidos no mesmo instantâneo"
-    transaction: "transação própria, readOnly, isolamento REPEATABLE READ (um instantâneo para as três leituras), com statement_timeout igual a budget; chamada pelo RealCycle ANTES de abrir a transação de escrita do ciclo, nunca dentro dela (sem participação, sem REQUIRES_NEW aninhado)"
+    transaction: "transação própria, readOnly, isolamento REPEATABLE READ (um instantâneo para as três leituras), fixado pela primeira consulta (botsOf, C8); o ReadDeadline do budget começa antes de pedir a conexão e aplica o tempo que resta como statement_timeout antes de cada comando e de cada busca de 500 linhas; depois do commit, uma conferência final que inclui a espera da conexão (passou do prazo: BUDGET_EXCEEDED). Chamada pelo CycleRunner (OwnHoldingsStep) ANTES de abrir a transação de escrita do ciclo, nunca dentro dela: uma transação ativa na thread é defeito (IllegalStateException). Alinhamento A13"
 types:
   HoldingsResult:
     kind: sealed
@@ -1295,7 +1297,7 @@ failure:
   - "com Unavailable, o ciclo não vende naquele ciclo; o motivo vai para o log e para a métrica real_own_holdings_unavailable_total{reason}"
   - "nunca devolve a posição da carteira inteira no lugar da própria"
 concurrency:
-  - "entre a leitura e a ordem, uma segunda venda do mesmo bot é impedida pelo que já existe: a trava do ciclo por bot e pessoa (RealRiskGate.withPersonLock, que a fila de decisões usa) e o índice único uq_real_order_bot_in_progress (no máximo uma ordem em andamento por bot); a decisão de venda é recusada se outra ordem do bot já está em andamento"
+  - "entre a leitura e a ordem, uma segunda venda do mesmo bot é impedida pela marca do bot (bot.change_seq): lida antes do instantâneo (M0) e de novo sob a trava da linha do bot no ciclo (M1); M1 diferente de M0 termina o ciclo com STALE_SNAPSHOT, sem venda (BR3.1). O ciclo trava só o bot, não usa withPersonLock (alinhamento A13); o índice único uq_real_order_bot_in_progress continua (no máximo uma ordem em andamento por bot) e a decisão de venda é recusada se outra ordem do bot já está em andamento"
   - "uma venda do bot que assenta depois do instantâneo ainda estava em aberto dentro dele (SENT ou AMBIGUOUS, sem lançamento no ledger), então já foi descontada"
   - "uma venda que assentou antes do instantâneo está no ledger e não está em aberto; ela é contada uma vez só"
   - "precondição, conferida no Functional Design da U2/U4: o assentamento grava os lançamentos do ledger e muda a ordem para CONFIRMED na mesma transação; se não for assim, C16 passa a contar também a ordem SELL CONFIRMED cujo lançamento ainda não está no ledger do instantâneo"
@@ -1320,19 +1322,21 @@ owner: u4-own-quantity-cycle
 consumers: [pnl.application RealBotHoldings]
 methods:
   - signature: "List<OpenSell> openSells(UUID tenantId, UUID botId)"
-    behaviour: "as ordens SELL do bot em PROPOSED, QUOTED, SIGNED, SENT ou AMBIGUOUS (RealOrderState.IN_PROGRESS), filtradas por tenant; AMBIGUOUS conta como em aberto, o lado conservador"
+    behaviour: "as ordens SELL do bot em PROPOSED, QUOTED, SIGNED, SENT ou AMBIGUOUS com a quantidade de entrada, e as decisões SELL do bot ainda na fila (PENDING, inclusive as adiadas) com a quantidade pedida (extensão D1, BR1.3), num comando só com UNION ALL; filtradas por tenant nas duas partes; AMBIGUOUS conta como em aberto, o lado conservador"
     transaction: "só leitura; participa da transação só de leitura do RealBotHoldings (REPEATABLE READ), para ver o mesmo instantâneo do ledger; nunca da transação do ciclo"
 types:
   OpenSell:
     kind: record
     fields:
-      realOrderId: UUID
+      source: "OpenSellSource (ORDER, DECISION_REQUEST)"
+      sourceId: "UUID: realOrderId de uma ORDER, decisionRequestId de uma DECISION_REQUEST"
       mint: String
-      inputBaseUnits: "long (> 0)"
-      state: RealOrderState
+      baseUnits: "long (> 0)"
 rules:
   - "só leitura; nenhuma mudança de estado"
   - "o realexecution continua dono da ordem, da fila e da idempotência"
+  - "os estados, o lado e PENDING ficam literais no SQL (JdbcRealExecutionStore.OPEN_SELLS_SQL), nunca parâmetros, para o planejador provar os índices parciais uq_real_order_bot_in_progress e real_decision_request_bot_pending_sell_idx (migração 0027), conferidos pelo RealOpenSellsPlanIT"
+  - "alinhamento A14 da U4: a forma OpenSell(realOrderId, mint, inputBaseUnits, state) deu lugar a OpenSell(source, sourceId, mint, baseUnits)"
 ```
 
 ## C17 — Componentes web comuns

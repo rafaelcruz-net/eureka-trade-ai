@@ -69,6 +69,12 @@ class NeverSumModesArchitectureTest {
             LamportsValue.class,
             LamportsValue.Known.class,
             LamportsValue.Unknown.class,
+            // 261121-paper-real-unico U4 (C15): the own holdings of a REAL bot, read by the REAL cycle only.
+            com.memetrade.pnl.api.RealBotHoldings.class,
+            com.memetrade.pnl.api.HoldingsResult.class,
+            com.memetrade.pnl.api.HoldingsResult.Available.class,
+            com.memetrade.pnl.api.HoldingsResult.Unavailable.class,
+            com.memetrade.pnl.api.BotHolding.class,
             // 261121-paper-real-unico U2 (BR10.5): the cost of a REAL bot wallet read with attribution.
             com.memetrade.pnl.api.RealWalletCost.class,
             com.memetrade.pnl.api.WalletCost.class,

@@ -53,7 +53,11 @@ class RealOpsAlarmParityTest {
             Pattern.compile("([a-z-]+)\\s*=\\s*\\{\\s*period\\s*=\\s*(\\d+),\\s*evaluations\\s*=\\s*(\\d+)\\s*}");
     private static final String STALLED_PREFIX = "real-ops-job-stalled-";
 
-    record Rule(String name, String expr, BigDecimal threshold, long windowSeconds, String job) {}
+    /**
+     * @param cloudPeriods 261121-paper-real-unico U4 (F2): how many CloudWatch windows of the rule the twin holds (the
+     *     annotation {@code cloud_periods}, 1 when absent); the ratio of the own holdings keeps 2 periods of 600 s
+     */
+    record Rule(String name, String expr, BigDecimal threshold, long windowSeconds, String job, long cloudPeriods) {}
 
     record Alarm(String name, BigDecimal threshold, long windowSeconds, String job) {}
 
@@ -69,7 +73,10 @@ class RealOpsAlarmParityTest {
                         String.valueOf(rule.get("expr")),
                         new BigDecimal(String.valueOf(annotations.get("threshold"))),
                         Long.parseLong(String.valueOf(annotations.get("window_seconds"))),
-                        annotations.containsKey("job") ? String.valueOf(annotations.get("job")) : null));
+                        annotations.containsKey("job") ? String.valueOf(annotations.get("job")) : null,
+                        annotations.containsKey("cloud_periods")
+                                ? Long.parseLong(String.valueOf(annotations.get("cloud_periods")))
+                                : 1));
             }
         }
         return rules;
@@ -127,7 +134,8 @@ class RealOpsAlarmParityTest {
         String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
 
         // 261121-paper-real-unico U2 (NFR2.14): + RealOpsPnlReconciliationMismatch.
-        assertThat(rules).hasSize(14);
+        // 261121-paper-real-unico U4 (NFR2.12, NFR2.18): + RealOpsOwnHoldingsUnavailable, RealOpsOwnHoldingsStuckBots.
+        assertThat(rules).hasSize(16);
         assertThat(alarms.keySet())
                 .containsExactlyInAnyOrderElementsOf(
                         rules.stream().map(Rule::name).toList());
@@ -137,8 +145,9 @@ class RealOpsAlarmParityTest {
             assertThat(alarm.windowSeconds())
                     .as(rule.name())
                     .isEqualTo(com.memetrade.infra.CloudWatchWindows.cloudWindow(
-                            rule.windowSeconds(),
-                            com.memetrade.infra.CloudWatchWindows.twoReads(terraform, rule.name())));
+                                    rule.windowSeconds(),
+                                    com.memetrade.infra.CloudWatchWindows.twoReads(terraform, rule.name()))
+                            * rule.cloudPeriods());
             assertThat(alarm.job()).as(rule.name()).isEqualTo(rule.job());
         }
     }
@@ -190,6 +199,86 @@ class RealOpsAlarmParityTest {
                 .contains("\"pnl_real_reconciliation_mismatches_total\",")
                 .contains("\"real_ops_pnl_reconciliation_mismatch\"")
                 .contains("aws_cloudwatch_metric_alarm.real_ops_pnl_reconciliation_mismatch");
+    }
+
+    /**
+     * 261121-paper-real-unico U4 (decision F2, NFR2.12; review R-01): the alert of the own holdings is a ratio of 10
+     * minutes held 15 minutes; its twin fills the numerators, guards the denominator, and keeps 2 periods of 600 s.
+     */
+    @Test
+    void theOwnHoldingsAlertIsARatioWithItsTwinInCloudWatch() throws IOException {
+        Rule rule = rules().stream()
+                .filter(candidate -> candidate.name().equals("real-ops-own-holdings-unavailable"))
+                .findFirst()
+                .orElseThrow();
+        Map<String, Object> raw = rawRule("RealOpsOwnHoldingsUnavailable");
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
+        int start = terraform.indexOf("resource \"aws_cloudwatch_metric_alarm\" \"real_ops_own_holdings_unavailable\"");
+        String block = terraform.substring(start, terraform.indexOf("\n}", start));
+
+        assertThat(raw.get("for")).isEqualTo("15m");
+        assertThat(((Map<?, ?>) raw.get("annotations")).get("for_seconds")).isEqualTo("900");
+        assertThat(rule.expr())
+                .contains("real_own_holdings_unavailable_total{reason=~\"BUDGET_EXCEEDED|READ_FAILED\"}[10m]")
+                .contains("sum(increase(real_own_holdings_reads_total[10m]))")
+                .contains("> 0.05");
+        assertThat(rule.cloudPeriods()).isEqualTo(2);
+        assertThat(block)
+                .contains("expression  = \"IF(FILL(m3, 0) > 0, (FILL(m1, 0) + FILL(m2, 0)) / m3, 0)\"")
+                .contains("dimensions  = { reason = \"BUDGET_EXCEEDED\" }")
+                .contains("dimensions  = { reason = \"READ_FAILED\" }")
+                .contains("metric_name = \"real_own_holdings_reads_total\"")
+                .contains("evaluation_periods  = 2")
+                .contains("datapoints_to_alarm = 2")
+                .contains("treat_missing_data  = \"notBreaching\"")
+                .doesNotContain("BOT_NOT_OWNED");
+        assertThat(block.split("period      = 600", -1)).hasSize(4);
+        assertThat(Files.readString(ROOT.resolve("infra/terraform/modules/observability/app-metrics.tf")))
+                .contains("\"real_own_holdings_reads_total\",")
+                .contains("metrics = [\"real_own_holdings_unavailable_total\"]")
+                .contains("\"real_ops_own_holdings_unavailable\"")
+                .contains("aws_cloudwatch_metric_alarm.real_ops_own_holdings_unavailable")
+                .doesNotContain("real_cycle_sell_capped_total\"");
+    }
+
+    /** 261121-paper-real-unico U4 (decision F3, NFR2.18): the alert of the stuck bots and its Minimum twin. */
+    @Test
+    void theStuckBotsAlertHasItsTwinInCloudWatch() throws IOException {
+        Rule rule = rules().stream()
+                .filter(candidate -> candidate.name().equals("real-ops-own-holdings-stuck-bots"))
+                .findFirst()
+                .orElseThrow();
+        String terraform = Files.readString(ALARMS, StandardCharsets.UTF_8);
+        int start = terraform.indexOf("resource \"aws_cloudwatch_metric_alarm\" \"real_ops_own_holdings_stuck_bots\"");
+        String block = terraform.substring(start, terraform.indexOf("\n}", start));
+
+        assertThat(rule.expr())
+                .contains("min_over_time(real_own_holdings_stuck_bots[10m])")
+                .contains("> 0");
+        assertThat(rawRule("RealOpsOwnHoldingsStuckBots")).doesNotContainKey("for");
+        assertThat(rule.cloudPeriods()).isEqualTo(1);
+        assertThat(block)
+                .contains("metric_name         = \"real_own_holdings_stuck_bots\"")
+                .contains("statistic           = \"Minimum\"")
+                .contains("period              = 300")
+                .contains("evaluation_periods  = 2")
+                .contains("treat_missing_data  = \"notBreaching\"")
+                .doesNotContain("dimensions");
+        assertThat(Files.readString(ROOT.resolve("infra/terraform/modules/observability/app-metrics.tf")))
+                .contains("\"real_own_holdings_stuck_bots\",")
+                .contains("\"real_ops_own_holdings_stuck_bots\"")
+                .contains("aws_cloudwatch_metric_alarm.real_ops_own_holdings_stuck_bots");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> rawRule(String alert) throws IOException {
+        Map<String, Object> document = new Yaml().load(Files.readString(RULES, StandardCharsets.UTF_8));
+        return ((List<Map<String, Object>>) document.get("groups"))
+                .stream()
+                        .flatMap(group -> ((List<Map<String, Object>>) group.get("rules")).stream())
+                        .filter(candidate -> alert.equals(candidate.get("alert")))
+                        .findFirst()
+                        .orElseThrow();
     }
 
     /** U5-NFR5.13: every job of the closed label {@code job} has its stalled rule. */

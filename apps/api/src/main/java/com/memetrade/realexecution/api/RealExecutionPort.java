@@ -21,6 +21,15 @@ public interface RealExecutionPort {
     /** BR2.2: the bot has an order in PROPOSED, QUOTED, SIGNED, SENT or AMBIGUOUS (tenant filtered). */
     boolean hasOrderInProgress(UUID tenantId, UUID botId);
 
+    /**
+     * 261121-paper-real-unico U4 (C16 extended by D1; BR1.3, NFR1.11, NFR3.1): the open sales of the bot, in one
+     * statement: its SELL orders in progress (PROPOSED, QUOTED, SIGNED, SENT, AMBIGUOUS) with their input base units,
+     * and its PENDING SELL decisions (the deferred ones included) with their token base units. Filtered by the tenant
+     * in both parts; a bot of another tenant gives nothing. Read only; it takes part in the read-only transaction of the
+     * caller (the snapshot of the own holdings) and takes no lock.
+     */
+    List<OpenSell> openSells(UUID tenantId, UUID botId);
+
     /** BR8.1: the person has a liquidation in SELLING or WITHDRAWING; every REAL decision of their bots is discarded. */
     boolean liquidationActive(UUID tenantId, UUID userId);
 
@@ -98,4 +107,18 @@ public interface RealExecutionPort {
      * empty when it is not the person's, not settled, or gone (purged).
      */
     java.util.Optional<RealOrderView> settledOrder(UUID tenantId, UUID userId, UUID realOrderId);
+
+    /**
+     * 261121-paper-real-unico U4 (C15 step S4, review R-01): the settled orders of THIS person among {@code realOrderIds},
+     * in no particular order, with exactly the filter of {@link #settledOrder}; an id that is not the person's, not
+     * settled or gone is simply absent. The store answers in ONE statement ({@code real_order_id = any(:ids)}); this
+     * default reads them one by one.
+     */
+    default List<RealOrderView> settledOrdersById(UUID tenantId, UUID userId, java.util.Collection<UUID> realOrderIds) {
+        List<RealOrderView> found = new java.util.ArrayList<>();
+        for (UUID id : realOrderIds) {
+            settledOrder(tenantId, userId, id).ifPresent(found::add);
+        }
+        return found;
+    }
 }

@@ -1,6 +1,5 @@
 package com.memetrade.bots.worker;
 
-import com.memetrade.bots.domain.BotRef;
 import com.memetrade.bots.infra.BotsConfig;
 import com.memetrade.bots.infra.JdbcBotRepository;
 import com.memetrade.shared.config.ProcessRole;
@@ -85,10 +84,13 @@ public class SlotDispatcher {
     }
 
     private Round dispatch(Instant slot) {
-        List<BotRef> active = bots.activeBots();
+        // 261121-paper-real-unico U4 (BR2.5, alignment A15): each bot goes with its market, so a PAPER cycle never
+        // reads the flag of the own quantity and a REAL one reads its own holdings before its transaction.
+        List<JdbcBotRepository.ActiveBot> active = bots.activeDispatch();
         List<CompletableFuture<CycleResult>> futures = new ArrayList<>();
-        for (BotRef bot : active) {
-            futures.add(CompletableFuture.supplyAsync(() -> cycles.run(bot, slot), executor));
+        for (JdbcBotRepository.ActiveBot bot : active) {
+            DispatchedBot dispatched = new DispatchedBot(bot.ref(), bot.market());
+            futures.add(CompletableFuture.supplyAsync(() -> cycles.runDispatched(dispatched, slot), executor));
         }
         Map<CycleResult.Kind, Integer> results = new EnumMap<>(CycleResult.Kind.class);
         for (CompletableFuture<CycleResult> future : futures) {

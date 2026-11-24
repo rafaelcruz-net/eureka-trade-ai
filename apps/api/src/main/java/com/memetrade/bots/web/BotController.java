@@ -64,6 +64,7 @@ public class BotController {
     private final ObjectMapper json;
     private final Clock clock;
     private final RealEligibilityReader eligibility;
+    private final com.memetrade.bots.api.OwnQuantitySell ownQuantity;
 
     public BotController(
             BotCommandService commands,
@@ -71,13 +72,15 @@ public class BotController {
             AuthContext auth,
             ObjectMapper json,
             Clock clock,
-            RealEligibilityReader eligibility) {
+            RealEligibilityReader eligibility,
+            com.memetrade.bots.api.OwnQuantitySell ownQuantity) {
         this.commands = commands;
         this.queries = queries;
         this.auth = auth;
         this.json = json;
         this.clock = clock;
         this.eligibility = eligibility;
+        this.ownQuantity = ownQuantity;
     }
 
     @Operation(
@@ -135,7 +138,8 @@ public class BotController {
                 page.activeCount(),
                 com.memetrade.bots.domain.BotStateMachine.ACTIVE_LIMIT,
                 page.matchingCount(),
-                page.totalCount());
+                page.totalCount(),
+                ownQuantity.enabled());
     }
 
     /** 261121-paper-real-unico U3 (BR1.2): only PAPER or REAL; anything else is a violation of {@code market}. */

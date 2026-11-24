@@ -1,6 +1,5 @@
 package com.memetrade.pnl.application;
 
-import com.memetrade.ledger.api.CostFill;
 import com.memetrade.ledger.api.NetworkOrderedEntry;
 import com.memetrade.ledger.api.RealCostMethod;
 import com.memetrade.ledger.api.RealCostUnknownReason;
@@ -16,8 +15,6 @@ import com.memetrade.pnl.api.WalletCost;
 import com.memetrade.pnl.infra.PnlRealProperties;
 import com.memetrade.pnl.real.Holder;
 import com.memetrade.realexecution.api.RealExecutionPort;
-import com.memetrade.realexecution.api.RealOrderView;
-import com.memetrade.realexecution.api.RealSide;
 import com.memetrade.shared.jdbc.ReadDeadline;
 import java.time.Clock;
 import java.time.Duration;
@@ -26,7 +23,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -129,7 +125,8 @@ public class AttributedCostReader implements RealWalletCost {
         for (BotEntry bot : bots.botsOf(tenantId, userId, PnlMarket.REAL)) {
             holders.put(bot.botId(), Holder.bot(bot.botId(), bot.createdAt()));
         }
-        Accumulation accumulation = new Accumulation(tenantId, userId, holders, new HashMap<>(), method.start());
+        EpochAttribution accumulation =
+                new EpochAttribution(tenantId, userId, holders, new HashMap<>(), method.start(), orders, bots);
         for (NetworkOrderedEntry entry : view.openLots()) {
             deadline.check();
             accumulation.accept(entry);
@@ -182,11 +179,15 @@ public class AttributedCostReader implements RealWalletCost {
         for (BotEntry bot : bots.botsOf(tenantId, userId, PnlMarket.REAL)) {
             holders.put(bot.botId(), Holder.bot(bot.botId(), bot.createdAt()));
         }
-        Map<UUID, Attribution> index = new HashMap<>();
+        Map<UUID, EpochAttribution.Attribution> index = new HashMap<>();
         orders.streamSettledOrders(
-                tenantId, userId, deadline, order -> index.put(order.realOrderId(), Attribution.of(order)));
+                tenantId,
+                userId,
+                deadline,
+                order -> index.put(order.realOrderId(), EpochAttribution.Attribution.of(order)));
 
-        Accumulation accumulation = new Accumulation(tenantId, userId, holders, index, method.start());
+        EpochAttribution accumulation =
+                new EpochAttribution(tenantId, userId, holders, index, method.start(), orders, bots);
         ledger.streamInNetworkOrder(
                 tenantId, List.of(botWalletId), EnumSet.allOf(RealEntryKind.class), deadline, accumulation::accept);
         accumulation.flush();
@@ -203,147 +204,8 @@ public class AttributedCostReader implements RealWalletCost {
         return new WalletCost.Known(costByMint);
     }
 
-    /** What the cost needs of an order: its bot, its origin and its side. */
-    private record Attribution(Optional<UUID> botId, boolean liquidation, RealSide side) {
-
-        static Attribution of(RealOrderView order) {
-            return new Attribution(order.botId(), "USER_LIQUIDATION".equals(order.origin()), order.side());
-        }
-    }
-
-    /** The rows of the wallet applied to the accumulator; a buy waits for the RENT of its reference (BR2.1). */
-    private final class Accumulation {
-
-        private final UUID tenantId;
-        private final UUID userId;
-        private final Map<UUID, Holder> holders;
-        private final Map<UUID, Attribution> index;
-        private final RealCostMethod.Accumulator wallet;
-        private long rows;
-        private NetworkOrderedEntry pendingBuy;
-        private Holder pendingHolder;
-        private long pendingPaid;
-
-        Accumulation(
-                UUID tenantId,
-                UUID userId,
-                Map<UUID, Holder> holders,
-                Map<UUID, Attribution> index,
-                RealCostMethod.Accumulator wallet) {
-            this.tenantId = tenantId;
-            this.userId = userId;
-            this.holders = holders;
-            this.index = index;
-            this.wallet = wallet;
-        }
-
-        void accept(NetworkOrderedEntry entry) {
-            rows++;
-            if (pendingBuy != null) {
-                if (entry.kind() == RealEntryKind.RENT && entry.reference().equals(pendingBuy.reference())) {
-                    pendingPaid = Math.addExact(pendingPaid, Math.negateExact(entry.lamports()));
-                    return;
-                }
-                if (entry.kind() == RealEntryKind.NETWORK_FEE
-                        && entry.reference().equals(pendingBuy.reference())) {
-                    return;
-                }
-                flush();
-            }
-            if (entry.kind() == RealEntryKind.SWAP_FILL_IN) {
-                pendingBuy = entry;
-                pendingHolder = holderOfBuy(entry.reference());
-                pendingPaid = Math.negateExact(entry.lamports());
-            } else if (entry.kind() == RealEntryKind.SWAP_FILL_OUT) {
-                wallet.apply(new CostFill(
-                        entry.key(),
-                        RealEntryKind.SWAP_FILL_OUT,
-                        entry.mint().orElseThrow(),
-                        entry.tokenBaseUnits().orElseThrow(),
-                        entry.lamports(),
-                        sellerOf(entry.reference())));
-            }
-        }
-
-        void flush() {
-            if (pendingBuy == null) {
-                return;
-            }
-            wallet.apply(new CostFill(
-                    pendingBuy.key(),
-                    RealEntryKind.SWAP_FILL_IN,
-                    pendingBuy.mint().orElseThrow(),
-                    pendingBuy.tokenBaseUnits().orElseThrow(),
-                    Math.negateExact(pendingPaid),
-                    Optional.of(pendingHolder)));
-            pendingBuy = null;
-        }
-
-        /** BR3.1, BR5.4: the bot of the order; an order gone is UNOWNED; a bot outside the directory is a defect. */
-        private Holder holderOfBuy(String reference) {
-            Optional<Attribution> order = order(reference);
-            if (order.isEmpty() || order.get().botId().isEmpty()) {
-                return Holder.UNOWNED;
-            }
-            return bot(order.get().botId().get());
-        }
-
-        /** BR3.2: an own sale of the bot of the order; a liquidation and a conditional are sales without bot. */
-        private Optional<com.memetrade.ledger.api.CostHolder> sellerOf(String reference) {
-            if (reference.startsWith("conditional:")) {
-                return Optional.empty();
-            }
-            Optional<Attribution> order = order(reference);
-            if (order.isEmpty()) {
-                return Optional.of(Holder.UNOWNED);
-            }
-            if (order.get().liquidation() || order.get().botId().isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.of(bot(order.get().botId().get()));
-        }
-
-        /** The order of {@code order:<id>}: from the index, else read on the spot (confirmed meanwhile). */
-        private Optional<Attribution> order(String reference) {
-            if (!reference.startsWith("order:")) {
-                return Optional.empty();
-            }
-            UUID id;
-            try {
-                id = UUID.fromString(reference.substring("order:".length()));
-            } catch (IllegalArgumentException notAnOrder) {
-                // A reference of an order that is not an id of real_order: it has no order, like a purged one.
-                return Optional.empty();
-            }
-            Attribution known = index.get(id);
-            if (known != null) {
-                return Optional.of(known);
-            }
-            Optional<Attribution> read =
-                    orders.settledOrder(tenantId, userId, id).map(Attribution::of);
-            read.ifPresent(found -> index.put(id, found));
-            return read;
-        }
-
-        /** BR3.4: a bot that is not a REAL bot of the person fails the read (after reading it on the spot). */
-        private Holder bot(UUID botId) {
-            Holder holder = holders.get(botId);
-            if (holder != null) {
-                return holder;
-            }
-            Optional<BotEntry> read =
-                    bots.botOf(tenantId, userId, botId).filter(entry -> entry.market() == PnlMarket.REAL);
-            if (read.isEmpty()) {
-                throw new UnknownBot();
-            }
-            Holder found = Holder.bot(read.get().botId(), read.get().createdAt());
-            holders.put(botId, found);
-            return found;
-        }
-    }
-
     private static RealCostUnknownReason reasonOf(RuntimeException failure) {
-        if (failure instanceof UnknownBot) {
+        if (failure instanceof EpochAttribution.UnknownBot) {
             return RealCostUnknownReason.UNKNOWN_BOT;
         }
         if (failure instanceof InconsistentRead) {
@@ -353,15 +215,6 @@ public class AttributedCostReader implements RealWalletCost {
             return RealCostUnknownReason.TIMEOUT;
         }
         return RealCostUnknownReason.ERROR;
-    }
-
-    /** BR3.4: an order names a bot that is not a REAL bot of the person. */
-    private static final class UnknownBot extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-
-        UnknownBot() {
-            super("An order of the wallet names a bot that is not a REAL bot of the person");
-        }
     }
 
     /** The read saw another set of rows than the view read before it. */

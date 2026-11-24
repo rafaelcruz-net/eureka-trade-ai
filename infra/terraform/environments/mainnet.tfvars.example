@@ -29,3 +29,9 @@ legal_dpo_email              = "<to define>"
 alarm_email = "<e-mail of the founder>"
 
 service_desired_count = 0
+
+# 261121-paper-real-unico U4 (F4): the flag of the own quantity, false until the founder turns it in a deployment of the
+# flag alone, after the same SHA passed on the devnet (runbook real-operations.md, section 11): turn the api on first and
+# then the worker; turn the worker off first and then the api. The worker never on with the api off.
+real_own_quantity_sell_api    = false
+real_own_quantity_sell_worker = false
