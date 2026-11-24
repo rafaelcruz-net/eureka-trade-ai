@@ -234,7 +234,7 @@
                     <excludes>
                         <exclude>**/*IT.java</exclude>
                     </excludes>
-                    <argLine>@{surefireArgLine} -XX:+EnableDynamicAgentLoading -Duser.timezone=UTC -Dfile.encoding=UTF-8</argLine>
+                    <argLine>@{surefireArgLine} -Xmx3g -XX:+EnableDynamicAgentLoading -Duser.timezone=UTC -Dfile.encoding=UTF-8</argLine>
                 </configuration>
             </plugin>
 

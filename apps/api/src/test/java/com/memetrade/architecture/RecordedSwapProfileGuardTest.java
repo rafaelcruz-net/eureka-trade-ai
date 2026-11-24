@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import com.memetrade.bots.infra.JdbcBotRepository;
 import com.memetrade.bots.infra.JdbcCycleRepository;
 import com.memetrade.bots.worker.CycleRunner;
+import com.memetrade.bots.worker.OwnHoldingsStep;
 import com.memetrade.bots.worker.RealCycle;
 import com.memetrade.bots.worker.RecordedSwapFirstCycle;
 import com.memetrade.bots.worker.RecordedSwapStrategy;
@@ -123,6 +124,7 @@ class RecordedSwapProfileGuardTest {
                 .withBean(CycleRunner.class, () -> mock(CycleRunner.class))
                 // The mock of the runner still receives its method injection of the REAL path.
                 .withBean(RealCycle.class, () -> mock(RealCycle.class))
+                .withBean(OwnHoldingsStep.class, () -> mock(OwnHoldingsStep.class))
                 .withBean(Clock.class, Clock::systemUTC)
                 .withUserConfiguration(
                         RecordedSwapFixtureConfig.class, RecordedSwapStrategy.class, RecordedSwapFirstCycle.class);
