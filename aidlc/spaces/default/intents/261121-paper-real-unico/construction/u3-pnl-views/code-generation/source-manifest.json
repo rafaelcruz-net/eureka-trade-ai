@@ -229,6 +229,9 @@
       "path": "apps/api/src/test/java/com/memetrade/tenancy/RouteRegistryTest.java"
     },
     {
+      "path": "apps/api/src/test/java/com/memetrade/ledger/U7ContractsTest.java"
+    },
+    {
       "path": "apps/api/src/test/java/com/memetrade/testsupport/AbstractPaperRealIT.java"
     },
     {
@@ -314,6 +317,9 @@
     },
     {
       "path": "apps/web/src/features/dashboard/dashboard-state.test.ts"
+    },
+    {
+      "path": "apps/web/src/features/dashboard/dashboard-layout.test.ts"
     },
     {
       "path": "apps/web/src/features/dashboard/messages.ts"

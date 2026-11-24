@@ -232,7 +232,16 @@ Paridade de tempo dos 404 (`BotNotFoundTimingParityIT`), diferença de p95: 0,1 
     - **C6 sem repetição automática:** o `comparePnl` usa `retry: false`, porque C6 roda duas passadas REAL e repetir dobraria a carga num momento de falha. C4 continua repetindo, porque é a leitura de um bloco só e esse é o comportamento que já existia. O `pnl-routes.test.ts` confere exatamente 1 `fetch` num 503 de C6, com o `correlationId`, e 3 em C4. `PnlCompareRouteIT`: 6 testes verdes.
     - **Aviso do simulado no spec:** o `zz-paper-real-unico` já confere o aviso no bloco Simulado (`pnl-block-PAPER-disclaimer`, com o texto exato, no caso "/pnl shows each bot…"), e os casos U3 1 e U3 7 também. Não foi preciso mudar nada.
     - **`ModePnlLatencyIT`:** a falha única é item de acompanhamento na CI (Pendente, item 7). Não houve mudança de código.
-23. **Passo D-INF4 ainda não aplicado no `ci.yml`:** ele roda os testes de `scripts/load` no job `frontend`. Até o responsável aplicá-lo, vale a saída manual registrada abaixo (104 verdes).
+23. **Correções do `ci` 45325572790 do commit `fe52254`, que reprovou em dois jobs:**
+    - **`backend`:** o `U7ContractsTest.theRoutesOfC5AreClientRoutesWithANegativeTestAndTheJobsAreGlobal` compara uma lista exata de rotas, e ela agora tem as duas rotas CLIENT da U3: `GET /api/v1/bots/{botId}/pnl/lines` e `GET /api/v1/pnl/compare`.
+      - **Expectativa:** a lista exata ganhou as duas rotas (continua exata, sem "contains"). Uma asserção nova fixa o teste negativo de cada uma.
+      - **Testes negativos conferidos:** `BotPnlLinesTenantIT#theLinesOfAnotherTenantAreNeverFoundNorRead` (404 sem valores, bot ou tenant do outro) e `PnlCompareTenantIT#aBotOfAnotherTenantWithAnotherStrategyIs404NeverA422` (404 com `reason` antes de qualquer 422, sem dado do outro).
+      - **Resultado:** `U7ContractsTest` 6 e `RouteRegistryTest` 9 testes verdes.
+    - **`smoke`, caso U3 8:** `/` rolava para o lado em 360 px. O `.dashboard-cards` tinha sempre duas colunas, cerca de 110 px de conteúdo cada a 360 px, e um valor longo sem quebra (por exemplo `−0,000005123 SOL` ou `+US$ 1.234,56`) ou um selo `inline-flex` passava da coluna.
+      - **Correção no `globals.css`:** abaixo de 768 px, uma coluna `minmax(0, 1fr)`, como nas demais telas da U3. `.dashboard-card` e `.dashboard-cards > *` com `min-width: 0`, e `.dashboard-card` com `overflow-wrap: anywhere`: o valor quebra dentro do cartão e nada é cortado.
+      - **Guarda estrutural:** `dashboard-layout.test.ts`, conferido contra o CSS anterior (reprova) e o novo (aprova). O jsdom não tem layout, então quem mede a página é o caso U3 8.
+      - **Diagnóstico local:** um ensaio no Chromium local mostrou os cartões com 152 px antes e 328 px depois a 360 px. A medida de rolagem do ensaio não foi confiável neste ambiente, então a prova da página continua sendo o caso U3 8 na CI.
+24. **Passo D-INF4 ainda não aplicado no `ci.yml`:** ele roda os testes de `scripts/load` no job `frontend`. Até o responsável aplicá-lo, vale a saída manual registrada abaixo (104 verdes).
 
 ## Pendente (com o responsável ou o coordenador)
 

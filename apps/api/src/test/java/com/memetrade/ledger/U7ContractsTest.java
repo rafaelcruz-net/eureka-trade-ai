@@ -52,8 +52,25 @@ class U7ContractsTest {
                         Tuple.tuple("GET /api/v1/pnl", "CLIENT"),
                         // 261121-paper-real-unico U1 (C4): the P&L by mode, also a CLIENT route.
                         Tuple.tuple("GET /api/v1/pnl/by-mode", "CLIENT"),
+                        // 261121-paper-real-unico U3 (C5, C6; BR8.1, BR8.2, BR5.3): the lines of a REAL bot and the
+                        // comparison, both CLIENT routes; another tenant's bot is 404 without any data.
+                        Tuple.tuple("GET /api/v1/bots/{botId}/pnl/lines", "CLIENT"),
+                        Tuple.tuple("GET /api/v1/pnl/compare", "CLIENT"),
                         Tuple.tuple("GET /api/v1/reconciliation", "CLIENT"),
                         Tuple.tuple("POST /api/v1/reconciliation/run", "CLIENT"));
+        // 261121-paper-real-unico U3: each new route names its cross-tenant negative test (RouteRegistryTest checks
+        // that the named test exists).
+        assertThat(registry.routes())
+                .filteredOn(entry -> entry.key().equals("GET /api/v1/bots/{botId}/pnl/lines")
+                        || entry.key().equals("GET /api/v1/pnl/compare"))
+                .extracting(RouteRegistry.Entry::key, RouteRegistry.Entry::negativeTest)
+                .containsExactlyInAnyOrder(
+                        Tuple.tuple(
+                                "GET /api/v1/bots/{botId}/pnl/lines",
+                                "com.memetrade.pnl.BotPnlLinesTenantIT#theLinesOfAnotherTenantAreNeverFoundNorRead"),
+                        Tuple.tuple(
+                                "GET /api/v1/pnl/compare",
+                                "com.memetrade.pnl.PnlCompareTenantIT#aBotOfAnotherTenantWithAnotherStrategyIs404NeverA422"));
         assertThat(registry.jobs())
                 .filteredOn(entry -> entry.key().equals("PendingCloseJob")
                         || entry.key().equals("EquityMarkingJob")

@@ -396,6 +396,28 @@ fieldset label {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px 20px;
+  /* 261121-paper-real-unico U3 (BR10.1, AC4.5.1): a card never grows past its column because of a long value or a
+     badge; long text wraps inside the card (the full value stays in the text, nothing is cut). */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A grid item never grows past its column because of a wide child (min-width: auto would let it). */
+.dashboard-cards > * {
+  min-width: 0;
+}
+
+/* 261121-paper-real-unico U3 (BR10.1, AC4.5.1): below 768 px the cards stack in one column, as every other screen of
+   the U3; two columns of about 110 px of content at 360 px pushed the page sideways. */
+@media (max-width: 767px) {
+  .dashboard-cards {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .dashboard-card {
+    padding: 12px;
+  }
 }
 
 .dashboard-bot-rows {
