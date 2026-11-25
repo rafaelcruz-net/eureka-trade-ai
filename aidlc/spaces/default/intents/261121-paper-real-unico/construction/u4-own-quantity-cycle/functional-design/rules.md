@@ -142,17 +142,19 @@ rules:
       do dono do bot, e só para um bot que vai rodar o ciclo (BR2.5). A marca M0 é lida e a leitura dela termina
       antes de o instantâneo abrir (BR3.1). A leitura abre a própria transação, só de leitura, em isolamento de instantâneo, lê o ledger
       (C12), as ordens assentadas (C13) e as vendas em aberto (C16) no mesmo instantâneo, e fecha antes do ciclo.
+      As ordens assentadas que os lotes citam são lidas sempre por id, em lotes de até 1.000 ids, nunca pelo fluxo do
+      histórico inteiro (alinhamento A20, decisão F6 do fundador, 2026-11-25).
       Nunca participa da transação do ciclo, nem aninhada.
     violation: a leitura dentro da transação do ciclo é recusada no teste de arquitetura e no teste de integração
     source: [C15, ADR-006, Q1]
 
   - id: BR2.2
-    statement: "[fundador] A leitura tem prazo de 250 ms."
+    statement: "[fundador] A leitura tem prazo de 500 ms (decisão F6, 2026-11-25; antes 250 ms)."
     category: constraint
     applies_to: [ENT-403]
     trigger: toda leitura do RealBotHoldings
     logic: >
-      O prazo de 250 ms vale para a leitura inteira (consultas e trabalho em memória), com corte no banco e no relógio,
+      O prazo de 500 ms vale para a leitura inteira (consultas e trabalho em memória), com corte no banco e no relógio,
       como o caminho CYCLE da U2. O NFR Design confirma o número pela medição; ele só pode baixar sem o responsável.
     violation: passou do prazo → Unavailable(BUDGET_EXCEEDED) (BR2.3)
     source: [C15 (PQ-9), U2 BR2.7, Q1]
@@ -198,7 +200,7 @@ rules:
         IF o slot passou de 5 minutos OR o slot já foi reclamado OR o bot não está ACTIVE sem motivo de pausa OR a
            pausa do sistema está ligada THEN nem a marca nem o RealBotHoldings são lidos (o ciclo segue e pula como
            hoje, dentro da transação).
-      Essas conferências prévias só evitam a leitura de 250 ms em ciclos que vão pular; as conferências que valem
+      Essas conferências prévias só evitam a leitura de 500 ms em ciclos que vão pular; as conferências que valem
       continuam dentro da transação, sob a trava, como hoje. Se o estado mudar entre as duas, o pior caso é uma
       leitura desperdiçada (aceito) ou um bot REAL que passa a rodar sem a leitura: nesse caso o ciclo trata como
       Unavailable(READ_FAILED) e não vende (BR2.3); a nota do contexto registra `read = NOT_READ` e os contadores de
@@ -496,7 +498,7 @@ rules:
 | BR1.7 | Não vende a parte de outro bot, com a exceção aceita da condicional no intervalo (D2) | constraint |
 | BR1.8 | O registro de abertura de um mint sem quantidade disponível não é fechado | constraint |
 | BR2.1 | Um instantâneo, transação própria, antes e fora do ciclo | policy |
-| BR2.2 | Prazo de 250 ms | constraint |
+| BR2.2 | Prazo de 500 ms (F6) | constraint |
 | BR2.3 | Falha ou prazo → OWN_QUANTITY_UNAVAILABLE, sem venda, nova tentativa no próximo ciclo | policy |
 | BR2.4 | Tenant e posse do bot conferidos | authorization |
 | BR2.5 | Só bot REAL, flag ligada, que vai rodar o ciclo; o mercado chega com a lista de bots ativos | policy |
@@ -536,6 +538,6 @@ rules:
 
 - **Decisões do responsável em 2026-11-24.** D1: extensão de C16 aceita (BR1.3). D2: risco da condicional no intervalo aceito (BR1.7, BR7.2). D3: alerta de indisponibilidade persistente, com as condicionais e "Vender tudo e sacar" como saída (BR2.7). D4: ordem e condição da virada da flag (BR5.2, BR5.5). D5: aviso pela flag e pelo filtro, sem depender da página (BR6.1).
 - **Trava do ciclo (BR3.1).** O C15 diz que a trava do ciclo é "por bot e pessoa (`RealRiskGate.withPersonLock`)". No código, o ciclo trava só a linha do bot; a trava da pessoa é tomada pelo consumidor da fila, pela liquidação e pela barreira só em compras. A garantia de concorrência usa a marca do bot (BR3.1).
-- **Prazo (BR2.2).** 250 ms vem do resumo confirmado da Q1 e do caminho CYCLE da U2; o NFR Design confirma por medição.
+- **Prazo (BR2.2).** 250 ms vinha do resumo confirmado da Q1 e do caminho CYCLE da U2. Depois do Build and Test, o fundador decidiu 500 ms (F6, 2026-11-25, loop-back 1; alinhamento A20): é decisão dele depois da medição na CI, nunca um afrouxamento feito pela Code Generation.
 - **Resultados novos do ciclo.** `REAL_NO_OWN_QUANTITY` e `REAL_OWN_QUANTITY_UNAVAILABLE` (o maior tem 29 caracteres; a coluna tem 32) entram na regra de valores aceitos do resultado do ciclo numa migração só de expansão, especificada em `functional-spec.md` ("Efeito nos contratos").
 - [assumption] A lista de bots ativos do despachante de slots pode trazer o mercado do bot sem mudar o contrato público (BR2.5); é uma mudança interna do módulo bots.

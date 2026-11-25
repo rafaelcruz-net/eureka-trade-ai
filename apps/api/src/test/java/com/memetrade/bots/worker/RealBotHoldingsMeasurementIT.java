@@ -34,7 +34,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 /**
  * 261121-paper-real-unico U4, Etapa 11 (after the layer; NFR1.1, NFR1.2, NFR1.5, NFR1.6, NFR1.13, NFR2.17; alignment
  * A19; performance-design.md "Medida"): an INFORMATIVE measurement of the read of the own holdings, with NO gate on time
- * (team.md "Desempenho"; the comparison with the target of p99.9 at most 250 ms is of the Build and Test, the median of
+ * (team.md "Desempenho"; the comparison with the target of p99.9 at most 500 ms, decision F6, is of the Build and Test, the median of
  * three runs going to {@code docs/perf/}). It fails only for a read with an error or with a wrong quantity.
  *
  * <ul>
@@ -43,14 +43,14 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
  *       of the measured bot (an AMBIGUOUS order; the unique index allows one order in progress per bot, so the other two
  *       are SENT orders of other bots) and 3 PENDING SELL decisions (one deferred), with the marks of zero the writes of
  *       the ledger record;
- *   <li>seed B (A19): the same without any zero in the whole history (S4 by the stream);
+ *   <li>seed B (A19): the same without any zero in the whole history (before F6, S4 by the stream; now by id in batches);
  *   <li>per seed, {@code u4.measure.warmups} warm-ups (20) and twice {@code u4.measure.reads} measured reads (300 in
  *       the CI; the official run passes {@code -Du4.measure.reads=10000 -Du4.measure.warmups=200
  *       -Du4.measure.cycles=100}), with the CLOCK OF THE SYSTEM (review R-01; the fixed clock of the context would leave
  *       the deadline inert): first
- *       with the budget of 250 ms, the p50, p99 and p99.9 (the sample size logged; below 1,000 reads the p99.9 is the
+ *       with the budget of 500 ms (F6), the p50, p99 and p99.9 (the sample size logged; below 1,000 reads the p99.9 is the
  *       maximum) and the rate of BUDGET_EXCEEDED the worker would see; then with a budget of 30 s, the time of the whole
- *       read and how many passed 250 ms (the comparison before and after a change); both paths of S4 give the same
+ *       read and how many passed 500 ms (the comparison before and after a change); S4 reads by id (no stream) and the same
  *       holdings; the own quantities of the bots add up to the wallet.
  *   <li>the cycle (skipped with {@code u4.measure.cycles=0}, the CI default): 10 warm-ups and
  *       {@code u4.measure.cycles} (100 in the official run) measured cycles with the flag on and off, the p95; the ratio
@@ -61,7 +61,9 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 class RealBotHoldingsMeasurementIT extends AbstractOwnQuantityIT {
 
     private static final Logger log = LoggerFactory.getLogger(RealBotHoldingsMeasurementIT.class);
-    private static final Duration BUDGET = Duration.ofMillis(250);
+    /** The budget of production: 500 ms by the decision F6 of the founder (loop-back 1). */
+    private static final Duration BUDGET = Duration.ofMillis(500);
+
     private static final int BOTS = 5;
     private static final int MINTS = 10;
 
@@ -95,11 +97,11 @@ class RealBotHoldingsMeasurementIT extends AbstractOwnQuantityIT {
         for (int i = 0; i < warmups; i++) {
             reader.holdings(setup.tenantId(), setup.userId(), measured, BUDGET);
         }
-        // 1. With the budget of production (250 ms): the rate of BUDGET_EXCEEDED the worker would see.
+        // 1. With the budget of production (500 ms, F6): the rate of BUDGET_EXCEEDED the worker would see.
         Sample budgeted = sample(reader, setup, measured, BUDGET);
         log.info(
-                "u4-measure seed={} orders={} mode=budget250 n={} p50={}ms p99={}ms p99.9={}ms{} budgetExceeded={}"
-                        + " ({}%) readFailed={} (target: p99.9 <= 250 ms)",
+                "u4-measure seed={} orders={} mode=budget500 n={} p50={}ms p99={}ms p99.9={}ms{} budgetExceeded={}"
+                        + " ({}%) readFailed={} (target: p99.9 <= 500 ms)",
                 seed,
                 history.orders,
                 reads,
@@ -114,7 +116,7 @@ class RealBotHoldingsMeasurementIT extends AbstractOwnQuantityIT {
         Sample free = sample(reader, setup, measured, Duration.ofSeconds(30));
         long over = Arrays.stream(free.nanos).filter(n -> n > BUDGET.toNanos()).count();
         log.info(
-                "u4-measure seed={} orders={} mode=unbounded n={} p50={}ms p99={}ms p99.9={}ms over250={} ({}%)"
+                "u4-measure seed={} orders={} mode=unbounded n={} p50={}ms p99={}ms p99.9={}ms over500={} ({}%)"
                         + " unavailable={}",
                 seed,
                 history.orders,
@@ -160,15 +162,19 @@ class RealBotHoldingsMeasurementIT extends AbstractOwnQuantityIT {
                 .toPlainString();
     }
 
-    /** Both paths of S4 give the same holdings, and the own quantities of the bots add up to the wallet. */
+    /**
+     * Loop-back 1 (F6): S4 reads the orders by id in batches, never by the stream of C13 (counted on a data source of the
+     * test); the reader of production gives the same holdings; the own quantities of the bots add up to the wallet.
+     */
     private void checkTheHoldings(Setup setup, List<UUID> bots, List<String> mints, History history) {
-        RealBotHoldingsReader byId = HoldingsReaders.of(context, Integer.MAX_VALUE);
-        RealBotHoldingsReader byStream = HoldingsReaders.of(context, 0);
+        com.memetrade.pnl.application.StatementLog statements = new com.memetrade.pnl.application.StatementLog();
+        RealBotHoldingsReader byId = HoldingsReaders.counted(context, statements);
+        RealBotHoldingsReader production = HoldingsReaders.of(context);
         Duration generous = Duration.ofSeconds(30);
         Map<String, Long> own = new HashMap<>();
         for (UUID bot : bots) {
             HoldingsResult first = byId.holdings(setup.tenantId(), setup.userId(), bot, generous);
-            HoldingsResult second = byStream.holdings(setup.tenantId(), setup.userId(), bot, generous);
+            HoldingsResult second = production.holdings(setup.tenantId(), setup.userId(), bot, generous);
             assertThat(first).as("bot %s", bot).isInstanceOf(HoldingsResult.Available.class);
             assertThat(((HoldingsResult.Available) second).holdings())
                     .isEqualTo(((HoldingsResult.Available) first).holdings());
@@ -176,6 +182,9 @@ class RealBotHoldingsMeasurementIT extends AbstractOwnQuantityIT {
                 own.merge(holding.mint(), holding.ownTokenBaseUnits(), Long::sum);
             }
         }
+        assertThat(statements.count("from real_order where user_id = ?"))
+                .as("S4 never reads the stream of C13")
+                .isZero();
         RealLedgerView view =
                 transactions.execute(status -> ledger.view(setup.tenantId(), setup.botWalletId(), Optional.empty()));
         for (RealPosition position : view.positions()) {

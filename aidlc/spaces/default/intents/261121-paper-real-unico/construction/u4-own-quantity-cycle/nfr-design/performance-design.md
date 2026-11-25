@@ -2,7 +2,7 @@
 
 Conversa: português (Brasil). Data: 2026-11-24. Revisado depois de `reviews/review-01.md` (R-05, R-07).
 
-Este arquivo diz como a leitura da posição própria do bot (RealBotHoldings, C15) cabe em 250 ms fora da transação do ciclo, sem trava e sem nenhum segundo a mais no ciclo (NFR1.1 a NFR1.7, NFR1.10, NFR1.11). As decisões seguem as respostas confirmadas Q1 e Q2 [Q1] [Q2] e a decisão do fundador F2 (meta p99,9 ≤ 250 ms).
+Este arquivo diz como a leitura da posição própria do bot (RealBotHoldings, C15) cabe em 500 ms fora da transação do ciclo, sem trava e sem nenhum segundo a mais no ciclo (NFR1.1 a NFR1.7, NFR1.10, NFR1.11). As decisões seguem as respostas confirmadas Q1 e Q2 [Q1] [Q2] e as decisões do fundador F2 (meta p99,9 ≤ 250 ms, 2026-11-24) e F6 (2026-11-25, loop-back 1 do Build and Test: meta e prazo passam a 500 ms, e S4 lê as ordens sempre por id em lotes de 1.000; alinhamento A20). A mudança de meta é decisão do fundador depois da medição na CI, nunca um afrouxamento feito pela Code Generation.
 
 ## Resumo das decisões
 
@@ -10,7 +10,7 @@ Este arquivo diz como a leitura da posição própria do bot (RealBotHoldings, C
 |---|---|---|
 | Onde a leitura roda | No `CycleRunner.run`, dentro de `auth.as(owner)` e **antes** de `transactions.execute(...)`. Ela abre a própria transação só de leitura e a fecha antes de a transação do ciclo abrir. | NFR1.4 |
 | Isolamento | `TransactionTemplate` próprio do RealBotHoldings: `PROPAGATION_REQUIRES_NEW`, `ISOLATION_REPEATABLE_READ`, `readOnly = true`. Um instantâneo para as leituras de C12, C13 e C16. | NFR1.4, BR2.1 |
-| Prazo | `ReadDeadline.after(clock, 250 ms)`, criado **antes** de pedir a conexão; conferido em cada linha e reaplicado como `set local statement_timeout` antes de cada comando e de cada busca de 500 linhas. Depois do commit, uma última conferência: passou do prazo, `BUDGET_EXCEEDED`. | NFR1.7, BR2.2 |
+| Prazo | `ReadDeadline.after(clock, 500 ms)` (F6; antes 250 ms), criado **antes** de pedir a conexão; conferido em cada linha e reaplicado como `set local statement_timeout` antes de cada comando e de cada busca de 500 linhas. Depois do commit, uma última conferência: passou do prazo, `BUDGET_EXCEEDED`. | NFR1.7, BR2.2 |
 | Conferências prévias | 3 consultas por chave, sem trava e fora do orçamento, antes da leitura da marca M0 e do RealBotHoldings. O mercado do bot chega da lista do `SlotDispatcher`. | NFR1.10, BR2.5 |
 | Leitura do ledger | O `RealLedger.view` da U2 (épocas, `VIEW_EPOCH_SQL`), uma consulta só, e o acumulador por titular do `RealCostMethod`, como o `AttributedCostReader.readFromEpoch`. | NFR1.11, BR1.1 |
 | Ordens dos lotes | Até 32 ordens distintas nos lotes da janela: leitura por id (`real_order_pkey`). Acima disso: o fluxo de C13 (`streamSettledOrders` com o prazo), depois por id só o que faltar. | NFR1.1, NFR1.11 |
@@ -76,6 +76,8 @@ Custo: 3 comandos por chave primária ou única, cerca de 1 ms no total, fora do
 
 Antes de cada comando de S1 a S5, `applyStatementTimeout` com o que resta. S3 e o fluxo de S4 conferem o prazo em cada linha (`ReadDeadline.guard`). S6 confere a cada lote aplicado e no fim. O commit é só de leitura. Depois do commit, `deadline.check()` mais uma vez: se o tempo total, incluindo a espera pela conexão do Hikari, passou de 250 ms, o resultado é `Unavailable(BUDGET_EXCEEDED)`, mesmo com os dados lidos. Assim o prazo vale para a leitura inteira (NFR1.7), e não só para os comandos.
 
+**S4 depois do loop-back 1 (decisão F6, 2026-11-25; alinhamento A20).** A CI Linux do `fc65b7f` mostrou que o fluxo de C13 é o custo da semente B: 100% das leituras passaram de 250 ms, com p50 de 440 ms sem prazo. O fundador decidiu que S4 lê as ordens citadas pelos lotes sempre por id, num comando por lote de até 1.000 ids (`RealExecutionPort.settledOrdersById`, `real_order_id = any(:ids)` pela chave primária), com o prazo reaplicado antes de cada lote e conferido entre eles. O limite de 32 e o fluxo saíram do leitor; o cache negativo por leitura continua. A equivalência é conferida pelo `RealBotHoldingsOrderPathParityIT`, contra um oráculo calculado da semente (32 e 33 ordens nas sementes A e B, 5.000 ordens, T12). Na execução vermelha, o oráculo bateu com o caminho antigo, antes da troca. O IT também conta os comandos: no máximo `ceil(n / 1.000)` buscas por id, nenhuma busca avulsa e nenhum fluxo. Os dois parágrafos seguintes ficam como histórico da decisão anterior.
+
 **Por que o limite de 32 ordens em S4.** O caminho de época da U2 lê por id cada ordem que os lotes citam. Isso é barato quando o mint zerou há pouco. Quando a carteira nunca zerou um mint em 2 anos (vários bots no mesmo mint, sempre com algum lote aberto), a janela é o histórico inteiro, cerca de 14.600 ordens na semente de NFR1.5. Isso daria milhares de buscas por chave, uma por comando, o que passaria de 250 ms. O fluxo de C13 lê as ordens da pessoa num comando só, com `fetchSize` 500, como o caminho `GATE`/`CYCLE` de leitura inteira da U2, que já cabia em 250 ms. O valor 32 é uma constante de pacote (`ORDER_PREFETCH_THRESHOLD`), e a medida de NFR1.5 confirma ou ajusta o valor antes do primeiro commit que o usa. Os dois métodos de C13 já existem: o RealExecution não muda além de `openSells` (BR4.3).
 
 **Equivalência dos dois caminhos (revisão R-05).** A T12 ganha `RealBotHoldingsOrderPathParityIT`: o leitor recebe o limite por um construtor de pacote, e o mesmo instantâneo é lido duas vezes, uma forçando a leitura por id (limite acima do número de ordens) e outra forçando o fluxo (limite 0). Casos: exatamente 32 e exatamente 33 ordens distintas nos lotes (os dois lados da troca com o limite real), e as sementes A e B de NFR1.5. Em todos, os dois resultados são iguais por mint (`ownTokenBaseUnits`, `ownCostLamports`, `openSellBaseUnits`, `availableTokenBaseUnits`) e iguais ao RealBotPnl quando não há venda em aberto.
@@ -139,10 +141,10 @@ Se o planejador escolher outro caminho, a Code Generation ajusta as colunas do �
 | Espera da conexão (Hikari) | ≈ 0 ms com 4 ciclos em 36 conexões | NFR1.9 |
 | S1, S2, S5 | ≈ 1 a 3 ms no total (consultas por índice) | — |
 | S3 (`view` por época) | dominada pela agregação da carteira; a mesma consulta que a barreira já faz hoje dentro do ciclo | U2, `performance-design.md` |
-| S4 (fluxo de C13 no pior caso) | dentro dos 250 ms do caminho de leitura inteira da U2 | U2 NFR1.4 |
+| S4 (por id em lotes de 1.000, F6) | 1 comando por chave primária a cada 1.000 ordens citadas; cerca de 15 comandos no pior caso da semente B | `RealOpenSellsPlanIT` (`real_order_pkey`) |
 | S6 (memória) | proporcional às linhas de S3 | — |
 
-Estes números são estimativa [assumption]. O valor que vale é a mediana do p99,9 de 3 execuções do `RealBotHoldingsMeasurementIT` (NFR1.5). Se ela passar de 250 ms, o fato vai ao fundador antes da implantação que liga a flag.
+Estes números são estimativa [assumption]. O valor que vale é a mediana do p99,9 de 3 execuções do `RealBotHoldingsMeasurementIT` (NFR1.5). Se ela passar de 500 ms (F6), o fato vai ao fundador antes da implantação que liga a flag.
 
 ## Medida (NFR1.5, NFR1.6)
 

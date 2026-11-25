@@ -232,19 +232,31 @@ class RealBotHoldingsReaderTest {
         order.verify(orders).openSells(TENANT, BOT);
     }
 
+    /**
+     * Loop-back 1, Etapas 32 and 33 (decision F6): the orders the lots name are read by id at every size, in batches of
+     * at most {@link RealBotHoldingsReader#ORDER_BATCH} ids (1,001 orders: one batch of 1,000 and one of 1), never by
+     * the stream of C13 and never one by one on the spot.
+     */
     @Test
-    void theOrdersOfTheLotsAreReadByIdUpToTheThresholdAndStreamedAbove() {
-        RealBotHoldingsReader byStream = new RealBotHoldingsReader(
-                ledger, orders, bots, wallets, new RealCostBasis(), jdbc, transactions, clock, 0);
-        UUID order = buy(BOT, 10, 10);
+    @SuppressWarnings("unchecked")
+    void theOrdersOfTheLotsAreReadByIdInBatchesOfAThousandAndNeverStreamed() {
+        UUID first = buy(BOT, 10, 10);
+        for (int i = 1; i < RealBotHoldingsReader.ORDER_BATCH + 1; i++) {
+            buy(i % 2 == 0 ? BOT : OTHER_BOT, 10, 10);
+        }
 
-        reader.holdings(TENANT, USER, BOT, BUDGET);
-        verify(orders).settledOrdersById(TENANT, USER, List.of(order));
+        HoldingsResult result = reader.holdings(TENANT, USER, BOT, BUDGET);
+
+        assertThat(result).isInstanceOf(HoldingsResult.Available.class);
+        org.mockito.ArgumentCaptor<java.util.Collection<UUID>> batches =
+                org.mockito.ArgumentCaptor.forClass(java.util.Collection.class);
+        verify(orders, org.mockito.Mockito.times(2)).settledOrdersById(eq(TENANT), eq(USER), batches.capture());
+        assertThat(batches.getAllValues())
+                .extracting(java.util.Collection::size)
+                .containsExactly(1_000, 1);
+        assertThat(batches.getAllValues().getFirst()).first().isEqualTo(first);
         verify(orders, never()).settledOrder(any(), any(), any());
         verify(orders, never()).streamSettledOrders(any(), any(), any(), any());
-
-        byStream.holdings(TENANT, USER, BOT, BUDGET);
-        verify(orders).streamSettledOrders(eq(TENANT), eq(USER), any(), any());
     }
 
     /**

@@ -40,7 +40,7 @@ Critérios mensuráveis das três métricas:
 
 ### Cálculo do limite
 
-A meta da leitura é p99,9 ≤ 250 ms (NFR1.1), e 250 ms é o corte. Por isso, em operação normal, `BUDGET_EXCEEDED` fica em no máximo p = 0,001 das leituras. `READ_FAILED` (erro de banco) é tratado como próximo de 0 fora de incidente, e o cálculo usa p = 0,001 para os dois motivos somados.
+A meta da leitura é p99,9 ≤ 500 ms (NFR1.1), e 500 ms é o corte [fundador F6, 2026-11-25, loop-back 1; antes 250 ms; a conta abaixo não muda, porque depende da taxa de 0,1% e não do tempo]. Por isso, em operação normal, `BUDGET_EXCEEDED` fica em no máximo p = 0,001 das leituras. `READ_FAILED` (erro de banco) é tratado como próximo de 0 fora de incidente, e o cálculo usa p = 0,001 para os dois motivos somados.
 
 **Volume de referência (NFR1.8).** São 63 bots com um ciclo a cada 5 min, ou seja, 12,6 leituras por minuto e n ≈ 126 leituras numa janela de 10 min. Em média, a janela tem n × p ≈ 0,126 falha normal.
 
@@ -85,7 +85,7 @@ A meta da leitura é p99,9 ≤ 250 ms (NFR1.1), e 250 ms é o corte. Por isso, e
 
 | ID | Requisito | Valor |
 |---|---|---|
-| NFR1.13 | A U4 não declara SLO operacional novo. O SLI da saúde da leitura é a razão de NFR2.12, `(BUDGET_EXCEEDED + READ_FAILED) / leituras`. O SLI do tempo é o p99,9 do `RealBotHoldingsMeasurementIT` (NFR1.5). | O limiar operacional é o alarme de NFR2.12 (> 5% sustentado por 15 min), e a meta de cauda é p99,9 ≤ 250 ms, ou seja, ≤ 0,1% de `BUDGET_EXCEEDED` (NFR1.1). O prazo de 250 ms é aplicado em execução (NFR1.7), então uma leitura lenta aparece como `BUDGET_EXCEEDED` no contador, sem histograma novo: o CloudWatch Agent descarta histogramas (`app-metrics.tf`). |
+| NFR1.13 | A U4 não declara SLO operacional novo. O SLI da saúde da leitura é a razão de NFR2.12, `(BUDGET_EXCEEDED + READ_FAILED) / leituras`. O SLI do tempo é o p99,9 do `RealBotHoldingsMeasurementIT` (NFR1.5). | O limiar operacional é o alarme de NFR2.12 (> 5% sustentado por 15 min), e a meta de cauda é p99,9 ≤ 500 ms [fundador F6, 2026-11-25, loop-back 1; antes 250 ms], ou seja, ≤ 0,1% de `BUDGET_EXCEEDED` (NFR1.1). O prazo de 500 ms é aplicado em execução (NFR1.7), então uma leitura lenta aparece como `BUDGET_EXCEEDED` no contador, sem histograma novo: o CloudWatch Agent descarta histogramas (`app-metrics.tf`). |
 
 ## Sources
 

@@ -84,6 +84,41 @@ class RealOpenSellsPlanIT extends AbstractRealExecutionIT {
                 .containsExactlyInAnyOrder(10L, 20L, 30L, 40L);
     }
 
+    /**
+     * Loop-back 1, Etapa 33 (decision F6): S4 now reads every order by id, in batches of 1,000. On the same order book of
+     * realistic size, {@code EXPLAIN (FORMAT JSON)} of the exact statement of {@code settledByIds} with a full batch of
+     * 1,000 ids of the measured person uses the primary key of {@code real_order} and never a sequential scan of it.
+     */
+    @Test
+    void aBatchOfAThousandOrdersByIdIsReadByThePrimaryKey() throws Exception {
+        Setup measured = realBot("AUTO_FULL");
+        Setup other = realBot("AUTO_FULL");
+        finalOrders(measured, 7_300);
+        finalOrders(other, 7_300);
+        connect(SUPERUSER).sql("analyze real_order").update();
+        List<String> ids = jdbc.sql("select real_order_id::text from real_order where user_id = :u limit 1000")
+                .param("u", measured.userId())
+                .query(String.class)
+                .list();
+        assertThat(ids).hasSize(1_000);
+
+        String sql = JdbcRealExecutionStore.SETTLED_BY_IDS_SQL
+                .replace(":ids", "'{" + String.join(",", ids) + "}'")
+                .replace(":tenant", "'" + measured.tenantId() + "'::uuid")
+                .replace(":user", "'" + measured.userId() + "'::uuid");
+        String plan =
+                jdbc.sql("explain (format json) " + sql).query(String.class).single();
+        List<JsonNode> nodes = new ArrayList<>();
+        collect(new ObjectMapper().readTree(plan), nodes);
+
+        assertThat(nodes)
+                .anySatisfy(node -> assertThat(node.path("Index Name").asText()).isEqualTo("real_order_pkey"));
+        assertThat(nodes).noneSatisfy(node -> {
+            assertThat(node.path("Node Type").asText()).isEqualTo("Seq Scan");
+            assertThat(node.path("Relation Name").asText()).isEqualTo("real_order");
+        });
+    }
+
     private void closedDecisions(Setup setup, int count) {
         jdbc.sql("""
                         insert into real_decision_request (decision_request_id, tenant_id, user_id, bot_id, decision_id,

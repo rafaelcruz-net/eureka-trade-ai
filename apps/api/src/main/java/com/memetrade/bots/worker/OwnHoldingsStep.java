@@ -31,7 +31,7 @@ import org.springframework.stereotype.Component;
  *   <li>P3: the system pause off.
  * </ol>
  *
- * Then it counts the read in {@code real_own_holdings_reads_total}, calls the read of C15 with the budget of 250 ms, keeps
+ * Then it counts the read in {@code real_own_holdings_reads_total}, calls the read of C15 with the budget of 500 ms (F6), keeps
  * the sequence of unavailable reads of the bot (F3) and, when the read is unavailable, counts its reason and writes one
  * log line (ERROR for BOT_NOT_OWNED, a defect: the dispatcher only hands bots of their owner). The checks that matter
  * are done again under the lock by the cycle; these only spare a read the cycle would not use.
@@ -40,8 +40,11 @@ import org.springframework.stereotype.Component;
 @ProcessRole(ProcessRole.Kind.WORKER)
 public class OwnHoldingsStep {
 
-    /** BR2.2: the budget of the read of the own holdings. */
-    static final Duration BUDGET = Duration.ofMillis(250);
+    /**
+     * BR2.2: the budget of the read of the own holdings. 500 ms by the decision F6 of the founder (2026-11-25), taken
+     * after the Build and Test measured the read of 250 ms on the CI (loop-back 1); never a loosening of this stage.
+     */
+    static final Duration BUDGET = Duration.ofMillis(500);
 
     private static final Duration SLOT = Duration.ofMinutes(5);
     private static final Logger log = LoggerFactory.getLogger(OwnHoldingsStep.class);

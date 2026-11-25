@@ -24,14 +24,16 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * 261121-paper-real-unico U4, Etapa 3 (written before the code; NFR1.7, BR2.2): the budget of 250 ms covers the whole
+ * 261121-paper-real-unico U4, Etapa 3 (written before the code; NFR1.7, BR2.2), and Etapa 34 (loop-back 1, decision F6
+ * of the founder: the budget is 500 ms, the margin of 50 ms unchanged): the budget of 500 ms covers the whole
  * read. A statement that sleeps is cancelled by the {@code statement_timeout} of what remains and the read answers
- * BUDGET_EXCEEDED in at most 300 ms; the wait for a connection of an exhausted pool counts in the budget too.
+ * BUDGET_EXCEEDED in at most 550 ms; the wait for a connection of an exhausted pool counts in the budget too (the
+ * connection is held 800 ms, longer than the budget, as it was held 400 ms against 250 ms).
  */
 @Tag("u4-own-quantity-cycle")
 class RealBotHoldingsDeadlineIT extends AbstractRealExecutionIT {
 
-    private static final Duration BUDGET = Duration.ofMillis(250);
+    private static final Duration BUDGET = Duration.ofMillis(500);
 
     @Autowired
     private ApplicationContext context;
@@ -40,7 +42,7 @@ class RealBotHoldingsDeadlineIT extends AbstractRealExecutionIT {
     private JdbcTemplate template;
 
     @Test
-    void aStatementThatSleepsIsCancelledAndTheReadIsBudgetExceededWithin300Ms() {
+    void aStatementThatSleepsIsCancelledAndTheReadIsBudgetExceededWithin550Ms() {
         Setup setup = realBot("AUTO_FULL");
         RealExecutionPort real = context.getBean(RealExecutionPort.class);
         RealExecutionPort sleepy = (RealExecutionPort) Proxy.newProxyInstance(
@@ -56,12 +58,12 @@ class RealBotHoldingsDeadlineIT extends AbstractRealExecutionIT {
         HoldingsReaders.of(context).holdings(setup.tenantId(), setup.userId(), setup.botId(), Duration.ofSeconds(5));
 
         long started = System.nanoTime();
-        HoldingsResult result = HoldingsReaders.of(context, sleepy, 32)
-                .holdings(setup.tenantId(), setup.userId(), setup.botId(), BUDGET);
+        HoldingsResult result =
+                HoldingsReaders.of(context, sleepy).holdings(setup.tenantId(), setup.userId(), setup.botId(), BUDGET);
         Duration elapsed = Duration.ofNanos(System.nanoTime() - started);
 
         assertThat(result).isEqualTo(new HoldingsResult.Unavailable(UnavailableReason.BUDGET_EXCEEDED));
-        assertThat(elapsed).isLessThanOrEqualTo(Duration.ofMillis(300));
+        assertThat(elapsed).isLessThanOrEqualTo(Duration.ofMillis(550));
     }
 
     @Test
@@ -79,7 +81,7 @@ class RealBotHoldingsDeadlineIT extends AbstractRealExecutionIT {
             CompletableFuture<Void> holder = CompletableFuture.runAsync(() -> {
                 try (Connection connection = pool.getConnection()) {
                     held.countDown();
-                    Thread.sleep(400);
+                    Thread.sleep(800);
                 } catch (Exception failure) {
                     throw new IllegalStateException(failure);
                 }

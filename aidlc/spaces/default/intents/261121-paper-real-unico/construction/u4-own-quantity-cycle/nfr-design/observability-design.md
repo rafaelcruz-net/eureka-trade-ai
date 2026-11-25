@@ -287,9 +287,18 @@ sum(increase(real_cycle_sell_capped_total{outcome="STALE_SNAPSHOT"}[24h]))
 |---|---|---|
 | Saúde da leitura | a razão `(BUDGET_EXCEEDED + READ_FAILED) / leituras` | acima de 5% sustentado por 15 min |
 | Bots presos | `real_own_holdings_stuck_bots` | acima de 0 por 10 min |
-| Tempo da leitura | o p99,9 do `RealBotHoldingsMeasurementIT` | ≤ 250 ms, ou seja, ≤ 0,1% de `BUDGET_EXCEEDED` |
+| Tempo da leitura | o p99,9 do `RealBotHoldingsMeasurementIT` | ≤ 500 ms [fundador F6, 2026-11-25; antes 250 ms], ou seja, ≤ 0,1% de `BUDGET_EXCEEDED` |
 
 Nenhum SLO operacional novo e nenhum histograma novo.
+
+### Premissa dos alarmes com 500 ms (loop-back 1, decisão F6)
+
+O fundador decidiu (F6, 2026-11-25, depois do Build and Test) que o orçamento da leitura passa de 250 ms para 500 ms. Os limites dos dois alarmes não mudam. A conta foi refeita com 500 ms:
+
+- **Base.** Com a meta p99,9 ≤ 500 ms (NFR1.1) e o corte em execução também em 500 ms (NFR1.7), a taxa de `BUDGET_EXCEEDED` em operação normal fica em no máximo 0,1% das leituras. É a mesma taxa de antes: o que mudou é o tempo que define a cauda, não a cauda permitida.
+- **Razão (NFR2.12, `RealOpsOwnHoldingsUnavailable`).** O limite de 5% fica 50 vezes acima da taxa normal de 0,1%, a mesma folga de antes. Uma razão acima de 5% por 15 min continua sendo falha persistente (banco lento, pool esgotado, histórico que passou do prazo), não a cauda normal.
+- **Bot preso (NFR2.18, `RealOpsOwnHoldingsStuckBots`).** Com leituras independentes a 0,1%, 3 indisponíveis seguidas acontecem com probabilidade de cerca de 10⁻⁹ por sequência. Com 1 leitura a cada 5 min por bot, um alarme falso é desprezível também com 500 ms. O limite (3 seguidas, gauge > 0 por 10 min) não muda.
+- **Ciclo.** A leitura continua fora da transação e da trava do ciclo. Um prazo de 500 ms só alonga a fase prévia do ciclo do bot REAL com a flag ligada, dentro do limite de 2 s do ciclo, e não segura trava.
 
 ## Correlação (NFR3.10)
 

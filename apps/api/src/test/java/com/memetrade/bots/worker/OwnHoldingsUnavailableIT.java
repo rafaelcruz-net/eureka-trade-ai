@@ -52,7 +52,7 @@ class OwnHoldingsUnavailableIT extends AbstractOwnQuantityIT {
     void anUnavailableReadSellsNothingOfTheWalletAndTheCycleEndsNormally(UnavailableReason reason) {
         Pair pair = pair();
         OwnQuantityCycle cycle = reason == UnavailableReason.READ_FAILED
-                ? new OwnQuantityCycle(context, true, HoldingsReaders.of(context, failingOpenSells(), 32))
+                ? new OwnQuantityCycle(context, true, HoldingsReaders.of(context, failingOpenSells()))
                 : cycle(true);
         if (reason != UnavailableReason.READ_FAILED) {
             cycle.holdings.forced = bot -> new HoldingsResult.Unavailable(reason);

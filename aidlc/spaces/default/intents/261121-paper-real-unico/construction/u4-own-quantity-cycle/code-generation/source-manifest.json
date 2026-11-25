@@ -89,6 +89,7 @@
     { "path": "apps/api/src/test/java/com/memetrade/decision/infra/DecisionJsonOwnQuantityTest.java" },
     { "path": "apps/api/src/test/java/com/memetrade/pnl/application/HoldingsReaders.java" },
     { "path": "apps/api/src/test/java/com/memetrade/pnl/application/RealBotHoldingsReaderTest.java" },
+    { "path": "apps/api/src/test/java/com/memetrade/pnl/application/StatementLog.java" },
     { "path": "apps/api/src/test/java/com/memetrade/pnl/OwnHoldingsScenario.java" },
     { "path": "apps/api/src/test/java/com/memetrade/pnl/RealBotHoldingsDeadlineIT.java" },
     { "path": "apps/api/src/test/java/com/memetrade/pnl/RealBotHoldingsIsolationIT.java" },

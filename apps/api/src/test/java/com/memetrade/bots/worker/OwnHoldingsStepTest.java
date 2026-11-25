@@ -44,7 +44,7 @@ class OwnHoldingsStepTest {
     private static final Instant SLOT = Instant.parse("2026-11-24T12:00:00Z");
     private static final BotRef BOT =
             new BotRef(UUID.randomUUID(), new TenantScope(UUID.randomUUID(), UUID.randomUUID()));
-    private static final Duration BUDGET = Duration.ofMillis(250);
+    private static final Duration BUDGET = Duration.ofMillis(500);
 
     private final JdbcBotRepository bots = mock(JdbcBotRepository.class);
     private final RealBotHoldings holdings = mock(RealBotHoldings.class);

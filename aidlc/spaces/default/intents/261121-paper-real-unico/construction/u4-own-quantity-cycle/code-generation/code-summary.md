@@ -170,3 +170,66 @@ Execução anterior às correções, guardada como registro:
 Execução final, depois do `spotless:apply`, numa só chamada do Maven (`verify` com `-Djacoco.skip=true`): **unidade 18 testes** (`U5SettingsTest`, `U8SettingsTest`, `RealCycleOrderCapTest`, `RecordedSwapFirstCycleTest`) e **integração 226 testes, 0 falhas, `BUILD SUCCESS`**. A lista junta os ITs da U4 e os testes obrigatórios por risco e de Units anteriores: `CycleIT`, `CycleFailureIT`, `LockOrderIT`, `RecordedSwapCycleIT`, `RealCycleAttributionIT`, `AttributedCostConsistencyIT`, `AttributedCostTenantIT`, `AttributionFailureGateIT`, `DecisionConsumerIT`, `DecisionConsumerExitIT`, `ConfirmationAndAmbiguousIT`, `OrderDriverIT`, `RealSettlementIT`, `LiquidationIT`, `LiquidationExitIT`, `PersonSaleExitIT`, `KillSwitchIT`, `WithdrawalLimitIT`, `BotWalletRoutesIT`, `RealOffByDefaultRoutesIT`, `RealReleaseRouteOffIT`, `PaperExecutionIdempotencyIT`, `RealPnlTenantIsolationIT`, `RealNeverPaperIT`, `RealPositionEpochAppendOnlyIT`, `Migration0023IndexRestartIT`, `BotModePathIT`, `BotListMarketIT`, `BotRepositoriesIT`.
 
 Itens do plano que ficam abertos: Etapa 11 (`ORDER_PREFETCH_THRESHOLD` não confirmado, ver "Medida"), Etapa 30 (`mvnw verify` completo com JaCoCo e o ponto de controle `verify-checkpoint.sh`, que dependem do commit pedido ao responsável).
+
+## Loop-back 1 — Fase G (decisão F6 do fundador, 2026-11-25)
+
+O Build and Test deixou U4-NFR1.1, U4-NFR1.13 e a premissa dos alarmes como `Not Met`, com a CI Linux do `fc65b7f` (n=300): na semente A, 18,3% das leituras passaram de 250 ms; na semente B, 100%. A causa é S4: acima de 32 ordens, a leitura percorria o fluxo de C13, que lê o histórico inteiro de ordens. O fundador decidiu (F6) duas coisas: o orçamento passa a 500 ms, e S4 busca as ordens por id em qualquer tamanho. As Etapas 32 a 35 mexem só na U4.
+
+### Etapa 32 — teste antes do código (vermelho registrado)
+
+`RealBotHoldingsOrderPathParityIT` (alterado):
+
+- casos de 32 e 33 ordens nas sementes A (com uma zeragem e marca de época antes dos lotes) e B (sem zeragem), mais um caso de 5.000 ordens distintas;
+- os valores (`own`, custo, `open`, `available`) são conferidos contra um oráculo calculado da própria semente e contra o leitor de produção;
+- a contagem é feita num `DataSource` instrumentado do teste (`StatementLog`, novo, e `HoldingsReaders.counted`): no máximo `ceil(n / 1.000)` buscas por id, nenhuma busca avulsa (`settledOrder`) e nenhum comando do fluxo de C13;
+- o caso T12 confere os valores calculados à mão e nenhum fluxo.
+
+**Vermelho** (`mvnw verify -Dit.test=RealBotHoldingsOrderPathParityIT`, antes da Etapa 33): 6 casos, **3 falhas por asserção**, todas `[the stream of C13 is never used by S4] expected: 0L but was: 1L`, nos casos A/33, B/33 e B/5.000. Os casos de 32 ordens e o T12 passaram. As asserções de valor vêm antes da contagem. Elas passaram nos três casos que falharam, que ainda rodavam pelo caminho antigo (o fluxo). Isso prova que o oráculo é igual ao caminho antigo. Depois da troca, os mesmos valores passam no caminho novo, então os dois caminhos dão o mesmo resultado.
+
+### Etapa 33 — S4 por id em lotes
+
+- `RealBotHoldingsReader`: S4 busca sempre por `RealExecutionPort.settledOrdersById`, em lotes de até `ORDER_BATCH = 1.000` ids. Antes de cada lote, aplica o prazo que resta como `statement_timeout`; entre os lotes, faz `deadline.check()`. Saíram o fluxo de C13, o `ORDER_PREFETCH_THRESHOLD` e o construtor de pacote com o limite. O id ausente segue a regra de hoje: o lote marca como ausente o que não veio, e o cache negativo da `EpochAttribution` continua.
+- `JdbcRealExecutionStore`: o comando de `settledByIds` virou a constante `SETTLED_BY_IDS_SQL`. O `RealOpenSellsPlanIT` ganhou o `EXPLAIN (FORMAT JSON)` de um lote de 1.000 ids, sobre 14.600 ordens: usa `real_order_pkey` e nunca `Seq Scan` em `real_order`.
+- Testes ajustados: o `RealBotHoldingsReaderTest` troca o caso "por id até o limite e fluxo acima" por "1.001 ordens, dois lotes de 1.000 e 1, nunca fluxo nem busca avulsa". `HoldingsReaders.of(context, threshold)` saiu, e os chamadores (`OwnHoldingsUnavailableIT`, `RealBotHoldingsDeadlineIT`, `RealBotHoldingsIsolationIT`) usam `of(context, port)`. No `RealBotHoldingsMeasurementIT`, a conferência das sementes A e B compara o leitor contado com o de produção, soma as quantidades contra a carteira e conta zero fluxo.
+
+### Etapa 34 — orçamento de 500 ms
+
+- `OwnHoldingsStep.BUDGET = Duration.ofMillis(500)`, com o javadoc citando F6.
+- Testes: `OwnHoldingsStepTest` (500 ms); `RealBotHoldingsDeadlineIT` (500 ms, `pg_sleep` cancelado em até 550 ms, a mesma folga de 50 ms de antes; a conexão do pool esgotado fica segura por 800 ms em vez de 400, para continuar maior que o prazo, o que deixa o teste mais exigente, não menos). No `OwnHoldingsUnavailableIT` nenhum valor de 250 ms estava fixado; só o chamador mudou.
+- `RealBotHoldingsMeasurementIT`: `BUDGET` de 500 ms; a linha do log mostra `mode=budget500`, `target: p99.9 <= 500 ms` e `over500`. Os padrões da CI (`fc65b7f`) ficaram como estavam: 300 leituras, 20 aquecimentos, 0 ciclos.
+- Alinhamento A20 dos textos de desenho, com a nota de que a mudança é a decisão F6 do fundador depois do Build and Test, nunca um afrouxamento desta etapa:
+  - `nfr-requirements/performance-requirements.md` (NFR1.1, NFR1.7, item "0a" das decisões);
+  - `nfr-requirements/observability-requirements.md` (NFR1.13 e a base do cálculo);
+  - `nfr-design/performance-design.md` (o prazo, a seção "S4 depois do loop-back 1" e a tabela de custos);
+  - `functional-design/rules.md` (BR2.1 e BR2.2);
+  - `inception/contract-design/contract-summary.md` (C15, o prazo padrão e S4 por id).
+- Premissa dos alarmes refeita com 500 ms em `nfr-design/observability-design.md`. A taxa normal de `BUDGET_EXCEEDED` continua em no máximo 0,1%; o limite de 5% continua 50 vezes acima dela; 3 indisponíveis seguidas continuam em cerca de 10⁻⁹. **Os limites (5% e o bot preso) não mudaram**, nem `real-ops-alerts.yml` nem `real-ops.tf`.
+
+### Etapa 35 — medida e registros
+
+**Medida local** (Windows com Docker Desktop; padrões da CI: 300 leituras, 20 aquecimentos, 0 ciclos; relógio do sistema; prazo de 500 ms). Com n=300, o p99,9 é o maior valor da amostra.
+
+| Semente | Com 500 ms: p50 / p99 / p99,9 | `BUDGET_EXCEEDED` | Sem prazo: p50 / p99 / p99,9 | Acima de 500 ms sem prazo |
+|---|---|---|---|---|
+| A (com zeragens) | 106 / 140 / 157 ms | 0 de 300 (0%) | 106 / 129 / 140 ms | 0 de 300 |
+| B (sem zeragem) | 418 / 503 / 507 ms | 4 de 300 (1,3%) | 415 / 461 / 469 ms | 0 de 300 |
+
+Para comparar, a última medida local com 250 ms e o fluxo de C13 deu: semente A com p50 de 208 a 239 ms; semente B com p50 de 415 a 481 ms sem prazo e 100% de `BUDGET_EXCEEDED`.
+
+- **Semente A:** a mediana caiu para cerca da metade (de cerca de 210 ms para 106 ms). Nenhuma leitura passou do prazo. A meta de 500 ms está cumprida com folga nesta máquina.
+- **Semente B:** a busca por id tirou o fluxo, e a meta ficou no limite. Sem prazo, nenhuma leitura passou de 500 ms (p99,9 de 469 ms). Com o prazo, 4 de 300 (1,3%) passaram, porque o corte inclui o commit e a última conferência do relógio. A mediana quase não mudou (cerca de 415 ms): nessa semente o mint nunca zera, e o custo que sobra é S3 mais o acumulador, que percorrem cerca de 14.300 lotes abertos, não a busca das ordens (15 comandos por chave primária). Isso fica abaixo do limite de 5% do alarme, mas acima da cauda de 0,1% da meta, e é medido nesta máquina, que costuma ser mais lenta que a CI Linux.
+- A medida que vale é a da CI do commit (300 leituras) e, antes de ligar a flag, a oficial (10.000 leituras × 3, Linux). Se a semente B continuar acima de 0,1% de `BUDGET_EXCEEDED` com 500 ms, o próximo passo já está nas opções do Build and Test (o cache por bot, a opção 2) e é decisão do fundador.
+
+**Testes da rodada final** (uma só chamada do Maven depois do `spotless:apply`, `verify` com `-Djacoco.skip=true` e o `spotless:check` verde): **unidade 188 testes, integração 91 testes, 0 falhas, `BUILD SUCCESS`**.
+- Unidade: as classes da U4, as regras ArchUnit, o `RealBotPnlTest` e o `RecordedSwapFirstCycleTest`.
+- Integração: todos os ITs da U4 (cenários T1 a T20) e os de custo da U2 que usam `EpochAttribution` (`AttributedCostConsistencyIT`, `AttributedCostTenantIT`, `AttributionFailureGateIT`, `RealCycleAttributionIT`), mais o `RealPnlTenantIsolationIT` e a medida.
+
+Fora a medida, só a U4 usa o `settledOrdersById`; os ITs que passam por ele (`RealBotHoldings*`) estão na lista.
+
+### Desvios da Fase G
+
+- O plano cita `pnl/application/RealBotHoldingsOrderPathParityIT.java`, mas o IT já estava em `pnl/` e ficou lá.
+- A paridade antigo × novo é conferida por um oráculo calculado da semente. Ele foi provado igual ao caminho antigo na execução vermelha; o caminho antigo não fica no código para um teste de lado a lado.
+- O `HoldingsReaders.counted` monta o `JdbcRealExecutionStore` e o `RealExecutionService` sobre o `DataSource` instrumentado, porque o bean do contexto não deixa contar os comandos. O ledger, o diretório de bots e as carteiras continuam nos beans do contexto e não entram na contagem.
+- Ficaram com 250 ms, porque não fixam o prazo de produção (passam o orçamento como argumento a um leitor de teste): `RealBotHoldingsReaderTest` (relógio parado), `RealBotHoldingsParityIT`, `RealBotHoldingsTenantIT`, `OwnQuantitySellIT`, `HoldingsOutsideTheCycleSample` e `ReadDeadlineTest`. O plano lista só os três testes que fixavam o prazo.
+- A medida oficial (10.000 leituras × 3, Linux) e a medida de 300 leituras na CI do commit continuam pendentes: a CI roda depois do commit que o responsável pedir.

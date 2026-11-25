@@ -579,15 +579,19 @@ public class JdbcRealExecutionStore {
                 .list();
     }
 
+    /** The statement of {@link #settledByIds}; its plan is checked in {@code RealOpenSellsPlanIT} (real_order_pkey). */
+    static final String SETTLED_BY_IDS_SQL = "select " + ORDER_COLUMNS
+            + " from real_order where real_order_id = any(cast(:ids as uuid[]))"
+            + " and tenant_id = :tenant and user_id = :user"
+            + " and tx_signature is not null and state in ('CONFIRMED', 'FAILED')";
+
     /**
      * 261121-paper-real-unico U4 (C15 step S4, review R-01): the settled orders of THIS person among {@code ids}, in ONE
      * statement by {@code real_order_pkey}; the same filter as {@link #findForOwner} plus the settled states. No
      * {@code ORDER BY}: the caller indexes them by id.
      */
     public List<OrderRow> settledByIds(UUID tenantId, UUID userId, Collection<UUID> ids) {
-        return jdbc.sql("select " + ORDER_COLUMNS + " from real_order where real_order_id = any(cast(:ids as uuid[]))"
-                        + " and tenant_id = :tenant and user_id = :user"
-                        + " and tx_signature is not null and state in ('CONFIRMED', 'FAILED')")
+        return jdbc.sql(SETTLED_BY_IDS_SQL)
                 .param("ids", ids.stream().map(UUID::toString).toArray(String[]::new))
                 .param("tenant", tenantId)
                 .param("user", userId)

@@ -1304,6 +1304,7 @@ concurrency:
   - "por construção, o disponível só pode ficar menor que o real (venda em voo descontada), nunca maior"
 rules:
   - "o número do orçamento fica com o NFR Design (PQ-9); a implementação existe no processo worker"
+  - "alinhamento A20 da U4 (loop-back 1, decisão F6 do fundador, 2026-11-25): o prazo padrão que o OwnHoldingsStep passa como budget é 500 ms (antes 250 ms); S4 lê as ordens nomeadas pelos lotes sempre por id, em lotes de até 1.000 ids, pelo método RealExecutionPort.settledOrdersById (real_order_id = any(:ids), mesmo filtro de settledOrder), e não lê mais o fluxo de C13 (streamSettledOrders continua no contrato para a U2)"
   - "sem preço, taxas, período, realizado nem linha Sem bot"
   - "teste: sem vendas em aberto, a quantidade de RealBotHoldings == a quantidade de RealBotPnl para o mesmo ledger (ADR-006)"
   - "teste de concorrência obrigatório, escrito antes do código (team.md, Testing Posture): um assentamento em paralelo com um ciclo nunca faz o ciclo vender mais que a quantidade própria do bot"

@@ -82,9 +82,8 @@ class RealBotHoldingsIsolationIT extends AbstractRealExecutionIT {
                     return answer;
                 });
 
-        CompletableFuture<HoldingsResult> read =
-                CompletableFuture.supplyAsync(() -> HoldingsReaders.of(context, held, 32)
-                        .holdings(setup.tenantId(), setup.userId(), setup.botId(), Duration.ofSeconds(30)));
+        CompletableFuture<HoldingsResult> read = CompletableFuture.supplyAsync(() -> HoldingsReaders.of(context, held)
+                .holdings(setup.tenantId(), setup.userId(), setup.botId(), Duration.ofSeconds(30)));
         assertThat(inside.await(20, TimeUnit.SECONDS)).isTrue();
         int activeDuringTheRead =
                 ((HikariDataSource) dataSource).getHikariPoolMXBean().getActiveConnections();

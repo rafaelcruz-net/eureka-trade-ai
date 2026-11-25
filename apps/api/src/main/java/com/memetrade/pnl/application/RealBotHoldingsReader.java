@@ -52,8 +52,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  *       BOT_NOT_OWNED and nothing of its money is read;
  *   <li>S2: the bot wallets of the person (the read the P&L REAL by bot uses);
  *   <li>S3: the view of each wallet ({@code RealLedger.view}, one statement), with the lots since the epoch of each mint;
- *   <li>S4: the settled orders those lots name: up to {@link #ORDER_PREFETCH_THRESHOLD} distinct ones by id, above it
- *       the stream of C13 under the deadline and by id only what it did not bring;
+ *   <li>S4: the settled orders those lots name, always by id in batches of {@link #ORDER_BATCH} (loop-back 1, F6;
+ *       the stream of C13 is no longer read);
  *   <li>S5: the open sales of the bot (C16 extended);
  *   <li>S6: in memory, the accumulator of the U2 ({@link EpochAttribution}) and the open positions of the holder bot;
  *       {@code available = max(0, own - open)}, exact.
@@ -70,11 +70,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class RealBotHoldingsReader implements RealBotHoldings {
 
     /**
-     * Up to this many distinct orders named by the open lots, S4 reads them by id ({@code real_order_pkey}); above it,
-     * by the stream of C13 (one statement, 500 rows a fetch). Confirmed by {@code RealBotHoldingsMeasurementIT} with the
-     * seeds A and B; it only ever changes without loosening the budget.
+     * Loop-back 1 (decision F6): S4 reads the orders the open lots name by id, at most this many ids per statement
+     * ({@code real_order_id = any(:ids)} by {@code real_order_pkey}); it replaced the threshold of 32 and the stream
+     * of C13.
      */
-    public static final int ORDER_PREFETCH_THRESHOLD = 32;
+    public static final int ORDER_BATCH = 1_000;
 
     private static final Logger log = LoggerFactory.getLogger(RealBotHoldingsReader.class);
 
@@ -86,7 +86,6 @@ public class RealBotHoldingsReader implements RealBotHoldings {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate read;
     private final Clock clock;
-    private final int threshold;
 
     @Autowired
     public RealBotHoldingsReader(
@@ -98,23 +97,6 @@ public class RealBotHoldingsReader implements RealBotHoldings {
             JdbcTemplate jdbc,
             PlatformTransactionManager transactions,
             Clock clock) {
-        this(ledger, orders, bots, wallets, method, jdbc, transactions, clock, ORDER_PREFETCH_THRESHOLD);
-    }
-
-    /** With another threshold of S4 (the parity of the two paths, {@code RealBotHoldingsOrderPathParityIT}). */
-    RealBotHoldingsReader(
-            RealLedger ledger,
-            RealExecutionPort orders,
-            BotDirectory bots,
-            RealStateQuery wallets,
-            RealCostMethod method,
-            JdbcTemplate jdbc,
-            PlatformTransactionManager transactions,
-            Clock clock,
-            int threshold) {
-        if (threshold < 0) {
-            throw new IllegalArgumentException("the threshold of the read by id is at least 0");
-        }
         this.ledger = ledger;
         this.orders = orders;
         this.bots = bots;
@@ -126,7 +108,6 @@ public class RealBotHoldingsReader implements RealBotHoldings {
         this.read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
         this.read.setReadOnly(true);
         this.clock = clock;
-        this.threshold = threshold;
     }
 
     @Override
@@ -176,12 +157,12 @@ public class RealBotHoldingsReader implements RealBotHoldings {
         Map<UUID, EpochAttribution.Attribution> index = new HashMap<>();
         // Review R-01: the orders looked up and not found in this snapshot are read once per read, not once per row.
         Set<UUID> absent = new java.util.HashSet<>();
-        boolean streamed = false;
+
         for (UUID walletId : walletIds) {
             deadline.applyStatementTimeout(jdbc::execute);
             RealLedgerView view = ledger.view(tenantId, walletId, Optional.empty());
             deadline.check();
-            streamed = settledOrders(tenantId, userId, view, index, absent, deadline, streamed);
+            settledOrders(tenantId, userId, view, index, absent, deadline);
             EpochAttribution accumulation =
                     new EpochAttribution(tenantId, userId, holders, index, absent, method.start(), orders, bots);
             for (NetworkOrderedEntry entry : view.openLots()) {
@@ -207,46 +188,37 @@ public class RealBotHoldingsReader implements RealBotHoldings {
     }
 
     /**
-     * S4: the settled orders the lots of {@code view} name and the index does not have yet: by id up to the threshold;
-     * above it the stream of C13 once per read, then by id only what it did not bring. Returns whether the stream ran.
+     * S4 (loop-back 1, decision F6): the settled orders the lots of {@code view} name and the read does not know yet,
+     * ALWAYS by id ({@code real_order_pkey}), in batches of at most {@link #ORDER_BATCH} ids, one statement each, the
+     * statement timeout of what remains before each batch and the clock checked between them. The stream of C13 (the
+     * whole history of orders of the person) is no longer read here. An id the batch does not bring (not the person's,
+     * not settled, or gone in this snapshot) is remembered as absent: the rows that name it are UNOWNED, as before.
      */
-    private boolean settledOrders(
+    private void settledOrders(
             UUID tenantId,
             UUID userId,
             RealLedgerView view,
             Map<UUID, EpochAttribution.Attribution> index,
             Set<UUID> absent,
-            ReadDeadline deadline,
-            boolean streamed) {
+            ReadDeadline deadline) {
         Set<UUID> named = new LinkedHashSet<>();
         for (NetworkOrderedEntry entry : view.openLots()) {
             EpochAttribution.orderId(entry.reference())
-                    .filter(id -> !index.containsKey(id))
+                    .filter(id -> !index.containsKey(id) && !absent.contains(id))
                     .ifPresent(named::add);
         }
-        boolean stream = streamed;
-        if (named.size() > threshold && !streamed) {
+        List<UUID> missing = List.copyOf(named);
+        for (int from = 0; from < missing.size(); from += ORDER_BATCH) {
+            if (from > 0) {
+                deadline.check();
+            }
+            List<UUID> batch = missing.subList(from, Math.min(missing.size(), from + ORDER_BATCH));
             deadline.applyStatementTimeout(jdbc::execute);
-            orders.streamSettledOrders(
-                    tenantId,
-                    userId,
-                    deadline,
-                    order -> index.put(order.realOrderId(), EpochAttribution.Attribution.of(order)));
-            stream = true;
-        }
-        // Review R-01: what is still missing in ONE statement (= ANY), not two statements per order.
-        List<UUID> missing = named.stream()
-                .filter(id -> !index.containsKey(id) && !absent.contains(id))
-                .toList();
-        if (!missing.isEmpty()) {
-            deadline.applyStatementTimeout(jdbc::execute);
-            for (var order : orders.settledOrdersById(tenantId, userId, missing)) {
+            for (var order : orders.settledOrdersById(tenantId, userId, batch)) {
                 index.put(order.realOrderId(), EpochAttribution.Attribution.of(order));
             }
-            // Not the person's, not settled or gone in this snapshot: the rows that name them are UNOWNED, as before.
-            missing.stream().filter(id -> !index.containsKey(id)).forEach(absent::add);
+            batch.stream().filter(id -> !index.containsKey(id)).forEach(absent::add);
         }
-        return stream;
     }
 
     /** S6: one holding per mint with an own quantity or an open sale; exact arithmetic. */
