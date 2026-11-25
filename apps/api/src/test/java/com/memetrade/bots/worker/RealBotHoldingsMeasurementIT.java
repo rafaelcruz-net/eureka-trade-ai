@@ -44,14 +44,17 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
  *       are SENT orders of other bots) and 3 PENDING SELL decisions (one deferred), with the marks of zero the writes of
  *       the ledger record;
  *   <li>seed B (A19): the same without any zero in the whole history (S4 by the stream);
- *   <li>per seed, {@code u4.measure.warmups} warm-ups (200) and twice {@code u4.measure.reads} measured reads (10,000),
- *       with the CLOCK OF THE SYSTEM (review R-01; the fixed clock of the context would leave the deadline inert): first
+ *   <li>per seed, {@code u4.measure.warmups} warm-ups (20) and twice {@code u4.measure.reads} measured reads (300 in
+ *       the CI; the official run passes {@code -Du4.measure.reads=10000 -Du4.measure.warmups=200
+ *       -Du4.measure.cycles=100}), with the CLOCK OF THE SYSTEM (review R-01; the fixed clock of the context would leave
+ *       the deadline inert): first
  *       with the budget of 250 ms, the p50, p99 and p99.9 (the sample size logged; below 1,000 reads the p99.9 is the
  *       maximum) and the rate of BUDGET_EXCEEDED the worker would see; then with a budget of 30 s, the time of the whole
  *       read and how many passed 250 ms (the comparison before and after a change); both paths of S4 give the same
  *       holdings; the own quantities of the bots add up to the wallet.
- *   <li>the cycle (skipped with {@code u4.measure.cycles=0}): 10 warm-ups and {@code u4.measure.cycles} (100) measured
- *       cycles with the flag on and off, the p95; the ratio of STALE_SNAPSHOT over the reads (0 expected).
+ *   <li>the cycle (skipped with {@code u4.measure.cycles=0}, the CI default): 10 warm-ups and
+ *       {@code u4.measure.cycles} (100 in the official run) measured cycles with the flag on and off, the p95; the ratio
+ *       of STALE_SNAPSHOT over the reads (0 expected).
  * </ul>
  */
 @Tag("u4-own-quantity-cycle")
@@ -63,9 +66,9 @@ class RealBotHoldingsMeasurementIT extends AbstractOwnQuantityIT {
     private static final int MINTS = 10;
 
     private final int days = Integer.getInteger("u4.measure.days", 730);
-    private final int reads = Integer.getInteger("u4.measure.reads", 10_000);
-    private final int cycles = Integer.getInteger("u4.measure.cycles", 100);
-    private final int warmups = Integer.getInteger("u4.measure.warmups", 200);
+    private final int reads = Integer.getInteger("u4.measure.reads", 300);
+    private final int cycles = Integer.getInteger("u4.measure.cycles", 0);
+    private final int warmups = Integer.getInteger("u4.measure.warmups", 20);
 
     @ParameterizedTest
     @ValueSource(strings = {"A", "B"})
