@@ -14,7 +14,7 @@ Existem metas numéricas de desempenho nos NFRs das quatro Units, então este ar
 | U2-NFR1.5 (barreira REAL, compra e venda) | compra: teto 500 ms (fundador, 2026-11-23) e limite relativo pela comparação intercalada; venda: 30 ms | `RealRiskMeasurementIT`; base em `docs/perf/u2-barrier-baseline.md` | decisão nesta etapa |
 | U2-NFR1.26 (compra com posição sem preço) | p95 ≤ 400 ms | `RealAttributionMeasurementIT` | decisão nesta etapa |
 | U3-NFR1.1 a NFR1.4 (C4 com `market` e `RANGE`, `listBots`, C5, C6) | p95 ≤ 1.000 ms por caso | `PnlViewsLatencyIT` (11 casos) e cenário `pnl-by-mode` ampliado | **sim** para C4 `RANGE` 30/366 d, C5 e C6 no `load-test` (U3-NFR1.6) |
-| U4-NFR1.1 (leitura do `RealBotHoldings`) | **p99,9 ≤ 250 ms**, ou seja, `BUDGET_EXCEEDED` ≤ 0,1% | `RealBotHoldingsMeasurementIT`, 10.000 leituras por semente, 3 execuções, mediana | registro; acima da meta vai ao fundador antes de ligar a flag (BR5.2) |
+| U4-NFR1.1 (leitura do `RealBotHoldings`) | **p99,9 ≤ 500 ms** (fundador F6, 2026-11-25; antes 250 ms), ou seja, `BUDGET_EXCEEDED` ≤ 0,1% | `RealBotHoldingsMeasurementIT`, 10.000 leituras por semente, 3 execuções, mediana | registro; acima da meta vai ao fundador antes de ligar a flag (BR5.2) |
 | U4-NFR1.2 (ciclo REAL com a flag ligada) | p95 ≤ 2.000 ms | o mesmo IT, 100 ciclos com a flag ligada e desligada | registro |
 | U4-NFR2.17 (`STALE_SNAPSHOT` sem concorrência) | razão = 0 | o mesmo IT | registro; acima de 0 vai ao fundador |
 

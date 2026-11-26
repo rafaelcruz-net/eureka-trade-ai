@@ -2,6 +2,8 @@
 
 Data: 2026-11-25. Comando (Step 10): `aidlc engine sensor-traceability --stage build-and-test`, rodado da raiz do repositório.
 
+**Reexecução depois do loop-back 1 (commit `09de0a8`):** o sensor rodou de novo e devolveu o mesmo resultado: `"pass": false`, 134 de 177 IDs cobertos, os mesmos 43 descobertos e o mesmo motivo literal. A única diferença é a ordem interna das listas de NFR1 e NFR2. O `traceability.json` da U4 mudou no `09de0a8` (orçamento de 500 ms e S4 por id), mas nenhuma linha da U4 estava descoberta. F-T1 a F-T3 continuam como correções de registro para o gate. F-T6 vale com os números novos: o sensor dá U4-NFR1.1 como construído, e a matriz o dá como `Not Met` por causa da semente B.
+
 ## Veredito
 
 **FAIL** (`"pass": false`).

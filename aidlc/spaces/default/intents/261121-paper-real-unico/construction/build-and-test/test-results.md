@@ -169,3 +169,101 @@ Para todas as opções: a flag continua desligada até a medida oficial (10.000 
   
   Depois disso, a medida é refeita em Linux pela CI.
 - **Impacto estimado:** de 0,5 a 1 dia de esforço, US$ 0 e risco de baixo a médio. A semente B deve cair de ~440 ms para 150 a 250 ms, dentro de 500 ms com folga. A flag continua desligada.
+
+## 9. Reexecução depois do loop-back 1 — commit `09de0a8` (2026-11-25)
+
+Modo Modify: as seções 1 a 8 e o `## Loop-Back Log` acima ficam como estavam (primeira execução, `fc65b7f`). Esta seção é o resultado atual do Step 9. A matriz atualizada está em `build-and-test-summary.md`: **301 alvos — Met 279, Not Met 5, Unverified 16, N/A 1**, sem nenhum `Pending`. A correção F6 foi aplicada, mas a meta continua `Not Met` na semente B. **Não houve novo loop-back** (instrução do coordenador; F7 é decisão do fundador).
+
+### 9.1 Build e testes
+
+CI `ci` run `45550427456`, commit `09de0a8daea32fc9ec9d8bfe380a9eac9f3b6c29`. Maven e `verify.sh` não rodaram nesta máquina. O `verify.sh` local rodou hoje no `09de0a8`, no ponto de controle da U4, e passou.
+
+| Job | Tentativa 1 | Tentativa 2 | Números |
+|---|---|---|---|
+| `backend` (`138990044269`) | success | (reaproveitado) | surefire 2.511/0; failsafe **1.688**/0 (+4); JaCoCo "All coverage checks have been met"; `BUILD SUCCESS`; promtool 63 regras |
+| `txsigner` | success | (reaproveitado) | 230 + 17, 0 falhas; JaCoCo atendido |
+| `frontend` | success | (reaproveitado) | 1.004/1.004; linhas 94,43% |
+| `admin` | success | (reaproveitado) | 221/221; linhas 89,81% |
+| `contract` | success | (reaproveitado) | 25/0 |
+| `smoke` | success | (reaproveitado) | 62 passed (16,1 min); "walking skeleton verified" |
+| `e2e` | **failure** (`139004347381`) | success (`139189690166`) | tentativa 1: 6 failed, 26 did not run, 30 passed; tentativa 2: 62 passed (15,6 min) |
+
+Workflow `security` run `45550427465` no mesmo commit: success. `gh run list --workflow load-test`: vazio. `.github/workflows/load-test.yml`: ainda sem `pnl-by-mode`.
+
+### 9.2 E2E instável (TGT-E2E-FLAKY, Not Met)
+
+- **O que falhou na tentativa 1:**
+  - `e2e/real-swap/swap.spec.ts:224` ("a deposit lets the bot buy the recorded mint and the order is CONFIRMED") esperou 7,5 min (`Timeout 420000ms exceeded while waiting on the predicate`) por uma compra REAL confirmada no validador Solana local.
+  - Em cascata, por depender do estado de entrada deixado pelo `real-swap`, falharam `real-ui/real-ui.spec.ts:174`, `real-v1-exports/real-exports.spec.ts:122`, `real-v2-exits/real-exits.spec.ts:209` e `zz-paper-real-unico/paper-real-unico.spec.ts:251` (espera de 180 s).
+  - Falhou também `u2-audit-trail/smoke.spec.ts:19` (`page.waitForURL: Test timeout of 60000ms exceeded`), que não é REAL. Precisa ser explicado na investigação; pode ser carga do runner depois da espera longa.
+- **O que passou:** o job `smoke` do mesmo commit rodou a mesma suíte e passou 62/62, e a tentativa 2 do `e2e` também passou 62/62.
+- **Leitura:** não há indício de que a mudança da U4 cause a falha. O `09de0a8` só muda a leitura da posição própria, que roda com a flag desligada no `verify.sh` (U4-NFR1.3 verde). Mas um teste instável é defeito pelo `team.md` e não pode ficar como `Met`.
+- **Dono:** o responsável do projeto, com o coordenador.
+- **Ação:**
+  1. Abrir um defeito "compra REAL do `real-swap` sem confirmação no validador local".
+  2. Guardar os artefatos da tentativa 1: os logs do validador, do worker e do TxSigner e o `error-context.md` do Playwright.
+  3. Ver se a ordem ficou `SENT` sem confirmação (validador lento, `ChainWatcher`) ou se nem foi enviada.
+  4. Explicar a falha do `u2-audit-trail`.
+  5. Escrever um teste de regressão que reproduza a falha antes da correção (`team.md`, Defeitos).
+- **Etapa:** a investigação cabe a esta etapa (é defeito de teste ou de ambiente), e a ida para a CI é do `ci-pipeline`.
+- **Custo:** cerca de 0,5 a 1 dia de investigação e cerca de 25 min de runner por repetição.
+
+### 9.3 Desempenho (CI Linux, números novos)
+
+| Medida | Meta | `09de0a8` | `fc65b7f` | Veredito |
+|---|---|---|---|---|
+| U1 C4 / C2 / C3 / C1 | p95 ≤ 1.000 ms | 181 / 4 / 4 / 8 ms | 172 / 5 / 4 / 8 | Met |
+| U3 C4 PAPER ALL, REAL ALL, PAPER 30d, REAL 30d | p95 ≤ 1.000 ms | 48, 148, 21, 147 ms | 58, 132, 18, 154 | Met (só IT) |
+| U3 listBots PAPER / REAL / sem market | p95 ≤ 1.000 ms | 3 / 3 / 2 ms | 3 / 3 / 4 | Met |
+| U3 C5 primeira / seguinte; C6 ALL / 30d | p95 ≤ 1.000 ms | 143 / 130; 134 / 122 ms | 152 / 146; 147 / 143 | Met (só IT) |
+| U2 atribuição GATE | p95 ≤ 250 ms | 18 ms, 0 timeouts | 8 ms | Met |
+| U2 compra com posição sem preço | p95 ≤ 400 ms | 50 ms (sem marca: 678 ms, informativo) | 62 (975) | Met |
+| U2 barreira compra / venda | 500 / 30 ms | 15 / 4 ms | 16 / 5 | Met |
+| **U4 semente A, prazo 500 ms** | p99,9 ≤ 500 ms, ≤ 0,1% cortadas | p50 133, p99 231, p99,9 330 ms; 0/300 cortadas | (250 ms) 18,3% | cumpre |
+| U4 semente A, sem prazo | informativo | p50 134, p99 235, p99,9 282 ms; 0% acima de 500 | — | — |
+| **U4 semente B, prazo 500 ms** | p99,9 ≤ 500 ms, ≤ 0,1% cortadas | p50 500, p99 535, p99,9 547 ms; **188/300 (62,7%) cortadas** | (250 ms) 100% | **Not Met** |
+| U4 semente B, sem prazo | informativo | p50 506, p99 851, p99,9 885 ms; 176/300 (58,7%) acima de 500 | p50 440, p99,9 775 | — |
+
+- **U4-NFR1.1, U4-NFR1.13 e TGT-U4-ALARM continuam `Not Met`,** por causa da semente B. A semente A passou a cumprir com folga: a mediana caiu de ~207 para 133 ms.
+- **A semente B não melhorou.** A mediana sem prazo até subiu (440 → 506 ms). A busca por id em lotes de 1.000 traz quase o mesmo volume de linhas do fluxo anterior, porque sem zeragem todas as ~14.300 ordens são citadas.
+- **O diagnóstico ainda não está provado.** O diagnóstico da revisão (`reviews/review-02.md`, R-08: "o que sobra é S3 mais o acumulador") não está provado por passo: não há medida do tempo de S3 (`RealLedger.view`), de S4 (lotes por id) e do acumulador separadamente.
+- **Os Unverified ficam como estavam.** U4-NFR1.2, NFR1.5 e NFR2.17 continuam `Unverified`: a CI ainda roda 300 leituras, 1 execução e 0 ciclos.
+
+### 9.4 Halt-and-ask: decisão F7 do fundador
+
+**Pergunta.** Com 500 ms e a busca por id, a semente A cumpre a meta, mas uma carteira como a B (mint que nunca zera, ~14 mil ordens em 2 anos) tem 62,7% das leituras cortadas. Com a flag ligada, um bot nessa carteira quase nunca venderia pelo ciclo, e os alarmes de razão e de bot preso disparariam. A flag está desligada, e nada muda em produção. Como seguir antes de ligar a flag?
+
+**Pré-requisito comum, recomendado antes de qualquer opção:** medir o tempo de cada passo (S1 a S6 e o acumulador) no `RealBotHoldingsMeasurementIT`, só como log. Esforço de cerca de 0,5 dia e uma execução da CI (~40 min). Sem essa medida, o impacto das opções abaixo é estimativa.
+
+| Opção | O que muda | Esforço | Risco | Custo | Impacto reestimado na semente B |
+|---|---|---|---|---|---|
+| **1. Consulta enxuta de S4** (só as 4 colunas que o cálculo usa), depois da medida por passo | `JdbcRealExecutionStore.settledOrdersById` e o mapeamento; sem esquema nem contrato novos | 0,5 a 1 dia, mais a medida por passo; os testes de paridade de S4 já existem | baixo (o resultado é o mesmo por construção; conferir o plano com `plan_cache_mode = force_generic_plan`, R-09) | US$ 0 | Só reduz a parte de S4 que é transferência e decodificação. Se S4 for metade do tempo e a consulta enxuta cortar 30 a 50% dele, a mediana da B cai de ~506 para 380 a 430 ms; o p99 (~850 ms) continuaria acima de 500. **Sozinha, provavelmente não chega a ≤ 0,1%.** Se a medida por passo mostrar que S3 ou o acumulador dominam, o ganho é menor. |
+| **2. Cache por bot validado pela marca** (marca do bot mais a marca d'água do ledger, conferidas no mesmo instantâneo) | worker: mapa em memória por bot; sem tabela | 1,5 a 3 dias, com testes antes do código (núcleo financeiro) | médio: um cache velho venderia a quantidade errada, mitigado pela validação no instantâneo. **Reabre U4-NFR8.12 e a regra "nada guardado entre leituras" do ADR-004: decisão do fundador.** | US$ 0 (dezenas de KB no worker) | Um bot faz cerca de 288 ciclos por dia e, na referência, 4 ordens por dia. Só a leitura depois de uma mudança perde o cache: cerca de 1,4% das leituras. Nessas, a B continua cortada em ~60%. Resultado esperado: **cerca de 0,8 a 1% das leituras cortadas na B**, abaixo do alarme de 5%, mas ainda acima de 0,1%. E a leitura cortada cai justamente no ciclo depois de uma compra ou venda. Junto com a opção 1, a perda de cache fica mais barata. |
+| **3. Orçamento maior que 500 ms** | só configuração (BR2.2, NFR1.7) e as premissas dos alarmes; **mudança de meta, decisão exclusiva do fundador**, não aplicada aqui | minutos, mais o recálculo das premissas de NFR2.12 e NFR2.18 | baixo no código; o ciclo fica mais longo (a leitura fica fora da trava). O limite de 2 s do ciclo (U4-NFR1.2) não foi medido, e o custo cresce com o histórico: com 4 anos, a B tende a dobrar | US$ 0 | Com 1.000 ms, as 300 leituras da B caberiam (máximo de 885 ms sem prazo); a cauda de 10.000 leituras não é conhecida. Com 750 ms, cerca de 2 a 5% ainda seriam cortadas (p99 de 851 ms). Não resolve o crescimento com o tempo. |
+
+**Recomendação:** primeiro a medida por passo; depois a opção 1. Se a semente B continuar acima de 0,1%, o fundador escolhe entre a opção 2 (reabrir U4-NFR8.12 para um cache validado no instantâneo) e a opção 3 (orçamento de 1.000 ms, com a medida do ciclo e as premissas dos alarmes refeitas). Em qualquer caso, a flag continua desligada até a medida oficial (10.000 leituras × 3, Linux, com ciclos) cumprir a meta.
+
+**Outras pendências, sem mudança de meta (iguais à primeira execução):**
+
+- aplicar o texto do `load-test.yml` e disparar o `pnl-by-mode` (U2-NFR1.9 `Not Met`; U2-NFR1.1, 1.2, 1.3, 1.6, 1.24 e 1.25 e U3-NFR1.6 `Unverified`, dono `performance-validation`);
+- Terraform e Checkov à mão (TGT-IAC-1, TGT-IAC-2, U4-NFR8.4);
+- custo nas contas (U2-NFR8.2, U4-NFR8.2) e ordem devnet-mainnet (U4-NFR8.3);
+- investigar o e2e instável (9.2);
+- números da comparação intercalada da barreira em `docs/perf/`;
+- corrigir os `traceability.json` da Code Generation (F-T1 a F-T3).
+
+### 9.5 Rastreabilidade (Step 10)
+
+`aidlc engine sensor-traceability --stage build-and-test` rodou de novo e deu o mesmo resultado: **FAIL**, com 134 de 177 IDs cobertos e os mesmos 43 descobertos. Os detalhes estão em `cross-unit-traceability.md`.
+
+## 10. Decisão do fundador sobre a falha (2026-11-25)
+
+O fundador escolheu **Accept failure** no halt-and-ask da reexecução, com 1 de 3 loop-backs usados. Não houve segundo loop-back. O que fica registrado:
+
+- **U4-NFR1.1, U4-NFR1.13 e TGT-U4-ALARM continuam `Not Met`.** Isso vale para a semente B (nenhuma zeragem): 62,7% de `BUDGET_EXCEEDED` com 500 ms. A flag `memetrade.real.own-quantity-sell` fica desligada em todos os ambientes. Para ligá-la, além da Performance Validation do 261113, é preciso:
+  1. medir o tempo de cada passo da leitura;
+  2. a decisão F7 do fundador: consulta enxuta de S4, cache por bot validado pela marca (reabre U4-NFR8.12 e o ADR-004) ou orçamento maior;
+  3. uma medida oficial (10.000 leituras × 3, em Linux) que cumpra a meta escolhida.
+- **TGT-E2E-FLAKY continua `Not Met`.** É um defeito a investigar, com dono e ação na seção 9, e nunca ignorado em silêncio.
+- **U2-NFR1.9 continua `Not Met`.** Falta aplicar o texto pronto do `load-test.yml` com `pnl-by-mode`, um arquivo que só o responsável altera.
+- Os alvos `Unverified` continuam com os donos já registrados.
