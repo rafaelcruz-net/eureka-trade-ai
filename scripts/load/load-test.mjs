@@ -479,10 +479,13 @@ async function u7People() {
   const codes = (process.env.SMOKE_INVITE_CODES ?? '').split(',').filter((code) => code.length > 0);
   if (codes.length < USERS - 1) throw new Error(`SMOKE_INVITE_CODES has ${codes.length} codes, ${USERS - 1} needed`);
   const smoke = await signIn({ wallet: { address: wallet.address, key } });
+  // The invited accounts accept the current terms, as in the U3 scenario (without it the verification is 422; load-test
+  // 45946215222 of c8c4724, pnl-by-mode).
+  const termsVersion = await currentTermsVersion();
   const invited = await Promise.all(
     codes.slice(0, USERS - 1).map(async (code) => {
       const generated = u3Wallet();
-      return { wallet: generated, token: (await createAccount(code, generated)).token };
+      return { wallet: generated, token: (await createAccount(code, generated, termsVersion)).token };
     }),
   );
   const people = [smoke, ...invited];
