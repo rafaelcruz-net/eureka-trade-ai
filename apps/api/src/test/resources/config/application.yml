@@ -11,3 +11,7 @@ spring:
       # run caches many Spring contexts against one PostgreSQL container, and 20 idle connections each exhausted its
       # max_connections (Build and Test of 261109-termos-lgpd); here each context keeps 5 idle, as before.
       minimum-idle: 5
+      # The 5 idle are a floor, not a ceiling: a context that grew to 20 under a burst kept them for the default 10
+      # minutes, and the cached contexts of the run filled the 300 slots again (ci 45933807919 of 384e15f, attempts 2
+      # and 3, BotRoutesIT, DashboardOpenLatencyIT, RealExitsMigrationIT). Connections above the floor close after 10 s.
+      idle-timeout: 10000
