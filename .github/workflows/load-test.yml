@@ -7,13 +7,29 @@
 # C21 1 s, purge batches 100 ms, query plans). U5: u5 runs the worker cycles with the stopwatch of the loadtest profile
 # (p95 cycle 2 s, barrier plus execution 500 ms, C4 routes 1 s, S5 screen 2 s, live channel 4 s, no stale-data
 # decision, worker pool at most 14 connections).
+# 261113-trading-real-bot (operation/performance-validation): real runs the REAL stack of the e2e (TxSigner, kms-sim,
+# local Solana validator, recorded Jupiter) with the pilot times 2: 21 bot wallets with 3 REAL bots each, 20 people on
+# the screen and an administrator for 15 minutes, "vender tudo e sacar" in 5 wallets for 5 minutes and a burst of 21
+# withdrawals in 10 s every minute for 5 minutes. It fails on any missed target of the requirements, any error, any
+# duplicate transaction, any growing queue or more than 60 signatures per wallet and minute. CI environment, never
+# devnet, mainnet nor a real KMS; every secret is ephemeral (scripts/load-test.sh).
+# 261121-paper-real-unico U2 (nfr-requirements NFR1.1 to NFR1.9): pnl-by-mode seeds 20 people with 5 PAPER and 5 REAL
+# bots and 2 years of orders each (4 per bot per day, synthetic, test,loadtest profiles only) and runs 20 users reading
+# the P&L by mode and the REAL P&L every 2 s for 10 minutes. It fails when p95 of GET /api/v1/pnl/by-mode exceeds 1 s,
+# when p95 of the REAL attribution read on the P&L path exceeds 500 ms, on any error, any
+# reconciliation mismatch, REAL blocks UNAVAILABLE by timeout above 0.5% of the reads, any other REAL block UNAVAILABLE,
+# a pending pool, more than 900 MB in a container or the main REAL ledger read without its index.
+# Since 261121-paper-real-unico U3 (NFR1.6): it also reads C4 with RANGE of 30 and 366 days, the first and the next
+# page of C5 and C6 with ALL, RANGE of 30 days and RANGE of 366 days, and fails when the p95 of any of these 7 reads,
+# timed by the client, exceeds 1 s. The report keeps the gates of the U2 and of the U3 in two groups, each with its
+# own result (docs/perf/u2-real-bot-pnl-<date>.md and docs/perf/u3-pnl-views-<date>.md).
 name: load-test
 
 on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: Load scenario (u1, u4, u3, growth, u7, u7-jobs, u6, u5, legal, reacceptance or data-requests)
+        description: Load scenario (u1, u4, u3, growth, u7, u7-jobs, u6, u5, legal, reacceptance, data-requests, real or pnl-by-mode)
         type: choice
         options:
           - u1
@@ -27,6 +43,8 @@ on:
           - legal
           - reacceptance
           - data-requests
+          - real
+          - pnl-by-mode
         default: u1
 
 permissions:
@@ -35,6 +53,11 @@ permissions:
 jobs:
   load:
     runs-on: ubuntu-24.04
+    # real: about 25 minutes of load plus the image builds, the validator, the TxSigner and the setup of the 21 wallets
+    # (45 to 55 minutes expected). pnl-by-mode: the seed of 20 people with 2 years of orders plus 11 minutes of load
+    # with the 9 reads of the U2 and the U3 (45 to 70 minutes expected). The other scenarios keep the GitHub default
+    # of 360 minutes, as before.
+    timeout-minutes: ${{ inputs.scenario == 'real' && 75 || inputs.scenario == 'pnl-by-mode' && 90 || 360 }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
